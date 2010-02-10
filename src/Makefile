@@ -8,7 +8,14 @@ CXX=g++ -g -O2
 LIBS=$(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
 INCLUDEPATH=-I$(HOME)/lua-5.1.4/include
 	 
-all: info.h $(BIN)
+all: $(BIN)
+
+install: $(BIN)
+	mkdir -p $(HOME)/bin
+	cp $(BIN) $(HOME)/bin
+
+uninstall:
+	rm -f $(HOME)/bin/$(BIN)
 
 $(BIN): ${OBJECTS}
 	${CXX} -o ${BIN} ${OBJECTS} ${LIBS}
@@ -20,7 +27,7 @@ main.o : main.cpp main.h info.h
 	${CXX} ${INCLUDEPATH} -c $*.cpp -o $*.o
 
 info.h: premake.sh
-	./premake.sh "$(CXX)"
+	@ ./premake.sh "$(CXX)"
 
 clena: clean
 
