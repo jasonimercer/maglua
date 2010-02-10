@@ -13,11 +13,14 @@ all: info.h $(BIN)
 $(BIN): ${OBJECTS}
 	${CXX} -o ${BIN} ${OBJECTS} ${LIBS}
 
+main.o : main.cpp main.h info.h
+	${CXX} ${INCLUDEPATH} -c main.cpp -o main.o
+
 %.o : %.cpp %.h
 	${CXX} ${INCLUDEPATH} -c $*.cpp -o $*.o
 
 info.h: premake.sh
-	./premake.sh
+	./premake.sh "$(CXX)"
 
 clena: clean
 
