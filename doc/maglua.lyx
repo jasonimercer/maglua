@@ -1,0 +1,467 @@
+#LyX 1.5.6 created this file. For more info see http://www.lyx.org/
+\lyxformat 276
+\begin_document
+\begin_header
+\textclass book
+\language english
+\inputencoding auto
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+\graphics default
+\paperfontsize default
+\spacing single
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\author "" 
+\author "" 
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Maglua
+\end_layout
+
+\begin_layout Author
+Jason Mercer
+\end_layout
+
+\begin_layout Standard
+
+\newpage
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\newpage
+
+\end_layout
+
+\begin_layout Chapter
+Introduction
+\end_layout
+
+\begin_layout Standard
+MagLua implements the Landau-Lifshitz-Gilbert (
+\begin_inset LatexCommand index
+name "LLG"
+
+\end_inset
+
+LLG) equation for rotating magnetic moments on a fixed lattice.
+ This equation takes a calculated fields 
+\begin_inset Formula $\vec{H}$
+\end_inset
+
+ and spin vectors 
+\begin_inset Formula $\vec{M}$
+\end_inset
+
+ and computes the change 
+\begin_inset Formula $d\vec{M}/dt$
+\end_inset
+
+ as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{equation}
+\frac{d\vec{M}}{dt}=-\gamma(\vec{M}\times\vec{H})-\frac{\gamma\alpha}{(1+\alpha^{2})\left|\vec{M}\right|}(\vec{M}\times(\vec{M}\times\vec{H}))\label{eq:LLG}\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+with 
+\begin_inset Formula $\gamma$
+\end_inset
+
+ representing the gyromagnetic ratio and 
+\begin_inset Formula $\alpha$
+\end_inset
+
+ representing the phenomenological damping parameter.
+ 
+\end_layout
+
+\begin_layout Standard
+The field 
+\begin_inset Formula $\vec{H}$
+\end_inset
+
+ in Equation 
+\begin_inset LatexCommand ref
+reference "eq:LLG"
+
+\end_inset
+
+ is the sum of several fields, namely the dipolar field, exchange field,
+ anisotropic field, applied field and thermal field defined as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{equation}
+\vec{H}_{i}^{dipole}=g\sum_{i\neq j}\frac{\vec{M}}{r_{ij}^{3}}+\frac{3\vec{r}_{ij}(\vec{M}\cdot\vec{r}_{ij})}{\vec{r}_{ij}^{5}}\label{eq:Dipole}\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{equation}
+\vec{H}_{i}^{exchange}=J\sum_{\left\langle i,j\right\rangle }\vec{M}\label{eq:Exchange}\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \begin{equation}
+\vec{H}_{i}^{anisotropy}=2\kappa\hat{n}(\vec{M}\cdot\hat{n})\end{equation}
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Chapter
+MagLua libraries
+\end_layout
+
+\begin_layout Standard
+MagLua augments the Lua scripting language with functions and objects which
+ are used to construct LLG simulations.
+ The new tables are listed in Table 
+\begin_inset LatexCommand ref
+reference "tab:NewLibraries"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Float table
+placement H
+wide false
+sideways false
+status open
+
+\begin_layout Standard
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="2" columns="4">
+<features>
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\series bold
+Anisotropy
+\begin_inset Formula $^{*}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\series bold
+Dipole
+\begin_inset Formula $^{*}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\series bold
+Interpolate
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\series bold
+Random
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\series bold
+AppliedField
+\begin_inset Formula $^{*}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\series bold
+Exchange
+\begin_inset Formula $^{*}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\series bold
+LLG
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\series bold
+SpinSystem
+\begin_inset Formula $^{*}$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Caption
+
+\begin_layout Standard
+New Tables
+\begin_inset LatexCommand label
+name "tab:NewLibraries"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Each of these tables hold a single function 
+\begin_inset Quotes eld
+\end_inset
+
+new
+\begin_inset Quotes erd
+\end_inset
+
+ which acts as a constructor to create a new Lua object bound to an internal
+ C++ object.
+ The constructor associated with the tables marked with an asterisks take
+ a system size in lattice sites in the 
+\begin_inset Formula $\hat{x}$
+\end_inset
+
+, 
+\begin_inset Formula $\hat{y}$
+\end_inset
+
+ and 
+\begin_inset Formula $\hat{z}$
+\end_inset
+
+directions.
+ The following Lua snippet will create a new SpinSystem of size 
+\begin_inset Formula $10\times10\times3$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset listings
+lstparams "language=C,showstringspaces=false"
+inline false
+status open
+
+\begin_layout Standard
+
+ss = SpinSystem.new(10,10,3)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+\begin_inset LatexCommand index
+name "SpinSystem"
+
+\end_inset
+
+SpinSystem
+\end_layout
+
+\begin_layout Section
+\begin_inset LatexCommand index
+name "Random"
+
+\end_inset
+
+Random
+\end_layout
+
+\begin_layout Section
+\begin_inset LatexCommand index
+name "Anisotropy"
+
+\end_inset
+
+Anisotropy
+\end_layout
+
+\begin_layout Section
+\begin_inset LatexCommand index
+name "AppliedField"
+
+\end_inset
+
+AppliedField
+\end_layout
+
+\begin_layout Section
+\begin_inset LatexCommand index
+name "Dipole"
+
+\end_inset
+
+Dipole
+\end_layout
+
+\begin_layout Section
+\begin_inset LatexCommand index
+name "Exchange"
+
+\end_inset
+
+Exchange
+\end_layout
+
+\begin_layout Section
+\begin_inset LatexCommand index
+name "Interpolate"
+
+\end_inset
+
+Interpolate
+\end_layout
+
+\begin_layout Section
+\begin_inset LatexCommand index
+name "LLG"
+
+\end_inset
+
+LLG
+\end_layout
+
+\begin_layout Standard
+\begin_inset LatexCommand printindex
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
