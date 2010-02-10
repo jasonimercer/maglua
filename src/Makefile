@@ -5,9 +5,9 @@ BIN=maglua
 CXX=g++ -g -O2
 
 # LIBS=-llua5.1 -ldl -lfftw3
-LIBS=$(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
-INCLUDEPATH=-I$(HOME)/lua-5.1.4/include
-	 
+LIBS=-L$(HOME)/lib $(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
+INCLUDEPATH=-I$(HOME)/include -I$(HOME)/lua-5.1.4/include
+
 all: $(BIN)
 
 install: $(BIN)
