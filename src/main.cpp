@@ -1,10 +1,12 @@
 #include "main.h"
+#include "info.h"
 
 int checkargs(int argc, char** argv)
 {
 	if(argc < 2)
 	{
-		cerr << "lua script required" << endl;
+		cerr << __info << endl;
+		cerr << "Please supply a Maglua script" << endl;
 		return 1;
 	}
 	return 0;
@@ -28,7 +30,6 @@ void lua_addargs(lua_State* L, int argc, char** argv)
 
 int main(int argc, char** argv)
 {
-
 	if(checkargs(argc, argv))
 		return 1;
 	

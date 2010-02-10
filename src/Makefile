@@ -8,7 +8,7 @@ CXX=g++ -g -O2
 LIBS=$(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
 INCLUDEPATH=-I$(HOME)/lua-5.1.4/include
 	 
-all: $(BIN)
+all: info.h $(BIN)
 
 $(BIN): ${OBJECTS}
 	${CXX} -o ${BIN} ${OBJECTS} ${LIBS}
@@ -16,12 +16,16 @@ $(BIN): ${OBJECTS}
 %.o : %.cpp %.h
 	${CXX} ${INCLUDEPATH} -c $*.cpp -o $*.o
 
+info.h: premake.sh
+	./premake.sh
+
 clena: clean
 
 clean:
 	rm -f *~
 	rm -f ${BIN}
 	rm -f *.o
+	rm -f info.h
 
 pack: clean
 	cd .. && tar -czf maglua-`date +"%Y-%m-%d-%H.%M.%S"`.tar.gz maglua
