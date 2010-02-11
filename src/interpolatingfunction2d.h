@@ -16,11 +16,15 @@ public:
 	bool compile();
 	int refcount;
 
+	void setInvalidValue(const double d);
+		
 	double xmin,  ymin; 
 	double xmax,  ymax; 
 
 	bool compiled;
-
+	bool hasInvalidValue;
+	double invalidValue;
+	
 private:
 	class triple
 	{

@@ -4,9 +4,15 @@ BIN=maglua
 # CXX=g++ -g -O2 -fopenmp
 CXX=g++ -g -O2
 
-# LIBS=-llua5.1 -ldl -lfftw3
-LIBS=-L$(HOME)/lib $(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
-INCLUDEPATH=-I$(HOME)/include -I$(HOME)/lua-5.1.4/include
+HOMELIBLUA=$(shell $(HOME)/lua-5.1.4/lib/liblua.a 2> /dev/null | wc -l)
+
+ifeq ($(HOMELIBLUA),1)
+	LIBS=-L$(HOME)/lib $(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
+	INCLUDEPATH=-I$(HOME)/include -I$(HOME)/lua-5.1.4/include
+else
+	LIBS=-llua5.1 -ldl -lfftw3
+endif
+
 
 all: $(BIN)
 

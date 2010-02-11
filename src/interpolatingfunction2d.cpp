@@ -8,6 +8,7 @@ InterpolatingFunction2D::InterpolatingFunction2D()
 {
 	data = 0;
 	compiled = false;
+	hasInvalidValue = false;
 	refcount = 0;
 }
 
@@ -123,6 +124,13 @@ void InterpolatingFunction2D::getixiy(double x, double y, int* v2)
 	v2[1] = (int)floor( (y-ymin) / ystep );
 }
 
+void InterpolatingFunction2D::setInvalidValue(const double d)
+{
+	hasInvalidValue = true;
+	invalidValue = d;
+}
+
+
 bool InterpolatingFunction2D::getValue(double x, double y, double* z)
 {
 	int ixy[2];
@@ -131,10 +139,15 @@ bool InterpolatingFunction2D::getValue(double x, double y, double* z)
 	
 	getixiy(x, y, ixy);
 	
-	if(ixy[0] < 0 || ixy[0] >= nx)
+	if(ixy[0] < 0 || ixy[0] >= nx || ixy[1] < 0 || ixy[1] >= ny)
+	{
+		if(hasInvalidValue)
+		{
+			*z = invalidValue;
+			return true;
+		}
 		return false;
-	if(ixy[1] < 0 || ixy[1] >= ny)
-		return false;
+	}
 
 	const double t = (x - (ixy[0] * xstep + xmin)) / xstep;
 	const double u = (y - (ixy[1] * ystep + ymin)) / ystep;
@@ -255,6 +268,15 @@ static int l_if_range(lua_State* L)
 	return 4;
 }
 
+static int l_if_setinvalidrange(lua_State* L)
+{
+	InterpolatingFunction2D* in = checkInterpolatingFunction2D(L, 1);
+	if(!in) return 0;
+	
+	in->setInvalidValue(lua_tonumber(L, 2));
+	return 0;
+}
+
 void registerInterpolatingFunction2D(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -263,6 +285,7 @@ void registerInterpolatingFunction2D(lua_State* L)
 		{"value",        l_if_value},
 		{"compile",      l_if_compile},
 		{"validRange",   l_if_range},
+		{"setInvalidValue", l_if_setinvalidrange},
 		{NULL, NULL}
 	};
 		
