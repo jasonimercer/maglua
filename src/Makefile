@@ -4,7 +4,7 @@ BIN=maglua
 # CXX=g++ -g -O2 -fopenmp
 CXX=g++ -g -O2
 
-HOMELIBLUA=$(shell $(HOME)/lua-5.1.4/lib/liblua.a 2> /dev/null | wc -l)
+HOMELIBLUA=$(shell ls $(HOME)/lua-5.1.4/lib/liblua.a 2> /dev/null | wc -l)
 
 ifeq ($(HOMELIBLUA),1)
 	LIBS=-L$(HOME)/lib $(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
