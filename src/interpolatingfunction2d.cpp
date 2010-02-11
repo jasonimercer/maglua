@@ -139,8 +139,6 @@ bool InterpolatingFunction2D::getValue(double x, double y, double* z)
 	const double t = (x - (ixy[0] * xstep + xmin)) / xstep;
 	const double u = (y - (ixy[1] * ystep + ymin)) / ystep;
 
-// 	cout << t << " " << u << endl;
-	
 	const int ix = ixy[0];
 	const int iy = ixy[1];
 

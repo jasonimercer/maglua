@@ -2,6 +2,7 @@
 #define MAINDEFS
 
 #include <iostream>
+#include <string>
 #include "spinsystem.h"
 #include "luacommon.h"
 #include "spinoperation.h"
