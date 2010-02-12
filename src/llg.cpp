@@ -1,6 +1,7 @@
 #include "llg.h"
 #include "llgcartesian.h"
 #include "llgquat.h"
+#include "llgfake.h"
 #include <string.h>
 
 LLG::LLG(const char* llgtype)
@@ -16,13 +17,11 @@ LLG::~LLG()
 
 
 
-
-
 LLG* checkLLG(lua_State* L, int idx)
 {
 	LLG** pp = (LLG**)luaL_checkudata(L, idx, "MERCER.llg");
-    luaL_argcheck(L, pp != NULL, 1, "`LLG' expected");
-    return *pp;
+	luaL_argcheck(L, pp != NULL, 1, "`LLG' expected");
+	return *pp;
 }
 
 int  lua_isllg(lua_State* L, int idx)
@@ -45,6 +44,13 @@ int l_llg_new(lua_State* L)
 	{
 		llg = new LLGQuaternion;
 	}
+	else if(strcasecmp(lua_tostring(L, 1), "Fake") == 0)
+	{
+		llg = new LLGFake;
+	}
+	if(!llg)
+	  return luaL_error(L, "Unknown LLG type `%s'", lua_tostring(L, 1));
+
 	
 	llg->refcount++;
 	
@@ -55,6 +61,8 @@ int l_llg_new(lua_State* L)
 	lua_setmetatable(L, -2);
 	return 1;
 }
+
+
 
 
 int l_llg_apply(lua_State* L)
@@ -145,8 +153,6 @@ int l_llg_gettype(lua_State* L)
 	lua_pushstring(L, llg->type.c_str());
 	return 1;
 }
-
-
 
 int l_llg_gc(lua_State* L)
 {

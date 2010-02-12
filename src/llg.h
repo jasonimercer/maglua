@@ -12,6 +12,7 @@ public:
 	virtual ~LLG();
 	
 	virtual bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto) = 0;
+	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto);
 	
 	double alpha;
 	double dt;
