@@ -1,15 +1,15 @@
 #include "main.h"
 #include "info.h"
 
-int checkargs(int argc, char** argv)
+int goodargs(int argc, char** argv)
 {
 	if(argc < 2)
 	{
 		cerr << __info << endl;
 		cerr << "Please supply a Maglua script" << endl;
-		return 1;
+		return 0;
 	}
-	return 0;
+	return 1;
 }
 
 void lua_addargs(lua_State* L, int argc, char** argv)
@@ -47,32 +47,29 @@ static int l_info(lua_State* L)
 
 int main(int argc, char** argv)
 {
-	if(checkargs(argc, argv))
-		return 1;
+#ifdef _MPI
+	MPI_Init(&argc, &argv);
+#endif
 	
-	lua_State *L = lua_open();
-	luaL_openlibs(L);
-	registerSpinSystem(L);
-	registerLLG(L);
-	registerExchange(L);
-	registerAppliedField(L);
-	registerAnisotropy(L);
-	registerDipole(L);
-	registerRandom(L);
-	registerThermal(L);
-	registerConvert(L);
-	registerInterpolatingFunction(L);
-	registerInterpolatingFunction2D(L);
-	
-	lua_pushcfunction(L, l_info);
-	lua_setglobal(L, "info");
+	if(goodargs(argc, argv))
+	{
+		lua_State *L = lua_open();
+		registerLibs(L);
+		
+		lua_pushcfunction(L, l_info);
+		lua_setglobal(L, "info");
 
-	lua_addargs(L, argc, argv);
+		lua_addargs(L, argc, argv);
 
-	if(luaL_dofile(L, argv[1]))
-		cerr << lua_tostring(L, -1) << endl;
+		if(luaL_dofile(L, argv[1]))
+			cerr << lua_tostring(L, -1) << endl;
+		
+		lua_close(L);
+	}
 	
-	lua_close(L);
+#ifdef _MPI
+	MPI_Finalize();
+#endif
 	
 	return 0;
 }

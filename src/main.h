@@ -17,6 +17,7 @@
 #include "convert.h"
 #include "interpolatingfunction.h"
 #include "interpolatingfunction2d.h"
+#include "luampi.h"
 
 using namespace std;
 

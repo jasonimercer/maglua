@@ -5,3 +5,4 @@ extern "C" {
         #include <lauxlib.h>
 }
 
+void registerLibs(lua_State* L);
