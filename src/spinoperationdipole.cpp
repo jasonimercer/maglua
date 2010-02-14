@@ -6,7 +6,7 @@
 #include <math.h>
 
 Dipole::Dipole(int nx, int ny, int nz)
-	: SpinOperation("Dipole", DIPOLE_SLOT, nx, ny, nz)
+	: SpinOperation("Dipole", DIPOLE_SLOT, nx, ny, nz, ENCODE_DIPOLE)
 {
 	hqx = new complex<double> [nxyz];
 	hqy = new complex<double> [nxyz];
@@ -51,6 +51,16 @@ Dipole::Dipole(int nx, int ny, int nz)
 								FFTW_BACKWARD, FFTW_PATIENT);
 								
 	hasMatrices = false;
+}
+
+void Dipole::encode(buffer* b) const
+{
+	
+}
+
+int  Dipole::decode(buffer* b)
+{
+	
 }
 
 Dipole::~Dipole()

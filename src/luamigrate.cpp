@@ -4,7 +4,9 @@
 
 #include "encodable.h"
 #include "spinsystem.h"
-
+#include "llgcartesian.h"
+#include "llgquat.h"
+#include "llgfake.h"
 
 static int lexportwriter(lua_State *L, const void* chunk, size_t size, void* data) 
 {
@@ -175,6 +177,31 @@ int _importLuaVariable(lua_State* L, buffer* b)
 					lua_pushSpinSystem(L, ss);
 				}
 				break;
+				
+				case ENCODE_LLGCART:
+				{
+					LLGCartesian* llg = new LLGCartesian();
+					llg->decode(b);
+					lua_pushLLG(L, llg);
+				}
+				break;
+								
+				case ENCODE_LLGQUAT:
+				{
+					LLGQuaternion* llg = new LLGQuaternion();
+					llg->decode(b);
+					lua_pushLLG(L, llg);
+				}
+				break;
+								
+				case ENCODE_LLGFAKE:
+				{
+					LLGFake* llg = new LLGFake();
+					llg->decode(b);
+					lua_pushLLG(L, llg);
+				}
+				break;
+				
 				
 				//default: //TYPE_NOEXPORT
 			}

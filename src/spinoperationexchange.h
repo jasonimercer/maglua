@@ -12,6 +12,10 @@ public:
 	bool apply(SpinSystem* ss);
 
 	void addPath(int site1, int site2, double strength);
+
+	virtual void encode(buffer* b) const;
+	virtual int  decode(buffer* b);
+	
 private:
 	int size;
 	int num;

@@ -13,7 +13,6 @@ public:
 	LLGCartesian();
 
 	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto);
-	
 };
 
 #endif

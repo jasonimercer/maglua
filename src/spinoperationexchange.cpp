@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 Exchange::Exchange(int nx, int ny, int nz)
-	: SpinOperation("Exchange", EXCHANGE_SLOT, nx, ny, nz)
+	: SpinOperation("Exchange", EXCHANGE_SLOT, nx, ny, nz, ENCODE_EXCHANGE)
 {
 	size = 32;
 	num  = 0;
@@ -13,6 +13,16 @@ Exchange::Exchange(int nx, int ny, int nz)
 	fromsite =    (int*)malloc(sizeof(int) * size);
 	  tosite =    (int*)malloc(sizeof(int) * size);
 	strength = (double*)malloc(sizeof(double) * size);
+}
+
+void Exchange::encode(buffer* b) const
+{
+	
+}
+
+int  Exchange::decode(buffer* b)
+{
+	
 }
 
 Exchange::~Exchange()

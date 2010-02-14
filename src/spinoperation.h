@@ -12,12 +12,13 @@
 #include <omp.h>
 #include "luacommon.h"
 #include <string>
+#include "encodable.h"
 class SpinSystem;
 
-class SpinOperation
+class SpinOperation : public Encodable
 {
 public:
-	SpinOperation(std::string Name, int slot, int nx, int ny, int nz);
+	SpinOperation(std::string Name, int slot, int nx, int ny, int nz, int encodetype);
 	virtual ~SpinOperation();
 	
 	virtual bool apply(SpinSystem* ss) = 0;
@@ -33,6 +34,9 @@ public:
 
 	std::string errormsg;
 	
+	virtual void encode(buffer* b) const = 0;
+	virtual int  decode(buffer* b) = 0;
+
 protected:
 	std::string operationName;
 	int slot;

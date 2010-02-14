@@ -13,7 +13,6 @@ public:
 	LLGFake();
 
 	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto);
-	
 };
 
 #endif

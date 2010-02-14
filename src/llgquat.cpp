@@ -60,10 +60,13 @@ static Quaternion qconjugate(Quaternion q)
 // -- = ---- S X (h + a S X H)
 // dt   1+aa
 LLGQuaternion::LLGQuaternion()
-	: LLG("Quaternion")
+	: LLG("Quaternion", ENCODE_LLGQUAT)
 {
 	gamma = 1.0;
 }
+
+
+
 
 #define CROSS(v, a, b) \
 	v[0] = a[1] * b[2] - a[2] * b[1]; \

@@ -18,6 +18,9 @@ public:
 
 	double temperature;
 	double* scale;
+	
+	virtual void encode(buffer* b) const;
+	virtual int  decode(buffer* b);
 };
 
 Thermal* checkThermal(lua_State* L, int idx);

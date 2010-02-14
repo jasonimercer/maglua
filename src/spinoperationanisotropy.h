@@ -15,6 +15,10 @@ public:
 	double* ay;
 	double* az;
 	double* strength;
+	
+	virtual void encode(buffer* b) const;
+	virtual int  decode(buffer* b);
+
 };
 
 Anisotropy* checkAnisotropy(lua_State* L, int idx);

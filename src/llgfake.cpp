@@ -4,7 +4,7 @@
 #include "spinoperation.h"
 
 LLGFake::LLGFake()
-	: LLG("Fake")
+	: LLG("Fake", ENCODE_LLGFAKE)
 {
 	gamma = 1.0;
 }

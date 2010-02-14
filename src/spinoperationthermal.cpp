@@ -7,12 +7,22 @@
 #include <stdio.h>
 
 Thermal::Thermal(int nx, int ny, int nz)
-	: SpinOperation("Thermal", THERMAL_SLOT, nx, ny, nz)
+	: SpinOperation("Thermal", THERMAL_SLOT, nx, ny, nz, ENCODE_THERMAL)
 {
 	scale = new double[nxyz];
 	for(int i=0; i<nxyz; i++)
 		scale[i] = 1.0;
 	temperature = 0;
+}
+
+void Thermal::encode(buffer* b) const
+{
+	
+}
+
+int  Thermal::decode(buffer* b)
+{
+	
 }
 
 Thermal::~Thermal()

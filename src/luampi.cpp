@@ -57,6 +57,12 @@ static int l_mpi_test(lua_State* L)
 	return 1;
 }
 
+static int l_mpi_barrier(lua_State* L)
+{
+	MPI_Barrier(MPI_COMM_WORLD);
+	return 0;
+}
+
 static int l_mpi_send(lua_State* L)
 {
 	int dest = lua_tointeger(L, 1) - 1; //lua is base 1
@@ -130,6 +136,7 @@ void registerMPI(lua_State* L)
 	add("get_rank",           l_mpi_get_rank          );
 	add("send",               l_mpi_send              );
 	add("recv",               l_mpi_recv              );
+	add("barrier",            l_mpi_barrier           );
 	add("test",               l_mpi_test              );
 	
 	lua_setglobal(L, "mpi");

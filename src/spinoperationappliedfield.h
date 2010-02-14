@@ -12,6 +12,9 @@ public:
 	bool apply(SpinSystem* ss);
 
 	double B[3];
+
+	virtual void encode(buffer* b) const;
+	virtual int  decode(buffer* b);
 };
 
 AppliedField* checkAppliedField(lua_State* L, int idx);

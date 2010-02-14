@@ -36,17 +36,21 @@ void encodeInteger(const int i, buffer* b)
 }
 
 
+void decodeBuffer(void* dest, int len, buffer* b)
+{
+	memcpy(dest, b->buf+b->pos, len);
+	b->pos += len;
+}
 int decodeInteger(buffer* b)
 {
 	int i;
-	memcpy(&i, b->buf+b->pos, sizeof(int));
-	b->pos += sizeof(int);
+	decodeBuffer(&i, sizeof(int), b);
 	return i;
 }
 double decodeDouble(buffer* b)
 {
 	double d;
-	memcpy(&d, b->buf+b->pos, sizeof(double));
-	b->pos += sizeof(double);
+	decodeBuffer(&d, sizeof(double), b);
 	return d;
 }
+

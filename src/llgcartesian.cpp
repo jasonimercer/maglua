@@ -14,10 +14,13 @@
 // dt   1+aa         |S|
 
 LLGCartesian::LLGCartesian()
-	: LLG("Cartesian")
+	: LLG("Cartesian", ENCODE_LLGCART)
 {
 	gamma = 1.0;
 }
+
+
+
 
 #define CROSS(v, a, b) \
 	v[0] = a[1] * b[2] - a[2] * b[1]; \

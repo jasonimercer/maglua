@@ -8,15 +8,25 @@ typedef struct buffer
 	int size;
 }buffer;
 
-#define ENCODE_UNKNOWN    0
-#define ENCODE_SPINSYSTEM 1
+#define ENCODE_UNKNOWN      0
+
+#define ENCODE_SPINSYSTEM   1
+#define ENCODE_ANISOTROPY   2
+#define ENCODE_APPLIEDFIELD 3
+#define ENCODE_DIPOLE       4
+#define ENCODE_EXCHANGE     5
+#define ENCODE_THERMAL      6
+
+#define ENCODE_LLGCART      7
+#define ENCODE_LLGQUAT      8
+#define ENCODE_LLGFAKE      9
 
 // This is a base class for classes that 
 // can be encoded into and from a char stream,
 class Encodable
 {
 public:
-	Encodable(int t = ENCODE_UNKNOWN) : type(t) {};
+	Encodable(int t) : type(t) {};
 	virtual ~Encodable() {};
 	
 	virtual void encode(buffer* b) const = 0;
@@ -30,5 +40,6 @@ public:
   void encodeInteger(const int i, buffer* b);
    int decodeInteger(buffer* b);
 double decodeDouble(buffer* b);
+  void decodeBuffer(void* dest, int len, buffer* b);
 
 #endif

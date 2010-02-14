@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 Anisotropy::Anisotropy(int nx, int ny, int nz)
-	: SpinOperation("Anisotropy", ANISOTROPY_SLOT, nx, ny, nz)
+	: SpinOperation("Anisotropy", ANISOTROPY_SLOT, nx, ny, nz, ENCODE_ANISOTROPY)
 {
 	ax = new double[nxyz];
 	ay = new double[nxyz];
@@ -20,6 +20,17 @@ Anisotropy::Anisotropy(int nx, int ny, int nz)
 		strength[i] = 1;
 	}
 }
+
+void Anisotropy::encode(buffer* b) const
+{
+	
+}
+
+int  Anisotropy::decode(buffer* b)
+{
+	
+}
+
 
 Anisotropy::~Anisotropy()
 {

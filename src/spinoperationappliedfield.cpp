@@ -4,11 +4,21 @@
 #include <stdlib.h>
 
 AppliedField::AppliedField(int nx, int ny, int nz)
-	: SpinOperation("AppliedField", APPLIEDFIELD_SLOT, nx, ny, nz)
+	: SpinOperation("AppliedField", APPLIEDFIELD_SLOT, nx, ny, nz, ENCODE_APPLIEDFIELD)
 {
 	B[0] = 0;
 	B[1] = 0;
 	B[2] = 0;
+}
+
+void AppliedField::encode(buffer* b) const
+{
+	
+}
+
+int  AppliedField::decode(buffer* b)
+{
+	
 }
 
 AppliedField::~AppliedField()

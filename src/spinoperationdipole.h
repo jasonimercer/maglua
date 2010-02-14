@@ -22,7 +22,10 @@ public:
 	double ABC[9];
 	int gmax;
 	
-private:
+	virtual void encode(buffer* b) const;
+	virtual int  decode(buffer* b);
+
+	private:
 	void ifftAppliedForce(SpinSystem* ss);
 	void collectIForces(SpinSystem* ss);
 
