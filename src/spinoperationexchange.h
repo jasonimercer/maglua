@@ -17,6 +17,8 @@ public:
 	virtual int  decode(buffer* b);
 	
 private:
+	void deinit();
+	
 	int size;
 	int num;
 	
@@ -27,6 +29,6 @@ private:
 
 Exchange* checkExchange(lua_State* L, int idx);
 void registerExchange(lua_State* L);
-
+void lua_pushExchange(lua_State* L, Exchange* ex);
 
 #endif

@@ -17,12 +17,32 @@ Thermal::Thermal(int nx, int ny, int nz)
 
 void Thermal::encode(buffer* b) const
 {
+	encodeInteger(nx, b);
+	encodeInteger(ny, b);
+	encodeInteger(nz, b);
 	
+	encodeDouble(temperature, b);
+	
+	for(int i=0; i<nxyz; i++)
+		encodeDouble(scale[i], b);
 }
 
 int  Thermal::decode(buffer* b)
 {
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
+	nxyz = nx * ny * nz;
+
+	temperature = decodeDouble(b);
 	
+	if(scale)
+		delete [] scale;
+	
+	scale = new double[nxyz];
+	
+	for(int i=0; i<nxyz; i++)
+		scale[i] = decodeDouble(b);
 }
 
 Thermal::~Thermal()
@@ -81,6 +101,16 @@ Thermal* checkThermal(lua_State* L, int idx)
     return *pp;
 }
 
+void lua_pushThermal(lua_State* L, Thermal* th)
+{
+	th->refcount++;
+	
+	Thermal** pp = (Thermal**)lua_newuserdata(L, sizeof(Thermal**));
+	
+	*pp = th;
+	luaL_getmetatable(L, "MERCER.thermal");
+	lua_setmetatable(L, -2);
+}
 
 int l_thermal_new(lua_State* L)
 {
@@ -92,13 +122,8 @@ int l_thermal_new(lua_State* L)
 			lua_tointeger(L, 2),
 			lua_tointeger(L, 3)
 	);
-	th->refcount++;
-	
-	Thermal** pp = (Thermal**)lua_newuserdata(L, sizeof(Thermal**));
-	
-	*pp = th;
-	luaL_getmetatable(L, "MERCER.thermal");
-	lua_setmetatable(L, -2);
+
+	lua_pushThermal(L, th);
 	return 1;
 }
 

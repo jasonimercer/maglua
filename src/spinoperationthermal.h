@@ -25,6 +25,7 @@ public:
 
 Thermal* checkThermal(lua_State* L, int idx);
 void registerThermal(lua_State* L);
+void lua_pushThermal(lua_State* L, Thermal* th);
 
 
 #endif

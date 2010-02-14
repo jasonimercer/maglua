@@ -10,26 +10,72 @@ Exchange::Exchange(int nx, int ny, int nz)
 	size = 32;
 	num  = 0;
 
-	fromsite =    (int*)malloc(sizeof(int) * size);
-	  tosite =    (int*)malloc(sizeof(int) * size);
+	fromsite =    (int*)malloc(sizeof(int)    * size);
+	  tosite =    (int*)malloc(sizeof(int)    * size);
 	strength = (double*)malloc(sizeof(double) * size);
 }
 
 void Exchange::encode(buffer* b) const
 {
+	int size;
+	int num;
 	
+	int* fromsite;
+	int* tosite;
+	double* strength;
+
+	encodeInteger(nx, b);
+	encodeInteger(ny, b);
+	encodeInteger(nz, b);
+	
+	encodeInteger(num, b);
+	
+	for(int i=0; i<num; i++)
+	{
+		encodeInteger(fromsite[i], b);
+		encodeInteger(  tosite[i], b);
+		encodeDouble(strength[i], b);
+	}
 }
 
 int  Exchange::decode(buffer* b)
 {
+	deinit();
+
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
+	nxyz = nx * ny * nz;
 	
+	size = decodeInteger(b);
+	num = size;
+	size++; //so we can double if size == 0
+	fromsite =    (int*)malloc(sizeof(int)    * size);
+	  tosite =    (int*)malloc(sizeof(int)    * size);
+	strength = (double*)malloc(sizeof(double) * size);
+	
+	for(int i=0; i<num; i++)
+	{
+		fromsite[i] = decodeInteger(b);
+		  tosite[i] = decodeInteger(b);
+		strength[i] = decodeDouble(b);
+	}
+}
+
+void Exchange::deinit()
+{
+	if(fromsite)
+	{
+		free(fromsite);
+		free(  tosite);
+		free(strength);
+		fromsite = 0;
+	}
 }
 
 Exchange::~Exchange()
 {
-	free(fromsite);
-	free(  tosite);
-	free(strength);
+	deinit();
 }
 
 bool Exchange::apply(SpinSystem* ss)
@@ -80,6 +126,16 @@ Exchange* checkExchange(lua_State* L, int idx)
     return *pp;
 }
 
+void lua_pushExchange(lua_State* L, Exchange* ex)
+{
+	ex->refcount++;
+	
+	Exchange** pp = (Exchange**)lua_newuserdata(L, sizeof(Exchange**));
+	
+	*pp = ex;
+	luaL_getmetatable(L, "MERCER.exchange");
+	lua_setmetatable(L, -2);
+}
 
 int l_ex_new(lua_State* L)
 {
@@ -91,13 +147,9 @@ int l_ex_new(lua_State* L)
 			lua_tointeger(L, 2),
 			lua_tointeger(L, 3)
 	);
-	ex->refcount++;
 	
-	Exchange** pp = (Exchange**)lua_newuserdata(L, sizeof(Exchange**));
+	lua_pushExchange(L, ex);
 	
-	*pp = ex;
-	luaL_getmetatable(L, "MERCER.exchange");
-	lua_setmetatable(L, -2);
 	return 1;
 }
 

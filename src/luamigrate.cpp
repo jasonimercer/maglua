@@ -7,6 +7,8 @@
 #include "llgcartesian.h"
 #include "llgquat.h"
 #include "llgfake.h"
+#include "spinoperationexchange.h"
+#include "spinoperationthermal.h"
 
 static int lexportwriter(lua_State *L, const void* chunk, size_t size, void* data) 
 {
@@ -202,6 +204,45 @@ int _importLuaVariable(lua_State* L, buffer* b)
 				}
 				break;
 				
+				case ENCODE_ANISOTROPY:
+				{
+// 					LLGFake* llg = new LLGFake();
+// 					llg->decode(b);
+// 					lua_pushLLG(L, llg);
+				}
+				break;
+
+				case ENCODE_APPLIEDFIELD:
+				{
+// 					LLGFake* llg = new LLGFake();
+// 					llg->decode(b);
+// 					lua_pushLLG(L, llg);
+				}
+				break;
+
+				case ENCODE_DIPOLE:
+				{
+// 					LLGFake* llg = new LLGFake();
+// 					llg->decode(b);
+// 					lua_pushLLG(L, llg);
+				}
+				break;
+
+				case ENCODE_EXCHANGE:
+				{
+					Exchange* ex = new Exchange(2,2,2);
+					ex->decode(b);
+					lua_pushExchange(L, ex);
+				}
+				break;
+
+				case ENCODE_THERMAL:
+				{
+					Thermal* th = new Thermal(2,2,2);
+					th->decode(b);
+					lua_pushThermal(L, th);
+				}
+				break;
 				
 				//default: //TYPE_NOEXPORT
 			}
