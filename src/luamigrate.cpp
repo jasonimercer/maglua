@@ -2,78 +2,17 @@
 #include <string.h>
 #include <stdlib.h>
 
-typedef struct buffer
-{
-	char* buf;
-	int pos;
-	int size;
-}buffer;
-
-void ensureSize(int add, buffer* b)
-{
-	if(b->pos + add >= b->size)
-	{
-		if(b->size)
-		{
-			b->size *= 2;
-			if(b->pos + add >= b->size)
-				b->size += add;
-		}
-		else
-			b->size += add;
-		b->buf = (char*)realloc(b->buf, b->size);
-	}
-}
-
-void encodeBuffer(const void* s, int len, buffer* b)
-{
-	ensureSize(len, b);
-	memcpy(b->buf + b->pos, s, len);
-	b->pos += len;
-}
-
-void encodeDouble(const double d, buffer* b)
-{
-	encodeBuffer(&d, sizeof(d), b);
-}
-
-void encodeInteger(const int i, buffer* b)
-{
-	encodeBuffer(&i, sizeof(i), b);
-}
-
-int decodeInteger(const char* buf, int* pos)
-{
-	int i;
-	memcpy(&i, buf+*pos, sizeof(int));
-	(*pos) += sizeof(int);
-	return i;
-}
-double decodeDouble(const char* buf, int* pos)
-{
-	double d;
-	memcpy(&d, buf+*pos, sizeof(double));
-	(*pos) += sizeof(double);
-	return d;
-}
+#include "encodable.h"
+#include "spinsystem.h"
 
 
 static int lexportwriter(lua_State *L, const void* chunk, size_t size, void* data) 
 {
 	(void)L;
 	buffer* b = (buffer*)data;
-// 	encodeInteger(size, b);
 	encodeBuffer(chunk, size, b);
 	return 0;
 }
-// const char* limportreader(lua_State* L, void* data, size_t* size)
-// {
-// 	(void)L;
-// 	buffer* b = (buffer*)data;
-// 	*size = b->size;
-// 	return b->buf;
-// }
-
 
 void _exportLuaVariable(lua_State* L, int index, buffer* b)
 {
@@ -90,9 +29,9 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 		case LUA_TBOOLEAN:
 			encodeInteger(lua_toboolean(L, index), b);
 		break;
-		case LUA_TLIGHTUSERDATA:
-			luaL_error(L, "Cannot export LIGHTUSERDATA");
-		break;
+// 		case LUA_TLIGHTUSERDATA:
+// 			luaL_error(L, "Cannot export LIGHTUSERDATA");
+// 		break;
 		case LUA_TNUMBER:
 			encodeDouble(lua_tonumber(L, index), b);
 		break;
@@ -146,7 +85,13 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 		}
 		break;
 		case LUA_TUSERDATA:
-			luaL_error(L, "Cannot export USERDATA");
+		{
+			//luaL_error(L, "Cannot export USERDATA");
+			const Encodable** pe = (const Encodable**)lua_topointer(L, index);
+			const Encodable* e = *pe;
+			encodeInteger(e->type, b);
+			e->encode(b);
+		}
 		break;
 		case LUA_TTHREAD:
 			luaL_error(L, "Cannot export THREAD");
@@ -169,9 +114,9 @@ char* exportLuaVariable(lua_State* L, int index, int* chunksize)
 	return b.buf;
 }
 
-int _importLuaVariable(lua_State* L, char* chunk, int* pos, int chunksize)
+int _importLuaVariable(lua_State* L, buffer* b)
 {
-	int t = decodeInteger(chunk, pos);
+	int t = decodeInteger(b);
 	int i;
 
 	switch(t)
@@ -180,21 +125,20 @@ int _importLuaVariable(lua_State* L, char* chunk, int* pos, int chunksize)
 			lua_pushnil(L);
 		break;
 		case LUA_TBOOLEAN:
-			lua_pushboolean(L, decodeInteger(chunk, pos));
+			lua_pushboolean(L, decodeInteger(b));
 		break;
 		case LUA_TLIGHTUSERDATA:
 			luaL_error(L, "Cannot import LIGHTUSERDATA");
 		break;
 		case LUA_TNUMBER:
-			lua_pushnumber(L, decodeDouble(chunk, pos));
+			lua_pushnumber(L, decodeDouble(b));
 		break;
 		case LUA_TSTRING:
 		{
-			int len = decodeInteger(chunk, pos);
+			int len = decodeInteger(b);
 			char* s = (char*)malloc(len);
-			memcpy(s, chunk + (*pos), len);
-			(*pos) += len;
-			
+			memcpy(s, b->buf + b->pos, len);
+			b->pos += len;
 			lua_pushstring(L, s);
 			free(s);
 		}
@@ -202,33 +146,44 @@ int _importLuaVariable(lua_State* L, char* chunk, int* pos, int chunksize)
 		case LUA_TTABLE:
 		{
 			lua_newtable(L);
-			int ts = decodeInteger(chunk, pos);
+			int ts = decodeInteger(b);
 			
 			for(int i=0; i<ts; i++)
 			{
-				_importLuaVariable(L, chunk, pos, chunksize);
-				_importLuaVariable(L, chunk, pos, chunksize);
+				_importLuaVariable(L, b);
+				_importLuaVariable(L, b);
 				lua_settable(L, -3);
 			}
 		}
 		break;
 		case LUA_TFUNCTION:
 		{
-			int chunksize = decodeInteger(chunk, pos);
-
-			luaL_loadbuffer(L, chunk + *pos, chunksize, "import_function");
-			*pos = *pos + chunksize;
-// 			buffer b;
-// 			b.buf = chunk + *pos;
-// 			b.pos = 0;
-// 			b.size = chunksize;
-// 			
-// 			if(lua_load(L, limportreader, &b, "import_function"))
-// 				printf("%s\n", lua_tostring(L, -1));
+			int chunksize = decodeInteger(b);
+			luaL_loadbuffer(L, b->buf + b->pos, chunksize, "import_function");
+			b->pos += chunksize;
 		}
 		break;
 		case LUA_TUSERDATA:
-			luaL_error(L, "Cannot import USERDATA");
+		{
+			int type = decodeInteger(b);
+			switch(type)
+			{
+				case ENCODE_SPINSYSTEM:
+				{
+					SpinSystem* ss = new SpinSystem(2,2,2);
+					ss->decode(b);
+					lua_pushSpinSystem(L, ss);
+				}
+				break;
+				
+				//default: //TYPE_NOEXPORT
+			}
+
+
+			
+		}
+// 		break;
+// 			luaL_error(L, "Cannot import USERDATA");
 		break;
 		case LUA_TTHREAD:
 			luaL_error(L, "Cannot import THREAD");
@@ -241,5 +196,9 @@ int _importLuaVariable(lua_State* L, char* chunk, int* pos, int chunksize)
 int importLuaVariable(lua_State* L, char* chunk, int chunksize)
 {
 	int pos = 0;
-	_importLuaVariable(L, chunk, &pos, chunksize);
+	buffer b;
+	b.buf = chunk;
+	b.pos = 0;
+	b.size = chunksize;
+	_importLuaVariable(L, &b);
 }

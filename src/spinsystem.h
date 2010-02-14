@@ -4,9 +4,10 @@
 #include <complex>
 #include <fftw3.h>
 #include "luacommon.h"
+#include "encodable.h"
 using namespace std;
 
-class SpinSystem
+class SpinSystem : public Encodable
 {
 public:
 	SpinSystem(int nx, int ny, int nz);
@@ -47,7 +48,14 @@ public:
 	double time;
 	
 	void fft();
+	
+	
+	virtual void encode(buffer* b) const;
+	virtual int  decode(buffer* b);
+
 private:
+	void init();
+	void deinit();
 	fftw_plan r2q;
 
 	complex<double>* rx;
@@ -57,6 +65,7 @@ private:
 };
 
 SpinSystem* checkSpinSystem(lua_State* L, int idx);
+void lua_pushSpinSystem(lua_State* L, SpinSystem* ss);
 void registerSpinSystem(lua_State* L);
 
 

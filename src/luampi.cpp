@@ -8,6 +8,20 @@
 #define    LUAVAR_TAG 2
 #define   BUFSIZE_TAG 3
 
+inline int mpi_rank()
+{
+	int rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	return rank;
+}
+
+inline int mpi_size()
+{
+	int size;
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	return size;
+}
+
 static int l_mpi_get_processor_name(lua_State* L)
 {
 	int  namelen;
@@ -21,38 +35,35 @@ static int l_mpi_get_processor_name(lua_State* L)
 
 static int l_mpi_get_size(lua_State* L)
 {
-	int numprocs;
-	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-	
-	lua_pushinteger(L, numprocs);
+	lua_pushinteger(L, mpi_size());
 	return 1;
 }
 
 static int l_mpi_get_rank(lua_State* L)
 {
-	int rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	
-	lua_pushinteger(L, rank+1);
+	lua_pushinteger(L, mpi_rank()+1);
 	return 1;
 }
 
 static int l_mpi_test(lua_State* L)
 {
-	char* buf;
 	int size;
-	
+	char* buf;
 	buf = exportLuaVariable(L, 1, &size);
-
+	
 	importLuaVariable(L, buf, size);
-
 	free(buf);
+	
 	return 1;
 }
 
 static int l_mpi_send(lua_State* L)
 {
 	int dest = lua_tointeger(L, 1) - 1; //lua is base 1
+	
+	if(dest < 0 || dest >= mpi_size())
+		return luaL_error(L, "Send destination (%d) is out of range.", dest+1);
+	
 	int n = lua_gettop(L) - 1;
 	int size;
 	char* buf;
@@ -74,6 +85,9 @@ static int l_mpi_recv(lua_State* L)
 	int src = lua_tointeger(L, 1) - 1; //lua is base 1
 	int n;
 	MPI_Status stat;
+
+	if(src < 0 || src >= mpi_size())
+		return luaL_error(L, "Receive source (%d) is out of range.", src+1);
 
 	char* buf = 0;
 	int bufsize = 0;

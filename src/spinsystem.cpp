@@ -8,10 +8,56 @@ using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
 SpinSystem::SpinSystem(int NX, int NY, int NZ)
-	: nx(NX), ny(NY), nz(NZ), refcount(0), nslots(NSLOTS), time(0)
+	: nx(NX), ny(NY), nz(NZ), refcount(0), nslots(NSLOTS), time(0),
+	  x(0), y(0), z(0), ms(0), Encodable(ENCODE_SPINSYSTEM)
+{
+	init();
+}
+
+SpinSystem::~SpinSystem()
+{
+	deinit();
+}
+
+void SpinSystem::deinit()
+{
+	if(x)
+	{
+		delete [] x;
+		delete [] y;
+		delete [] z;
+		delete [] ms;
+
+		
+		for(int i=0; i<nslots; i++)
+		{
+			delete [] hx[i];
+			delete [] hy[i];
+			delete [] hz[i];
+		}
+
+		delete [] hx;
+		delete [] hy;
+		delete [] hz;
+
+		delete [] rx;
+		delete [] ry;
+		delete [] rz;
+
+		delete [] qx;
+		delete [] qy;
+		delete [] qz;
+		
+		
+		fftw_destroy_plan(r2q);
+	}
+}
+
+
+void SpinSystem::init()
 {
 	nxyz = nx * ny * nz;
-	
+
 	x = new double[nxyz];
 	y = new double[nxyz];
 	z = new double[nxyz];
@@ -19,7 +65,7 @@ SpinSystem::SpinSystem(int NX, int NY, int NZ)
 	
 	for(int i=0; i<nxyz; i++)
 		set(i, 0, 0, 0);
-	
+
 	hx = new double* [nslots];
 	hy = new double* [nslots];
 	hz = new double* [nslots];
@@ -37,7 +83,7 @@ SpinSystem::SpinSystem(int NX, int NY, int NZ)
 			hz[i][j] = 0;
 		}
 	}
-	
+
 	rx = new complex<double>[nxyz];
 	ry = new complex<double>[nxyz];
 	rz = new complex<double>[nxyz];
@@ -60,33 +106,71 @@ SpinSystem::SpinSystem(int NX, int NY, int NZ)
 				FFTW_FORWARD, FFTW_PATIENT);
 }
 
-SpinSystem::~SpinSystem()
-{
-	delete [] x;
-	delete [] y;
-	delete [] z;
-	
-	for(int i=0; i<nslots; i++)
-	{
-		delete [] hx[i];
-		delete [] hy[i];
-		delete [] hz[i];
-	}
+//   void encodeBuffer(const void* s, int len, buffer* b);
+//   void encodeDouble(const double d, buffer* b);
+//   void encodeInteger(const int i, buffer* b);
+//    int decodeInteger(const char* buf, int* pos);
+// double decodeDouble(const char* buf, int* pos);
 
-	delete [] hx;
-	delete [] hy;
-	delete [] hz;
-	
-	delete [] qx;
-	delete [] qy;
-	delete [] qz;
-	
-	delete [] rx;
-	delete [] ry;
-	delete [] rz;
-	
-	fftw_destroy_plan(r2q);
+
+void SpinSystem::encode(buffer* b) const
+{
+	encodeInteger(nx, b);
+	encodeInteger(ny, b);
+	encodeInteger(nz, b);
+
+	for(int i=0; i<nxyz; i++)
+	{
+		encodeDouble(x[i], b);
+		encodeDouble(y[i], b);
+		encodeDouble(z[i], b);
+		
+		encodeDouble(qx[i].real(), b);
+		encodeDouble(qx[i].imag(), b);
+
+		encodeDouble(qy[i].real(), b);
+		encodeDouble(qy[i].imag(), b);
+
+		encodeDouble(qz[i].real(), b);
+		encodeDouble(qz[i].imag(), b);
+
+
+		for(int j=0; j<nslots; j++)
+		{
+			encodeDouble(hx[j][i], b);
+			encodeDouble(hy[j][i], b);
+			encodeDouble(hz[j][i], b);
+		}
+	}
 }
+
+int  SpinSystem::decode(buffer* b)
+{
+	deinit();
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
+	init();
+
+	for(int i=0; i<nxyz; i++)
+	{
+		x[i] = decodeDouble(b);
+		y[i] = decodeDouble(b);
+		z[i] = decodeDouble(b);
+		
+		qx[i] = complex<double>(decodeDouble(b), decodeDouble(b));
+		qy[i] = complex<double>(decodeDouble(b), decodeDouble(b));
+		qz[i] = complex<double>(decodeDouble(b), decodeDouble(b));
+				
+		for(int j=0; j<nslots; j++)
+		{
+			hx[j][i] = decodeDouble(b);
+			hy[j][i] = decodeDouble(b);
+			hz[j][i] = decodeDouble(b);
+		}
+	}
+}
+
 
 void SpinSystem::sumFields()
 {
@@ -234,6 +318,16 @@ SpinSystem* checkSpinSystem(lua_State* L, int idx)
     return *pp;
 }
 
+void lua_pushSpinSystem(lua_State* L, SpinSystem* ss)
+{
+	ss->refcount++;
+	
+	SpinSystem** pp = (SpinSystem**)lua_newuserdata(L, sizeof(SpinSystem**));
+	
+	*pp = ss;
+	luaL_getmetatable(L, "MERCER.spinsystem");
+	lua_setmetatable(L, -2);
+}
 
 
 int l_ss_new(lua_State* L)
@@ -250,14 +344,8 @@ int l_ss_new(lua_State* L)
 		return luaL_error(L, "SpinSystem.new requires positive nx, ny and nz");
 	}
 	
-	ss = new SpinSystem(nx, ny, nz);
-	ss->refcount++;
+	lua_pushSpinSystem(L, new SpinSystem(nx, ny, nz));
 	
-	SpinSystem** pp = (SpinSystem**)lua_newuserdata(L, sizeof(SpinSystem**));
-	
-	*pp = ss;
-	luaL_getmetatable(L, "MERCER.spinsystem");
-	lua_setmetatable(L, -2);
 	return 1;
 }
 
@@ -394,6 +482,15 @@ int l_ss_gettime(lua_State* L)
 	return 1;
 }
 
+static int l_ss_tostring(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	
+	lua_pushfstring(L, "SpinSystem (%dx%dx%d)", ss->nx, ss->ny, ss->nz);
+	return 1;
+}
+
 int l_ss_getfield(lua_State* L)
 {
 	SpinSystem* ss = checkSpinSystem(L, 1);
@@ -425,6 +522,7 @@ void registerSpinSystem(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_ss_gc},
+		{"__tostring",   l_ss_tostring},
 		{"netMag",       l_ss_netmag},
 		{"setSpin",      l_ss_setspin},
 		{"spin"   ,      l_ss_getspin},

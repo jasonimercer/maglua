@@ -1,6 +1,7 @@
-OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o mersennetwister.o llgquat.o interpolatingfunction.o convert.o spinoperationdipole.o dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o llgfake.o luampi.o luamigrate.cpp
+OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o mersennetwister.o llgquat.o interpolatingfunction.o convert.o spinoperationdipole.o dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o llgfake.o luampi.o luamigrate.o encodable.o
 
-CFLAGS=-g -O2
+# CFLAGS=-g -O2
+CFLAGS=-g
 
 HOMELIBLUA=$(shell ls $(HOME)/lua-5.1.4/lib/liblua.a 2> /dev/null | wc -l)
 
@@ -13,7 +14,7 @@ endif
 
 ifeq ($(CC),mpicc)
 	CXX=mpic++ -D_MPI $(CFLAGS)
-	BIN=mpi_maglua
+	BIN=maglua_mpi
 else
 	CXX=g++ $(CFLAGS)
 	BIN=maglua
@@ -27,9 +28,11 @@ mpi:
 install: $(BIN)
 	mkdir -p $(HOME)/bin
 	cp $(BIN) $(HOME)/bin
+	cp maglua_mpi $(HOME)/bin 2> /dev/null
 
 uninstall:
 	rm -f $(HOME)/bin/$(BIN)
+	rm -f $(HOME)/bin/maglua_mpi
 
 $(BIN): ${OBJECTS}
 	${CXX} -o ${BIN} ${OBJECTS} ${LIBS}
@@ -47,7 +50,7 @@ clena: clean
 
 clean:
 	rm -f *~
-	rm -f maglua mpi_maglua
+	rm -f maglua maglua_mpi
 	rm -f *.o
 	rm -f info.h
 
