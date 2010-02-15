@@ -74,7 +74,7 @@ static int l_mpi_send(lua_State* L)
 	int size;
 	char* buf;
 	
-	MPI_Send(&n, 1, MPI_INT, dest, NUMLUAVAR_TAG, MPI_COMM_WORLD); 
+	MPI_Send(&n, 1, MPI_INT, dest, NUMLUAVAR_TAG, MPI_COMM_WORLD);
 	
 	for(int i=0; i<n; i++)
 	{
