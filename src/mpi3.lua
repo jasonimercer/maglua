@@ -2,7 +2,7 @@ name = mpi.get_processor_name()
 rank = mpi.get_rank()
 size = mpi.get_size()
 
-nmacro     = 10
+nmacro     = 5
 Jmacro     = 0.1
 
 nmicro     = 10
@@ -13,9 +13,9 @@ alphamicro = 0.5
 Mmicro     = 1
 runmicro   = 0.1 --run micro for this long
 runmacro   = 0.3 --run macro for this long
+micro_count= {} --how many micro systems per process
 
 exch_dir = {{1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1}}
-
 -- setup macro spin system at rank(1)
 if rank == 1 then
 	ss_macro      = SpinSystem.new(nmacro, nmacro, nmacro)
@@ -48,6 +48,12 @@ for I=1,nmacro do
 		my_ss_xyz[I][J] = {}
 		for K=1,nmacro do
 			owner_map[I][J][K] = owner
+			if 	micro_count[owner] then
+				micro_count[owner] = micro_count[owner] + 1
+			else
+				micro_count[owner] = 1
+			end
+
 			if owner == rank then
 				pos      = {I, J, K}
 				spinsys  =   SpinSystem.new(n,n,n)
@@ -152,19 +158,26 @@ while time() < runmacro do
 			pos = t[2]
 			px, py, pz = pos[1], pos[2], pos[3]
 			mx, my, mz = t[3]:netMag()
-
 			ss_macro:setSpin(px, py, pz, mx, my, mz)
 		end
-			
 		for c=2,size do
-			repeat
+			for i = 1,micro_count[c] do
 				px, py, pz, mx, my, mz = mpi.recv(c)
-				if px then
-					ss_macro:setSpin(px, py, pz, mx, my, mz)
-				end
-			until px == nil 
+				ss_macro:setSpin(px, py, pz, mx, my, mz)
+			end
 		end
+	else
+		--send grain net magnetization
+		for i,t in ipairs(my_ss) do
+			pos = t[2]
+			px, py, pz = pos[1], pos[2], pos[3]
+			mx, my, mz = t[3]:netMag()
+			mpi.send(1, px, py, pz, mx, my, mz)
+		end
+	end
 
+
+	if rank == 1 then
 		--now have all the graininfo. Make an exchange field calculation
 		ss_macro:zeroFields()
 		ex_macro:apply(ss_macro)
@@ -185,33 +198,12 @@ while time() < runmacro do
 				end
 			end
 		end
-
-		for i=2,size do
-			mpi.send(i, nil, nil, nil, nil, nil, nil) -- no more data
-		end
 	else
-		--send grain info
-		for i,t in ipairs(my_ss) do
-			pos = t[2]
-			px, py, pz = pos[1], pos[2], pos[3]
-			mx, my, mz = t[3]:netMag()
-			
-			print("A", rank, "presend")
-			mpi.send(1, px, py, pz, mx, my, mz)
-			print("A", rank, "postsend")
-		end
-		print("A", rank, "presend")
-		mpi.send(1, nil) --end of data
-		print("A", rank, "postsend")
-
 		--get fields back
-		repeat
+		for i = 1,micro_count[rank] do
 			i, j, k, hx, hy, hz = mpi.recv(1)
-
-			if i then
-				my_ss_xyz[i][j][k][6]:set(hx, hy, hz)
-			end
-		until i == nil --end of data
+			my_ss_xyz[i][j][k][6]:set(hx, hy, hz)
+		end
 	end
 end
 

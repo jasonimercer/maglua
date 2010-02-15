@@ -9,6 +9,8 @@
 #include "llgfake.h"
 #include "spinoperationexchange.h"
 #include "spinoperationthermal.h"
+#include "spinoperationappliedfield.h"
+#include "spinoperationanisotropy.h"
 
 static int lexportwriter(lua_State *L, const void* chunk, size_t size, void* data) 
 {
@@ -206,17 +208,17 @@ int _importLuaVariable(lua_State* L, buffer* b)
 				
 				case ENCODE_ANISOTROPY:
 				{
-// 					LLGFake* llg = new LLGFake();
-// 					llg->decode(b);
-// 					lua_pushLLG(L, llg);
+					Anisotropy* ani = new Anisotropy(2,2,2);
+					ani->decode(b);
+					lua_pushAnisotropy(L, ani);
 				}
 				break;
 
 				case ENCODE_APPLIEDFIELD:
 				{
-// 					LLGFake* llg = new LLGFake();
-// 					llg->decode(b);
-// 					lua_pushLLG(L, llg);
+					AppliedField* ap = new AppliedField(2,2,2);
+					ap->decode(b);
+					lua_pushAppliedField(L, ap);
 				}
 				break;
 

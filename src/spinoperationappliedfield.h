@@ -17,6 +17,7 @@ public:
 	virtual int  decode(buffer* b);
 };
 
+void lua_pushAppliedField(lua_State* L, AppliedField* ap);
 AppliedField* checkAppliedField(lua_State* L, int idx);
 void registerAppliedField(lua_State* L);
 

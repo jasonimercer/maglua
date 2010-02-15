@@ -19,8 +19,11 @@ public:
 	virtual void encode(buffer* b) const;
 	virtual int  decode(buffer* b);
 
+	void init();
+	void deinit();
 };
 
+void lua_pushAnisotropy(lua_State* L, Anisotropy* ani);
 Anisotropy* checkAnisotropy(lua_State* L, int idx);
 void registerAnisotropy(lua_State* L);
 

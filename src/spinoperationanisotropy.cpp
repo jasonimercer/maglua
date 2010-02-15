@@ -6,6 +6,12 @@
 Anisotropy::Anisotropy(int nx, int ny, int nz)
 	: SpinOperation("Anisotropy", ANISOTROPY_SLOT, nx, ny, nz, ENCODE_ANISOTROPY)
 {
+	init();
+}
+
+void Anisotropy::init()
+{
+	nxyz = nx * ny * nz;
 	ax = new double[nxyz];
 	ay = new double[nxyz];
 	az = new double[nxyz];
@@ -21,23 +27,52 @@ Anisotropy::Anisotropy(int nx, int ny, int nz)
 	}
 }
 
-void Anisotropy::encode(buffer* b) const
+void Anisotropy::deinit()
 {
-	
+	if(ax)
+	{
+		delete [] ax;
+		delete [] ay;
+		delete [] az;
+		delete [] strength;
+	}
+	ax = 0;
 }
 
-int  Anisotropy::decode(buffer* b)
+void Anisotropy::encode(buffer* b) const
 {
+	encodeInteger(nx, b);
+	encodeInteger(ny, b);
+	encodeInteger(nz, b);
+	for(int i=0; i<nxyz; i++)
+	{
+		encodeDouble(ax[i], b);
+		encodeDouble(ay[i], b);
+		encodeDouble(az[i], b);
+		encodeDouble(strength[i], b);
+	}
+}
+
+int Anisotropy::decode(buffer* b)
+{
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
 	
+	init();
+	for(int i=0; i<nxyz; i++)
+	{
+		ax[i] = decodeDouble(b);
+		ay[i] = decodeDouble(b);
+		az[i] = decodeDouble(b);
+		strength[i] = decodeDouble(b);
+	}
 }
 
 
 Anisotropy::~Anisotropy()
 {
-	delete [] ax;
-	delete [] ay;
-	delete [] az;
-	delete [] strength;
+	deinit();
 }
 
 bool Anisotropy::apply(SpinSystem* ss)
@@ -76,6 +111,16 @@ Anisotropy* checkAnisotropy(lua_State* L, int idx)
     return *pp;
 }
 
+void lua_pushAnisotropy(lua_State* L, Anisotropy* ani)
+{
+	ani->refcount++;
+	
+	Anisotropy** pp = (Anisotropy**)lua_newuserdata(L, sizeof(Anisotropy**));
+	
+	*pp = ani;
+	luaL_getmetatable(L, "MERCER.anisotropy");
+	lua_setmetatable(L, -2);
+}
 
 int l_ani_new(lua_State* L)
 {
@@ -87,13 +132,7 @@ int l_ani_new(lua_State* L)
 			lua_tointeger(L, 2),
 			lua_tointeger(L, 3)
 	);
-	ani->refcount++;
-	
-	Anisotropy** pp = (Anisotropy**)lua_newuserdata(L, sizeof(Anisotropy**));
-	
-	*pp = ani;
-	luaL_getmetatable(L, "MERCER.anisotropy");
-	lua_setmetatable(L, -2);
+	lua_pushAnisotropy(L, ani);
 	return 1;
 }
 

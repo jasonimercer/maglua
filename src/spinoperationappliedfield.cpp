@@ -13,12 +13,16 @@ AppliedField::AppliedField(int nx, int ny, int nz)
 
 void AppliedField::encode(buffer* b) const
 {
-	
+	encodeDouble(B[0], b);
+	encodeDouble(B[1], b);
+	encodeDouble(B[2], b);
 }
 
 int  AppliedField::decode(buffer* b)
 {
-	
+	B[0] = decodeDouble(b);
+	B[1] = decodeDouble(b);
+	B[2] = decodeDouble(b);
 }
 
 AppliedField::~AppliedField()
@@ -53,6 +57,16 @@ AppliedField* checkAppliedField(lua_State* L, int idx)
     return *pp;
 }
 
+void lua_pushAppliedField(lua_State* L, AppliedField* ap)
+{
+	ap->refcount++;
+	
+	AppliedField** pp = (AppliedField**)lua_newuserdata(L, sizeof(AppliedField**));
+	
+	*pp = ap;
+	luaL_getmetatable(L, "MERCER.appliedfield");
+	lua_setmetatable(L, -2);
+}
 
 int l_ap_new(lua_State* L)
 {
@@ -64,13 +78,9 @@ int l_ap_new(lua_State* L)
 			lua_tointeger(L, 2),
 			lua_tointeger(L, 3)
 	);
-	ap->refcount++;
+
+	lua_pushAppliedField(L, ap);
 	
-	AppliedField** pp = (AppliedField**)lua_newuserdata(L, sizeof(AppliedField**));
-	
-	*pp = ap;
-	luaL_getmetatable(L, "MERCER.appliedfield");
-	lua_setmetatable(L, -2);
 	return 1;
 }
 
