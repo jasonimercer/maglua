@@ -43,6 +43,7 @@ int  Thermal::decode(buffer* b)
 	
 	for(int i=0; i<nxyz; i++)
 		scale[i] = decodeDouble(b);
+	return 0;
 }
 
 Thermal::~Thermal()

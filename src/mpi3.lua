@@ -3,19 +3,19 @@ name = mpi.get_processor_name()
 rank = mpi.get_rank()
 size = mpi.get_size()
 
-nmacro     = 5
+nmacro     = 10
 Jmacro     = 10
 
 nmicro     = 10
 Jmicro     = 1.0
 
-tempmicro  = 0.01
+tempmicro  = 2.0
 dtmicro    = 0.00001
 alphamicro = 1.0
 Mmicro     = 1
 
-runmicro   = 0.001 --run micro for this long
-runmacro   = 0.100 --run macro for this long
+runmicro   = 0.0002 --run micro for this long
+runmacro   = 0.0050 --run macro for this long
 
 filename_prefix = "mpitest"
 
@@ -214,7 +214,7 @@ while time() < runmacro do
 	end
 
 	if rank == 1 then
-		t = string.format("%06.3f", time())
+		t = string.format("%08.5f", time())
 		print(t)
 		f = io.open(filename_prefix .. t .. ".dat", "w")
 -- 		f:write("# Spin system configuration for time = " .. time() .. "\n")

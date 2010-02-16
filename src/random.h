@@ -2,6 +2,7 @@
 #define RANDOMBASE_HPP
 
 #include <ctype.h>
+#include <time.h>
 
 #define __ISAAC64 
 #ifndef __ISAAC64

@@ -123,7 +123,6 @@ char* exportLuaVariable(lua_State* L, int index, int* chunksize)
 int _importLuaVariable(lua_State* L, buffer* b)
 {
 	int t = decodeInteger(b);
-	int i;
 
 	switch(t)
 	{
@@ -261,14 +260,15 @@ int _importLuaVariable(lua_State* L, buffer* b)
 		default:
 			luaL_error(L, "unknown import type: %i", t);
 	}
+	return 0;
 }
 
 int importLuaVariable(lua_State* L, char* chunk, int chunksize)
 {
-	int pos = 0;
 	buffer b;
 	b.buf = chunk;
 	b.pos = 0;
 	b.size = chunksize;
 	_importLuaVariable(L, &b);
+	return 0;
 }

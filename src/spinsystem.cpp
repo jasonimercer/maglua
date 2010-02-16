@@ -169,6 +169,8 @@ int  SpinSystem::decode(buffer* b)
 			hz[j][i] = decodeDouble(b);
 		}
 	}
+
+	return 0;
 }
 
 
@@ -332,7 +334,6 @@ void lua_pushSpinSystem(lua_State* L, SpinSystem* ss)
 
 int l_ss_new(lua_State* L)
 {
-	SpinSystem* ss;
 	int nx, ny, nz;
 	
 	nx = lua_tointeger(L, 1);
@@ -370,7 +371,7 @@ int l_ss_netmag(lua_State* L)
 	if(lua_isnumber(L, 2))
 		m = lua_tonumber(L, 2);
 
-	double v4[3];
+	double v4[4];
 	
 	ss->getNetMag(v4);
 	

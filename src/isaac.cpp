@@ -15,7 +15,7 @@ MODIFIED:
 #endif
 
 #include "isaac.h"
-
+#include <time.h>
 
 #define isaac_rand(r) \
    (!(r)->randcnt-- ? \

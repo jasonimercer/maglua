@@ -22,7 +22,7 @@ public:
 	
 	int refcount;
 
-	void encode(buffer* b) const;;
+	void encode(buffer* b) const;
 	int  decode(buffer* b);
 };
 

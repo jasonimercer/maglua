@@ -67,6 +67,7 @@ int Anisotropy::decode(buffer* b)
 		az[i] = decodeDouble(b);
 		strength[i] = decodeDouble(b);
 	}
+	return 0;
 }
 
 

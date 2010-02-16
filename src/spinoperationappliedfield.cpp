@@ -23,6 +23,7 @@ int  AppliedField::decode(buffer* b)
 	B[0] = decodeDouble(b);
 	B[1] = decodeDouble(b);
 	B[2] = decodeDouble(b);
+	return 0;
 }
 
 AppliedField::~AppliedField()
