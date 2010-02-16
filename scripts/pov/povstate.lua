@@ -56,17 +56,15 @@ while filename do
 
 	local xx, yy, zz = 0.5*(xmax+xmin), 0.5*(ymax+ymin), 0.5*(zmax+zmin)
 
-	loc = {xx, xx, -2*zz}
-	lightpos = {{-xx,xx,-xx}, {3*xx,xx,-xx}}
+	loc = {-2*xx, 3*yy, -2*zz}
+	lightpos = {{-8*xx, 8*yy, zz}, {xx, 8*yy, -8*zz}}
 
 	pov  = io.open(filename .. ".pov", "w")
 	pov:write( povprefix(loc, at, lightpos) )
 
 	for k,v in pairs(spins) do
-		theta = math.atan2(v[5], v[4])
-		phi   = math.acos(v[6])
-		r, g, b = colormap(theta,phi) 
-		pov:write(spin(theta, phi, v[1], v[2], v[3], r, g, b))
+		r, g, b = colormap(v[4], v[5], v[6]) 
+		pov:write(spin(v[4], v[5], v[6], v[1], v[2], v[3], r, g, b))
 	end
 	pov:close()
 

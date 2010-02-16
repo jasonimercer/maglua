@@ -95,7 +95,13 @@ _lights(lights) ..
 end
 
 
-function spin(theta, phi, x, y, z, r, g, b)
+function spin(mx, my, mz, x, y, z, r, g, b)
+
+	local theta = math.atan2(my, mx)
+	local phi   = math.acos(mz)
+
+	scale = math.sqrt(mx^2 + my^2 + mz^2) * 0.4
+
 	return string.format(
 		"merge {\n"                                    ..
 		"   object{collar}\n"                          ..
@@ -108,13 +114,14 @@ function spin(theta, phi, x, y, z, r, g, b)
 		"      }\n"                                    ..
 		"   }\n"                                       ..
 		""                                             ..
-		"   scale 0.4\n"                               ..
+		"   scale %f\n"                               ..
 		"   rotate<%f, 0, 0,>\n"                       ..
 		"   rotate<0, %f, 0>\n"                        ..
 		"   rotate y*+90\n"                            ..
 		"   translate <%f, %f, %f>\n"                  ..
 		"}\n", 
 				r, g, b, 
+				scale,
 				phi * 180/math.pi, 
 				theta * -180/math.pi,
 				x,y,z)

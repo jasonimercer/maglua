@@ -1,19 +1,26 @@
+rng  = Random.new("Isaac")
 name = mpi.get_processor_name()
 rank = mpi.get_rank()
 size = mpi.get_size()
 
 nmacro     = 5
-Jmacro     = 0.1
+Jmacro     = 10
 
 nmicro     = 10
 Jmicro     = 1.0
 
-dtmicro    = 0.05
-alphamicro = 0.5
+tempmicro  = 0.01
+dtmicro    = 0.01
+alphamicro = 1.0
 Mmicro     = 1
-runmicro   = 0.1 --run micro for this long
-runmacro   = 0.3 --run macro for this long
+
+runmicro   = 0.5 --run micro for this long
+runmacro   = 20.0 --run macro for this long
+
+filename_prefix = "mpitest"
+
 micro_count= {} --how many micro systems per process
+
 
 exch_dir = {{1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1}}
 -- setup macro spin system at rank(1)
@@ -79,6 +86,14 @@ for I=1,nmacro do
 	end
 end
 
+function random_spin(M)
+	local mx = rng:normal()
+	local my = rng:normal()
+	local mz = rng:normal()
+	local mm = math.sqrt(mx^2 + my^2 + mz^2)
+	return M*mx/mm, M*my/mm, M*mz/mm
+end
+
 --setup each micro spin system
 for a,b in ipairs(my_ss) do
 	s = b[3]
@@ -87,7 +102,8 @@ for a,b in ipairs(my_ss) do
 	for i=1,n do
 		for j=1,n do
 			for k=1,n do
-				s:setSpin(i, j, k, 0, 0, Mmicro)
+				local mx, my, mz = random_spin(Mmicro)
+				s:setSpin(i, j, k, mx, my, mz)
 
 				-- non-pbc Jmicro
 				for _,d in pairs(exch_dir) do
@@ -102,32 +118,26 @@ for a,b in ipairs(my_ss) do
 end
 
 
-
--- -- maglua supports 3 types of random number generators
--- -- Isaac            - http://burtleburtle.net/bob/rand/isaacafa.html
--- -- MersenneTwister  - http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
--- -- CRandom          - basic C random number generator
-rng     = Random.new("Isaac")
-
  
--- f = io.open(filename, "w")
--- f:write("# this data is from the script " .. argv[2] .. "\n")
--- f:write("# Working on Tc vs J\n")
--- f:write("# time  temp  <Mx/Ms>  <My/Ms>  <Mz/Ms>  <(Mz/Ms)^2>-<(Mz/Ms)>^2\n")
--- f:flush()
--- 
-
 -- a function that steps a spin system 1 dt
 function step(t)
-	--{owner, pos, spinsys, exchange, thermal, applied, llg}
-	t[5]:setTemperature(0.4)
+	local spinsys = t[3]
+	local exchange= t[4]
+	local thermal = t[5]
+	local applied = t[6]
+	local llg     = t[7]
 
-	t[3]:zeroFields()           -- ss
-	t[4]:apply(t[3])            -- exchange - ss
-	t[5]:apply(t[7], rng, t[3]) -- thermal  - llg, rng, ss
-	t[3]:sumFields()
+	thermal:setTemperature(tempmicro)
 
-	t[7]:apply(t[3])
+	spinsys:zeroFields()
+	exchange:apply(spinsys)
+	applied:apply(spinsys)
+	thermal:apply(llg, rng, spinsys)
+	spinsys:sumFields()
+
+	llg:apply(spinsys)
+
+-- 	print(spinsys:spin(1,1,1))
 end
 
 function time()
@@ -141,13 +151,10 @@ end
 while time() < runmacro do
 	now = time()
 	-- run all the little system "runmicro" time
-	while now + runmicro > time() do
+
+	for t=1,runmicro/dtmicro do
 		for i,t in ipairs(my_ss) do
 			step(t)
-		end
-
-		if rank == 1 then
-			print(time())
 		end
 	end
 
@@ -191,7 +198,7 @@ while time() < runmacro do
 					owner = owner_map[i][j][k]
 					hx, hy, hz = ss_macro:getField("Total", i, j, k)
 					if owner == 1 then
-						my_ss_xyz[i][j][k][6]:set(hx, hy, hz) --
+						my_ss_xyz[i][j][k][6]:set(hx, hy, hz)
 					else
 						mpi.send(owner, i, j, k, hx, hy, hz)
 					end
@@ -205,6 +212,29 @@ while time() < runmacro do
 			my_ss_xyz[i][j][k][6]:set(hx, hy, hz)
 		end
 	end
+
+	if rank == 1 then
+		t = string.format("%06.2f", time())
+		print(t)
+		f = io.open(filename_prefix .. t .. ".dat", "w")
+-- 		f:write("# Spin system configuration for time = " .. time() .. "\n")
+		for i=1,nmacro do
+			for j=1,nmacro do
+				for k=1,nmacro do
+					x, y, z = ss_macro:spin(i,j,k)
+					ms = nmicro^3
+					t = {i, j, k, x/ms, y/ms, z/ms}
+					f:write(table.concat(t, "\t") .. "\n")
+				end
+			end
+		end
+		f:close()
+	end
+-- f:write("# this data is from the script " .. argv[2] .. "\n")
+-- f:write("# Working on Tc vs J\n")
+-- f:write("# time  temp  <Mx/Ms>  <My/Ms>  <Mz/Ms>  <(Mz/Ms)^2>-<(Mz/Ms)>^2\n")
+-- f:flush()
+
 end
 
 print(name, rank, "done")

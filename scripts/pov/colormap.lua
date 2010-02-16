@@ -1,4 +1,8 @@
-function colormap(theta, phi)
+function colormap(x, y, z)
+
+	theta = math.atan2(y, x)
+	phi   = math.acos(z)
+
 	local pi = math.pi
 	local cos = math.cos
 	local sin = math.sin

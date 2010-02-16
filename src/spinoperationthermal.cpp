@@ -177,6 +177,9 @@ int l_thermal_settemp(lua_State* L)
 	Thermal* th = checkThermal(L, 1);
 	if(!th) return 0;
 
+	if(lua_isnil(L, 2))
+		return luaL_error(L, "set temp cannot be nil");
+
 	th->temperature = lua_tonumber(L, 2);
 	return 0;
 }
