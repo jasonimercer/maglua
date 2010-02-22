@@ -4,9 +4,9 @@
 #include "luampi.h"
 #include "luamigrate.h"
 
-#define NUMLUAVAR_TAG 1
-#define    LUAVAR_TAG 2
-#define   BUFSIZE_TAG 3
+#define NUMLUAVAR_TAG 100
+#define    LUAVAR_TAG 200
+#define   BUFSIZE_TAG 300
 
 inline int mpi_rank()
 {
@@ -66,6 +66,7 @@ static int l_mpi_barrier(lua_State* L)
 static int l_mpi_send(lua_State* L)
 {
 	int dest = lua_tointeger(L, 1) - 1; //lua is base 1
+
 	
 	if(dest < 0 || dest >= mpi_size())
 		return luaL_error(L, "Send destination (%d) is out of range.", dest+1);
@@ -79,8 +80,9 @@ static int l_mpi_send(lua_State* L)
 	for(int i=0; i<n; i++)
 	{
 		buf = exportLuaVariable(L, i+2, &size);
-		MPI_Send(&size, 1, MPI_INT, dest, BUFSIZE_TAG, MPI_COMM_WORLD);
-		MPI_Send(buf, size, MPI_CHAR, dest, LUAVAR_TAG, MPI_COMM_WORLD);
+		
+		MPI_Send(&size, 1, MPI_INT, dest, BUFSIZE_TAG+i, MPI_COMM_WORLD);
+		MPI_Send(buf, size, MPI_CHAR, dest, LUAVAR_TAG+i, MPI_COMM_WORLD);
 		free(buf);
 	}
 	return 0;
@@ -101,17 +103,16 @@ static int l_mpi_recv(lua_State* L)
 	int reqBufSize;
 	
 	int r = MPI_Recv(&n, 1, MPI_INT, src, NUMLUAVAR_TAG, MPI_COMM_WORLD, &stat);
-	
 	for(int i=0; i<n; i++)
 	{
-		MPI_Recv(&reqBufSize, 1, MPI_INT, src, BUFSIZE_TAG, MPI_COMM_WORLD, &stat);
+		MPI_Recv(&reqBufSize, 1, MPI_INT, src, BUFSIZE_TAG+i, MPI_COMM_WORLD, &stat);
 		if(reqBufSize > bufsize)
 		{
 			buf = (char*)realloc(buf, reqBufSize);
 			bufsize = reqBufSize;
 		}
 		
-		MPI_Recv(buf, reqBufSize, MPI_CHAR, src, LUAVAR_TAG, MPI_COMM_WORLD, &stat);
+		MPI_Recv(buf, reqBufSize, MPI_CHAR, src, LUAVAR_TAG+i, MPI_COMM_WORLD, &stat);
 		
 		importLuaVariable(L, buf, reqBufSize);
 	}

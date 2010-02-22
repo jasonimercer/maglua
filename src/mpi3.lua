@@ -158,6 +158,8 @@ while time() < runmacro do
 		end
 	end
 
+	--mpi.barrier()
+
 	-- collect grain magnetizations
 	-- clients send data to rank(1) process
 	if rank == 1 then
@@ -183,6 +185,7 @@ while time() < runmacro do
 		end
 	end
 
+	--mpi.barrier()
 
 	if rank == 1 then
 		--now have all the graininfo. Make an exchange field calculation
