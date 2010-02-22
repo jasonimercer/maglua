@@ -13,7 +13,7 @@ else
 endif
 
 ifeq ($(CC),mpicc)
-	CXX=mpic++ -ansi -Wall -D_MPI $(CFLAGS)
+	CXX=mpic++ -ansi -D_MPI $(CFLAGS)
 	BIN=maglua_mpi
 else
 	CXX=g++ $(CFLAGS)

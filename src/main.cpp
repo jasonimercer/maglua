@@ -45,6 +45,10 @@ static int l_info(lua_State* L)
 	return 1;
 }
 
+#ifdef _MPI
+ #include <mpi.h>
+#endif
+
 int main(int argc, char** argv)
 {
 #ifdef _MPI
