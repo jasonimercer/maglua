@@ -102,7 +102,7 @@ static int l_mpi_recv(lua_State* L)
 	
 	int reqBufSize;
 	
-	int r = MPI_Recv(&n, 1, MPI_INT, src, NUMLUAVAR_TAG, MPI_COMM_WORLD, &stat);
+	MPI_Recv(&n, 1, MPI_INT, src, NUMLUAVAR_TAG, MPI_COMM_WORLD, &stat);
 	for(int i=0; i<n; i++)
 	{
 		MPI_Recv(&reqBufSize, 1, MPI_INT, src, BUFSIZE_TAG+i, MPI_COMM_WORLD, &stat);

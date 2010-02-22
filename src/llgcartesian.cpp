@@ -80,6 +80,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem
 	}
 
 	spinto->time = spinfrom->time + dt;
+	return true;
 }
 
 

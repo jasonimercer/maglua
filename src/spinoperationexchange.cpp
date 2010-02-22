@@ -17,10 +17,6 @@ Exchange::Exchange(int nx, int ny, int nz)
 
 void Exchange::encode(buffer* b) const
 {
-	int* fromsite;
-	int* tosite;
-	double* strength;
-
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
@@ -57,6 +53,7 @@ int  Exchange::decode(buffer* b)
 		  tosite[i] = decodeInteger(b);
 		strength[i] = decodeDouble(b);
 	}
+	return 0;
 }
 
 void Exchange::deinit()
@@ -91,9 +88,9 @@ bool Exchange::apply(SpinSystem* ss)
 		const int f    = fromsite[i];
 		const double s = strength[i];
 		
-		hx[t] += ss->x[f] * s;
-		hy[t] += ss->y[f] * s;
-		hz[t] += ss->z[f] * s;
+		hx[t] += sx[f] * s;
+		hy[t] += sy[f] * s;
+		hz[t] += sz[f] * s;
 	}
 	return true;
 }

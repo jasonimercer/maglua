@@ -13,5 +13,6 @@ LLGFake::LLGFake()
 bool LLGFake::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto)
 {
 	spinto->time = spinfrom->time + dt;
+	return true;
 }
 

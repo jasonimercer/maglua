@@ -196,7 +196,7 @@ void Isaac::seed()
 
 void Isaac::seed( ub4* const bigSeed, const uint32 seedLength )
 {
-	for(int i=0; i<seedLength; i++)
+	for(unsigned int i=0; i<seedLength; i++)
 		ctx.randrsl[i] = bigSeed[i];
 
 	randinit(&ctx, TRUE);

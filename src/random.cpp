@@ -53,7 +53,6 @@ double RNG::randDblExc( const double n )  // real number in (0,n)
 // Access to nonuniform random number distributions
 double RNG::randNorm( const double mean, const double stddev )
 {
-	double norm[2];
 	if(__gaussStep)
 	{
 		double v1, v2, t;

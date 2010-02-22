@@ -303,7 +303,7 @@ static void loadXYZ(
 	for(int a=0; a<6; a++)
 	{
 		int c = 0;
-		int p = 0;
+		//int p = 0;
 		lua_getglobal(L, vars[a]); //XX
 		for(int k=-nz+1; k<nz; k++, c++)
 		{
