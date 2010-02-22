@@ -32,11 +32,6 @@ static Quaternion qmultXYZ(Quaternion a, Quaternion b)
 	return ab;
 }
 
-static double qnorm(Quaternion a)
-{
-	return a.w*a.w + a.x*a.x + a.y*a.y + a.z*a.z;
-}
-
 static Quaternion qconjugate(Quaternion q)
 {
 	Quaternion qq;
@@ -88,7 +83,6 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 	      double* y  = spinto->y;
 	      double* z  = spinto->z;
 
-	double a = alpha;
 // dS    -g
 // -- = ---- S X (h + a S X H)
 // dt   1+aa
@@ -106,7 +100,6 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 			double SH[3];
 			double inv = 1.0 / ms[i];
 			double ra; //rotate amount
-			double rotateDT;
 			double sint, cost;
 			
 // dS    -g           a
@@ -165,6 +158,8 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 	}
 
 	spinto->time = spinfrom->time + dt;
+
+	return true;
 }
 
 

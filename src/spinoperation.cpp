@@ -4,7 +4,7 @@
 using namespace std;
 
 SpinOperation::SpinOperation(std::string Name, int Slot, int NX, int NY, int NZ, int etype)
-	: operationName(Name), slot(Slot), refcount(0), nx(NX), ny(NY), nz(NZ), Encodable(etype) 
+	: Encodable(etype), nx(NX), ny(NY), nz(NZ), refcount(0), operationName(Name), slot(Slot)
 {
 	nxyz = nx * ny * nz;
 }

@@ -5,9 +5,9 @@
 #include <string.h>
 
 LLG::LLG(const char* llgtype, int etype)
-	: alpha(0.1), dt(0.01), refcount(0), type(llgtype), Encodable(etype)
+	: Encodable(etype), alpha(0.1), dt(0.01), gamma(1.0), type(llgtype), refcount(0)
 {
-	gamma = 1.0;
+
 }
 
 void LLG::encode(buffer* b) const
@@ -34,6 +34,8 @@ int  LLG::decode(buffer* b)
 
 	type = t;
 	delete [] t;
+
+	return 0;
 }
 
 

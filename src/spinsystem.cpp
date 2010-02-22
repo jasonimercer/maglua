@@ -8,8 +8,9 @@ using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
 SpinSystem::SpinSystem(int NX, int NY, int NZ)
-	: nx(NX), ny(NY), nz(NZ), refcount(0), nslots(NSLOTS), time(0),
-	  x(0), y(0), z(0), ms(0), Encodable(ENCODE_SPINSYSTEM)
+	: Encodable(ENCODE_SPINSYSTEM), x(0), y(0), z(0), 
+		ms(0), nx(NX), ny(NY), nz(NZ), refcount(0),
+		nslots(NSLOTS), time(0)
 {
 	init();
 }

@@ -17,9 +17,6 @@ Exchange::Exchange(int nx, int ny, int nz)
 
 void Exchange::encode(buffer* b) const
 {
-	int size;
-	int num;
-	
 	int* fromsite;
 	int* tosite;
 	double* strength;

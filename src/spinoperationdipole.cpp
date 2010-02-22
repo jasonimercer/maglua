@@ -60,7 +60,7 @@ void Dipole::encode(buffer* b) const
 
 int  Dipole::decode(buffer* b)
 {
-	
+	return 0;
 }
 
 Dipole::~Dipole()
@@ -192,13 +192,13 @@ void Dipole::ifftAppliedForce(SpinSystem* ss)
 
 void Dipole::collectIForces(SpinSystem* ss)
 {
-	unsigned int c;
+	int c;
 	int sourceLayer, targetLayer;// !!Source layer, Target Layer
 	int sourceOffset;
 	int targetOffset;
 	int demagOffset;
 	const int nxy = nx*ny;
-	int LL = nz*2-1;
+	//int LL = nz*2-1;
 	
 	complex<double>* sqx = ss->qx;
 	complex<double>* sqy = ss->qy;
