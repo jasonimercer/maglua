@@ -214,7 +214,6 @@ int SpinSystem::getSlot(const char* name)
 
 void SpinSystem::fft()
 {
-	printf("FFT\n");
 	for(int i=0; i<nxyz; i++) rx[i] = x[i];
 	for(int i=0; i<nxyz; i++) ry[i] = y[i];
 	for(int i=0; i<nxyz; i++) rz[i] = z[i];
@@ -423,6 +422,38 @@ int l_ss_getspin(lua_State* L)
 	return 3;
 }
 
+int l_ss_getunitspin(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	
+	int px = lua_tointeger(L, 2) - 1;
+	int py = lua_tointeger(L, 3) - 1;
+	int pz = lua_tointeger(L, 4) - 1;
+	
+	if(!ss->member(px, py, pz))
+		return 0;
+	
+
+	int idx = ss->getidx(px, py, pz);
+
+	if(ss->ms[idx] == 0)
+	{
+		lua_pushnumber(L, 1);
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+		return 3;
+	}
+	
+	double im = 1.0 / ss->ms[idx];
+
+	lua_pushnumber(L, ss->x[idx]*im);
+	lua_pushnumber(L, ss->y[idx]*im);
+	lua_pushnumber(L, ss->z[idx]*im);
+	
+	return 3;
+}
+
 int l_ss_nx(lua_State* L)
 {
 	SpinSystem* ss = checkSpinSystem(L, 1);
@@ -528,6 +559,7 @@ void registerSpinSystem(lua_State* L)
 		{"netMag",       l_ss_netmag},
 		{"setSpin",      l_ss_setspin},
 		{"spin"   ,      l_ss_getspin},
+		{"unitSpin",     l_ss_getunitspin},
 		{"nx",           l_ss_nx},
 		{"ny",           l_ss_ny},
 		{"nz",           l_ss_nz},
