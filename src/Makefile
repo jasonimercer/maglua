@@ -23,7 +23,7 @@ none:
 	@echo "    $(BUILDTYPES)"
 
 mpi:
-	$(MAKE) all CXX="mpic++" BIN=maglua_mpi
+	$(MAKE) all CXX="mpic++ -D_MPI" BIN=maglua_mpi
 
 serial:
 	$(MAKE) all CXX="g++" BIN=maglua
@@ -55,10 +55,12 @@ clena: clean
 
 clean:
 	rm -f *~
-	rm -f maglua maglua_mpi
 	rm -f *.o
 	rm -f info.h
 
-pack: clean
+distclean: clean
+	rm -f maglua maglua_mpi
+
+pack: distclean
 	cd .. && tar -czf maglua-`date +"%Y-%m-%d-%H.%M.%S"`.tar.gz maglua
 	echo "Created archive: `ls ../maglua*-*-*gz | tail -n 1`"
