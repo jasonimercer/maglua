@@ -3,7 +3,7 @@
 #include <iostream>
 #include <math.h>
 #include <strings.h>
-
+ 
 using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
@@ -247,7 +247,7 @@ void SpinSystem::zeroFields()
 	}
 }
 
-bool SpinSystem::member(int px, int py, int pz)
+bool SpinSystem::member(const int px, const int py, const int pz) const
 {
 	if(px < 0 || py < 0 || pz < 0)
 		return false;
@@ -258,7 +258,7 @@ bool SpinSystem::member(int px, int py, int pz)
 	return true;
 }
 
-void  SpinSystem::set(int i, double sx, double sy, double sz)
+void  SpinSystem::set(const int i, double sx, double sy, double sz)
 {
 	x[i] = sx;
 	y[i] = sy;
@@ -268,20 +268,26 @@ void  SpinSystem::set(int i, double sx, double sy, double sz)
 }
 
 
-void SpinSystem::set(int px, int py, int pz, double sx, double sy, double sz)
+void SpinSystem::set(const int px, const int py, const int pz, const double sx, const double sy, const double sz)
 {
-	int i = getidx(px, py, pz);
+	const int i = getidx(px, py, pz);
 	set(i, sx, sy, sz);
+	if(i < 0 || i >= nxyz)
+	{
+		printf("%i %i %i %i\n", i, px, py, pz);
+
+		int* i = 0;
+		*i = 4;
+	}
 }
 
-int  SpinSystem::getidx(int px, int py, int pz)
+int  SpinSystem::getidx(const int px, const int py, const int pz) const
 {
-	px = CLAMP(px, nx);
-	py = CLAMP(py, ny);
-	pz = CLAMP(pz, nz);
+	const int x = CLAMP(px, nx-1);
+	const int y = CLAMP(py, ny-1);
+	const int z = CLAMP(pz, nz-1);
 	
-	return px + py*nx + pz*nx*ny;
-	//return px + nx * (py + ny * pz);
+	return x + y*nx + z*nx*ny;
 }
 
 void SpinSystem::getNetMag(double* v4)

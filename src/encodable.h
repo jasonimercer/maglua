@@ -20,6 +20,7 @@ typedef struct buffer
 #define ENCODE_LLGCART      7
 #define ENCODE_LLGQUAT      8
 #define ENCODE_LLGFAKE      9
+#define ENCODE_LLGALIGN    10
 
 // This is a base class for classes that 
 // can be encoded into and from a char stream,

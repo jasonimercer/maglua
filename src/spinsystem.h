@@ -13,10 +13,10 @@ public:
 	SpinSystem(int nx, int ny, int nz);
 	~SpinSystem();
 	
-	void set(int px, int py, int pz, double x, double y, double z);
-	void set(int idx, double x, double y, double z);
-	int  getidx(int px, int py, int pz);
-	bool member(int px, int py, int pz);
+	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
+	void set(const int idx, double x, const double y, const double z);
+	int  getidx(const int px, const int py, const int pz) const ;
+	bool member(const int px, const int py, const int pz) const ;
 	void sumFields();
 	
 	void zeroFields();

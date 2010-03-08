@@ -7,6 +7,7 @@
 #include "llgcartesian.h"
 #include "llgquat.h"
 #include "llgfake.h"
+#include "llgalign.h"
 #include "spinoperationexchange.h"
 #include "spinoperationthermal.h"
 #include "spinoperationappliedfield.h"
@@ -200,6 +201,14 @@ int _importLuaVariable(lua_State* L, buffer* b)
 				case ENCODE_LLGFAKE:
 				{
 					LLGFake* llg = new LLGFake();
+					llg->decode(b);
+					lua_pushLLG(L, llg);
+				}
+				break;
+								
+				case ENCODE_LLGALIGN:
+				{
+					LLGAlign* llg = new LLGAlign();
 					llg->decode(b);
 					lua_pushLLG(L, llg);
 				}

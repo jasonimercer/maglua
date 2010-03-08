@@ -22,6 +22,8 @@ public:
 	
 	int refcount;
 
+	bool disablePrecession;
+
 	void encode(buffer* b) const;
 	int  decode(buffer* b);
 };

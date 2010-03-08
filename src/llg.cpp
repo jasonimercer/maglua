@@ -2,10 +2,11 @@
 #include "llgcartesian.h"
 #include "llgquat.h"
 #include "llgfake.h"
+#include "llgalign.h"
 #include <string.h>
 
 LLG::LLG(const char* llgtype, int etype)
-	: Encodable(etype), alpha(0.1), dt(0.01), gamma(1.0), type(llgtype), refcount(0)
+	: Encodable(etype), alpha(0.1), dt(0.01), gamma(1.0), type(llgtype), refcount(0), disablePrecession(false)
 {
 
 }
@@ -87,6 +88,10 @@ int l_llg_new(lua_State* L)
 	else if(strcasecmp(lua_tostring(L, 1), "Fake") == 0)
 	{
 		llg = new LLGFake;
+	}
+	else if(strcasecmp(lua_tostring(L, 1), "Align") == 0)
+	{
+		llg = new LLGAlign;
 	}
 	if(!llg)
 	  return luaL_error(L, "Unknown LLG type `%s'", lua_tostring(L, 1));
@@ -187,6 +192,8 @@ int l_llg_gettype(lua_State* L)
 	lua_pushstring(L, llg->type.c_str());
 	return 1;
 }
+
+
 
 int l_llg_gc(lua_State* L)
 {
