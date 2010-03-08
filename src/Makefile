@@ -1,29 +1,34 @@
 OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o mersennetwister.o llgquat.o interpolatingfunction.o convert.o spinoperationdipole.o dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o llgfake.o llgalign.o luampi.o luamigrate.o encodable.o
 
-CFLAGS=-O2 -g
-# CFLAGS=-g
+CFLAGS=-ansi -O2 -g
 
 HOMELIBLUA=$(shell ls $(HOME)/lua-5.1.4/lib/liblua.a 2> /dev/null | wc -l)
 
+BUILDTYPE= none
+BUILDTYPES=mpi serial
+
 ifeq ($(HOMELIBLUA),1)
-	LIBS=-L$(HOME)/lib $(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
+	LIBS+=-L$(HOME)/lib $(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
 	INCLUDEPATH=-I$(HOME)/include -I$(HOME)/lua-5.1.4/include
 else
-	LIBS=-llua5.1 -ldl -lfftw3
+	LIBS+=-llua5.1 -ldl -lfftw3
 endif
 
-ifeq ($(CC),mpicc)
-	CXX=mpic++ -ansi -D_MPI $(CFLAGS)
-	BIN=maglua_mpi
-else
-	CXX=g++ -ansi $(CFLAGS)
-	BIN=maglua
-endif
+CXX=$(CXX) 
 
-all: $(BIN)
+all: $(BUILDTYPE)
+
+none:
+	@echo "Please choose a build type:"
+	@echo "    $(BUILDTYPES)"
 
 mpi:
-	make CC=mpicc
+	$(MAKE) all CXX="mpic++" BIN=maglua_mpi
+
+serial:
+	$(MAKE) all CXX="g++" BIN=maglua
+
+all: $(BIN)
 
 install: $(BIN)
 	mkdir -p $(HOME)/bin
@@ -35,16 +40,16 @@ uninstall:
 	rm -f $(HOME)/bin/maglua_mpi
 
 $(BIN): ${OBJECTS}
-	${CXX} -o ${BIN} ${OBJECTS} ${LIBS}
+	${CXX} $(CFLAGS) -o ${BIN} ${OBJECTS} ${LIBS}
 
 main.o : main.cpp main.h info.h
-	${CXX} ${INCLUDEPATH} -c main.cpp -o main.o
+	${CXX} $(CFLAGS) ${INCLUDEPATH} -c main.cpp -o main.o
 
 %.o : %.cpp %.h
-	${CXX} ${INCLUDEPATH} -c $*.cpp -o $*.o
+	${CXX} $(CFLAGS) ${INCLUDEPATH} -c $*.cpp -o $*.o
 
 info.h: premake.sh
-	./premake.sh "$(CXX)"
+	./premake.sh "$(CXX) $(CFLAGS)"
 
 clena: clean
 
