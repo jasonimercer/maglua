@@ -12,6 +12,7 @@ ifeq ($(HOMELIBLUA),1)
 	INCLUDEPATH=-I$(HOME)/include -I$(HOME)/lua-5.1.4/include
 else
 	LIBS+=-llua5.1 -ldl -lfftw3
+	INCLUDEPATH=-I/usr/include/lua5.1
 endif
 
 CXX=$(CXX) 
@@ -23,10 +24,10 @@ none:
 	@echo "    $(BUILDTYPES)"
 
 mpi:
-	$(MAKE) all CXX="mpic++ -D_MPI" BIN=maglua_mpi
+	$(MAKE) maglua_mpi CXX="mpic++ -D_MPI" BIN=maglua_mpi
 
 serial:
-	$(MAKE) all CXX="g++" BIN=maglua
+	$(MAKE) maglua CXX="g++" BIN=maglua
 
 all: $(BIN)
 
