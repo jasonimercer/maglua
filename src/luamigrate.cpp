@@ -27,8 +27,12 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 	int tablesize;
 	const char* c;
 
+	if(index < 0)
+	{
+		index = lua_gettop(L) + index + 1;
+	}
+
 	encodeInteger(t, b);
-	
 	switch(t)
 	{
 		case LUA_TNIL:
@@ -57,7 +61,6 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 				tablesize++;
 				lua_pop( L, 1 );
 			}
-			lua_pop( L, 1 );
 			
 			encodeInteger(tablesize, b);
 
@@ -68,7 +71,6 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 				_exportLuaVariable(L, -1, b);
 				lua_pop(L, 1);
 			}
-			lua_pop( L, 1 );
 		break;
 		case LUA_TFUNCTION:
 		{

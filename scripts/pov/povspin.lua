@@ -4,7 +4,7 @@ function _lights(tab)
 		s = s .. string.format(
 				"light_source {\n" ..
 				"   <%f,%f,%f>, rgb <1, 1, 1>\n" ..
-				"   fade_distance 10000\n" ..
+				"   fade_distance 100\n" ..
 				"}\n", v[1], v[2], v[3])
 	end
 	return s

@@ -49,15 +49,16 @@ while filename do
 	zmin, zmax = range(spins, 3)
 
 	at = {xmin + 0.5*(xmax-xmin),
-		  ymin + 0.5*(ymax-ymin),
+		  ymin + 0.4*(ymax-ymin),
 		  zmin + 0.5*(zmax-zmin)}
 	
 	print(ymax, ymin)
 
 	local xx, yy, zz = 0.5*(xmax+xmin), 0.5*(ymax+ymin), 0.5*(zmax+zmin)
 
-	loc = {-2*xx, 3*yy, -2*zz}
-	lightpos = {{-8*xx, 8*yy, zz}, {xx, 8*yy, -8*zz}}
+	yy = xx
+	loc = {-1*xx, 2.5*yy, -1*zz}
+	lightpos = {{-8*xx, 4*yy, zz}, {-8*xx, 8*yy, -8*zz}, {xx, 4*yy, -8*zz}}
 
 	pov  = io.open(filename .. ".pov", "w")
 	pov:write( povprefix(loc, at, lightpos) )
