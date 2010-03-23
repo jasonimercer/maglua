@@ -9,7 +9,7 @@
 #define DIPOLE_SLOT       5
 #define NSLOTS            6
 
-#include <omp.h>
+//#include <omp.h>
 #include "luacommon.h"
 #include <string>
 #include "encodable.h"
