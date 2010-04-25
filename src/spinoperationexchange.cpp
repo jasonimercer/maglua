@@ -168,9 +168,6 @@ int l_ex_addpath(lua_State* L)
 	Exchange* ex = checkExchange(L, 1);
 	if(!ex) return 0;
 
-	if(lua_gettop(L) != 7 && lua_gettop(L) != 8)
-		return luaL_error(L, "addPath(s1x, s1y, s1z, s2x, s2y, s2z, strength)");
-
 	int r1, r2;
 	int a[3];
 	int b[3];
