@@ -14,7 +14,6 @@
 #include "spinoperationdipole.h"
 #include "mersennetwister.h"
 #include "spinoperationthermal.h"
-#include "convert.h"
 #include "interpolatingfunction.h"
 #include "interpolatingfunction2d.h"
 #include "luampi.h"

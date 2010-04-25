@@ -1,4 +1,8 @@
-OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o mersennetwister.o llgquat.o interpolatingfunction.o convert.o spinoperationdipole.o dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o llgfake.o llgalign.o luampi.o luamigrate.o encodable.o
+OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o \
+	llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o \
+	mersennetwister.o llgquat.o interpolatingfunction.o spinoperationdipole.o \
+	dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o \
+	llgfake.o llgalign.o luampi.o luamigrate.o encodable.o
 
 CFLAGS=-ansi -O2 -g
 

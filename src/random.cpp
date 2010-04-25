@@ -69,10 +69,10 @@ double RNG::randNorm( const double mean, const double stddev )
 		gaussPair[0] = sq * v1;
 		gaussPair[1] = sq * v2;
 
-		__gaussStep = 0;
+		__gaussStep = FALSE;
 		return mean + gaussPair[0] * stddev;
 	}
-	__gaussStep++;
+	__gaussStep = TRUE;
 	return mean + gaussPair[1] * stddev;
 
 }

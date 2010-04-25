@@ -1,5 +1,11 @@
 #!/bin/bash
 
+#
+# This script takes information about the current
+# version, compiler and compiler options and adds
+# them to a header filr
+#
+
 REVISION=`svn info | grep Revision | sed s/\:/\:\ \ \ \ /`
 AUTHOR=`svn info | grep Author:`
 DATE=`svn info | grep Date: | sed s/Date\:/Date\:\ \ /`

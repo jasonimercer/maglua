@@ -12,7 +12,6 @@ void registerLibs(lua_State* L)
 	registerDipole(L);
 	registerRandom(L);
 	registerThermal(L);
-	registerConvert(L);
 	registerInterpolatingFunction(L);
 	registerInterpolatingFunction2D(L);
 #ifdef _MPI

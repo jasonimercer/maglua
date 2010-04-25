@@ -105,6 +105,8 @@ void SpinSystem::init()
 				reinterpret_cast<fftw_complex*>(rx),
 				reinterpret_cast<fftw_complex*>(qx),
 				FFTW_FORWARD, FFTW_PATIENT);
+				
+	fft_time = time - 1.0;
 }
 
 //   void encodeBuffer(const void* s, int len, buffer* b);
@@ -120,6 +122,8 @@ void SpinSystem::encode(buffer* b) const
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
 
+	encodeDouble(time, b);
+	
 	for(int i=0; i<nxyz; i++)
 	{
 		encodeDouble(x[i], b);
@@ -151,6 +155,7 @@ int  SpinSystem::decode(buffer* b)
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
+	time = decodeDouble(b);
 	init();
 
 	for(int i=0; i<nxyz; i++)
@@ -231,6 +236,7 @@ void SpinSystem::fft()
 			reinterpret_cast<fftw_complex*>(&qz[k*nx*ny]));
 	}
 
+	fft_time = time;
 }
 
 
@@ -554,7 +560,49 @@ int l_ss_getfield(lua_State* L)
 	return 3;
 }
 
-
+int l_ss_getinversespin(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	
+	if(ss->time != ss->fft_time)
+		ss->fft();
+	
+	int px = lua_tointeger(L, 2) - 1;
+	int py = lua_tointeger(L, 3) - 1;
+	int pz = lua_tointeger(L, 4) - 1;
+	
+	if(!ss->member(px, py, pz))
+		return luaL_error(L, "(%d %d %d) is not a member of the system", px+1, py+1, pz+1);
+	
+	int idx = ss->getidx(px, py, pz);
+	
+	lua_newtable(L);
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, real(ss->qx[idx]));
+	lua_settable(L, -3);
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, imag(ss->qx[idx]));
+	lua_settable(L, -3);
+	
+	lua_newtable(L);
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, real(ss->qy[idx]));
+	lua_settable(L, -3);
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, imag(ss->qy[idx]));
+	lua_settable(L, -3);
+	
+	lua_newtable(L);
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, real(ss->qz[idx]));
+	lua_settable(L, -3);
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, imag(ss->qz[idx]));
+	lua_settable(L, -3);
+	
+	return 3;
+}
 
 
 void registerSpinSystem(lua_State* L)
@@ -574,6 +622,7 @@ void registerSpinSystem(lua_State* L)
 		{"setTime",      l_ss_settime},
 		{"time",         l_ss_gettime},
 		{"getField",     l_ss_getfield},
+		{"inverseSpin",  l_ss_getinversespin},
 		{NULL, NULL}
 	};
 		

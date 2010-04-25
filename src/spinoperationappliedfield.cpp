@@ -41,6 +41,8 @@ bool AppliedField::apply(SpinSystem* ss)
 		hx[i] = B[0];
 		hy[i] = B[1];
 		hz[i] = B[2];
+		
+		//printf("%g %g %g\n", hx[i], hy[i], hz[i]);
 	}
 	return true;
 }

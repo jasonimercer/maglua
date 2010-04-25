@@ -46,6 +46,7 @@ public:
 	int nslots;
 
 	double time;
+	double fft_time; //this is the time of the last fft
 	
 	void fft();
 	

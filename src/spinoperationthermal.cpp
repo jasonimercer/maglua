@@ -79,7 +79,6 @@ bool Thermal::apply(LLG* llg, RNG* rand, SpinSystem* ss)
 			hy[i] = 0;
 			hz[i] = 0;
 		}
-
 	}
 	return true;
 }
