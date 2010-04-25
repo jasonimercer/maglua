@@ -84,7 +84,7 @@ int lua_getNint(lua_State* L, int N, int* vec, int pos, int def)
 	return N;
 }
 
-int lua_getnewargs(lua_State* L, int* vec3, int pos)
+int lua_getnewargs(lua_State* L, int* vec, int pos)
 {
 	if(lua_istable(L, pos))
 	{

@@ -270,7 +270,6 @@ void lua_pushDipole(lua_State* L, Dipole* dip)
 	*pp = dip;
 	luaL_getmetatable(L, "MERCER.dipole");
 	lua_setmetatable(L, -2);
-	return 1;
 }
 
 int l_dip_new(lua_State* L)
