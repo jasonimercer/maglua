@@ -73,16 +73,10 @@ void lua_pushAppliedField(lua_State* L, AppliedField* ap)
 
 int l_ap_new(lua_State* L)
 {
-	if(lua_gettop(L) != 3)
-		return luaL_error(L, "AppliedField.new requires nx, ny, nz");
+	int n[3];
+	lua_getnewargs(L, n, 1);
 
-	AppliedField* ap = new AppliedField(
-			lua_tointeger(L, 1),
-			lua_tointeger(L, 2),
-			lua_tointeger(L, 3)
-	);
-
-	lua_pushAppliedField(L, ap);
+	lua_pushAppliedField(L, new AppliedField(n[0], n[1], n[2]));
 	
 	return 1;
 }

@@ -114,16 +114,10 @@ void lua_pushThermal(lua_State* L, Thermal* th)
 
 int l_thermal_new(lua_State* L)
 {
-	if(lua_gettop(L) != 3)
-		return luaL_error(L, "Thermal.new requires nx, ny, nz");
+	int n[3];
+	lua_getnewargs(L, n, 1);
 
-	Thermal* th = new Thermal(
-			lua_tointeger(L, 1),
-			lua_tointeger(L, 2),
-			lua_tointeger(L, 3)
-	);
-
-	lua_pushThermal(L, th);
+	lua_pushThermal(L, new Thermal(n[0], n[1], n[2]));
 	return 1;
 }
 

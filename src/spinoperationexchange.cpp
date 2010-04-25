@@ -133,17 +133,10 @@ void lua_pushExchange(lua_State* L, Exchange* ex)
 
 int l_ex_new(lua_State* L)
 {
-	if(lua_gettop(L) != 3)
-		return luaL_error(L, "Exchange.new requires nx, ny, nz");
+	int n[3];
+	lua_getnewargs(L, n, 1);
 
-	Exchange* ex = new Exchange(
-			lua_tointeger(L, 1),
-			lua_tointeger(L, 2),
-			lua_tointeger(L, 3)
-	);
-	
-	lua_pushExchange(L, ex);
-	
+	lua_pushExchange(L, new Exchange(n[0], n[1], n[2]));
 	return 1;
 }
 

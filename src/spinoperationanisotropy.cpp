@@ -125,14 +125,12 @@ void lua_pushAnisotropy(lua_State* L, Anisotropy* ani)
 
 int l_ani_new(lua_State* L)
 {
-	if(lua_gettop(L) != 3)
-		return luaL_error(L, "Anisotropy.new requires nx, ny, nz");
+	int n[3];
+	lua_getnewargs(L, n, 1);
 
 	Anisotropy* ani = new Anisotropy(
-			lua_tointeger(L, 1),
-			lua_tointeger(L, 2),
-			lua_tointeger(L, 3)
-	);
+			n[0], n[1], n[2]);
+			
 	lua_pushAnisotropy(L, ani);
 	return 1;
 }

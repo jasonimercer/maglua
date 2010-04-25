@@ -262,29 +262,23 @@ Dipole* checkDipole(lua_State* L, int idx)
     return *pp;
 }
 
-
-int l_dip_new(lua_State* L)
+void lua_pushDipole(lua_State* L, Dipole* dip)
 {
-	if(lua_gettop(L) != 3)
-		return luaL_error(L, "Dipole.new requires nx, ny, nz");
-
-	Dipole* dip = new Dipole(
-			lua_tointeger(L, 1),
-			lua_tointeger(L, 2),
-			lua_tointeger(L, 3)
-	);
 	dip->refcount++;
-	
-	if(lua_isnumber(L, 4))
-	{
-		dip->g = lua_tonumber(L, 4);
-	}
-
 	Dipole** pp = (Dipole**)lua_newuserdata(L, sizeof(Dipole**));
 	
 	*pp = dip;
 	luaL_getmetatable(L, "MERCER.dipole");
 	lua_setmetatable(L, -2);
+	return 1;
+}
+
+int l_dip_new(lua_State* L)
+{
+	int n[3];
+	lua_getnewargs(L, n, 1);
+
+	lua_pushDipole(L, new Dipole(n[0], n[1], n[2]));
 	return 1;
 }
 

@@ -57,6 +57,7 @@ public:
 	fftw_plan backward;
 };
 
+void lua_pushDipole(lua_State* L, Dipole* d);
 Dipole* checkDipole(lua_State* L, int idx);
 void registerDipole(lua_State* L);
 

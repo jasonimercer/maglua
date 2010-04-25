@@ -84,6 +84,45 @@ int lua_getNint(lua_State* L, int N, int* vec, int pos, int def)
 	return N;
 }
 
+int lua_getnewargs(lua_State* L, int* vec3, int pos)
+{
+	if(lua_istable(L, pos))
+	{
+		for(int i=0; i<3; i++)
+		{
+			lua_pushinteger(L, i+1);
+			lua_gettable(L, pos);
+			if(lua_isnil(L, -1))
+			{
+				vec[i] = 1;
+			}
+			else
+			{
+				vec[i] = lua_tonumber(L, -1);
+			}
+			lua_pop(L, 1);
+		}
+		return 1;
+	}
+
+	vec[0] = 1;
+	vec[1] = 1;
+	vec[2] = 1;
+
+	for(int i=0; i<3; i++)
+	{
+		if(lua_isnumber(L, pos+i))
+		{
+			vec[i] = lua_tonumber(L, pos+i);
+		}
+		else
+			return 3;
+	}
+	
+	return 3;
+}
+
+
 int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def)
 {
 	if(lua_istable(L, pos))
