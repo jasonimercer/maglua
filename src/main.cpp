@@ -27,9 +27,9 @@ void lua_addargs(lua_State* L, int argc, char** argv)
 	lua_setglobal(L, "argv");
 	
 	lua_newtable(L);
-	for(int i=0; i<argc; i++)
+	for(int i=2; i<argc; i++)
 	{
-		lua_pushinteger(L, i+1);
+		lua_pushinteger(L, i-1);
 		lua_pushstring(L, argv[i]);
 		lua_settable(L, -3);
 	}
