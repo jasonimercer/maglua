@@ -7,7 +7,7 @@
 using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
-SpinSystem::SpinSystem(int NX, int NY, int NZ)
+SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 	: Encodable(ENCODE_SPINSYSTEM), x(0), y(0), z(0), 
 		ms(0), nx(NX), ny(NY), nz(NZ), refcount(0),
 		nslots(NSLOTS), time(0)
@@ -347,10 +347,24 @@ void lua_pushSpinSystem(lua_State* L, SpinSystem* ss)
 int l_ss_new(lua_State* L)
 {
 	int nx, ny, nz;
+	int n[3];
+	int r = lua_getNint(L, 3, n, 1, 1);
 	
-	nx = lua_tointeger(L, 1);
-	ny = lua_tointeger(L, 2);
-	nz = lua_tointeger(L, 3);
+	if(r < 0)
+	{
+		//fill out with ones
+		for(int i=0; i<3; i++)
+		{
+			if(lua_isnumber(L, i+1))
+				n[i] = lua_tonumber(L, i+1);
+			else
+				n[i] = 1.0;
+		}
+	}
+	
+	nx = n[0];
+	ny = n[1];
+	nz = n[2];
 
 	if(lua_gettop(L) < 3 || nx < 1 || ny < 1 || nz < 1)
 	{
@@ -400,13 +414,25 @@ int l_ss_setspin(lua_State* L)
 	SpinSystem* ss = checkSpinSystem(L, 1);
 	if(!ss) return 0;
 	
-	int px = lua_tointeger(L, 2) - 1;
-	int py = lua_tointeger(L, 3) - 1;
-	int pz = lua_tointeger(L, 4) - 1;
+	int r;
+	int site[3];
+	double spin[3];
 	
-	double sx = lua_tonumber(L, 5);
-	double sy = lua_tonumber(L, 6);
-	double sz = lua_tonumber(L, 7);
+	r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	r = lua_getNdouble(L, 3, spin, 2+r, 0);
+	if(r < 0)
+		return luaL_error(L, "invalid spin");
+	
+	int px = site[0] - 1;
+	int py = site[1] - 1;
+	int pz = site[2] - 1;
+	
+	double sx = spin[0];
+	double sy = spin[1];
+	double sz = spin[2];
 	
 	ss->set(px, py, pz, sx, sy, sz);
 	
@@ -417,10 +443,16 @@ int l_ss_getspin(lua_State* L)
 {
 	SpinSystem* ss = checkSpinSystem(L, 1);
 	if(!ss) return 0;
+
+	int site[3];
 	
-	int px = lua_tointeger(L, 2) - 1;
-	int py = lua_tointeger(L, 3) - 1;
-	int pz = lua_tointeger(L, 4) - 1;
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	int px = site[0] - 1;
+	int py = site[1] - 1;
+	int pz = site[2] - 1;
 	
 	if(!ss->member(px, py, pz))
 		return 0;
@@ -439,9 +471,16 @@ int l_ss_getunitspin(lua_State* L)
 	SpinSystem* ss = checkSpinSystem(L, 1);
 	if(!ss) return 0;
 	
-	int px = lua_tointeger(L, 2) - 1;
-	int py = lua_tointeger(L, 3) - 1;
-	int pz = lua_tointeger(L, 4) - 1;
+	int site[3];
+	
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	int px = site[0] - 1;
+	int py = site[1] - 1;
+	int pz = site[2] - 1;
+	
 	
 	if(!ss->member(px, py, pz))
 		return 0;
@@ -542,10 +581,16 @@ int l_ss_getfield(lua_State* L)
 	if(!ss) return 0;
 
 	const char* name = lua_tostring(L, 2);
-	const int x = lua_tointeger(L, 3) - 1;
-	const int y = lua_tointeger(L, 4) - 1;
-	const int z = lua_tointeger(L, 5) - 1;
 
+	int site[3];
+	int r = lua_getNint(L, 3, site, 3, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	const int x = site[0] - 1;
+	const int y = site[1] - 1;
+	const int z = site[2] - 1;
+	
 	int idx = ss->getidx(x, y, z);
 	int slot = ss->getSlot(name);
 
@@ -567,10 +612,15 @@ int l_ss_getinversespin(lua_State* L)
 	
 	if(ss->time != ss->fft_time)
 		ss->fft();
+
+	int site[3];
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
 	
-	int px = lua_tointeger(L, 2) - 1;
-	int py = lua_tointeger(L, 3) - 1;
-	int pz = lua_tointeger(L, 4) - 1;
+	const int px = site[0] - 1;
+	const int py = site[1] - 1;
+	const int pz = site[2] - 1;
 	
 	if(!ss->member(px, py, pz))
 		return luaL_error(L, "(%d %d %d) is not a member of the system", px+1, py+1, pz+1);

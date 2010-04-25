@@ -47,3 +47,74 @@ int  SpinOperation::getidx(int px, int py, int pz)
 	
 	return px + nx * (py + ny * pz);
 }
+
+
+
+int lua_getNint(lua_State* L, int N, int* vec, int pos, int def)
+{
+	if(lua_istable(L, pos))
+	{
+		for(int i=0; i<N; i++)
+		{
+			lua_pushinteger(L, i+1);
+			lua_gettable(L, pos);
+			if(lua_isnil(L, -1))
+			{
+				vec[i] = def;
+			}
+			else
+			{
+				vec[i] = lua_tointeger(L, -1);
+			}
+			lua_pop(L, 1);
+		}
+		return 1;
+	}
+	
+	for(int i=0; i<N; i++)
+	{
+		if(lua_isnumber(L, pos+i))
+		{
+			vec[i] = lua_tointeger(L, pos+i);
+		}
+		else
+			return -1;
+	}
+	
+	return N;
+}
+
+int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def)
+{
+	if(lua_istable(L, pos))
+	{
+		for(int i=0; i<N; i++)
+		{
+			lua_pushinteger(L, i+1);
+			lua_gettable(L, pos);
+			if(lua_isnil(L, -1))
+			{
+				vec[i] = def;
+			}
+			else
+			{
+				vec[i] = lua_tonumber(L, -1);
+			}
+			lua_pop(L, 1);
+		}
+		return 1;
+	}
+	
+	for(int i=0; i<N; i++)
+	{
+		if(lua_isnumber(L, pos+i))
+		{
+			vec[i] = lua_tonumber(L, pos+i);
+		}
+		else
+			return -1;
+	}
+	
+	return N;
+}
+

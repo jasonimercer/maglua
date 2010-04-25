@@ -182,34 +182,45 @@ int l_ani_set(lua_State* L)
 	Anisotropy* ani = checkAnisotropy(L, 1);
 	if(!ani) return 0;
 
-	int px = lua_tointeger(L, 2) - 1;
-	int py = lua_tointeger(L, 3) - 1;
-	int pz = lua_tointeger(L, 4) - 1;
-
-	if(!ani->member(px, py, pz))
+	int p[3];
+	
+	int r1 = lua_getNint(L, 3, p, 2, 1);
+	
+	if(r1<0)
+		return luaL_error(L, "invalid site format");
+	
+	if(!ani->member(p[0]-1, p[1]-1, p[2]-1))
 		return luaL_error(L, "site is not part of system");
 
-	int idx = ani->getidx(px, py, pz);
+	int idx = ani->getidx(p[0]-1, p[1]-1, p[2]-1);
 
-	ani->ax[idx] = lua_tonumber(L, 5);
-	ani->ay[idx] = lua_tonumber(L, 6);
-	ani->az[idx] = lua_tonumber(L, 7);
+	double a[3];	
+	int r2 = lua_getNdouble(L, 3, a, 2+r1, 0);
+	if(r2<0)
+		return luaL_error(L, "invalid anisotropy direction");
+		
+	ani->ax[idx] = a[0];
+	ani->ay[idx] = a[1];
+	ani->az[idx] = a[2];
 
 	/* anisotropy axis is a unit vector */
-	const double a = 
+	const double lena = 
 		ani->ax[idx]*ani->ax[idx] +
 		ani->ay[idx]*ani->ay[idx] +
 		ani->az[idx]*ani->az[idx];
 	
-	if(a > 0)
+	if(lena > 0)
 	{
-		ani->ax[idx] /= sqrt(a);
-		ani->ay[idx] /= sqrt(a);
-		ani->az[idx] /= sqrt(a);
+		ani->ax[idx] /= sqrt(lena);
+		ani->ay[idx] /= sqrt(lena);
+		ani->az[idx] /= sqrt(lena);
 	}
 	// else leave it as zero
 
-	ani->strength[idx] = lua_tonumber(L, 8);
+	if(lua_isnumber(L, 2+r1+r2))
+		ani->strength[idx] = lua_tonumber(L, 2+r1+r2);
+	else
+		return luaL_error(L, "anisotropy needs strength");
 
 	return 0;
 }

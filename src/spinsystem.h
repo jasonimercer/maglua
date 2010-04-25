@@ -10,7 +10,7 @@ using namespace std;
 class SpinSystem : public Encodable
 {
 public:
-	SpinSystem(int nx, int ny, int nz);
+	SpinSystem(const int nx, const int ny, const int nz);
 	~SpinSystem();
 	
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);

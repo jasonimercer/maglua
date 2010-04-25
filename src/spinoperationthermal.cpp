@@ -163,11 +163,18 @@ int l_thermal_scalesite(lua_State* L)
 	Thermal* th = checkThermal(L, 1);
 	if(!th) return 0;
 
+	int s[3];
+	int r = lua_getNint(L, 3, s, 2, 1);
+	if(r<0)
+		return luaL_error(L, "invalid site");
+	
+	double v = lua_tonumber(L, 2+r);
+	
 	th->scaleSite(
-		lua_tointeger(L, 2),
-		lua_tointeger(L, 3),
-		lua_tointeger(L, 4),
-		lua_tonumber(L, 5));
+		s[0] - 1,
+		s[1] - 1,
+		s[2] - 1,
+		v);
 
 	return 0;
 }

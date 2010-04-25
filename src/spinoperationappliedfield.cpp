@@ -132,9 +132,14 @@ int l_ap_set(lua_State* L)
 	AppliedField* ap = checkAppliedField(L, 1);
 	if(!ap) return 0;
 
-	ap->B[0] = lua_tonumber(L, 2);
-	ap->B[1] = lua_tonumber(L, 3);
-	ap->B[2] = lua_tonumber(L, 4);
+	double a[3];
+	int r = lua_getNdouble(L, 3, a, 2, 0);
+	if(r<0)
+		return luaL_error(L, "invalid field");
+	
+	ap->B[0] = a[0];
+	ap->B[1] = a[1];
+	ap->B[2] = a[2];
 
 	return 0;
 }

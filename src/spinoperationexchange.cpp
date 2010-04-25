@@ -178,15 +178,27 @@ int l_ex_addpath(lua_State* L)
 	if(lua_gettop(L) != 7 && lua_gettop(L) != 8)
 		return luaL_error(L, "addPath(s1x, s1y, s1z, s2x, s2y, s2z, strength)");
 
-	int s1x = lua_tointeger(L, 2)-1;
-	int s1y = lua_tointeger(L, 3)-1;
-	int s1z = lua_tointeger(L, 4)-1;
-
-	int s2x = lua_tointeger(L, 5)-1;
-	int s2y = lua_tointeger(L, 6)-1;
-	int s2z = lua_tointeger(L, 7)-1;
+	int r1, r2;
+	int a[3];
+	int b[3];
 	
-	double strength = lua_isnumber(L, 8)?lua_tonumber(L, 8):1.0;
+	r1 = lua_getNint(L, 3, a, 2,    1);
+	if(r1<0)	return luaL_error(L, "invalid site");
+	
+	r2 = lua_getNint(L, 3, b, 2+r1, 1);
+	if(r2<0)	return luaL_error(L, "invalid site");
+	
+
+	int s1x = a[0]-1;
+	int s1y = a[1]-1;
+	int s1z = a[2]-1;
+
+	int s2x = b[0]-1;
+	int s2y = b[1]-1;
+	int s2z = b[2]-1;
+	
+	printf("%i\n", 2+r1+r2);
+	double strength = lua_isnumber(L, 2+r1+r2)?lua_tonumber(L, 2+r1+r2):1.0;
 	int s1 = ex->getSite(s1x, s1y, s1z);
 	int s2 = ex->getSite(s2x, s2y, s2z);
 
