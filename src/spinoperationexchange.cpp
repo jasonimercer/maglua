@@ -187,7 +187,6 @@ int l_ex_addpath(lua_State* L)
 	int s2y = b[1]-1;
 	int s2z = b[2]-1;
 	
-	printf("%i\n", 2+r1+r2);
 	double strength = lua_isnumber(L, 2+r1+r2)?lua_tonumber(L, 2+r1+r2):1.0;
 	int s1 = ex->getSite(s1x, s1y, s1z);
 	int s2 = ex->getSite(s2x, s2y, s2z);
