@@ -20,8 +20,6 @@ else
 	INCLUDEPATH=-I/usr/include/lua5.1
 endif
 
-CXX=$(CXX)
-
 all: $(BUILDTYPE)
 
 none:
