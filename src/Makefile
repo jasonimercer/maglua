@@ -1,3 +1,4 @@
+# SVN is a keyword in this Makefile that is searched for in pack:
 OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o \
 	llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o \
 	mersennetwister.o llgquat.o interpolatingfunction.o spinoperationdipole.o \
@@ -19,7 +20,7 @@ else
 	INCLUDEPATH=-I/usr/include/lua5.1
 endif
 
-CXX=$(CXX) 
+CXX=$(CXX)
 
 all: $(BUILDTYPE)
 
@@ -53,19 +54,24 @@ main.o : main.cpp main.h info.h
 %.o : %.cpp %.h
 	${CXX} $(CFLAGS) ${INCLUDEPATH} -c $*.cpp -o $*.o
 
-info.h: premake.sh
-	./premake.sh "$(CXX) $(CFLAGS)"
-
+info.h: premake.sh                       # working SVN required
+	./premake.sh "$(CXX) $(CFLAGS)"  # working SVN required
+                                         # working SVN required
 clena: clean
 
 clean:
 	rm -f *~
 	rm -f *.o
-	rm -f info.h
+	rm -f info.h # working SVN needed to rebuild
 
 distclean: clean
 	rm -f maglua maglua_mpi
 
-pack: distclean
-	cd .. && tar -czf maglua-`date +"%Y-%m-%d-%H.%M.%S"`.tar.gz maglua
-	echo "Created archive: `ls ../maglua*-*-*gz | tail -n 1`"
+pack:   info.h
+	echo maglua-r`cat info.h | grep Revision | sed -e 's/.*\s\([0-9]\{1,\}\).*/\1/'` > rev
+	rm -rf `cat rev`
+	mkdir `cat rev`
+	cp *.cpp *.h `cat rev`
+	cat Makefile | grep -v SVN > `cat rev`/Makefile
+	tar -czf `cat rev`.tar.gz `cat rev`
+	echo "Created archive: `cat rev`.tar.gz"
