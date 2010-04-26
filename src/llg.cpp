@@ -134,6 +134,7 @@ int l_llg_apply(lua_State* L)
 			return 0;
 	
 		llg->apply(spinfrom, fieldfrom, spinto);
+		return 0;
 	}
 	luaL_error(L, "apply requires 1 or 3 spin systems");
 

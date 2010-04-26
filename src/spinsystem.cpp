@@ -3,7 +3,8 @@
 #include <iostream>
 #include <math.h>
 #include <strings.h>
- 
+#include <string.h>
+
 using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
@@ -200,6 +201,21 @@ void SpinSystem::sumFields()
 	}
 }
 
+bool SpinSystem::addFields(double mult, SpinSystem* addThis)
+{
+	if(nx != addThis->nx) return false;
+	if(ny != addThis->ny) return false;
+	if(nz != addThis->nz) return false;
+	
+	for(int j=0; j<nxyz; j++)
+	{
+		hx[SUM_SLOT][j] += mult * addThis->hx[SUM_SLOT][j];
+		hy[SUM_SLOT][j] += mult * addThis->hy[SUM_SLOT][j];
+		hz[SUM_SLOT][j] += mult * addThis->hz[SUM_SLOT][j];
+	}
+	return true;
+}
+
 int SpinSystem::getSlot(const char* name)
 {
 	if(strcasecmp(name, "exchange") == 0)
@@ -310,6 +326,24 @@ void SpinSystem::getNetMag(double* v4)
 	v4[3] = sqrt(v4[0]*v4[0] + v4[1]*v4[1] + v4[2]*v4[2]);
 }
 
+bool SpinSystem::copy(SpinSystem* src)
+{
+	if(nx != src->nx) return false;
+	if(ny != src->ny) return false;
+	if(nz != src->nz) return false;
+	
+	memcpy(hx[SUM_SLOT], src->hx[SUM_SLOT], nxyz * sizeof(double));
+	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
+	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
+	
+	memcpy(x, src->x, nxyz * sizeof(double));
+	memcpy(y, src->y, nxyz * sizeof(double));
+	memcpy(z, src->z, nxyz * sizeof(double));
+	
+	fft_time = time - 1.0;
+	
+	return true;
+}
 
 
 
@@ -366,11 +400,6 @@ int l_ss_new(lua_State* L)
 	ny = n[1];
 	nz = n[2];
 
-	if(lua_gettop(L) < 3 || nx < 1 || ny < 1 || nz < 1)
-	{
-		return luaL_error(L, "SpinSystem.new requires positive nx, ny and nz");
-	}
-	
 	lua_pushSpinSystem(L, new SpinSystem(nx, ny, nz));
 	
 	return 1;
@@ -605,6 +634,46 @@ int l_ss_getfield(lua_State* L)
 	return 3;
 }
 
+int l_ss_addfields(lua_State* L)
+{
+	SpinSystem* dest = checkSpinSystem(L, 1);
+	if(!dest) return 0;
+	
+	SpinSystem* src = 0;
+	double mult;
+	
+	if(lua_isnumber(L, 2))
+	{
+		mult = lua_tonumber(L, 2);
+		src  = checkSpinSystem(L, 3);
+	}
+	else
+	{
+		mult = 1.0;
+		src  = checkSpinSystem(L, 2);
+	}
+	if(!src) return 0;
+	
+	if(!dest->addFields(mult, src))
+		return luaL_error(L, "Failed to sum fields");
+	
+	return 0;
+}
+
+int l_ss_copy(lua_State* L)
+{
+	SpinSystem* dest = checkSpinSystem(L, 1);
+	if(!dest) return 0;
+	
+	SpinSystem* src = checkSpinSystem(L, 2);
+	if(!src) return 0;
+	
+	if(!dest->copy(src))
+		return luaL_error(L, "Failed to copy");
+	
+	return 0;
+}
+
 int l_ss_getinversespin(lua_State* L)
 {
 	SpinSystem* ss = checkSpinSystem(L, 1);
@@ -673,6 +742,8 @@ void registerSpinSystem(lua_State* L)
 		{"time",         l_ss_gettime},
 		{"getField",     l_ss_getfield},
 		{"inverseSpin",  l_ss_getinversespin},
+		{"addFields",    l_ss_addfields},
+		{"copy",         l_ss_copy},
 		{NULL, NULL}
 	};
 		

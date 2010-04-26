@@ -20,7 +20,9 @@ public:
 	void sumFields();
 	
 	void zeroFields();
-
+	bool addFields(double mult, SpinSystem* addThis);
+	bool copy(SpinSystem* src);
+	
 	int getSlot(const char* name);
 
 	void getNetMag(double* v4);
