@@ -71,5 +71,4 @@ SpinSystem* checkSpinSystem(lua_State* L, int idx);
 void lua_pushSpinSystem(lua_State* L, SpinSystem* ss);
 void registerSpinSystem(lua_State* L);
 
-
 #endif

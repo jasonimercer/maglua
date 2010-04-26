@@ -477,7 +477,21 @@ int l_ss_getspin(lua_State* L)
 	
 	int r = lua_getNint(L, 3, site, 2, 1);
 	if(r < 0)
-		return luaL_error(L, "invalid site");
+	{
+		//try again
+		site[0] = 1;
+		site[1] = 1;
+		site[2] = 1;
+		
+		for(int i=0; i<3; i++)
+		{
+			if(lua_isnumber(L, i+2))
+				site[i] = lua_tonumber(L, i+2);
+			else
+				break;
+		}
+		
+	}
 	
 	int px = site[0] - 1;
 	int py = site[1] - 1;
