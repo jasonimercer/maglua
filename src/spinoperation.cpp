@@ -98,7 +98,7 @@ int lua_getnewargs(lua_State* L, int* vec, int pos)
 			}
 			else
 			{
-				vec[i] = lua_tonumber(L, -1);
+				vec[i] = lua_tointeger(L, -1);
 			}
 			lua_pop(L, 1);
 		}
@@ -113,7 +113,7 @@ int lua_getnewargs(lua_State* L, int* vec, int pos)
 	{
 		if(lua_isnumber(L, pos+i))
 		{
-			vec[i] = lua_tonumber(L, pos+i);
+			vec[i] = lua_tointeger(L, pos+i);
 		}
 		else
 			return 3;

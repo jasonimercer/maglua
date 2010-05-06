@@ -36,8 +36,8 @@ all: $(BIN)
 
 install: $(BIN)
 	mkdir -p $(HOME)/bin
-	cp $(BIN) $(HOME)/bin
-	cp maglua_mpi $(HOME)/bin 2> /dev/null
+	cp -f maglua $(HOME)/bin
+	cp -f maglua_mpi $(HOME)/bin
 
 uninstall:
 	rm -f $(HOME)/bin/$(BIN)

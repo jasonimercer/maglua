@@ -390,9 +390,9 @@ int l_ss_new(lua_State* L)
 		for(int i=0; i<3; i++)
 		{
 			if(lua_isnumber(L, i+1))
-				n[i] = lua_tonumber(L, i+1);
+				n[i] = lua_tointeger(L, i+1);
 			else
-				n[i] = 1.0;
+				n[i] = 1;
 		}
 	}
 	
@@ -486,7 +486,7 @@ int l_ss_getspin(lua_State* L)
 		for(int i=0; i<3; i++)
 		{
 			if(lua_isnumber(L, i+2))
-				site[i] = lua_tonumber(L, i+2);
+				site[i] = lua_tointeger(L, i+2);
 			else
 				break;
 		}
