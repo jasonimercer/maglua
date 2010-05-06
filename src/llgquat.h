@@ -11,7 +11,7 @@ class LLGQuaternion : public LLG
 public:
 	LLGQuaternion();
 
-	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto);
+	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 };
 
 #endif

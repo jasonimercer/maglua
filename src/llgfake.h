@@ -12,7 +12,7 @@ class LLGFake : public LLG
 public:
 	LLGFake();
 
-	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto);
+	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 };
 
 #endif

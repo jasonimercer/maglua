@@ -68,7 +68,7 @@ LLGQuaternion::LLGQuaternion()
 	v[1] = a[2] * b[0] - a[0] * b[2]; \
 	v[2] = a[0] * b[1] - a[1] * b[0];
 
-bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto)
+bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
 	const double* sx = spinfrom->x;
 	const double* sy = spinfrom->y;
@@ -157,7 +157,8 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 		}
 	}
 
-	spinto->time = spinfrom->time + dt;
+	if(advancetime)
+		spinto->time = spinfrom->time + dt;
 
 	return true;
 }

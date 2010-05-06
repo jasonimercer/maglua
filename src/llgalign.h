@@ -12,7 +12,7 @@ class LLGAlign : public LLG
 public:
 	LLGAlign();
 
-	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto);
+	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 };
 
 #endif

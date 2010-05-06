@@ -12,7 +12,7 @@ class LLGCartesian : public LLG
 public:
 	LLGCartesian();
 
-	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto);
+	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 };
 
 #endif

@@ -110,49 +110,47 @@ int l_llg_apply(lua_State* L)
 	if(lua_isboolean(L, -1))
 		if(lua_toboolean(L, -1) == 0)
 			advanceTime = false;
-		if(lua_gettop(L) >= 2)
+	if(lua_gettop(L) >= 2)
+	{
+		if(lua_gettop(L) <= 3)
 		{
-			if(lua_gettop(L) <= 3)
-			{
-				LLG* llg = checkLLG(L, 1);
-				SpinSystem* ss  = checkSpinSystem(L, 2);
-				
-				if(!llg)
-					return 0;
-				
-				if(!ss)
-					return 0;
-				
-				llg->apply(ss, ss, ss);
-				if(!advanceTime)
-					ss->time -= llg->dt;
-				
+			LLG* llg = checkLLG(L, 1);
+			SpinSystem* ss  = checkSpinSystem(L, 2);
+			
+			if(!llg)
 				return 0;
-			}
-			if(lua_gettop(L) <= 5)
-			{
-				LLG* llg = checkLLG(L, 1);
-				SpinSystem* spinfrom  = checkSpinSystem(L, 2);
-				SpinSystem* fieldfrom = checkSpinSystem(L, 3);
-				SpinSystem* spinto    = checkSpinSystem(L, 4);
-				
-				if(!llg)
-					return 0;
-				
-				if(!spinfrom || !fieldfrom || !spinto)
-					return 0;
-				
-				llg->apply(spinfrom, fieldfrom, spinto);
-				
-				if(!advanceTime)
-					spinto->time -= llg->dt;
-				
+			
+			if(!ss)
 				return 0;
-			}
+			
+			llg->apply(ss, ss, ss, advanceTime);
+			
+			return 0;
 		}
-		luaL_error(L, "apply requires 1 or 3 spin systems (extra boolean argument allowed to control timestep)");
-		
-		return 0;
+		if(lua_gettop(L) <= 5)
+		{
+			LLG* llg = checkLLG(L, 1);
+			SpinSystem* spinfrom  = checkSpinSystem(L, 2);
+			SpinSystem* fieldfrom = checkSpinSystem(L, 3);
+			SpinSystem* spinto    = checkSpinSystem(L, 4);
+			
+			if(!llg)
+				return 0;
+			
+			if(!spinfrom || !fieldfrom || !spinto)
+				return 0;
+			
+			llg->apply(spinfrom, fieldfrom, spinto, advanceTime);
+			
+			if(!advanceTime)
+				spinto->time -= llg->dt;
+			
+			return 0;
+		}
+	}
+	luaL_error(L, "apply requires 1 or 3 spin systems (extra boolean argument allowed to control timestep)");
+	
+	return 0;
 }
 
 

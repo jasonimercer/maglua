@@ -10,9 +10,10 @@ LLGFake::LLGFake()
 }
 
 
-bool LLGFake::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto)
+bool LLGFake::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
-	spinto->time = spinfrom->time + dt;
+	if(advancetime)
+		spinto->time = spinfrom->time + dt;
 	return true;
 }
 

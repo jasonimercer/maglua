@@ -9,7 +9,7 @@ LLGAlign::LLGAlign()
 	gamma = 1.0;
 }
 
-bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto)
+bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
 	const double* sx = spinfrom->x;
 	const double* sy = spinfrom->y;
@@ -35,7 +35,8 @@ bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* sp
 		}
 	}
 
-	spinto->time = spinfrom->time + dt;
+	if(advancetime)
+		spinto->time = spinfrom->time + dt;
 	return true;
 }
 
