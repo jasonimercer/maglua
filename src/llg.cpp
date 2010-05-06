@@ -109,7 +109,7 @@ int l_llg_apply(lua_State* L)
 	bool advanceTime = true;
 	if(lua_isboolean(L, -1))
 		if(lua_toboolean(L, -1) == 0)
-			noAdvanceTime = false;
+			advanceTime = false;
 		if(lua_gettop(L) >= 2)
 		{
 			if(lua_gettop(L) <= 3)
