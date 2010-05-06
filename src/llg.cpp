@@ -6,9 +6,9 @@
 #include <string.h>
 
 LLG::LLG(const char* llgtype, int etype)
-	: Encodable(etype), alpha(0.1), dt(0.01), gamma(1.0), type(llgtype), refcount(0), disablePrecession(false)
+: Encodable(etype), alpha(0.1), dt(0.01), gamma(1.0), type(llgtype), refcount(0), disablePrecession(false)
 {
-
+	
 }
 
 void LLG::encode(buffer* b) const
@@ -16,7 +16,7 @@ void LLG::encode(buffer* b) const
 	encodeDouble(alpha, b);
 	encodeDouble(   dt, b);
 	encodeDouble(gamma, b);
-
+	
 	int len = type.length()+1;
 	encodeInteger( len, b);
 	encodeBuffer(type.c_str(), len, b);
@@ -25,17 +25,17 @@ void LLG::encode(buffer* b) const
 int  LLG::decode(buffer* b)
 {
 	alpha = decodeDouble(b);
-	   dt = decodeDouble(b);
+	dt = decodeDouble(b);
 	gamma = decodeDouble(b);
 	
 	int len = decodeInteger(b);
 	
 	char* t = new char[len];
 	decodeBuffer(t, len, b);
-
+	
 	type = t;
 	delete [] t;
-
+	
 	return 0;
 }
 
@@ -94,8 +94,8 @@ int l_llg_new(lua_State* L)
 		llg = new LLGAlign;
 	}
 	if(!llg)
-	  return luaL_error(L, "Unknown LLG type `%s'", lua_tostring(L, 1));
-
+		return luaL_error(L, "Unknown LLG type `%s'", lua_tostring(L, 1));
+	
 	lua_pushLLG(L, llg);
 	
 	return 1;
@@ -103,42 +103,56 @@ int l_llg_new(lua_State* L)
 
 
 
-
+// this is a bit messy, should fix it down the road
 int l_llg_apply(lua_State* L)
 {
-	if(lua_gettop(L) == 2)
-	{
-		LLG* llg = checkLLG(L, 1);
-		SpinSystem* ss  = checkSpinSystem(L, 2);
+	bool advanceTime = true;
+	if(lua_isboolean(L, -1))
+		if(lua_toboolean(L, -1) == 0)
+			noAdvanceTime = false;
+		if(lua_gettop(L) >= 2)
+		{
+			if(lua_gettop(L) <= 3)
+			{
+				LLG* llg = checkLLG(L, 1);
+				SpinSystem* ss  = checkSpinSystem(L, 2);
+				
+				if(!llg)
+					return 0;
+				
+				if(!ss)
+					return 0;
+				
+				llg->apply(ss, ss, ss);
+				if(!advanceTime)
+					ss->time -= llg->dt;
+				
+				return 0;
+			}
+			if(lua_gettop(L) <= 5)
+			{
+				LLG* llg = checkLLG(L, 1);
+				SpinSystem* spinfrom  = checkSpinSystem(L, 2);
+				SpinSystem* fieldfrom = checkSpinSystem(L, 3);
+				SpinSystem* spinto    = checkSpinSystem(L, 4);
+				
+				if(!llg)
+					return 0;
+				
+				if(!spinfrom || !fieldfrom || !spinto)
+					return 0;
+				
+				llg->apply(spinfrom, fieldfrom, spinto);
+				
+				if(!advanceTime)
+					spinto->time -= llg->dt;
+				
+				return 0;
+			}
+		}
+		luaL_error(L, "apply requires 1 or 3 spin systems (extra boolean argument allowed to control timestep)");
 		
-		if(!llg)
-			return 0;
-	
-		if(!ss)
-			return 0;
-	
-		llg->apply(ss, ss, ss);
 		return 0;
-	}
-	if(lua_gettop(L) == 4)
-	{
-		LLG* llg = checkLLG(L, 1);
-		SpinSystem* spinfrom  = checkSpinSystem(L, 2);
-		SpinSystem* fieldfrom = checkSpinSystem(L, 3);
-		SpinSystem* spinto    = checkSpinSystem(L, 4);
-		
-		if(!llg)
-			return 0;
-	
-		if(!spinfrom || !fieldfrom || !spinto)
-			return 0;
-	
-		llg->apply(spinfrom, fieldfrom, spinto);
-		return 0;
-	}
-	luaL_error(L, "apply requires 1 or 3 spin systems");
-
-	return 0;
 }
 
 
@@ -211,7 +225,7 @@ int l_llg_tostring(lua_State* L)
 {
 	LLG* llg = checkLLG(L, 1);
 	if(!llg) return 0;
-
+	
 	lua_pushfstring(L, "LLG(%s)", llg->type.c_str());
 	return 1;
 }
@@ -219,31 +233,31 @@ int l_llg_tostring(lua_State* L)
 void registerLLG(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
-		{"__gc",         l_llg_gc},
-		{"__tostring",   l_llg_tostring},
-		{"apply",        l_llg_apply},
-		{"setAlpha",     l_llg_setalpha},
-		{"alpha",        l_llg_getalpha},
-		{"setTimeStep",  l_llg_settimestep},
-		{"timeStep",     l_llg_gettimestep},
-		{"setGamma",     l_llg_setgamma},
-		{"gamma",        l_llg_getgamma},
-		{"type",         l_llg_gettype},
-		{NULL, NULL}
+	{"__gc",         l_llg_gc},
+	{"__tostring",   l_llg_tostring},
+	{"apply",        l_llg_apply},
+	{"setAlpha",     l_llg_setalpha},
+	{"alpha",        l_llg_getalpha},
+	{"setTimeStep",  l_llg_settimestep},
+	{"timeStep",     l_llg_gettimestep},
+	{"setGamma",     l_llg_setgamma},
+	{"gamma",        l_llg_getgamma},
+	{"type",         l_llg_gettype},
+	{NULL, NULL}
 	};
-		
+	
 	luaL_newmetatable(L, "MERCER.llg");
 	lua_pushstring(L, "__index");
 	lua_pushvalue(L, -2);  /* pushes the metatable */
 	lua_settable(L, -3);  /* metatable.__index = metatable */
 	luaL_register(L, NULL, methods);
 	lua_pop(L,1); //metatable is registered
-		
+	
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_llg_new},
 		{NULL, NULL}
 	};
-		
+	
 	luaL_register(L, "LLG", functions);
 	lua_pop(L,1);	
 }
