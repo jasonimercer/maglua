@@ -27,40 +27,46 @@ none:
 	@echo "    $(BUILDTYPES)"
 
 mpi:
-	$(MAKE) maglua_mpi CXX="mpic++ -D_MPI" BIN=maglua_mpi
+	@ $(MAKE) maglua_mpi CXX="mpic++ -D_MPI" BIN=maglua_mpi
 
 serial:
-	$(MAKE) maglua CXX="g++" BIN=maglua
+	@ $(MAKE) maglua CXX="g++" BIN=maglua
 
 all: $(BIN)
 
 install: $(BIN)
-	mkdir -p $(HOME)/bin
-	cp -f maglua $(HOME)/bin
-	cp -f maglua_mpi $(HOME)/bin
+	@ mkdir -p $(HOME)/bin
+	@ cp -f maglua $(HOME)/bin 2> /dev/null || true
+	@ cp -f maglua_mpi $(HOME)/bin 2> /dev/null || true
+	@ echo "Copying binaries to ~/bin"
 
 uninstall:
 	rm -f $(HOME)/bin/$(BIN)
 	rm -f $(HOME)/bin/maglua_mpi
 
 $(BIN): ${OBJECTS}
-	${CXX} $(CFLAGS) -o ${BIN} ${OBJECTS} ${LIBS}
+	@ ${CXX} $(CFLAGS) -o ${BIN} ${OBJECTS} ${LIBS}
+	@ echo "LD ${BIN}"
 
 main.o : main.cpp main.h info.h
-	${CXX} $(CFLAGS) ${INCLUDEPATH} -c main.cpp -o main.o
+	@ ${CXX} $(CFLAGS) ${INCLUDEPATH} -c main.cpp -o main.o
+	@ echo "CC main"
 
 %.o : %.cpp %.h
-	${CXX} $(CFLAGS) ${INCLUDEPATH} -c $*.cpp -o $*.o
+	@ ${CXX} $(CFLAGS) ${INCLUDEPATH} -c $*.cpp -o $*.o
+	@ echo "CC $*"
 
-info.h: premake.sh                       # working SVN required
-	./premake.sh "$(CXX) $(CFLAGS)"  # working SVN required
-                                         # working SVN required
+info.h: premake.sh                         # working SVN required
+	@ ./premake.sh "$(CXX) $(CFLAGS)"  # working SVN required
+	@ echo "premake"                   # working SVN required
+
 clena: clean
 
 clean:
-	rm -f *~
-	rm -f *.o
-	rm -f info.h # working SVN needed to rebuild
+	@ rm -f *~
+	@ rm -f *.o
+	@ rm -f info.h # working SVN needed to rebuild
+	@ echo "Temporary files removed"
 
 distclean: clean
 	rm -f maglua maglua_mpi

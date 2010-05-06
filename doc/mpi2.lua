@@ -1,19 +1,28 @@
-name = mpi.get_processor_name()
+--
+-- Lua MPI test 2
+--
+
+t = {}
 rank = mpi.get_rank()
-size = mpi.get_size()
+t[rank] = mpi.get_processor_name()
 
---if rank == 1 then
---	ss1 = SpinSystem.new(10,10,3)
---	mpi.send(2, ss1)
-	print(name, rank, size)--, ss1)
---end
+t = mpi.gather(1, t)
 
---if rank == 2 then
---	ss2 = mpi.recv(1)
---	print(name, rank, size, ss2)
---end
+if rank == 1 then
+	for i=1,mpi.get_size() do
+		print(i, t[i])
+	end
+end
 
--- jason@echo: src$ mpirun -n 2 maglua_mpi mpi2.lua
--- echo    1       2       SpinSystem (10x10x3)
--- echo    2       2       SpinSystem (10x10x3)
--- jason@echo: src$ 
+
+-- sample output:
+-- $ mpirun --host cmms05,cmms04,cmms02,cmms01 -n 8 ./maglua_mpi mpi2.lua
+-- 1	cmms05
+-- 2	cmms04
+-- 3	cmms02
+-- 4	cmms01
+-- 5	cmms05
+-- 6	cmms04
+-- 7	cmms02
+-- 8	cmms01
+
