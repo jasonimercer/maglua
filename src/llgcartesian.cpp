@@ -16,7 +16,6 @@
 LLGCartesian::LLGCartesian()
 	: LLG("Cartesian", ENCODE_LLGCART)
 {
-	gamma = 1.0;
 }
 
 
@@ -42,6 +41,9 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem
 	      double* y  = spinto->y;
 	      double* z  = spinto->z;
 
+	const double gamma = spinfrom->gamma;
+	const double alpha = spinfrom->alpha;
+	const double dt    = spinfrom->dt;
 
 	//LLG from http://inoe.inoe.ro/joam/arhiva/pdf8_5/5Ciubotaru.pdf
 // 	#pragma omp parallel for

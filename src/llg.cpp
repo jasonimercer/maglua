@@ -6,17 +6,13 @@
 #include <string.h>
 
 LLG::LLG(const char* llgtype, int etype)
-: Encodable(etype), alpha(0.1), dt(0.01), gamma(1.0), type(llgtype), refcount(0), disablePrecession(false)
+: Encodable(etype), type(llgtype), refcount(0), disablePrecession(false)
 {
 	
 }
 
 void LLG::encode(buffer* b) const
 {
-	encodeDouble(alpha, b);
-	encodeDouble(   dt, b);
-	encodeDouble(gamma, b);
-	
 	int len = type.length()+1;
 	encodeInteger( len, b);
 	encodeBuffer(type.c_str(), len, b);
@@ -24,10 +20,6 @@ void LLG::encode(buffer* b) const
 
 int  LLG::decode(buffer* b)
 {
-	alpha = decodeDouble(b);
-	dt = decodeDouble(b);
-	gamma = decodeDouble(b);
-	
 	int len = decodeInteger(b);
 	
 	char* t = new char[len];
@@ -142,9 +134,6 @@ int l_llg_apply(lua_State* L)
 			
 			llg->apply(spinfrom, fieldfrom, spinto, advanceTime);
 			
-			if(!advanceTime)
-				spinto->time -= llg->dt;
-			
 			return 0;
 		}
 	}
@@ -154,50 +143,7 @@ int l_llg_apply(lua_State* L)
 }
 
 
-int l_llg_settimestep(lua_State* L)
-{
-	LLG* llg = checkLLG(L, 1);
-	if(!llg) return 0;
-	llg->dt = lua_tonumber(L, 2);
-	return 0;
-}
-int l_llg_gettimestep(lua_State* L)
-{
-	LLG* llg = checkLLG(L, 1);
-	if(!llg) return 0;
-	lua_pushnumber(L, llg->dt);
-	return 1;
-}
 
-int l_llg_setalpha(lua_State* L)
-{
-	LLG* llg = checkLLG(L, 1);
-	if(!llg) return 0;
-	llg->alpha = lua_tonumber(L, 2);
-	return 0;
-}
-int l_llg_getalpha(lua_State* L)
-{
-	LLG* llg = checkLLG(L, 1);
-	if(!llg) return 0;
-	lua_pushnumber(L, llg->alpha);
-	return 1;
-}
-
-int l_llg_setgamma(lua_State* L)
-{
-	LLG* llg = checkLLG(L, 1);
-	if(!llg) return 0;
-	llg->gamma = lua_tonumber(L, 2);
-	return 0;
-}
-int l_llg_getgamma(lua_State* L)
-{
-	LLG* llg = checkLLG(L, 1);
-	if(!llg) return 0;
-	lua_pushnumber(L, llg->gamma);
-	return 1;
-}
 int l_llg_gettype(lua_State* L)
 {
 	LLG* llg = checkLLG(L, 1);
@@ -234,12 +180,6 @@ void registerLLG(lua_State* L)
 	{"__gc",         l_llg_gc},
 	{"__tostring",   l_llg_tostring},
 	{"apply",        l_llg_apply},
-	{"setAlpha",     l_llg_setalpha},
-	{"alpha",        l_llg_getalpha},
-	{"setTimeStep",  l_llg_settimestep},
-	{"timeStep",     l_llg_gettimestep},
-	{"setGamma",     l_llg_setgamma},
-	{"gamma",        l_llg_getgamma},
 	{"type",         l_llg_gettype},
 	{NULL, NULL}
 	};

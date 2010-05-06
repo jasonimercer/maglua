@@ -11,7 +11,7 @@ public:
 	Thermal(int nx, int ny, int nz);
 	virtual ~Thermal();
 	
-	bool apply(LLG* llg, RNG* rand, SpinSystem* ss);
+	bool apply(RNG* rand, SpinSystem* ss);
 	bool apply(SpinSystem* ss) {return false;};
 
 	void scaleSite(int px, int py, int pz, double strength);

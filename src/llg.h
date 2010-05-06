@@ -15,9 +15,6 @@ public:
 	virtual bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime) = 0;
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 	
-	double alpha;
-	double dt;
-	double gamma;
 	std::string type;
 	
 	int refcount;

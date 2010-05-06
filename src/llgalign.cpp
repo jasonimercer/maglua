@@ -6,7 +6,6 @@
 LLGAlign::LLGAlign()
 	: LLG("Align", ENCODE_LLGALIGN)
 {
-	gamma = 1.0;
 }
 
 bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
@@ -36,7 +35,7 @@ bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* sp
 	}
 
 	if(advancetime)
-		spinto->time = spinfrom->time + dt;
+		spinto->time = spinfrom->time + spinfrom->dt;
 	return true;
 }
 

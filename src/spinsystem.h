@@ -41,6 +41,10 @@ public:
 	
 	double* ms; // spin length
 	
+	double alpha;
+	double gamma;
+	double dt;
+	
 	int nx, ny, nz;
 	int refcount;
 

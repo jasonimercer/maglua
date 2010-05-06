@@ -6,12 +6,13 @@
 LLGFake::LLGFake()
 	: LLG("Fake", ENCODE_LLGFAKE)
 {
-	gamma = 1.0;
 }
 
 
 bool LLGFake::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
+	const double dt    = spinfrom->dt;
+	
 	if(advancetime)
 		spinto->time = spinfrom->time + dt;
 	return true;

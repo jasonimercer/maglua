@@ -10,7 +10,8 @@ using namespace std;
 
 SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 	: Encodable(ENCODE_SPINSYSTEM), x(0), y(0), z(0), 
-		ms(0), nx(NX), ny(NY), nz(NZ), refcount(0),
+		ms(0), gamma(1.0), alpha(1.0), dt(1.0),
+		nx(NX), ny(NY), nz(NZ), refcount(0),
 		nslots(NSLOTS), time(0)
 {
 	init();
@@ -123,6 +124,10 @@ void SpinSystem::encode(buffer* b) const
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
 
+	encodeDouble(alpha, b);
+	encodeDouble(   dt, b);
+	encodeDouble(gamma, b);
+
 	encodeDouble(time, b);
 	
 	for(int i=0; i<nxyz; i++)
@@ -156,6 +161,11 @@ int  SpinSystem::decode(buffer* b)
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
+	
+	alpha = decodeDouble(b);
+	dt = decodeDouble(b);
+	gamma = decodeDouble(b);
+
 	time = decodeDouble(b);
 	init();
 
@@ -340,6 +350,10 @@ bool SpinSystem::copy(SpinSystem* src)
 	memcpy(y, src->y, nxyz * sizeof(double));
 	memcpy(z, src->z, nxyz * sizeof(double));
 	
+	alpha = src->alpha;
+	gamma = src->gamma;
+	dt = src->dt;
+	
 	fft_time = time - 1.0;
 	
 	return true;
@@ -416,6 +430,53 @@ int l_ss_gc(lua_State* L)
 	
 	return 0;
 }
+
+
+int l_ss_settimestep(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	ss->dt = lua_tonumber(L, 2);
+	return 0;
+}
+int l_ss_gettimestep(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	lua_pushnumber(L, ss->dt);
+	return 1;
+}
+
+int l_ss_setalpha(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	ss->alpha = lua_tonumber(L, 2);
+	return 0;
+}
+int l_ss_getalpha(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	lua_pushnumber(L, ss->alpha);
+	return 1;
+}
+
+int l_ss_setgamma(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	ss->gamma = lua_tonumber(L, 2);
+	return 0;
+}
+int l_ss_getgamma(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	lua_pushnumber(L, ss->gamma);
+	return 1;
+}
+
 
 int l_ss_netmag(lua_State* L)
 {
@@ -758,6 +819,12 @@ void registerSpinSystem(lua_State* L)
 		{"inverseSpin",  l_ss_getinversespin},
 		{"addFields",    l_ss_addfields},
 		{"copy",         l_ss_copy},
+		{"setAlpha",     l_ss_setalpha},
+		{"alpha",        l_ss_getalpha},
+		{"setTimeStep",  l_ss_settimestep},
+		{"timeStep",     l_ss_gettimestep},
+		{"setGamma",     l_ss_setgamma},
+		{"gamma",        l_ss_getgamma},
 		{NULL, NULL}
 	};
 		

@@ -57,7 +57,6 @@ static Quaternion qconjugate(Quaternion q)
 LLGQuaternion::LLGQuaternion()
 	: LLG("Quaternion", ENCODE_LLGQUAT)
 {
-	gamma = 1.0;
 }
 
 
@@ -82,6 +81,10 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 	      double* x  = spinto->x;
 	      double* y  = spinto->y;
 	      double* z  = spinto->z;
+		  
+	const double gamma = spinfrom->gamma;
+	const double alpha = spinfrom->alpha;
+	const double dt    = spinfrom->dt;
 
 // dS    -g
 // -- = ---- S X (h + a S X H)

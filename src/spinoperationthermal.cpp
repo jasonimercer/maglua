@@ -51,11 +51,11 @@ Thermal::~Thermal()
 	delete [] scale;
 }
 
-bool Thermal::apply(LLG* llg, RNG* rand, SpinSystem* ss)
+bool Thermal::apply(RNG* rand, SpinSystem* ss)
 {
-	const double alpha = llg->alpha;
-	const double dt    = llg->dt;
-	const double gamma = llg->gamma;
+	const double alpha = ss->alpha;
+	const double dt    = ss->dt;
+	const double gamma = ss->gamma;
 
 	double* hx = ss->hx[slot];
 	double* hy = ss->hy[slot];
@@ -136,17 +136,20 @@ int l_thermal_gc(lua_State* L)
 int l_thermal_apply(lua_State* L)
 {
 	Thermal*    th = checkThermal(L, 1);
-	LLG*       llg = checkLLG(L, 2);
-	RNG*       rng = checkRandom(L, 3);
-	SpinSystem* ss = checkSpinSystem(L, 4);
+	//LLG*       llg = checkLLG(L, 2);
+	RNG*       rng = checkRandom(L, 3-1);
+	SpinSystem* ss = checkSpinSystem(L, 4-1);
 
 	if(!th)
 		return luaL_error(L, "Thermal object required");
 
-	if(!rng || !ss || !llg)
-		return luaL_error(L, "Thermal.apply requires llg, rng, spinsystem");
-
-	if(!th->apply(llg,rng,ss))
+// 	if(!rng || !ss || !llg)
+// 		return luaL_error(L, "Thermal.apply requires llg, rng, spinsystem");
+	
+	if(!rng || !ss)
+		return luaL_error(L, "Thermal.apply requires rng, spinsystem");
+	
+	if(!th->apply(rng,ss))
 		return luaL_error(L, th->errormsg.c_str());
 	
 	return 0;
