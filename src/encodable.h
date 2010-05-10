@@ -22,6 +22,8 @@ typedef struct buffer
 #define ENCODE_LLGFAKE      9
 #define ENCODE_LLGALIGN    10
 
+#define ENCODE_INTERP2D    11
+
 // This is a base class for classes that 
 // can be encoded into and from a char stream,
 class Encodable

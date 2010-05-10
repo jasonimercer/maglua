@@ -5,6 +5,7 @@
 #include <math.h>
 
 InterpolatingFunction2D::InterpolatingFunction2D()
+	: Encodable(ENCODE_INTERP2D)
 {
 	data = 0;
 	compiled = false;
@@ -64,9 +65,13 @@ bool InterpolatingFunction2D::compile()
 	if(xstep == 0 || ystep == 0)
 		return false;
 
+	//cout << xrange << ":" << yrange << ":" << xstep << ":" << ystep << endl;
+	
 	nx = (int)(xrange / xstep) + 1;
 	ny = (int)(yrange / ystep) + 1;
 	
+	if(data)
+		delete [] data;
 	data = new double[nx*ny];
 	bool* gotdata = new bool[nx*ny];
 	
@@ -92,20 +97,29 @@ bool InterpolatingFunction2D::compile()
 		gotdata[idx] = true;
 	}
 
+	int missingpts = 0;
 	for(int i=0; i<nx*ny; i++)
 	{
 		if(!gotdata[i])
 		{
-			cerr << "Interpolate2D error. Interpolation grid is not dense, 1 or more points are missing." << endl;
-			delete [] gotdata;
-			delete [] data;
-			data = 0;
-			compiled = false;
-			return false;
+			missingpts++;
 		}
 	}
+	
+	
 	delete [] gotdata;
-
+	
+	if(missingpts)
+	{
+		cerr << "Interpolate2D error. Interpolation grid is not dense, " << missingpts << 
+			"/" << nx*ny << " point" <<(missingpts!=1?"s are":" is") << " missing." << endl;
+		delete [] data;
+		data = 0;
+		compiled = false;
+		return false;
+	}
+	
+	
 	compiled = true;
 	return true;
 }
@@ -173,6 +187,33 @@ bool InterpolatingFunction2D::getValue(double x, double y, double* z)
 	return true;
 }
 
+void InterpolatingFunction2D::encode(buffer* b) const
+{
+	encodeInteger( rawdata.size(), b);
+	for(unsigned int i=0; i<rawdata.size(); i++)
+	{
+		const triple& t = rawdata[i];
+		
+		//cout << "encode (" << i << ", " << t.x << ", " << t.y << ", " << t.z << ")" << endl;
+		encodeDouble(t.x, b);
+		encodeDouble(t.y, b);
+		encodeDouble(t.z, b);
+	}
+}
+
+int  InterpolatingFunction2D::decode(buffer* b)
+{
+	int size = decodeInteger(b);
+	rawdata.clear();
+	for(int i=0; i<size; i++)
+	{
+		const double x = decodeDouble(b);
+		const double y = decodeDouble(b);
+		const double z = decodeDouble(b);
+		//cout << "decode (" << i << ", " << x << ", " << y << ", " << z << ")" << endl;
+		addData(x, y, z);
+	}
+}
 
 
 
@@ -191,17 +232,22 @@ InterpolatingFunction2D* checkInterpolatingFunction2D(lua_State* L, int idx)
     return *pp;
 }
 
-static int l_if_new(lua_State* L)
+void lua_pushInterpolatingFunction2D(lua_State* L, InterpolatingFunction2D* if2D)
 {
-	InterpolatingFunction2D* in = new InterpolatingFunction2D;
-	
-	in->refcount++;
+	if2D->refcount++;
 	
 	InterpolatingFunction2D** pp = (InterpolatingFunction2D**)lua_newuserdata(L, sizeof(InterpolatingFunction2D**));
 	
-	*pp = in;
+	*pp = if2D;
 	luaL_getmetatable(L, "MERCER.interpolate2d");
 	lua_setmetatable(L, -2);
+}
+
+
+static int l_if_new(lua_State* L)
+{
+	lua_pushInterpolatingFunction2D(L, new InterpolatingFunction2D);
+
 	return 1;
 }
 

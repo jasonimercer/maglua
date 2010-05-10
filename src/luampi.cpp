@@ -307,7 +307,7 @@ void registerMPI(lua_State* L)
 	add("send",               l_mpi_send              );
 	add("recv",               l_mpi_recv              );
 	add("barrier",            l_mpi_barrier           );
-	add("gather",             l_mpi_gather            );	
+	add("gather",             l_mpi_gather            );
 	add("new_request",        l_mpi_newrequest        );
 	add("isend",              l_mpi_isend             );
 	add("irecv",              l_mpi_irecv             );

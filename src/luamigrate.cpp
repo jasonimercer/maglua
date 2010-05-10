@@ -1,6 +1,7 @@
 #include "luamigrate.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "encodable.h"
 #include "spinsystem.h"
@@ -247,12 +248,20 @@ int _importLuaVariable(lua_State* L, buffer* b)
 					lua_pushExchange(L, ex);
 				}
 				break;
-
+				
 				case ENCODE_THERMAL:
 				{
 					Thermal* th = new Thermal(2,2,2);
 					th->decode(b);
 					lua_pushThermal(L, th);
+				}
+				break;
+				
+				case ENCODE_INTERP2D:
+				{
+					InterpolatingFunction2D* interp = new InterpolatingFunction2D();
+					interp->decode(b);
+					lua_pushInterpolatingFunction2D(L, interp);
 				}
 				break;
 				

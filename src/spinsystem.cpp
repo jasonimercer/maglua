@@ -79,14 +79,15 @@ void SpinSystem::init()
 		hy[i] = new double[nxyz];
 		hz[i] = new double[nxyz];
 		
-		for(int j=0; j<nxyz; j++)
-		{
-			hx[i][j] = 0;
-			hy[i][j] = 0;
-			hz[i][j] = 0;
-		}
+// 		for(int j=0; j<nxyz; j++)
+// 		{
+// 			hx[i][j] = 0;
+// 			hy[i][j] = 0;
+// 			hz[i][j] = 0;
+// 		}
 	}
-
+	zeroFields();
+	
 	rx = new complex<double>[nxyz];
 	ry = new complex<double>[nxyz];
 	rz = new complex<double>[nxyz];
@@ -136,27 +137,28 @@ void SpinSystem::encode(buffer* b) const
 		encodeDouble(y[i], b);
 		encodeDouble(z[i], b);
 		
-		encodeDouble(qx[i].real(), b);
-		encodeDouble(qx[i].imag(), b);
+// 		encodeDouble(qx[i].real(), b);
+// 		encodeDouble(qx[i].imag(), b);
 
-		encodeDouble(qy[i].real(), b);
-		encodeDouble(qy[i].imag(), b);
+// 		encodeDouble(qy[i].real(), b);
+// 		encodeDouble(qy[i].imag(), b);
 
-		encodeDouble(qz[i].real(), b);
-		encodeDouble(qz[i].imag(), b);
+// 		encodeDouble(qz[i].real(), b);
+// 		encodeDouble(qz[i].imag(), b);
 
-
-		for(int j=0; j<nslots; j++)
-		{
-			encodeDouble(hx[j][i], b);
-			encodeDouble(hy[j][i], b);
-			encodeDouble(hz[j][i], b);
-		}
+// 		for(int j=0; j<nslots; j++)
+// 		{
+// 			encodeDouble(hx[j][i], b);
+// 			encodeDouble(hy[j][i], b);
+// 			encodeDouble(hz[j][i], b);
+// 		}
 	}
 }
 
 int  SpinSystem::decode(buffer* b)
 {
+	double r, i;
+	
 	deinit();
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
@@ -169,24 +171,27 @@ int  SpinSystem::decode(buffer* b)
 	time = decodeDouble(b);
 	init();
 
-	for(int i=0; i<nxyz; i++)
+	for(int j=0; j<nxyz; j++)
 	{
-		x[i] = decodeDouble(b);
-		y[i] = decodeDouble(b);
-		z[i] = decodeDouble(b);
+		x[j] = decodeDouble(b);
+		y[j] = decodeDouble(b);
+		z[j] = decodeDouble(b);
 		
-		qx[i] = complex<double>(decodeDouble(b), decodeDouble(b));
-		qy[i] = complex<double>(decodeDouble(b), decodeDouble(b));
-		qz[i] = complex<double>(decodeDouble(b), decodeDouble(b));
-				
-		for(int j=0; j<nslots; j++)
-		{
-			hx[j][i] = decodeDouble(b);
-			hy[j][i] = decodeDouble(b);
-			hz[j][i] = decodeDouble(b);
-		}
+// 		r = decodeDouble(b); i = decodeDouble(b);
+// 		qx[j] = complex<double>(r, i);
+// 		r = decodeDouble(b); i = decodeDouble(b);
+// 		qy[j] = complex<double>(r, i);
+// 		r = decodeDouble(b); i = decodeDouble(b);
+// 		qz[j] = complex<double>(r, i);
+// 		
+// 		for(int k=0; k<nslots; k++)
+// 		{
+// 			hx[k][j] = decodeDouble(b);
+// 			hy[k][j] = decodeDouble(b);
+// 			hz[k][j] = decodeDouble(b);
+// 		}
 	}
-
+	
 	return 0;
 }
 
