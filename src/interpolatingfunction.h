@@ -3,9 +3,11 @@
 
 #include "luacommon.h"
 #include <vector>
+#include "encodable.h"
+
 using namespace std;
 
-class InterpolatingFunction
+class InterpolatingFunction : public Encodable
 {
 public:
 	InterpolatingFunction();
@@ -14,6 +16,10 @@ public:
 	void addData(const double in, const double out);
 	bool getValue(double in, double* out);
 	int refcount;	
+
+	void encode(buffer* b) const;
+	int  decode(buffer* b);
+	
 private:
 	class _node
 	{
@@ -40,6 +46,8 @@ private:
 
 InterpolatingFunction* checkInterpolatingFunction(lua_State* L, int idx);
 void registerInterpolatingFunction(lua_State* L);
+void lua_pushInterpolatingFunction(lua_State* L, InterpolatingFunction* if1D);
+
 // 
 #endif
 

@@ -49,6 +49,7 @@ bool InterpolatingFunction::_node::inrange(const double test)
 
 
 InterpolatingFunction::InterpolatingFunction()
+	: Encodable(ENCODE_INTERP1D)
 {
 	root = 0;
 	compiled = false;
@@ -149,6 +150,33 @@ bool InterpolatingFunction::getValue(double in, double* out)
 	return true;
 }
 
+void InterpolatingFunction::encode(buffer* b) const
+{
+	encodeInteger( rawdata.size(), b);
+	for(unsigned int i=0; i<rawdata.size(); i++)
+	{
+		encodeDouble(rawdata[i].first, b);
+		encodeDouble(rawdata[i].second, b);
+	}
+	
+}
+
+int  InterpolatingFunction::decode(buffer* b)
+{
+	int size = decodeInteger(b);
+	if(root)
+		delete root;
+	rawdata.clear();
+	for(int i=0; i<size; i++)
+	{
+		const double x = decodeDouble(b);
+		const double y = decodeDouble(b);
+
+		addData(x, y);
+	}
+	compile();
+}
+
 
 
 
@@ -167,17 +195,20 @@ InterpolatingFunction* checkInterpolatingFunction(lua_State* L, int idx)
     return *pp;
 }
 
-int l_if_new(lua_State* L)
+void lua_pushInterpolatingFunction(lua_State* L, InterpolatingFunction* if1D)
 {
-	InterpolatingFunction* in = new InterpolatingFunction;
-	
-	in->refcount++;
+	if1D->refcount++;
 	
 	InterpolatingFunction** pp = (InterpolatingFunction**)lua_newuserdata(L, sizeof(InterpolatingFunction**));
 	
-	*pp = in;
+	*pp = if1D;
 	luaL_getmetatable(L, "MERCER.interpolate");
 	lua_setmetatable(L, -2);
+}
+
+int l_if_new(lua_State* L)
+{
+	lua_pushInterpolatingFunction(L, new InterpolatingFunction);
 	return 1;
 }
 

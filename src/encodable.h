@@ -23,6 +23,7 @@ typedef struct buffer
 #define ENCODE_LLGALIGN    10
 
 #define ENCODE_INTERP2D    11
+#define ENCODE_INTERP1D    12
 
 // This is a base class for classes that 
 // can be encoded into and from a char stream,
@@ -38,11 +39,11 @@ public:
 	int type;
 };
 
-  void encodeBuffer(const void* s, int len, buffer* b);
+  void encodeBuffer(const void* s, const int len, buffer* b);
   void encodeDouble(const double d, buffer* b);
   void encodeInteger(const int i, buffer* b);
    int decodeInteger(buffer* b);
 double decodeDouble(buffer* b);
-  void decodeBuffer(void* dest, int len, buffer* b);
+  void decodeBuffer(void* dest, const int len, buffer* b);
 
 #endif

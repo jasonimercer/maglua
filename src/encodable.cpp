@@ -18,7 +18,7 @@ void ensureSize(int add, buffer* b)
 	}
 }
 
-void encodeBuffer(const void* s, int len, buffer* b)
+void encodeBuffer(const void* s, const int len, buffer* b)
 {
 	ensureSize(len, b);
 	memcpy(b->buf + b->pos, s, len);
@@ -36,7 +36,7 @@ void encodeInteger(const int i, buffer* b)
 }
 
 
-void decodeBuffer(void* dest, int len, buffer* b)
+void decodeBuffer(void* dest, const int len, buffer* b)
 {
 	memcpy(dest, b->buf+b->pos, len);
 	b->pos += len;

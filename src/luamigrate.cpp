@@ -265,6 +265,15 @@ int _importLuaVariable(lua_State* L, buffer* b)
 				}
 				break;
 				
+				
+				case ENCODE_INTERP1D:
+				{
+					InterpolatingFunction* interp = new InterpolatingFunction();
+					interp->decode(b);
+					lua_pushInterpolatingFunction(L, interp);
+				}
+				break;
+				
 				//default: //TYPE_NOEXPORT
 			}
 
