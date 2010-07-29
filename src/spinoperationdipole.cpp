@@ -207,7 +207,7 @@ void Dipole::collectIForces(SpinSystem* ss)
 	if(!hasMatrices)
 		getMatrices();
 	
-	complex<double> cz(0,0);
+	const complex<double> cz(0,0);
 	for(c=0; c<nxy; c++) hqx[c] = cz;
 	for(c=0; c<nxy; c++) hqy[c] = cz;
 	for(c=0; c<nxy; c++) hqz[c] = cz;

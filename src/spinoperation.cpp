@@ -78,7 +78,10 @@ int lua_getNint(lua_State* L, int N, int* vec, int pos, int def)
 			vec[i] = lua_tointeger(L, pos+i);
 		}
 		else
-			return -1;
+		{
+			vec[i] = def;
+		}
+//			return -1;
 	}
 	
 	return N;
