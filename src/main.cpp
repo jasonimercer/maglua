@@ -75,8 +75,10 @@ int main(int argc, char** argv)
 		lua_addargs(L, argc, argv);
 
 		if(luaL_dofile(L, argv[1]))
+		{
+		  cerr << "Error:" << endl;
 			cerr << lua_tostring(L, -1) << endl;
-		
+		}
 		lua_close(L);
 	}
 	

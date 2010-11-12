@@ -93,6 +93,7 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 	Quaternion qVec;
 	Quaternion qRes;
 	
+	#pragma omp parallel for private (qRot, qVec, qRes) shared(hx, hy, hz, sx, sy, sz, x, y, z)
 	for(int i=0; i<spinfrom->nxyz; i++)
 	{
 		if(ms[i] > 0)

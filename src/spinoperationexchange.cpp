@@ -81,7 +81,8 @@ bool Exchange::apply(SpinSystem* ss)
 	const double* sx = ss->x;
 	const double* sy = ss->y;
 	const double* sz = ss->z;
-
+	
+	#pragma omp parallel for shared(hx, hy, hz, sx, sy, sz)
 	for(int i=0; i<num; i++)
 	{
 		const int t    =   tosite[i];

@@ -198,6 +198,7 @@ int  SpinSystem::decode(buffer* b)
 
 void SpinSystem::sumFields()
 {
+	#pragma omp parallel for
 	for(int j=0; j<nxyz; j++)
 	{
 		hx[SUM_SLOT][j] = hx[1][j];
@@ -205,6 +206,7 @@ void SpinSystem::sumFields()
 		hz[SUM_SLOT][j] = hz[1][j];
 	}
 
+	#pragma omp parallel for
 	for(int i=2; i<NSLOTS; i++)
 	{
 		for(int j=0; j<nxyz; j++)
@@ -327,18 +329,24 @@ int  SpinSystem::getidx(const int px, const int py, const int pz) const
 	return x + y*nx + z*nx*ny;
 }
 
-void SpinSystem::getNetMag(double* v4)
+// return numspins * {<x>, <y>, <z>, <M>, <x^2>, <y^2>, <z^2>, <M^2>}
+void SpinSystem::getNetMag(double* v8)
 {
-	v4[0] = 0; v4[1] = 0; v4[2] = 0; v4[3] = 0; 
+	for(int i=0; i<8; i++)
+		v8[i] = 0;
 	
 	for(int i=0; i<nxyz; i++)
-		v4[0] += x[i];
-	for(int i=0; i<nxyz; i++)
-		v4[1] += y[i];
-	for(int i=0; i<nxyz; i++)
-		v4[2] += z[i];
+	{
+		v8[0] += x[i];
+		v8[4] += x[i]*x[i];
+		v8[1] += y[i];
+		v8[5] += y[i]*y[i];
+		v8[2] += z[i];
+		v8[6] += z[i]*z[i];
+	}
 
-	v4[3] = sqrt(v4[0]*v4[0] + v4[1]*v4[1] + v4[2]*v4[2]);
+	v8[3] = sqrt(v8[0]*v8[0] + v8[1]*v8[1] + v8[2]*v8[2]);
+	v8[7] = sqrt(v8[4]*v8[4] + v8[5]*v8[5] + v8[6]*v8[6]);
 }
 
 bool SpinSystem::copy(SpinSystem* src)
@@ -492,16 +500,16 @@ int l_ss_netmag(lua_State* L)
 	if(lua_isnumber(L, 2))
 		m = lua_tonumber(L, 2);
 
-	double v4[4];
+	double v8[8];
 	
-	ss->getNetMag(v4);
+	ss->getNetMag(v8);
+
+	for(int i=0; i<8; i++)
+	{
+		lua_pushnumber(L, v8[i]*m);
+	}
 	
-	lua_pushnumber(L, v4[0]*m);
-	lua_pushnumber(L, v4[1]*m);
-	lua_pushnumber(L, v4[2]*m);
-	lua_pushnumber(L, v4[3]*m);
-	
-	return 4;
+	return 8;
 }
 
 int l_ss_setspin(lua_State* L)
@@ -684,6 +692,38 @@ static int l_ss_tostring(lua_State* L)
 	return 1;
 }
 
+int l_ss_netfield(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+	
+	const char* name = lua_tostring(L, 2);
+	
+	int slot = ss->getSlot(name);
+	
+	if(slot < 0)
+		return luaL_error(L, "Unknown field type`%s'", name);
+	
+
+	double xyz[3] = {0,0,0};
+	const int nxyz = ss->nxyz;
+	
+	for(int i=0; i<nxyz; i++)
+	{
+		xyz[0] += ss->hx[slot][i];
+		xyz[1] += ss->hy[slot][i];
+		xyz[2] += ss->hz[slot][i];
+	}
+	
+	
+	
+	lua_pushnumber(L, xyz[0] / ((double)nxyz));
+	lua_pushnumber(L, xyz[1] / ((double)nxyz));
+	lua_pushnumber(L, xyz[2] / ((double)nxyz));
+	
+	return 3;
+}
+
 int l_ss_getfield(lua_State* L)
 {
 	SpinSystem* ss = checkSpinSystem(L, 1);
@@ -810,6 +850,7 @@ void registerSpinSystem(lua_State* L)
 		{"__gc",         l_ss_gc},
 		{"__tostring",   l_ss_tostring},
 		{"netMag",       l_ss_netmag},
+		{"netField",     l_ss_netfield},
 		{"setSpin",      l_ss_setspin},
 		{"spin"   ,      l_ss_getspin},
 		{"unitSpin",     l_ss_getunitspin},

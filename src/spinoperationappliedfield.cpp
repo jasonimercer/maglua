@@ -125,7 +125,7 @@ int l_ap_set(lua_State* L)
 {
 	AppliedField* ap = checkAppliedField(L, 1);
 	if(!ap) return 0;
-
+	
 	double a[3];
 	int r = lua_getNdouble(L, 3, a, 2, 0);
 	if(r<0)
@@ -134,8 +134,25 @@ int l_ap_set(lua_State* L)
 	ap->B[0] = a[0];
 	ap->B[1] = a[1];
 	ap->B[2] = a[2];
-
+	
 	return 0;
+}
+
+
+int l_ap_get(lua_State* L)
+{
+	AppliedField* ap = checkAppliedField(L, 1);
+	if(!ap) return 0;
+	
+	lua_newtable(L);
+	for(int i=0; i<3; i++)
+	{
+		lua_pushinteger(L, i+1);
+		lua_pushnumber(L, ap->B[i]);
+		lua_settable(L, -3);
+	}
+	
+	return 1;
 }
 
 
@@ -145,6 +162,7 @@ void registerAppliedField(lua_State* L)
 		{"__gc",         l_ap_gc},
 		{"apply",        l_ap_apply},
 		{"set",          l_ap_set},
+		{"get",          l_ap_get},
 		{"member",       l_ap_member},
 		{NULL, NULL}
 	};

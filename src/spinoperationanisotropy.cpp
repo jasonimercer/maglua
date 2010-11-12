@@ -80,6 +80,8 @@ bool Anisotropy::apply(SpinSystem* ss)
 {
 	double SpinDotEasyAxis;
 	double v;
+	
+	#pragma omp parallel for shared(ss)
 	for(int i=0; i<nxyz; i++)
 	{
 		const double ms = ss->ms[i];

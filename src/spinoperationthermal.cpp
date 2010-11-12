@@ -222,6 +222,7 @@ void registerThermal(lua_State* L)
 		{"scaleSite",    l_thermal_scalesite},
 		{"setTemperature", l_thermal_settemp},
 		{"set",          l_thermal_settemp},
+		{"get",          l_thermal_gettemp},
 		{"temperature",  l_thermal_gettemp},
 		{NULL, NULL}
 	};

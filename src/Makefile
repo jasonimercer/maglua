@@ -10,7 +10,7 @@ CFLAGS=-ansi -O2 -g
 HOMELIBLUA=$(shell ls $(HOME)/lua-5.1.4/lib/liblua.a 2> /dev/null | wc -l)
 
 BUILDTYPE= none
-BUILDTYPES=mpi serial
+BUILDTYPES=mpi serial openmp
 
 ifeq ($(HOMELIBLUA),1)
 	LIBS+=-L$(HOME)/lib $(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
@@ -32,12 +32,17 @@ mpi:
 serial:
 	@ $(MAKE) maglua CXX="g++" BIN=maglua
 
+openmp:
+	@ $(MAKE) maglua_openmp CXX="g++ -fopenmp" BIN=maglua_openmp
+	
+
 all: $(BIN)
 
 install: $(BIN)
 	@ mkdir -p $(HOME)/bin
 	@ cp -f maglua $(HOME)/bin 2> /dev/null || true
 	@ cp -f maglua_mpi $(HOME)/bin 2> /dev/null || true
+	@ cp -f maglua_openmp $(HOME)/bin 2> /dev/null || true
 	@ echo "Copying binaries to ~/bin"
 
 uninstall:
@@ -69,7 +74,7 @@ clean:
 	@ echo "Temporary files removed"
 
 distclean: clean
-	rm -f maglua maglua_mpi
+	rm -f maglua maglua_mpi maglua_openmp
 
 pack:   info.h
 	echo maglua-r`cat info.h | grep Revision | sed -e 's/.*\s\([0-9]\{1,\}\).*/\1/'` > rev
