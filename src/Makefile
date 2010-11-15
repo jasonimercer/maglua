@@ -15,20 +15,15 @@ OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o 
 	dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o \
 	llgfake.o llgalign.o luampi.o luamigrate.o encodable.o
 
-CFLAGS=-ansi -O2 -g
+CFLAGS=-ansi -O2
 
-HOMELIBLUA=$(shell ls $(HOME)/lua-5.1.4/lib/liblua.a 2> /dev/null | wc -l)
-
-BUILDTYPE= none
+BUILDTYPE=none
 BUILDTYPES=mpi serial openmp
 
-ifeq ($(HOMELIBLUA),1)
-	LIBS+=-L$(HOME)/lib $(HOME)/lua-5.1.4/lib/liblua.a  -ldl -lfftw3
-	INCLUDEPATH=-I$(HOME)/include -I$(HOME)/lua-5.1.4/include
-else
-	LIBS+=-llua5.1 -ldl -lfftw3
-	INCLUDEPATH=-I/usr/include/lua5.1
-endif
+# This makefile uses pkg-config. If you do not have Lua and FFTW registered 
+# with pkg-config, please fill out the proper LIBS and INCLUDEPATH
+LIBS = `pkg-config --libs lua5.1 fftw3`
+INCLUDEPATH = `pkg-config --cflags-only-I lua5.1 fftw3`
 
 all: $(BUILDTYPE)
 
