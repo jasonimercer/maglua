@@ -2,8 +2,6 @@
 -- This script uses the built in help features of maglua to build an html help file
 --
 
-print(info())
-
 filename = "maglua.html"
 f = io.open(filename, "w")
 
