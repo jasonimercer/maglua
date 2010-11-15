@@ -189,7 +189,7 @@ static int l_rand_help(lua_State* L)
 	if(func == l_rand_new)
 	{
 		lua_pushstring(L, "Create a new Random object.");
-		lua_pushstring(L, "1 string: The string argument defines the Random type. It may be one of the following:\n\"MersenneTwister\" - use the Mersenne Twister RNG by Makoto Matsumoto.\n\"Isaac\" - ISAAC RNG by Robert Jenkins\n\"CRandom\" - built in C random number (rand_r). This does not suffer poor randomization on lower order bits as in older rand() implementations."); 
+		lua_pushstring(L, "1 string: The string argument defines the Random type. It may be one of the following:\n\"MersenneTwister\" - use the Mersenne Twister RNG by Makoto Matsumoto.\n\"Isaac\" - ISAAC RNG by Robert Jenkins.\n\"CRandom\" - built in C random number (rand_r). CRandom does not suffer poor randomization on lower order bits as in older rand() implementations."); 
 		lua_pushstring(L, "1 Random object");
 		return 3;
 	}
