@@ -20,7 +20,7 @@ f:write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n" ..
  	"\n" ..
 	"<head>\n" ..
 	"<title>Maglua Reference Manual</title>\n" ..
-	"<link rel=\"stylesheet\" type=\"text/css\" href=\"lua.css\">\n" ..
+	"<link rel=\"stylesheet\" type=\"text/css\" href=\"maglua.css\">\n" ..
 	"<META HTTP-EQUIV=\"content-type\" CONTENT=\"text/html; charset=iso-8859-1\">\n" .. 
 	"</head>\n" ..
  	"\n" ..
