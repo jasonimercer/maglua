@@ -1,8 +1,9 @@
 --
 -- This script uses the built in help features of maglua to build an html help file
+-- If an argument is supplied, that will be the output filename
 --
 
-filename = "maglua.html"
+filename = arg[1] or "maglua.html"
 f = io.open(filename, "w")
 
 function lp(txt) -- Link Process, change *TEXT* into <a href="#TEXT">TEXT</a>
@@ -27,7 +28,7 @@ f:write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n" ..
 
 f:write("<H1>Maglua</H1>\n")
 f:write("<p>Maglua is an extension to the base Lua language that allows a user to build micromagnetic simulations in the Lua scripting language. The following is a list of the objects and functions which may be combined to create a simulation.\n")
-f:write(lp("<p>Maglue is composed of 3 conceptual parts\n<ul>\n<li>Data - Spin vectors and fields, these are held in a *SpinSystem*.\n<li>Operators - Objects which calculate fields based on spins or external influences such as *Anisotropy*, *Dipole*, *Thermal*, etc.\n<li>Integrators - Objects which update spin orientations based on calculated effective fields. Different integrators can be created using *LLG*.\n</ul>\n"))
+f:write(lp("<p>Maglua is composed of 3 conceptual parts\n<ul>\n<li>Data - Spin vectors and fields, these are held in a *SpinSystem*.\n<li>Operators - Objects which calculate fields based on spins or external influences such as *Anisotropy*, *Dipole*, *Thermal*, etc.\n<li>Integrators - Objects which update spin orientations based on calculated effective fields. Different integrators can be created using *LLG*.\n</ul>\n"))
  
 -- Add a section heading
 function addsection(name, level, effect, noadd)
@@ -156,7 +157,7 @@ local i = 0
 for w in string.gfind(info(), "(.-)\n") do
 	local a, b, c, d = string.find(w, "(.-)%s*%:(.*)")
 	if a then
-		f:write("<tr><td>" .. c .. "<td>" .. d .. "\n")
+		f:write("<tr><td>" .. c .. ":<td>" .. d .. "\n")
 	end
 end
 f:write("</table>\n<hr>")
