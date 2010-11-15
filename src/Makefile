@@ -90,7 +90,7 @@ pack:   info.h
 	echo maglua-r`cat info.h | grep Revision | sed -e 's/.*\s\([0-9]\{1,\}\).*/\1/'` > rev
 	rm -rf `cat rev`
 	mkdir `cat rev`
-	cp *.cpp *.h help.lua maglua.css `cat rev`
+	cp *.cpp *.h help.lua maglua.css README COPYRIGHT `cat rev`
 	cat Makefile | grep -v SVN > `cat rev`/Makefile
 	tar -czf `cat rev`.tar.gz `cat rev`
 	echo "Created archive: `cat rev`.tar.gz"
