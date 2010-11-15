@@ -27,9 +27,10 @@ f:write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n" ..
 	"<body>\n")
 
 f:write("<H1>Maglua</H1>\n")
-f:write("<p>Maglua is an extension to the base Lua language that allows a user to build micromagnetic simulations in the Lua scripting language. The following is a list of the objects and functions which may be combined to create a simulation.\n")
+f:write("<p>Maglua is an extension to the base Lua language that allows a user to build micromagnetic simulations in the Lua scripting language.\n")
 f:write(lp("<p>Maglua is composed of 3 conceptual parts\n<ul>\n<li>Data - Spin vectors and fields, these are held in a *SpinSystem*.\n<li>Operators - Objects which calculate fields based on spins or external influences such as *Anisotropy*, *Dipole*, *Thermal*, etc.\n<li>Integrators - Objects which update spin orientations based on calculated effective fields. Different integrators can be created using *LLG*.\n</ul>\n"))
- 
+f:write("<p>The following is a list of the objects and functions which may be combined to create a simulation.\n")
+
 -- Add a section heading
 function addsection(name, level, effect, noadd)
 	if noadd ~= true then
