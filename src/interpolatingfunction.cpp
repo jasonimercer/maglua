@@ -248,6 +248,62 @@ int l_if_value(lua_State* L)
 	return luaL_error(L, "Empty interpolator or data out of range");
 }
 
+
+static int l_if_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.interpolate");
+	return 1;
+}
+
+static int l_if_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Interpolate creates a 1D linear interpolating function");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_if_new)
+	{
+		lua_pushstring(L, "Create a new Interpolate object.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Interpolate object");
+		return 3;
+	}
+	
+	if(func == l_if_adddata)
+	{
+		lua_pushstring(L, "Add data to the 1D linear interpolator.");
+		lua_pushstring(L, "2 numbers: the x and y values where x is the data position and y is the data value.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_if_value)
+	{
+		lua_pushstring(L, "Interpolate a value from the 1D linear interpolator.");
+		lua_pushstring(L, "1 number: the x value or data position which will have a data value interpolated.");
+		lua_pushstring(L, "1 number: the interpolated data value at the input position.");
+		return 3;
+	}
+	
+	return 0;
+}
+
 void registerInterpolatingFunction(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -266,6 +322,8 @@ void registerInterpolatingFunction(lua_State* L)
 		
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_if_new},
+		{"help",                l_if_help},
+		{"metatable",           l_if_mt},
 		{NULL, NULL}
 	};
 		

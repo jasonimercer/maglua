@@ -174,6 +174,64 @@ int l_llg_tostring(lua_State* L)
 	return 1;
 }
 
+
+static int l_llg_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.llg");
+	return 1;
+}
+
+static int l_llg_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "LLG advances a *SpinSystem* through time using a form of the LLG equation.");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_llg_new)
+	{
+		lua_pushstring(L, "Create a new LLG object.");
+		lua_pushstring(L, "1 string: The string argument defines the LLG type. It may be one of the following:\n\"Cartesian\" - update the components of the spins indivifually.\n\"Quaternion\" - use rotation methods to update all components simultaneously.\n\"Fake\" - do nothing to spins, update the timestep.\n\"Align\" - align the spins with the local field.");
+		lua_pushstring(L, "1 LLG object");
+		return 3;
+	}
+	
+	if(func == l_llg_apply)
+	{
+		lua_pushstring(L, "Compute 1 LLG step.");
+		lua_pushstring(L, "1 *SpinSystem*, Optional Boolean or 3 *SpinSystem*s, Optional Boolean: If there is only 1 *SpinSystem* then a single LLG step will be applied to the system. If there are 3 spin systems then the spins of the first will be updated using the fields of the second and written to the spins of the thrid. In both cases the optional Boolean value, if false, will force the internal time to not step.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_llg_gettype)
+	{
+		lua_pushstring(L, "Determine which type of the LLG object.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 string: \"Cartesian\", \"Quaternion\", \"Fake\" or \"Align\"");
+		return 3;
+	}
+	
+	return 0;
+}
+
+
+
 void registerLLG(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -193,6 +251,8 @@ void registerLLG(lua_State* L)
 	
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_llg_new},
+		{"help",                l_llg_help},
+		{"metatable",           l_llg_mt},
 		{NULL, NULL}
 	};
 	

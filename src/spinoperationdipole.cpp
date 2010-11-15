@@ -363,6 +363,103 @@ int l_dip_gettrunc(lua_State* L)
 	return 1;
 }
 
+static int l_dip_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.dipole");
+	return 1;
+}
+
+static int l_dip_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Calculates the dipolar field of a *SpinSystem*");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_dip_new)
+	{
+		lua_pushstring(L, "Create a new Dipole Operator.");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 Dipole object");
+		return 3;
+	}
+	
+	
+	if(func == l_dip_apply)
+	{
+		lua_pushstring(L, "Calculate the dipolar field of a *SpinSystem*");
+		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_dip_setstrength)
+	{
+		lua_pushstring(L, "Set the strength of the Dipolar Field");
+		lua_pushstring(L, "1 number: strength of the field");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_dip_getstrength)
+	{
+		lua_pushstring(L, "Get the strength of the Dipolar Field");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 number: strength of the field");
+		return 3;
+	}
+	
+	if(func == l_dip_setunitcell)
+	{
+		lua_pushstring(L, "Set the unit cell of a lattice site");
+		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. Be default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_dip_getunitcell)
+	{
+		lua_pushstring(L, "Get the unit cell of a lattice site");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. Be default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
+		return 3;
+	}
+
+	if(func == l_dip_settrunc)
+	{
+		lua_pushstring(L, "Set the truncation distance in spins of the dipolar sum.");
+		lua_pushstring(L, "1 Integers: Radius of spins to sum out to.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_dip_gettrunc)
+	{
+		lua_pushstring(L, "Get the truncation distance in spins of the dipolar sum.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Integers: Radius of spins to sum out to.");
+		return 3;
+	}
+
+	return 0;
+}
+
+
 void registerDipole(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -386,6 +483,8 @@ void registerDipole(lua_State* L)
 		
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_dip_new},
+		{"help",                l_dip_help},
+		{"metatable",           l_dip_mt},
 		{NULL, NULL}
 	};
 		

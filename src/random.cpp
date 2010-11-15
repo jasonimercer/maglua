@@ -157,6 +157,71 @@ int l_rand_normal(lua_State* L)
 	return 1;
 }
 
+
+static int l_rand_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.rng");
+	return 1;
+}
+
+static int l_rand_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Random creates a random number generator using one of numerous algorithms.");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_rand_new)
+	{
+		lua_pushstring(L, "Create a new Random object.");
+		lua_pushstring(L, "1 string: The string argument defines the Random type. It may be one of the following:\n\"MersenneTwister\" - use the Mersenne Twister RNG by Makoto Matsumoto.\n\"Isaac\" - ISAAC RNG by Robert Jenkins\n\"CRandom\" - built in C random number (rand_r). This does not suffer poor randomization on lower order bits as in older rand() implementations."); 
+		lua_pushstring(L, "1 Random object");
+		return 3;
+	}
+	
+	if(func == l_rand_seed)
+	{
+		lua_pushstring(L, "Set the seed for the random number generator");
+		lua_pushstring(L, "1 integer: This will be used as the seed for the RNG.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+		
+	if(func == l_rand_uniform)
+	{
+		lua_pushstring(L, "Return a value selected from a uniform distribution");
+		lua_pushstring(L, "1 Optional number:");
+		lua_pushstring(L, "1 number: A random uniform number in the range of [0:1] if for no optional value or [0:n] for an optional argument n");
+		return 3;
+	}
+
+	if(func == l_rand_uniform)
+	{
+		lua_pushstring(L, "Return a value selected from a normal distribution");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 number: A random normal number selected for a normal distribution with stddev 1 and mean 0.");
+		return 3;
+	}
+	
+	return 0;
+}
+
+
 void registerRandom(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -177,6 +242,8 @@ void registerRandom(lua_State* L)
 	
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_rand_new},
+		{"help",                l_rand_help},
+		{"metatable",           l_rand_mt},
 		{NULL, NULL}
 	};
 	

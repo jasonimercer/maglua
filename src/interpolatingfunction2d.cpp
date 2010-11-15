@@ -323,6 +323,87 @@ static int l_if_setinvalidrange(lua_State* L)
 	return 0;
 }
 
+
+static int l_if_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.interpolate2d");
+	return 1;
+}
+
+static int l_if_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Interpolate2D creates a 2D linear interpolating function. Data must form a complete grid.");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_if_new)
+	{
+		lua_pushstring(L, "Create a new Interpolate2D object.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Interpolate2D object");
+		return 3;
+	}
+	
+	if(func == l_if_adddata)
+	{
+		lua_pushstring(L, "Add data to the 2D linear interpolator.");
+		lua_pushstring(L, "3 numbers: the x, y and z values where (x, y) is the data position and z is the data value.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_if_value)
+	{
+		lua_pushstring(L, "Interpolate a value from the 2D linear interpolator.");
+		lua_pushstring(L, "2 numbers: the x and y value representing the data position which will have a value interpolated.");
+		lua_pushstring(L, "1 number: the interpolated data value at the input position.");
+		return 3;
+	}
+	
+	if(func == l_if_compile)
+	{
+		lua_pushstring(L, "Compute all internal variables needed to interpolate a 2D value as well as data range. If this method is not called, it is done automatically when the first interpolated value is requested");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_if_range)
+	{
+		lua_pushstring(L, "Compile the interpolating function if needed and return the valid data range of the interpolator.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "4 numbers: The xmin, xmax, ymin, ymax values");
+		return 3;
+	}
+	
+	if(func == l_if_setinvalidrange)
+	{
+		lua_pushstring(L, "Set the value to return if a requested data point is outside the data range.");
+		lua_pushstring(L, "1 number: Value of data outside data range");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	return 0;
+}
+
+
 void registerInterpolatingFunction2D(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -344,6 +425,8 @@ void registerInterpolatingFunction2D(lua_State* L)
 		
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_if_new},
+		{"help",                l_if_help},
+		{"metatable",           l_if_mt},
 		{NULL, NULL}
 	};
 		

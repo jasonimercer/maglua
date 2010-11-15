@@ -155,6 +155,79 @@ int l_ap_get(lua_State* L)
 	return 1;
 }
 
+static int l_ap_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.appliedfield");
+	return 1;
+}
+
+static int l_ap_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Applies an external, global field to a *SpinSystem*");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_ap_new)
+	{
+		lua_pushstring(L, "Create a new Applied Field Operator.");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 Applied Field object");
+		return 3;
+	}
+	
+	
+	if(func == l_ap_apply)
+	{
+		lua_pushstring(L, "Applies a field on to a *SpinSystem*");
+		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ap_set)
+	{
+		lua_pushstring(L, "Set the direction and strength of the Applied Field");
+		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines the strength and direction of the applied field");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	
+	if(func == l_ap_get)
+	{
+		lua_pushstring(L, "Get the direction and strength of the Applied Field");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Table: The table has the x, y and z of the field stored at indices 1, 2 and 3.");
+		return 3;
+	}
+	
+	if(func == l_ap_member)
+	{
+		lua_pushstring(L, "Determine if a lattice site is a member of the Operation.");
+		lua_pushstring(L, "3 Integers: lattics site x, y, z.");
+		lua_pushstring(L, "1 Boolean: True if x, y, z is part of the Operation, False otherwise.");
+		return 3;
+	}
+	
+	return 0;
+}
+
 
 void registerAppliedField(lua_State* L)
 {
@@ -176,6 +249,8 @@ void registerAppliedField(lua_State* L)
 		
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_ap_new},
+		{"help",                l_ap_help},
+		{"metatable",           l_ap_mt},
 		{NULL, NULL}
 	};
 		

@@ -213,6 +213,87 @@ int l_thermal_member(lua_State* L)
 	return 1;
 }
 
+static int l_thermal_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.thermal");
+	return 1;
+}
+
+static int l_thermal_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_thermal_new)
+	{
+		lua_pushstring(L, "Create a new Thermal Operator.");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 Dipole object");
+		return 3;
+	}
+	
+	if(func == l_thermal_apply)
+	{
+		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
+		lua_pushstring(L, "1 *Random*, 1 *SpinSystem*: The first argument is a random number generator that is used as a source of random values. The second argument is the spin system which will receive the field.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_thermal_scalesite)
+	{
+		lua_pushstring(L, "Scale the thermal field at a site. This allows non-uniform thermal effects over a lattice.");
+		lua_pushstring(L, "1 *3Vector*, 1 Number: The vectors define the lattice sites that will have a scaled thermal effect, the number is the how the thermal field is scaled.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_thermal_settemp)
+	{
+		lua_pushstring(L, "Sets the base value of the temperature. ");
+		lua_pushstring(L, "1 number: temperature of the system.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_thermal_gettemp)
+	{
+		lua_pushstring(L, "Gets the base value of the temperature. ");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 number: temperature of the system.");
+		return 3;
+	}
+	
+	
+	if(func == l_thermal_member)
+	{
+		lua_pushstring(L, "Determine if a lattice site is a member of the Operation.");
+		lua_pushstring(L, "3 Integers: lattics site x, y, z.");
+		lua_pushstring(L, "1 Boolean: True if x, y, z is part of the Operation, False otherwise.");
+		return 3;
+	}
+	
+	return 0;
+}
+
+
 void registerThermal(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -236,6 +317,8 @@ void registerThermal(lua_State* L)
 		
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_thermal_new},
+		{"help",                l_thermal_help},
+		{"metatable",           l_thermal_mt},
 		{NULL, NULL}
 	};
 		

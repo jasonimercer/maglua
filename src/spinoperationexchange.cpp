@@ -215,6 +215,71 @@ int l_ex_member(lua_State* L)
 	return 1;
 }
 
+
+static int l_ex_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.exchange");
+	return 1;
+}
+
+static int l_ex_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Calculates the exchange field of a *SpinSystem*");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_ex_new)
+	{
+		lua_pushstring(L, "Create a new Exchange Operator.");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 Dipole object");
+		return 3;
+	}
+	
+	
+	if(func == l_ex_apply)
+	{
+		lua_pushstring(L, "Calculate the exchange field of a *SpinSystem*");
+		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ex_addpath)
+	{
+		lua_pushstring(L, "Add an exchange pathway between two sites.");
+		lua_pushstring(L, "2 *3Vector*s, 1 Optional Number: The vectors define the lattice sites that share a pathway, the number is the strength of the pathway or 1 as a default. For example, if ex is an Exchange Operator then ex:addPath({1,1,1}, {1,1,2}, -1) and ex:addPath({1,1,2}, {1,1,1}, -1) would make two spins neighbours of each other with anti-ferromagnetic exchange.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ex_member)
+	{
+		lua_pushstring(L, "Determine if a lattice site is a member of the Operation.");
+		lua_pushstring(L, "3 Integers: lattics site x, y, z.");
+		lua_pushstring(L, "1 Boolean: True if x, y, z is part of the Operation, False otherwise.");
+		return 3;
+	}
+	
+	return 0;
+}
+
 void registerExchange(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -234,6 +299,8 @@ void registerExchange(lua_State* L)
 		
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_ex_new},
+		{"help",                l_ex_help},
+		{"metatable",           l_ex_mt},
 		{NULL, NULL}
 	};
 		

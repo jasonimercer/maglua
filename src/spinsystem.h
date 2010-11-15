@@ -24,7 +24,9 @@ public:
 	bool copy(SpinSystem* src);
 	
 	int getSlot(const char* name);
-
+	static const char* slotName(int index);
+	
+	
 	void getNetMag(double* v4);
 	
 	double* x;

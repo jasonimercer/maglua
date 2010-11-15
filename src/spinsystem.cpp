@@ -233,6 +233,23 @@ bool SpinSystem::addFields(double mult, SpinSystem* addThis)
 	return true;
 }
 
+const char* SpinSystem::slotName(int index)
+{
+	if(index == EXCHANGE_SLOT)
+		return "Exchange";
+	if(index == ANISOTROPY_SLOT)
+		return "Anisotropy";
+	if(index == THERMAL_SLOT)
+		return "Thermal";
+	if(index == DIPOLE_SLOT)
+		return "Dipole";
+	if(index == APPLIEDFIELD_SLOT)
+		return "Applied";
+	if(index == SUM_SLOT)
+		return "Total";
+	return 0;
+}
+
 int SpinSystem::getSlot(const char* name)
 {
 	if(strcasecmp(name, "exchange") == 0)
@@ -844,6 +861,238 @@ int l_ss_getinversespin(lua_State* L)
 }
 
 
+
+static int l_ss_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.spinsystem");
+	return 1;
+}
+
+static int l_ss_help(lua_State* L)
+{
+	int i = 0;
+	char buf[1024];
+	buf[0] = 0;
+	const char* field_types;
+	do
+	{
+		field_types = SpinSystem::slotName(i); i++;
+		if(field_types)
+			sprintf(buf+strlen(buf), "\"%s\", ", field_types);
+	}while(field_types);
+	
+	buf[strlen(buf)-2] = 0;
+	
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Represents and contains a lattice of spins including orientation and resulting fields.");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expects zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_ss_new)
+	{
+		lua_pushstring(L, "Create a new Spin System.");
+		lua_pushstring(L, "1 *3Vector*: The width, depth and number of layers for a spin system. Omitted parameters are assumed to be 1."); 
+		lua_pushstring(L, "1 Spin System");
+		return 3;
+	}
+	
+	if(func == l_ss_netmag)
+	{
+		lua_pushstring(L, "Calculate and return net magnetization of a spin system");
+		lua_pushstring(L, "1 Optional Number: The return values will be multiplied by this number, default 1.");
+		lua_pushstring(L, "8 numbers: mean(x), mean(y), mean(z), mean(M), mean(xx), mean(yy), mean(zz), mean(MM)");
+		return 3;
+	}
+	
+	if(func == l_ss_netfield)
+	{
+		lua_pushstring(L, "Return average field due to an interaction. This field must be calculated with the appropriate operator.");
+		lua_pushfstring(L, "1 String: The name of the field type to return. One of: %s", buf);
+		lua_pushstring(L, "3 numbers: Vector representing the average field due to an interaction type.");
+		return 3;
+	}
+	
+	if(func == l_ss_setspin)
+	{
+		lua_pushstring(L, "Set the orientation and magnitude of a spin at a site.");
+		lua_pushstring(L, "2 *3Vector*s: The first argument represents a lattice site. The second represents the spin vector");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ss_getspin)
+	{
+		lua_pushstring(L, "Get the orientation and magnitude of a spin at a site.");
+		lua_pushstring(L, "1 *3Vector*: The lattice site.");
+		lua_pushstring(L, "1 *3Vector*: The spin vector at the lattice site.");
+		return 3;
+	}
+	
+	if(func == l_ss_getunitspin)
+	{
+		lua_pushstring(L, "Get the orientation of a spin at a site.");
+		lua_pushstring(L, "1 *3Vector*: The lattice site.");
+		lua_pushstring(L, "1 *3Vector*: The spin normalized vector at the lattice site.");
+		return 3;
+	}
+	
+	if(func == l_ss_nx)
+	{
+		lua_pushstring(L, "Get the first dimensions of the lattice.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Integer: Size of the first dimension.");
+		return 3;
+	}
+	
+	if(func == l_ss_ny)
+	{
+		lua_pushstring(L, "Get the second dimensions of the lattice.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Integer: Size of the second dimension.");
+		return 3;
+	}
+	
+	if(func == l_ss_nz)
+	{
+		lua_pushstring(L, "Get the third dimensions of the lattice.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Integer: Size of the third dimension.");
+		return 3;
+	}
+	
+	
+	if(func == l_ss_sumfields)
+	{
+		lua_pushstring(L, "Sum all the fields into a single effective field.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ss_zerofields)
+	{
+		lua_pushstring(L, "Zero all the fields.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ss_settime)
+	{
+		lua_pushstring(L, "Set the time of the simulation.");
+		lua_pushstring(L, "1 Number: New time for the simulation (default: 0).");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ss_gettime)
+	{
+		lua_pushstring(L, "Get the time of the simulation.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: Time of the simulation.");
+		return 3;
+	}
+	
+	
+	if(func == l_ss_getfield)
+	{
+		lua_pushstring(L, "Get the field at a site due to an interaction");
+		lua_pushfstring(L, "1 String, 1 *3Vector*: The first argument identifies the field interaction type, one of: %s. The second argument selects the lattice site.", buf);
+		lua_pushstring(L, "3 Numbers: The field vector at the site.");
+		return 3;
+	}
+	
+	if(func == l_ss_getinversespin)
+	{
+		lua_pushstring(L, "Return the an element of the Fourier Transform of the lattice.");
+		lua_pushstring(L, "1 *3Vector*: The lattice site");
+		lua_pushstring(L, "Table of Pairs: The s(q) value represented as a table of pairs. The table has 3 components representing x, y and z. Each component has 2 values representing the real and imaginary value. For example, the imaginary part of the x component would be at [1][2].");
+		return 3;
+	}
+		
+	if(func == l_ss_addfields)
+	{
+		lua_pushstring(L, "Add fields from one *SpinSystem* to the current one, optionally scaling the field.");
+		lua_pushstring(L, "1 Optional Number, 1 *SpinSystem*: The fields in the spin system are added to the calling spin system multiplied by the optional scaling value. This is useful when implementing higher order integrators.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_ss_copy)
+	{
+		lua_pushstring(L, "Copy all aspects of the given *SpinSystem* to the calling system.");
+		lua_pushstring(L, "1 *SpinSystem*: Source spin system.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_ss_setalpha)
+	{
+		lua_pushstring(L, "Set the damping value for the spin system. This is used in *LLG* routines as well as *Thermal* calculations.");
+		lua_pushstring(L, "1 Number: The damping value (default 1).");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_ss_getalpha)
+	{
+		lua_pushstring(L, "Get the damping value for the spin system. This is used in *LLG* routines as well as *Thermal* calculations.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: The damping value.");
+		return 3;
+	}
+
+	if(func == l_ss_settimestep)
+	{
+		lua_pushstring(L, "Set the time step for the spin system. This is used in *LLG* routines as well as *Thermal* calculations.");
+		lua_pushstring(L, "1 Number: The time step.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_ss_gettimestep)
+	{
+		lua_pushstring(L, "Get the time step for the spin system. This is used in *LLG* routines as well as *Thermal* calculations.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: The time step.");
+		return 3;
+	}
+
+	if(func == l_ss_setgamma)
+	{
+		lua_pushstring(L, "Set the gamma value for the spin system. This is used in *LLG* routines.");
+		lua_pushstring(L, "1 Number: The gamma value.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_ss_getgamma)
+	{
+		lua_pushstring(L, "Get the gamma value for the spin system. This is used in *LLG* routines.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: The gamma value.");
+		return 3;
+	}
+
+	return 0;
+}
+
+
 void registerSpinSystem(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -883,6 +1132,8 @@ void registerSpinSystem(lua_State* L)
 		
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_ss_new},
+		{"help",                l_ss_help},
+		{"metatable",           l_ss_mt},
 		{NULL, NULL}
 	};
 		

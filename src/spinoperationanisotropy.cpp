@@ -225,6 +225,70 @@ int l_ani_set(lua_State* L)
 	return 0;
 }
 
+static int l_ani_mt(lua_State* L)
+{
+	luaL_getmetatable(L, "MERCER.anisotropy");
+	return 1;
+}
+
+static int l_ani_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Computes the single ion anisotropy fields for a *SpinSystem*");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_ani_new)
+	{
+		lua_pushstring(L, "Create a new Anisotropy Operator.");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 Anisotropy object");
+		return 3;
+	}
+	
+
+	if(func == l_ani_apply)
+	{
+		lua_pushstring(L, "Calculate the anisotropy of a *SpinSystem*");
+		lua_pushstring(L, "1 *SpinSystem*: This system's Anisotropy field will be calculated based on the sites with Anisotropy.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ani_set)
+	{
+		lua_pushstring(L, "Define a lattice site which has anisotropy");
+		lua_pushstring(L, "2 *3Vector*s, 1 number: The first *3Vector* defines a lattice site, the second defines an easy axis and is normalized. The number defines the strength of the Anisotropy.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ani_member)
+	{
+		lua_pushstring(L, "Determine if a lattice site is a member of the Operation.");
+		lua_pushstring(L, "3 Integers: lattics site x, y, z.");
+		lua_pushstring(L, "1 Boolean: True if x, y, z is part of the Operation, False otherwise.");
+		return 3;
+	}
+	
+	return 0;
+}
+
 
 void registerAnisotropy(lua_State* L)
 {
@@ -245,6 +309,8 @@ void registerAnisotropy(lua_State* L)
 		
 	static const struct luaL_reg functions [] = {
 		{"new",                 l_ani_new},
+		{"help",                l_ani_help},
+		{"metatable",           l_ani_mt},
 		{NULL, NULL}
 	};
 		
