@@ -13,9 +13,9 @@ OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o 
 	llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o \
 	mersennetwister.o llgquat.o interpolatingfunction.o spinoperationdipole.o \
 	dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o \
-	llgfake.o llgalign.o luampi.o luamigrate.o encodable.o
+	llgfake.o llgalign.o luampi.o luamigrate.o encodable.o  spinoperationdipoledisordered.o 
 
-CFLAGS=-ansi -O2
+CFLAGS=-ansi -O2 -g
 
 BUILDTYPE=none
 BUILDTYPES=mpi serial openmp
@@ -88,4 +88,5 @@ pack:   info.h
 	cp *.cpp *.h help.lua maglua.css README COPYRIGHT `cat rev`
 	cat Makefile | grep -v SVN > `cat rev`/Makefile
 	tar -czf `cat rev`.tar.gz `cat rev`
+	rm -f rev
 	echo "Created archive: `cat rev`.tar.gz"

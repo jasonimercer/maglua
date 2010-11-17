@@ -259,8 +259,8 @@ static int l_ex_help(lua_State* L)
 	if(func == l_ex_new)
 	{
 		lua_pushstring(L, "Create a new Exchange Operator.");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 Dipole object");
+		lua_pushstring(L, "3 Integers: Defining the lattice dimensions"); 
+		lua_pushstring(L, "1 Exchange object");
 		return 3;
 	}
 	

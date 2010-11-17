@@ -10,24 +10,37 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "main.h"
-#include "luacommon.h"
+#ifndef SPINOPERATIONDIPOLEDISORDERED
+#define SPINOPERATIONDIPOLEDISORDERED
 
-void registerLibs(lua_State* L)
+#include "spinoperation.h"
+
+using namespace std;
+
+class DipoleDisordered : public SpinOperation
 {
-	luaL_openlibs(L);
-	registerSpinSystem(L);
-	registerLLG(L);
-	registerExchange(L);
-	registerAppliedField(L);
-	registerAnisotropy(L);
-	registerDipole(L);
-	registerRandom(L);
-	registerThermal(L);
-	registerInterpolatingFunction(L);
-	registerInterpolatingFunction2D(L);
-	registerDipoleDisordered(L);
-#ifdef _MPI
-	registerMPI(L);
+public:
+	DipoleDisordered(int nx, int ny, int nz);
+	virtual ~DipoleDisordered();
+	
+	bool apply(SpinSystem* ss);
+	
+	double g;
+
+	void setPosition(int site, double px, double py, double pz);
+	
+	virtual void encode(buffer* b) const;
+	virtual int  decode(buffer* b);
+
+//private:
+	double* posx;
+	double* posy;
+	double* posz;
+};
+
+void lua_pushDipoleDisordered(lua_State* L, DipoleDisordered* d);
+DipoleDisordered* checkDipoleDisordered(lua_State* L, int idx);
+void registerDipoleDisordered(lua_State* L);
+
+
 #endif
-}

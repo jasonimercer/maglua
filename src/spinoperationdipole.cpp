@@ -439,7 +439,7 @@ static int l_dip_help(lua_State* L)
 	if(func == l_dip_setunitcell)
 	{
 		lua_pushstring(L, "Set the unit cell of a lattice site");
-		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. Be default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
+		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. By default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -448,7 +448,7 @@ static int l_dip_help(lua_State* L)
 	{
 		lua_pushstring(L, "Get the unit cell of a lattice site");
 		lua_pushstring(L, "");
-		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. Be default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
+		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. By default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
 		return 3;
 	}
 

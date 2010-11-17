@@ -760,6 +760,9 @@ int l_ss_getfield(lua_State* L)
 
 	const char* name = lua_tostring(L, 2);
 
+	if(!name)
+		return luaL_error(L, "Second argument must a string");
+	
 	int site[3];
 	int r = lua_getNint(L, 3, site, 3, 1);
 	if(r < 0)
