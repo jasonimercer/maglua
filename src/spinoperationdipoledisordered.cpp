@@ -239,6 +239,17 @@ static int l_dipdis_mt(lua_State* L)
 	return 1;
 }
 
+
+static int l_dipdis_tostring(lua_State* L)
+{
+	DipoleDisordered* dip = checkDipoleDisordered(L, 1);
+	if(!dip) return 0;
+	
+	lua_pushfstring(L, "DisorderedDipole (%dx%dx%d)", dip->nx, dip->ny, dip->nz);
+	
+	return 1;
+}
+
 static int l_dipdis_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -320,6 +331,7 @@ void registerDipoleDisordered(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_dipdis_gc},
+		{"__tostring",   l_dipdis_tostring},
 		{"apply",        l_dipdis_apply},
 		{"setStrength",  l_dipdis_setstrength},
 		{"strength",     l_dipdis_getstrength},

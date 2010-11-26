@@ -237,6 +237,17 @@ int l_ani_set(lua_State* L)
 	return 0;
 }
 
+
+int l_ani_tostring(lua_State* L)
+{
+	Anisotropy* ani = checkAnisotropy(L, 1);
+	if(!ani) return 0;
+	
+	lua_pushfstring(L, "Anisotropy (%dx%dx%d)", ani->nx, ani->ny, ani->nz);
+	
+	return 1;
+}
+
 static int l_ani_mt(lua_State* L)
 {
 	luaL_getmetatable(L, "MERCER.anisotropy");
@@ -306,6 +317,7 @@ void registerAnisotropy(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_ani_gc},
+		{"__tostring",   l_ani_tostring},
 		{"apply",        l_ani_apply},
 		{"setSite",      l_ani_set},
 		{"member",       l_ani_member},

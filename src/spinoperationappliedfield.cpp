@@ -156,6 +156,16 @@ int l_ap_get(lua_State* L)
 	AppliedField* ap = checkAppliedField(L, 1);
 	if(!ap) return 0;
 	
+	lua_pushfstring(L, "AppliedField (%dx%dx%d)", ap->nx, ap->ny, ap->nz);
+	
+	return 1;
+}
+
+int l_ap_tostring(lua_State* L)
+{
+	AppliedField* ap = checkAppliedField(L, 1);
+	if(!ap) return 0;
+	
 	lua_newtable(L);
 	for(int i=0; i<3; i++)
 	{
@@ -245,6 +255,7 @@ void registerAppliedField(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_ap_gc},
+		{"__tostring",   l_ap_tostring},
 		{"apply",        l_ap_apply},
 		{"set",          l_ap_set},
 		{"get",          l_ap_get},

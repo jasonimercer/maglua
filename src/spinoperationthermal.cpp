@@ -225,6 +225,17 @@ int l_thermal_member(lua_State* L)
 	return 1;
 }
 
+static int l_thermal_tostring(lua_State* L)
+{
+	Thermal* th = checkThermal(L, 1);
+	if(!th) return 0;
+	
+	lua_pushfstring(L, "Thermal (%dx%dx%d)", th->nx, th->ny, th->nz);
+	
+	return 1;
+}
+
+
 static int l_thermal_mt(lua_State* L)
 {
 	luaL_getmetatable(L, "MERCER.thermal");
@@ -310,6 +321,7 @@ void registerThermal(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_thermal_gc},
+		{"__tostring",   l_thermal_tostring},
 		{"apply",        l_thermal_apply},
 		{"member",       l_thermal_member},
 		{"scaleSite",    l_thermal_scalesite},

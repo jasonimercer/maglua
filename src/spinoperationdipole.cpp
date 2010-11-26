@@ -375,6 +375,16 @@ int l_dip_gettrunc(lua_State* L)
 	return 1;
 }
 
+static int l_dip_tostring(lua_State* L)
+{
+	Dipole* dip = checkDipole(L, 1);
+	if(!dip) return 0;
+	
+	lua_pushfstring(L, "Dipole (%dx%dx%d)", dip->nx, dip->ny, dip->nz);
+	
+	return 1;
+}
+
 static int l_dip_mt(lua_State* L)
 {
 	luaL_getmetatable(L, "MERCER.dipole");
@@ -476,6 +486,7 @@ void registerDipole(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_dip_gc},
+		{"__tostring",   l_dip_tostring},
 		{"apply",        l_dip_apply},
 		{"setStrength",  l_dip_setstrength},
 		{"strength",     l_dip_getstrength},

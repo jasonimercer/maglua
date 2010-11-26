@@ -86,7 +86,8 @@ pack:   info.h
 	rm -rf `cat rev`
 	mkdir `cat rev`
 	cp *.cpp *.h help.lua maglua.css README COPYRIGHT `cat rev`
-	cat Makefile | grep -v SVN > `cat rev`/Makefile
+	cp -r ../doc/manual `cat rev`
+	cat Makefile | head -n -10 | grep -v SVN > `cat rev`/Makefile
 	tar -czf `cat rev`.tar.gz `cat rev`
+	@echo "Created archive: `cat rev`.tar.gz"
 	rm -f rev
-	echo "Created archive: `cat rev`.tar.gz"

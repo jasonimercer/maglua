@@ -234,6 +234,16 @@ static int l_ex_mt(lua_State* L)
 	return 1;
 }
 
+static int l_ex_tostring(lua_State* L)
+{
+	Exchange* ex = checkExchange(L, 1);
+	if(!ex) return 0;
+	
+	lua_pushfstring(L, "Exchange (%dx%dx%d)", ex->nx, ex->ny, ex->nz);
+	
+	return 1;
+}
+
 static int l_ex_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -296,6 +306,7 @@ void registerExchange(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_ex_gc},
+		{"__tostring",   l_ex_tostring},
 		{"apply",        l_ex_apply},
 		{"addPath",      l_ex_addpath},
 		{"member",       l_ex_member},

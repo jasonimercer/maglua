@@ -1,0 +1,8 @@
+These files create an example-based manual for MagLua. `GenerateManual.lua' 
+is the driver program and all the other Lua scripts define documented tasks.
+
+To generate the documentation, run:
+
+	maglua GenerateManual.lua *.lua
+
+This will create an `index.html' along with supporting files for each task.
