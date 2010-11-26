@@ -68,8 +68,8 @@ bool DipoleDisordered::apply(SpinSystem* ss)
 	double* z = ss->z;
 	
 	double* hx = ss->hx[DIPOLE_SLOT];
-	double* hy = ss->hx[DIPOLE_SLOT];
-	double* hz = ss->hx[DIPOLE_SLOT];
+	double* hy = ss->hy[DIPOLE_SLOT];
+	double* hz = ss->hz[DIPOLE_SLOT];
 	
 	double r1[3], r2[3];
 	double rij[3];
@@ -100,9 +100,9 @@ bool DipoleDisordered::apply(SpinSystem* ss)
 				if(lenr > 0)
 				{
 					double sr = x[j]*rij[0] + y[j]*rij[1] + z[j]*rij[2];
-					hx[i] += g * (x[j] / pow(lenr,3) - 3.0 * rij[0] * sr / pow(lenr,5));
-					hy[i] += g * (y[j] / pow(lenr,3) - 3.0 * rij[1] * sr / pow(lenr,5));
-					hz[i] += g * (z[j] / pow(lenr,3) - 3.0 * rij[2] * sr / pow(lenr,5));
+					hx[i] -= g * (x[j] / pow(lenr,3) - 3.0 * rij[0] * sr / pow(lenr,5));
+					hy[i] -= g * (y[j] / pow(lenr,3) - 3.0 * rij[1] * sr / pow(lenr,5));
+					hz[i] -= g * (z[j] / pow(lenr,3) - 3.0 * rij[2] * sr / pow(lenr,5));
 				}
 			}
 		}
