@@ -18,6 +18,10 @@
     * "make openmp"   - build the parallel OpenMP version of Maglua +
     * "make mpi"      - build the parallel MPI version of Maglua +
 
+  Once it is built, you can install maglua with "make install" this will place 
+  any of the 3 executables in your ~/bin directory. Make sure this directory
+  is in your $PATH.
+
         + Experimental
 
 * Documentation

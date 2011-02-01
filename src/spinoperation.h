@@ -30,7 +30,8 @@ class SpinSystem;
 class SpinOperation : public Encodable
 {
 public:
-	SpinOperation(std::string Name, int slot, int nx, int ny, int nz, int encodetype);
+	//encodetype will be phased out in favour of dynamic_cast<T>()
+	SpinOperation(std::string Name, int slot, int nx, int ny, int nz, int encodetype=0);
 	virtual ~SpinOperation();
 	
 	virtual bool apply(SpinSystem* ss) = 0;

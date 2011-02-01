@@ -10,31 +10,9 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "main.h"
-#include "luacommon.h"
-
-#include "libLuaClient.h"
-#include "libLuaSqlite.h"
-
-void registerLibs(lua_State* L)
-{
-	luaL_openlibs(L);
-	registerSpinSystem(L);
-	registerLLG(L);
-	registerExchange(L);
-	registerAppliedField(L);
-	registerAnisotropy(L);
-	registerDipole(L);
-	registerRandom(L);
-	registerThermal(L);
-	registerInterpolatingFunction(L);
-	registerInterpolatingFunction2D(L);
-	registerDipoleDisordered(L);
-	registerMagnetostatic(L);
-	
-	registerSQLite(L);
-	registerLuaClient(L);
-#ifdef _MPI
-	registerMPI(L);
-#endif
-}
+void magnetostaticsLoad(
+	const int nx, const int ny, const int nz,
+	const int gmax, const double* ABC,
+	const double* prism, /* 3 vector */
+	double* XX, double* XY, double* XZ,
+	double* YY, double* YZ, double* ZZ);

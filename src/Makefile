@@ -13,17 +13,28 @@ OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o 
 	llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o \
 	mersennetwister.o llgquat.o interpolatingfunction.o spinoperationdipole.o \
 	dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o \
-	llgfake.o llgalign.o luampi.o luamigrate.o encodable.o  spinoperationdipoledisordered.o 
+	llgfake.o llgalign.o luampi.o luamigrate.o encodable.o  spinoperationdipoledisordered.o \
+	spinoperationmagnetostatics.o magnetostaticssupport.o
 
 CFLAGS=-ansi -O2 -g
 
 BUILDTYPE=none
 BUILDTYPES=mpi serial openmp
 
+#these lua libs provide client and db
+LIBBASE=libLua
+LUALIBS=$(LIBBASE)/libLuaClient/libLuaClient.a \
+	$(LIBBASE)/libLuaSqlite/libLuaSqlite.a \
+	$(LIBBASE)/libLuaMigrate/libLuaMigrate.a
+
 # This makefile uses pkg-config. If you do not have Lua and FFTW registered 
 # with pkg-config, please fill out the proper LIBS and INCLUDEPATH
-LIBS = `pkg-config --libs lua5.1 fftw3`
-INCLUDEPATH = `pkg-config --cflags-only-I lua5.1 fftw3`
+PKGS=lua5.1 fftw3 sqlite3
+LIBS = `pkg-config --libs $(PKGS)` magnetostatics/magnetostatics.a $(LUALIBS)
+INCLUDEPATH = `pkg-config --cflags-only-I $(PKGS)` \
+		-IlibLua/libLuaSqlite  \
+		-IlibLua/libLuaMigrate \
+		-IlibLua/libLuaClient 
 
 all: $(BUILDTYPE)
 
