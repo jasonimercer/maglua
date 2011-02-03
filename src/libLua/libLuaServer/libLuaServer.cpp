@@ -261,7 +261,7 @@ int LuaServer_::establish(unsigned short portnum)
 		return(-1); /* bind address to socket */
 	}
 
-	listen(s, 1); /* max # of queued connects */
+	listen(s, 128); /* max # of queued connects */
 	return(s);
 }
 

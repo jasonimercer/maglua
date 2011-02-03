@@ -82,6 +82,11 @@ static int sure_read_(int fd, void* data, int sz, int* ok, const char* file, int
 		}
 		
 		b = read(fd, &((char*)data)[msz], sz-msz);
+		if(b == 0)
+		{
+			*ok = 0;
+			return msz;
+		}
 		if(b == -1)
 		{
 			fprintf(stderr, "read(%i, %lX, %i) error: `%s' (%s:%i)\n", fd, (long)data, sz, strerror(errno), file, line);
