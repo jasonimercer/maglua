@@ -119,6 +119,8 @@ int l_rand_new(lua_State* L)
 
 	if(lua_isnumber(L, 2))
 		r->seed(lua_tointeger(L, 2));
+	else
+		r->seed();
 	
 	RNG** pp = (RNG**)lua_newuserdata(L, sizeof(RNG**));
 	
