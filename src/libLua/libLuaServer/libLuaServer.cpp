@@ -7,8 +7,10 @@
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <netdb.h>
-
+#include <string>
 #include <arpa/inet.h>
+
+using namespace std;
 
 #include <string.h>
 #include <stdlib.h>
@@ -34,18 +36,36 @@ vector<LuaComm*> LuaServer_::comms;
 #define UPLOADLUA       10
 #define REMOTELUA       11
 
+static int sock_valid(int sockfd)
+{
+	socklen_t optlen = 0;
+	int rv = getsockopt(sockfd, SOL_SOCKET, SO_TYPE, NULL, &optlen);
+	
+	return rv >= 0;
+	
+	//return errno != EBADF;	   
+}
 
-
-
-#ifndef __sure_write
-#define __sure_write(fd, data, sz) __sure_write_(fd, data, sz, __FILE__, __LINE__)
+#ifndef sure_write
+#define sure_write(fd, data, sz, ok) sure_write_(fd, data, sz, ok, __FILE__, __LINE__)
 #endif
-int __sure_write_(int fd, void* data, int sz, const char* file, int line)
+static int sure_write_(int fd, void* data, int sz, int* ok, const char* file, int line)
 {
 	int b;
+	if(!sock_valid(fd))
+	{
+		*ok = 0;
+		return 0;
+	}
+	
 	int msz = write(fd, data, sz);
 	while(msz < sz)
 	{
+		if(!sock_valid(fd))
+		{
+			*ok = 0;
+			return msz;
+		}
 		b = write(fd, &((char*)data)[msz], sz-msz);
 		if(b == -1)
 		{
@@ -54,20 +74,30 @@ int __sure_write_(int fd, void* data, int sz, const char* file, int line)
 		}
 		msz += b; 
 	}
-
 	return msz;
 }
 
-#ifndef __sure_read
-#define __sure_read(fd, data, sz) __sure_read_(fd, data, sz, __FILE__, __LINE__)
+#ifndef sure_read
+#define sure_read(fd, data, sz, ok) sure_read_(fd, data, sz, ok, __FILE__, __LINE__)
 #endif
-int __sure_read_(int fd, void* data, int sz, const char* file, int line)
+static int sure_read_(int fd, void* data, int sz, int* ok, const char* file, int line)
 {
-// 	printf("Reading %i from (%s:%i)\n", sz, file, line);
+	*ok = 1;
+	if(!sock_valid(fd))
+	{
+		*ok = 0;
+		return 0;
+	}
 	int b;
 	int msz = read(fd, data, sz);
 	while(msz < sz)
 	{
+		if(!sock_valid(fd))
+		{
+			*ok = 0;
+			return msz;
+		}
+		
 		b = read(fd, &((char*)data)[msz], sz-msz);
 		if(b == -1)
 		{
@@ -76,19 +106,25 @@ int __sure_read_(int fd, void* data, int sz, const char* file, int line)
 		}
 		msz += b; 
 	}
-
 	return msz;
 }
+
 
 void __threadSignalHandler(int signo);
 
 
+struct fd_name
+{
+	int fd;
+	char* name;
+};
+
 void* __threadCommMain(void* args)
 {
-	pair<int,char*>* p = (pair<int,char*>*)args;
+	fd_name* a = (fd_name*)args;
 
-	int   fd = p->first;
-	char* cn = p->second;
+	int   fd = a->fd;
+	const char* cn = a->name;
 
 	LuaComm* mc = new LuaComm(cn);
 
@@ -96,8 +132,15 @@ void* __threadCommMain(void* args)
 
 	mc->do_comm(fd);
 
+// 	cout << "*****  SHUTTING DOWN " << fd << endl;
+	shutdown(fd, SHUT_RDWR);
+	close(fd);
+		
 	LuaServer.removeComm(mc);
-	printf("thread done\n");
+	//printf("thread done\n");
+	
+	free(a->name);
+	free(a);
 }
 
 
@@ -155,9 +198,10 @@ void LuaServer_::addInfo(string e, LuaComm* c)
 }
 
 
+
 void LuaServer_::serve()
 {
-	int t, s;
+	int fd, s;
 	if((s = establish(port)) < 0)
  	{
 		perror("establish");
@@ -167,7 +211,8 @@ void LuaServer_::serve()
 	char connectionName[512];
 	for(;;)
 	{
-		if((t= get_connection(s, connectionName)) < 0)
+		fd = get_connection(s, connectionName);
+		if(fd < 0)
 		{
 			fprintf(stderr, "ERROR: %s\n", strerror(errno));
 			if(errno == EINTR) /* EINTR might happen on accept(), */
@@ -178,11 +223,14 @@ void LuaServer_::serve()
 
 		pthread_t* thread = new pthread_t();
 
-		pair<int,char*> p(t, connectionName);
-
+		fd_name* a = (fd_name*)malloc(sizeof(fd_name));
+		a->fd = fd;
+		a->name = (char*)malloc(strlen(connectionName)+1);
+		strcpy(a->name, connectionName);
+		
 		commThread.push_back(thread);
 
-		pthread_create(thread, NULL, __threadCommMain, (void *)&p);
+		pthread_create(thread, NULL, __threadCommMain, (void *)a);
 	}
 }
 
@@ -213,7 +261,7 @@ int LuaServer_::establish(unsigned short portnum)
 		return(-1); /* bind address to socket */
 	}
 
-	listen(s, 3); /* max # of queued connects */
+	listen(s, 1); /* max # of queued connects */
 	return(s);
 }
 
@@ -222,19 +270,22 @@ int LuaServer_::get_connection(int s, char* connectionName)
 	sockaddr_in cli_addr;
 	socklen_t addrlen = 1024;
 
-	int t;
+	int fd;
 	printf("waiting for connection\n");
-	if ((t = accept(s, (struct sockaddr*)(&cli_addr), &addrlen)) < 0)
+	fd = accept(s, (struct sockaddr*)(&cli_addr), &addrlen);
+	if(fd < 0)
 	{
 		fprintf(stderr, "ERROR: %s\n", strerror(errno));
 		return(-1);
 	}
 
+	//cout << "ACCEPT " << fd << endl;
+
 	printf("new connection from %s:%i\n", inet_ntoa( cli_addr.sin_addr), cli_addr.sin_port);
 	sprintf(connectionName, "%s:%i", inet_ntoa( cli_addr.sin_addr), cli_addr.sin_port);
 
 
-	return(t);
+	return fd;
 }
 
 void LuaServer_::addComm(LuaComm* comm)
@@ -415,14 +466,16 @@ lua_Variable* LuaServer_::executeLuaFunction(lua_Variable* vars, int nvars, LuaC
 	*nret = n;
 
 	if(n)
+	{
 		retvar = (lua_Variable*)malloc(sizeof(lua_Variable)*n);
 
-	for(int i=0; i<n; i++)
-	{
-		initLuaVariable(&retvar[i]);
-		exportLuaVariable(L, i+1, &retvar[i]);
+		for(int i=0; i<n; i++)
+		{
+			initLuaVariable(&retvar[i]);
+			exportLuaVariable(L, i+1, &retvar[i]);
+		}
 	}
-
+	
 	lua_close(L);
 
 	return retvar;
@@ -463,7 +516,9 @@ void LuaComm::addInfo (string e)
 
 void LuaComm::do_comm(int fd)
 {
+// 	cout << "DO COMM " << fd << endl;
 	int loop = 1;
+	int ok = 1;
 	int cmd;
 
 	int i, j, k, b;
@@ -484,12 +539,12 @@ void LuaComm::do_comm(int fd)
 
 	string ss;
 
-	while(loop)
+	while(loop && ok)
 	{
 		b = 0;
 
-		b += __sure_read(fd, &cmd, sizeof(int));
-		b += __sure_read(fd, &j,   sizeof(int));
+		b += sure_read(fd, &cmd, sizeof(int), &ok); if(!ok) continue; //and exit loop
+		b += sure_read(fd, &j,   sizeof(int), &ok); if(!ok) continue; //and exit loop
 
 		if(b < 2*sizeof(int))
 			cmd = SHUTDOWN;
@@ -503,73 +558,107 @@ void LuaComm::do_comm(int fd)
 				loop = 0;
 			break;
 		
-
+			#if 0
+			//not supporting upload right now
 			case UPLOADLUA:
 				//lua_Variable* luavars;
 				numluavars = j;
-				luavars = (lua_Variable*)malloc(sizeof(lua_Variable) * numluavars);
+				luavars = (lua_Variable*)malloc(sizeof(lua_Variable) * (numluavars+1));
 
 				for(i=0; i<numluavars; i++)
-					rawVarRead(fd, &luavars[i]);
+				{
+					if(!rawVarRead(fd, &luavars[i]))
+					{
+						ok = 0; continue;
+					}
+				}
 				
 				//add it to a state
 				LuaServer.addLuaFunction(luavars, numluavars, this);
 
 				for(i=0; i<numluavars; i++)
 					freeLuaVariable(&luavars[i]);
-
 				free(luavars);
 			break;
+			#endif
 
 			case REMOTELUA:
+// 				#define CFD "(" << fd << ")"
+// 				cout << "REMOTE START " << CFD << endl;
 				numluavars = j;
-				luavars = (lua_Variable*)malloc(sizeof(lua_Variable) * numluavars);
+				luavars = (lua_Variable*)malloc(sizeof(lua_Variable) * (numluavars+1)); // +1 so it's not 0
 
 				for(i=0; i<numluavars; i++)
-					rawVarRead(fd, &luavars[i]);
+				{
+					if(!rawVarRead(fd, &luavars[i]))
+					{
+						for(int k=0; i<i-1; k++)//-1?
+						{
+							freeLuaVariable(&luavars[k]);
+						}
+						free(luavars);
+						ok = 0; continue;
+					}
+				}
 				
 				//add it to a state
+// 				cout << "EX START"<< CFD  << endl;
 				returnlvars = LuaServer.executeLuaFunction(luavars, numluavars, this, &numReturnLuavars);
-
-				__sure_write(fd, &numReturnLuavars, sizeof(int));
+// 				cout << "EX END"<< CFD  << endl;
+				
+				for(i=0; i<numluavars; i++)
+					freeLuaVariable(&luavars[i]);
+				free(luavars);
+				
+				
+// 				cout << "RETURN START (" << numReturnLuavars << ")"<< CFD  << endl;
+				sure_write(fd, &numReturnLuavars, sizeof(int), &ok);
+				if(!ok) continue;
 
 				if(numReturnLuavars)
 				{
 					for(i=0; i<numReturnLuavars; i++)
 					{
-						rawVarWrite(fd, &returnlvars[i]);
+						if(!rawVarWrite(fd, &returnlvars[i]))
+							ok = false;
 						freeLuaVariable(&returnlvars[i]);
 					}
-					free(returnlvars);
 				}
-
-				for(i=0; i<numluavars; i++)
-					freeLuaVariable(&luavars[i]);
-				free(luavars);
+// 				cout << "RETURN END"<< CFD  << endl;
+				
+				if(returnlvars)
+					free(returnlvars);
+// 				cout << "REMOTE END"<< CFD  << endl;
+				
 			break;
-
 		}
 	}
-
 
 	cout << "Client disconnect" << endl;
 }
 
 
-void LuaComm::rawVarRead(int fd, lua_Variable* v)
+bool LuaComm::rawVarRead(int fd, lua_Variable* v)
 {
-	__sure_read(fd, v, sizeof(lua_Variable));
+	int ok = 1;
+	
+// 	cout << fctrl(fd, F_GETFD);
+	
+	sure_read(fd, v, sizeof(lua_Variable), &ok);
+	if(!ok) return false;
 
 	if(v->ssize)
 	{
 		v->s = (char*)malloc(sizeof(char)*v->ssize);
-		__sure_read(fd, v->s, sizeof(char)*v->ssize);
+		sure_read(fd, v->s, sizeof(char)*v->ssize, &ok);
+		if(!ok) return false;
 	}
 
 	if(v->chunksize)
 	{
 		v->funcchunk = (char*)malloc(sizeof(char)*v->chunksize);
-		__sure_read(fd, v->funcchunk, v->chunksize); 
+		sure_read(fd, v->funcchunk, v->chunksize, &ok); 
+		if(!ok) return false;
 	}
 
 	if(v->listlength)
@@ -578,32 +667,42 @@ void LuaComm::rawVarRead(int fd, lua_Variable* v)
 		v->listVal = (lua_Variable*)malloc(sizeof(lua_Variable)*v->listlength);
 		for(int i=0; i<v->listlength; i++)
 		{
-			rawVarRead(fd, &v->listKey[i]);
-			rawVarRead(fd, &v->listVal[i]);
+			if(!rawVarRead(fd, &v->listKey[i])) return false;
+			if(!rawVarRead(fd, &v->listVal[i])) return false;
 		}
 	}
+	return true;
 }
 
-void LuaComm::rawVarWrite(int fd, lua_Variable* v)
+bool LuaComm::rawVarWrite(int fd, lua_Variable* v)
 {
-	__sure_write(fd, v, sizeof(lua_Variable));
+	int ok = 1;
+	sure_write(fd, v, sizeof(lua_Variable), &ok);
+	if(!ok) return false;
 
 	if(v->ssize)
-		__sure_write(fd, v->s, sizeof(char)*v->ssize);
+	{
+		sure_write(fd, v->s, sizeof(char)*v->ssize, &ok);
+		if(!ok) return false;
+	}
 
 	if(v->chunksize)
-		__sure_write(fd, v->funcchunk, v->chunksize); 
+	{
+		sure_write(fd, v->funcchunk, v->chunksize, &ok); 
+		if(!ok) return false;
+	}
 
 	if(v->listlength)
 	{
 		for(int i=0; i<v->listlength; i++)
 		{
 // 			printf("sending key %i of %i\n", i+1, v->listlength); 
-			rawVarWrite(fd, &v->listKey[i]);
+			if(!rawVarWrite(fd, &v->listKey[i])) return false;
 // 			printf("sending val %i of %i\n", i+1, v->listlength); 
-			rawVarWrite(fd, &v->listVal[i]);
+			if(!rawVarWrite(fd, &v->listVal[i])) return false;
 		}
 	}
+	return true;
 }
 
 

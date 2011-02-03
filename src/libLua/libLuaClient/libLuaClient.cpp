@@ -19,15 +19,36 @@ extern "C" {
 using namespace std;
 
 
+static int sock_valid(int sockfd)
+{
+	socklen_t optlen = 0;
+	int rv = getsockopt(sockfd, SOL_SOCKET, SO_TYPE, NULL, &optlen);
+	
+	return rv >= 0;
+	
+	//return errno != EBADF;	   
+}
+
 #ifndef sure_write
-#define sure_write(fd, data, sz) sure_write_(fd, data, sz, __FILE__, __LINE__)
+#define sure_write(fd, data, sz, ok) sure_write_(fd, data, sz, ok, __FILE__, __LINE__)
 #endif
-static int sure_write_(int fd, void* data, int sz, const char* file, int line)
+static int sure_write_(int fd, void* data, int sz, int* ok, const char* file, int line)
 {
 	int b;
+	if(!sock_valid(fd))
+	{
+		*ok = 0;
+		return 0;
+	}
+	
 	int msz = write(fd, data, sz);
 	while(msz < sz)
 	{
+		if(!sock_valid(fd))
+		{
+			*ok = 0;
+			return msz;
+		}
 		b = write(fd, &((char*)data)[msz], sz-msz);
 		if(b == -1)
 		{
@@ -40,14 +61,26 @@ static int sure_write_(int fd, void* data, int sz, const char* file, int line)
 }
 
 #ifndef sure_read
-#define sure_read(fd, data, sz) sure_read_(fd, data, sz, __FILE__, __LINE__)
+#define sure_read(fd, data, sz, ok) sure_read_(fd, data, sz, ok, __FILE__, __LINE__)
 #endif
-static int sure_read_(int fd, void* data, int sz, const char* file, int line)
+static int sure_read_(int fd, void* data, int sz, int* ok, const char* file, int line)
 {
+	*ok = 1;
+	if(!sock_valid(fd))
+	{
+		*ok = 0;
+		return 0;
+	}
 	int b;
 	int msz = read(fd, data, sz);
 	while(msz < sz)
 	{
+		if(!sock_valid(fd))
+		{
+			*ok = 0;
+			return msz;
+		}
+		
 		b = read(fd, &((char*)data)[msz], sz-msz);
 		if(b == -1)
 		{
@@ -144,51 +177,64 @@ bool LuaClient::connectTo(const char* host_port)
 
 void LuaClient::disconnect()
 {
+	int ok;
 	int cmd = SHUTDOWN;
 	sem_wait(&rwSem);
-	sure_write(sockfd, &cmd, sizeof(int));
-	sure_write(sockfd, &cmd, sizeof(int));
+	sure_write(sockfd, &cmd, sizeof(int), &ok);
+	sure_write(sockfd, &cmd, sizeof(int), &ok);
 	sem_post(&rwSem);
 	
 	_connected = false;
 }
 
 
-void LuaClient::rawVarUpload(lua_Variable* v)
+bool LuaClient::rawVarUpload(lua_Variable* v)
 {
+	int ok = 1;
 	//no sems here since these will be parts of larger actions
-	sure_write(sockfd, v, sizeof(lua_Variable));
+	sure_write(sockfd, v, sizeof(lua_Variable), &ok);
 
+	if(!ok) return false;
+		
+	
 	if(v->ssize)
-		sure_write(sockfd, v->s, v->ssize);
-
+		sure_write(sockfd, v->s, v->ssize, &ok);
+	if(!ok) return false;
+	
 	if(v->chunksize)
-		sure_write(sockfd, v->funcchunk, v->chunksize);
-
+		sure_write(sockfd, v->funcchunk, v->chunksize, &ok);
+	if(!ok) return false;
+	
 	if(v->listlength)
 		for(int i=0; i<v->listlength; i++)
 		{
-			rawVarUpload(&v->listKey[i]);
-			rawVarUpload(&v->listVal[i]);
+			if(!rawVarUpload(&v->listKey[i])) return false;
+			if(!rawVarUpload(&v->listVal[i])) return false;
 		}
+	return true;
 }
 
 
-void LuaClient::rawVarDownload(lua_Variable* v)
+bool LuaClient::rawVarDownload(lua_Variable* v)
 {
+	int ok = 1;
+	
 	//no sems here since these will be part of larger actions
-	sure_read(sockfd, v, sizeof(lua_Variable));
-
+	sure_read(sockfd, v, sizeof(lua_Variable), &ok);
+	if(!ok) return false;
+	
 	if(v->ssize)
 	{
 		v->s = (char*)malloc(sizeof(char)*v->ssize);
-		sure_read(sockfd, v->s, v->ssize);
+		sure_read(sockfd, v->s, v->ssize, &ok);
+		if(!ok) return false;
 	}
 
 	if(v->chunksize)
 	{
 		v->funcchunk = (char*)malloc(sizeof(char)*v->chunksize);
-		sure_read(sockfd, v->funcchunk, v->chunksize);
+		sure_read(sockfd, v->funcchunk, v->chunksize, &ok);
+		if(!ok) return false;
 	}
 
 	if(v->listlength)
@@ -198,16 +244,18 @@ void LuaClient::rawVarDownload(lua_Variable* v)
 		for(int i=0; i<v->listlength; i++)
 		{
 // 			printf("downloading key %i of %i\n", i+1, v->listlength); 
-			rawVarDownload(&v->listKey[i]);
+			if(!rawVarDownload(&v->listKey[i])) return false;
 // 			printf("downloading val %i of %i\n", i+1, v->listlength); 
-			rawVarDownload(&v->listVal[i]);
+			if(!rawVarDownload(&v->listVal[i])) return false;
 		}
 	}
+	return true;
 }
 
-
+#if 0
 void LuaClient::uploadLua(lua_State* L)
 {
+	int ok = 1;
 	int n = lua_gettop(L);
 
 	if(!n) return;
@@ -236,10 +284,11 @@ void LuaClient::uploadLua(lua_State* L)
 	free(vars);
  	sem_post(&ioSem);
 }
-
+#endif
 
 int LuaClient::remoteExecuteLua(lua_State* L)
 {
+	int ok = 1;
  	sem_wait(&ioSem);
 	int n = lua_gettop(L);
 
@@ -257,10 +306,28 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 	b[0] = 11; //11 == REMOTELUA
 	b[1] = n;
 
-	sure_write(sockfd, b, sizeof(int)*2);
+	sure_write(sockfd, b, sizeof(int)*2, &ok);
+	if(!ok)
+	{
+		for(int i=0; i<n; i++)
+			freeLuaVariable(&vars[i]);
+		free(vars);
+		sem_post(&ioSem); //we can let other communication happen now. 
+		return luaL_error(L, "network fail in :remote");
+	}
 
 	for(int i=0; i<n; i++)
-		rawVarUpload(&vars[i]);
+	{
+		if(!rawVarUpload(&vars[i]))
+		{
+			for(int i=0; i<n; i++)
+				freeLuaVariable(&vars[i]);
+			free(vars);
+			sem_post(&ioSem); //we can let other communication happen now. 
+			return luaL_error(L, "network fail in :remote");
+		}
+	}
+	
 	//lua function is now being run on the server. 
  	sem_post(&ioSem); //we can let other communication happen now. 
 
@@ -272,13 +339,28 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 	lua_pop(L, n);
 
  	sem_wait(&ioSem);
-	sure_read(sockfd, &n, sizeof(int)*1);
+	sure_read(sockfd, &n, sizeof(int)*1, &ok); //get return count
+	if(!ok)
+	{
+		sem_post(&ioSem);
+		return luaL_error(L, "network fail in :remote");
+	}
+	
 	//n return variables
-
 	vars = (lua_Variable*)malloc(sizeof(lua_Variable)*n);
 	for(int i=0; i<n; i++)
-		rawVarDownload(&vars[i]);
-
+	{
+		if(!rawVarDownload(&vars[i]))
+		{
+			for(int j=0; j<i-1; j++)
+				freeLuaVariable(&vars[j]);
+			free(vars);
+			sem_post(&ioSem);
+			return luaL_error(L, "network fail in :remote");
+		}
+	}
+	sem_post(&ioSem);
+	
 	//now to put the downloaded vars on the stack
 	for(int i=0; i<n; i++)
 		importLuaVariable(L, &vars[i]);
@@ -287,7 +369,6 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 		freeLuaVariable(&vars[i]);
 
 	free(vars);
- 	sem_post(&ioSem);
 	return n;
 }
 

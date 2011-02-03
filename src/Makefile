@@ -90,6 +90,8 @@ clean:
 	@ echo "Temporary files removed"
 
 distclean: clean
+	make -C libLua clean
+	make -C magnetostatics clean
 	rm -f maglua maglua_mpi maglua_openmp
 
 pack:   info.h
@@ -98,6 +100,8 @@ pack:   info.h
 	mkdir `cat rev`
 	cp *.cpp *.h help.lua maglua.css README COPYRIGHT `cat rev`
 	cp -r ../doc/manual `cat rev`
+	cp -r magnetostatics `cat rev`
+	cp -r libLua `cat rev`
 	cat Makefile | head -n -10 | grep -v SVN > `cat rev`/Makefile
 	tar -czf `cat rev`.tar.gz `cat rev`
 	@echo "Created archive: `cat rev`.tar.gz"

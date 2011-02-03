@@ -40,12 +40,12 @@ public:
 	const char* name() {return sourcename.c_str();};
 	void disconnect();
 
-	void uploadLua(lua_State* L);
+	//void uploadLua(lua_State* L);
 	int  remoteExecuteLua(lua_State* L);
 	int refcount;
 private:
-	void rawVarUpload(lua_Variable* v);
-	void rawVarDownload(lua_Variable* v);
+	bool rawVarUpload(lua_Variable* v);
+	bool rawVarDownload(lua_Variable* v);
 
 // 	pt2FuncCharStar logFunction;
 // 	pt2FuncCharStar logErrorFunction;

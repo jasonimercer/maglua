@@ -1,5 +1,10 @@
 #include "libLuaSqlite.h"
 
+#include <unistd.h>
+#include <stdlib.h>
+
+#define SLEEP_TIME (100000 + (rand() & 0x7FFFF))
+#define RETRIES 100
 sqlite3** checkSQLitep(lua_State* L, int idx)
 {
 	sqlite3** pp = (sqlite3**)luaL_checkudata(L, idx, "SQL");
@@ -31,15 +36,33 @@ int l_sql_new(lua_State* L)
 	char* errormsg = 0;
 	sqlite3* s = 0;
 	
-	int rv = sqlite3_open(filename, &s);
 	
-	if(rv)
+	int retries = RETRIES;
+	
+	int rv = SQLITE_OK;
+	for(int i=0; i<retries; i++)
+	{
+		rv = sqlite3_open(filename, &s);
+		
+		if(rv == SQLITE_BUSY)
+		{
+			int s = SLEEP_TIME;
+// 			printf("%s is busy, sleeping for %i\n", filename, s);
+			usleep(SLEEP_TIME); //sleep for a bit and then try again
+		}
+		else
+		{
+			break; //if rv != SQLITE_BUSY
+		}
+	}
+	
+	if(rv != SQLITE_OK)
 	{
 		if(s)
 			return luaL_error(L, sqlite3_errmsg(s));
 		else
 			return luaL_error(L, "sqlite3 pointer is null");
-	}
+	}	
 	
 	lua_pushSQLite(L, s);
 	return 1;
@@ -96,16 +119,39 @@ int l_sql_exec(lua_State* L)
 	if(!statement)
 		return 0;
 	char* errmsg = 0;
-	
+
 	LI li;
 	li.L = L;
 	li.i = 1;
 	
+	int retries = RETRIES;
+	
 	lua_newtable(L);
-	if(sqlite3_exec(sql, statement, exec_callback, &li, &errmsg))
+	
+	for(int i=0; i<retries; i++)
+	{
+		errmsg = 0;
+		int rv = sqlite3_exec(sql, statement, exec_callback, &li, &errmsg);
+	
+		if(rv == SQLITE_BUSY)
+		{
+			int s = SLEEP_TIME;
+// 			printf("db is busy, sleeping for %i (%i)\n", s, i);
+			usleep(s); //sleep for a bit and then try again
+		}
+		else
+		{
+			if(rv)
+				return luaL_error(L, errmsg);
+			
+			if(rv == SQLITE_OK)
+				return 1;
+		}
+	}
+	
+	if(errmsg)
 		return luaL_error(L, errmsg);
-
-	return 1;
+	return luaL_error(L, "Failed to execute statement");
 }
 	
 int l_sql_close(lua_State* L)

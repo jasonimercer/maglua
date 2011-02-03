@@ -13,12 +13,13 @@ OBJECTS=main.o
 CFLAGS=-ansi -O2 -g
 
 LIBBASE=..
-LUALIBS=$(LIBBASE)/libLuaClient/libLuaClient.a \
-        $(LIBBASE)/libLuaServer/libLuaServer.a \
-	$(LIBBASE)/libLuaSqlite/libLuaSqlite.a \
-	$(LIBBASE)/libLuaMigrate/libLuaMigrate.a
+LUALIBS=$(LIBBASE)/libLuaSqlite/libLuaSqlite.a \
+	$(LIBBASE)/libLuaServer/libLuaServer.a \
+	$(LIBBASE)/libLuaMigrate/libLuaMigrate.a \
+	$(LIBBASE)/libLuaClient/libLuaClient.a \
 
-LIBS = `pkg-config --libs lua5.1 sqlite3`  $(LUALIBS)
+
+LIBS = `pkg-config --libs lua5.1 sqlite3`
 
 INCLUDEPATH = `pkg-config --cflags-only-I lua5.1 sqlite3` \
 	-I$(LIBBASE)/libLuaClient \
@@ -34,7 +35,7 @@ all: $(BIN)
 test: all
 
 $(BIN): $(OBJECTS) $(LUALIBS)
-	$(CXX) $(CFLAGS) -o ${BIN} ${OBJECTS} ${LIBS}
+	$(CXX) $(CFLAGS) -o ${BIN} -Wl,--start-group ${LIBS} $(LUALIBS) ${OBJECTS} -Wl,--end-group
 
 %.o : %.cpp %.h
 	$(CXX) $(CFLAGS) ${INCLUDEPATH} -c $*.cpp -o $*.o

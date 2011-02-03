@@ -35,8 +35,8 @@ public:
 	const char* name();
 
 private:
-	void rawVarRead(int fd, lua_Variable* v);
-	void rawVarWrite(int fd, lua_Variable* v);
+	bool rawVarRead(int fd, lua_Variable* v);
+	bool rawVarWrite(int fd, lua_Variable* v);
 
 	sem_t qSem;
 	queue<string> errors;
