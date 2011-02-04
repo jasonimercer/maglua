@@ -100,6 +100,8 @@ public:
 	static sem_t addCommSem;
 	static sem_t updateSem;
 
+	static sem_t availableStates;
+
 	static vector<LuaComm*> comms;
 };
 

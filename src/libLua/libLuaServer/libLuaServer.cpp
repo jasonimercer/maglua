@@ -22,6 +22,7 @@ int LuaServer_::port;
 vector<pthread_t*> LuaServer_::commThread;
 
 sem_t LuaServer_::luaThreadSem;
+
 pthread_t LuaServer_::rootThread;
 int LuaServer_::nextThreadID = 0;
 vector<LuaThread*> LuaServer_::runningLuathreads;
@@ -29,6 +30,9 @@ luafunc LuaServer_::registerCallback = 0;
 
 sem_t LuaServer_::addCommSem;
 sem_t LuaServer_::updateSem;
+
+sem_t LuaServer_::availableStates;
+
 
 vector<LuaComm*> LuaServer_::comms;
 
@@ -164,6 +168,8 @@ bool LuaServer_::init(int argc, char** argv)
 	sem_init(&addCommSem,   0, 1);
 	sem_init(&updateSem,    0, 1);
 	sem_init(&luaThreadSem, 0, 1);
+	
+	sem_init(&availableStates,  0, 10);
 
 	return true;
 }
@@ -441,6 +447,11 @@ int LuaServer_::addLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm)
 
 lua_Variable* LuaServer_::executeLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm, int* nret)
 {
+	//limit the number of simultaneous lua states running
+	//this can cause a problem is the server runs code that
+	//makes a new connection to itself and that connection cannot run
+	sem_wait(&availableStates);
+	
 	lua_State* L;
 	L = lua_open();
 	luaL_openlibs(L);
@@ -477,6 +488,8 @@ lua_Variable* LuaServer_::executeLuaFunction(lua_Variable* vars, int nvars, LuaC
 	}
 	
 	lua_close(L);
+
+	sem_post(&availableStates);
 
 	return retvar;
 }
