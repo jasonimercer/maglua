@@ -1,4 +1,4 @@
-#include <sqlite3.h>
+// #include <sqlite3.h>
 
 extern "C" {
         #include <lua.h>
@@ -6,7 +6,8 @@ extern "C" {
         #include <lauxlib.h>
 }
 
-sqlite3* checkSQLite(lua_State* L, int index);
-void lua_pushSQLite(lua_State* L, sqlite3* sql);
+// sqlite3* checkSQLite(lua_State* L, int index);
+// void lua_pushSQLite(lua_State* L, sqlite3* sql);
 
 int registerSQLite(lua_State* L);
+
