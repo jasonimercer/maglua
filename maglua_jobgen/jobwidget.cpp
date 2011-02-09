@@ -13,7 +13,15 @@ JobWidget::JobWidget(QWidget *parent) :
 	highlighter = new QMagLuaHighlighter(ui->txtCode->textEdit()->document());
 
 	ui->graphicsView->setScene(&scene);
-	scene.addItem(new QMagLuaGraphicsNode);
+
+
+	scene.addItem(new QMagLuaGraphicsNode(new MagLuaNode(MagLuaNode::Operator, "ex", "Exchange")));
+
+	scene.addItem(new QMagLuaGraphicsNode(new MagLuaNode(MagLuaNode::Data, "ss", "SpinSystem")));
+
+	scene.addItem(new QMagLuaGraphicsNode(new MagLuaNode(MagLuaNode::Operator, "dip", "Dipole")));
+
+	scene.addItem(new QMagLuaGraphicsNode(new MagLuaNode(MagLuaNode::Number, "n", "Number")));
 }
 
 JobWidget::~JobWidget()

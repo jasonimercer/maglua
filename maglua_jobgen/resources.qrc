@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/gfx">
         <file>info.png</file>
+        <file>spins.jpg</file>
     </qresource>
 </RCC>

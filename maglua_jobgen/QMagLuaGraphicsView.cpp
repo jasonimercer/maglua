@@ -8,6 +8,7 @@ QMagLuaGraphicsView::QMagLuaGraphicsView(QWidget *parent) :
 //	d->scene->setSceneRect(-5000, -5000, 10000, 10000);
 	setRenderHints(QPainter::Antialiasing|QPainter::TextAntialiasing|QPainter::SmoothPixmapTransform);
 	_zoomLevel = 0;
+	setTransformationAnchor(AnchorUnderMouse);
 }
 
 void QMagLuaGraphicsView::wheelEvent(QWheelEvent* e)

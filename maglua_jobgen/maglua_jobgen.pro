@@ -17,7 +17,10 @@ SOURCES += main.cpp\
     qmagluaeditor.cpp \
 	QMagLuaGraphicsView.cpp \
     QMagLuaGraphicsNode.cpp \
-	QMagLuaNodeConnection.cpp
+	QMagLuaNodeConnection.cpp \
+    MagLuaNode.cpp \
+    MagLuaNodeConnection.cpp \
+    SimulationObject.cpp
 
 HEADERS  += mainwindow.h \
     jobwidget.h \
@@ -25,7 +28,10 @@ HEADERS  += mainwindow.h \
     qmagluaeditor.h \
 	QMagLuaGraphicsView.h \
     QMagLuaGraphicsNode.h \
-	QMagLuaNodeConnection.h
+	QMagLuaNodeConnection.h \
+    MagLuaNode.h \
+    MagLuaNodeConnection.h \
+    SimulationObject.h
 
 FORMS    += mainwindow.ui \
     jobwidget.ui
