@@ -1,6 +1,8 @@
 #include "jobwidget.h"
 #include "ui_jobwidget.h"
 #include <QTextEdit>
+#include "QMagLuaGraphicsNode.h"
+
 JobWidget::JobWidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::JobWidget)
@@ -9,6 +11,9 @@ JobWidget::JobWidget(QWidget *parent) :
 
 
 	highlighter = new QMagLuaHighlighter(ui->txtCode->textEdit()->document());
+
+	ui->graphicsView->setScene(&scene);
+	scene.addItem(new QMagLuaGraphicsNode);
 }
 
 JobWidget::~JobWidget()

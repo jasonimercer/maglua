@@ -16,14 +16,19 @@ SOURCES += main.cpp\
     qmagluahighlighter.cpp \
     qmagluaeditor.cpp \
 	QMagLuaGraphicsView.cpp \
-    QMagLuaGraphicsNode.cpp
+    QMagLuaGraphicsNode.cpp \
+	QMagLuaNodeConnection.cpp
 
 HEADERS  += mainwindow.h \
     jobwidget.h \
     qmagluahighlighter.h \
     qmagluaeditor.h \
 	QMagLuaGraphicsView.h \
-    QMagLuaGraphicsNode.h
+    QMagLuaGraphicsNode.h \
+	QMagLuaNodeConnection.h
 
 FORMS    += mainwindow.ui \
     jobwidget.ui
+
+RESOURCES += \
+    resources.qrc

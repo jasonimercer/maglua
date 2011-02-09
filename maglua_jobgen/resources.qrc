@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/gfx">
+        <file>info.png</file>
+    </qresource>
+</RCC>

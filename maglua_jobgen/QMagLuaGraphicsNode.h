@@ -1,10 +1,20 @@
 #ifndef QMAGLUAGRAPHICSNODE_H
 #define QMAGLUAGRAPHICSNODE_H
 
-class QMagLuaGraphicsNode
+#include <QObject>
+#include <QGraphicsRectItem>
+
+
+class QMagLuaGraphicsNode : public QObject, public QGraphicsRectItem
 {
+	Q_OBJECT
 public:
-    QMagLuaGraphicsNode();
+	QMagLuaGraphicsNode();
+	~QMagLuaGraphicsNode();
+
+	bool selected();
+protected:
+	void paint(QPainter *p, const QStyleOptionGraphicsItem* opt, QWidget *widget);
 };
 
 #endif // QMAGLUAGRAPHICSNODE_H

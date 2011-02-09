@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include "qmagluahighlighter.h"
+#include <QGraphicsScene>
 
 namespace Ui {
     class JobWidget;
@@ -27,6 +28,7 @@ private:
 
 	QMagLuaHighlighter* highlighter;
 
+	QGraphicsScene scene;
 };
 
 #endif // JOBWIDGET_H
