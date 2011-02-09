@@ -15,4 +15,4 @@ void magnetostaticsLoad(
 	const int gmax, const double* ABC,
 	const double* prism, /* 3 vector */
 	double* XX, double* XY, double* XZ,
-	double* YY, double* YZ, double* ZZ);
+	double* YY, double* YZ, double* ZZ, double tol);

@@ -61,6 +61,8 @@ signals:
 protected slots:
 	void textChanged(int pos, int added, int removed);
 
+
+
 private:
 	int currentLine;
 

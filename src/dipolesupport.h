@@ -15,3 +15,12 @@ void dipoleLoad(
 	const int gmax, double* ABC,
 	double* XX, double* XY, double* XZ,
 	double* YY, double* YZ, double* ZZ);
+
+double gamma_xx_dip(double rx, double ry, double rz);
+double gamma_xy_dip(double rx, double ry, double rz);
+double gamma_xz_dip(double rx, double ry, double rz);
+double gamma_yy_dip(double rx, double ry, double rz);
+double gamma_yz_dip(double rx, double ry, double rz);
+double gamma_zz_dip(double rx, double ry, double rz);
+
+	

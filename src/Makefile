@@ -18,7 +18,7 @@ OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o 
 
 CFLAGS=-ansi -O2 -g
 
-BUILDTYPE=none
+BUILDTYPE=serial
 BUILDTYPES=mpi serial openmp
 
 #these lua libs provide client and db

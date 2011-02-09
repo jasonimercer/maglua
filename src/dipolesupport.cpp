@@ -16,6 +16,46 @@
 #include <stdio.h>
 #include <math.h>
 
+
+#define ZERO_CHECK double r = sqrt(rx*rx+ry*ry+rz*rz); if(r < 1E-10)	return 0; double ir = 1.0 / r;
+
+double gamma_xx_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return - pow(ir,3) + 3.0 * rx * rx * pow(ir,5);
+}
+
+double gamma_xy_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return           + 3.0 * rx * ry * pow(ir,5);
+}
+
+double gamma_xz_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return           + 3.0 * rx * rz * pow(ir,5);
+}
+
+double gamma_yy_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return - pow(ir,3) + 3.0 * ry * ry * pow(ir,5);
+}
+
+double gamma_yz_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return           + 3.0 * ry * rz * pow(ir,5);
+}
+
+double gamma_zz_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return - pow(ir,3) + 3.0 * rz * rz * pow(ir,5);
+}
+
+
 ///periodic XY
 void getWAB(
 	const double* ABC, 

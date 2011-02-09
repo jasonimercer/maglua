@@ -38,7 +38,7 @@ class Magnetostatic : public SpinOperation
 		virtual int  decode(buffer* b);
 		
 		double volumeDimensions[3];
-		
+		double crossover_tolerance; //calculations crossover from magnetostatics to dipole
 	private:
 		void ifftAppliedForce(SpinSystem* ss);
 		void collectIForces(SpinSystem* ss);

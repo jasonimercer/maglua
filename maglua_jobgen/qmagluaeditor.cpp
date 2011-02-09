@@ -3,13 +3,18 @@
 
 InfoBar::InfoBar(QWidget *parent)
 	: QWidget(parent), edit(0), stopLine(-1), currentLine(-1), bugLine(-1)
-//	: QWidget(parent), edit(0), stopLine(3), currentLine(5), bugLine(11)
+	//	: QWidget(parent), edit(0), stopLine(3), currentLine(5), bugLine(11)
 {
-	// Make room for 4 digits and the breakpoint icon
-	setFixedWidth(fontMetrics().width(QString("0000") + 10 + 32));
-	stopMarker = QPixmap("images/no.png");
-	currentMarker = QPixmap("images/next.png");
-	bugMarker = QPixmap("images/bug.png");
+	setFixedWidth(fontMetrics().width(QString("0000") + 40));
+	stopMarker = QPixmap("/users/cmms/jmercer/.rhel5_backup/.kde/share/icons/nuvoX_0.6/32x32/actions/no.png").scaled(16, 16);
+	currentMarker = QPixmap("/users/cmms/jmercer/.rhel5_backup/.kde/share/icons/nuvoX_0.6/32x32/actions/next.png").scaled(16, 16);
+	bugMarker = QPixmap("/users/cmms/jmercer/.rhel5_backup/.kde/share/icons/nuvoX_0.6/32x32/apps/bug.png").scaled(16, 16);
+
+//	stopMarker = QPixmap("images/no.png");
+//	currentMarker = QPixmap("images/next.png");
+//	bugMarker = QPixmap("images/bug.png");
+
+
 }
 
 InfoBar::~InfoBar()
@@ -53,8 +58,7 @@ void InfoBar::paintEvent(QPaintEvent *)
 	stopRect = QRect();
 	currentRect = QRect();
 
-	for(QTextBlock block = edit->document()->begin();
-	  block.isValid(); block = block.next(), ++lineCount)
+	for(QTextBlock block = edit->document()->begin(); block.isValid(); block = block.next(), ++lineCount)
 	{
 		const QRectF boundingRect = layout->blockBoundingRect(block);
 
@@ -67,40 +71,47 @@ void InfoBar::paintEvent(QPaintEvent *)
 		const QString txt = QString::number(lineCount);
 		p.drawText(width() - fm.width(txt), qRound(position.y()) - contentsY + ascent, txt);
 
-	// Bug marker
-	if(bugLine == lineCount) {
-		p.drawPixmap(1, qRound(position.y()) - contentsY, bugMarker);
-		bugRect = QRect(1, qRound(position.y()) - contentsY, bugMarker.width(), bugMarker.height());
-	}
+		// Bug marker
+		if(bugLine == lineCount)
+		{
+			p.drawPixmap(1, qRound(position.y()) - contentsY, bugMarker);
+			bugRect = QRect(1, qRound(position.y()) - contentsY, bugMarker.width(), bugMarker.height());
+		}
 
-	// Stop marker
-	if(stopLine == lineCount) {
-		p.drawPixmap(19, qRound(position.y()) - contentsY, stopMarker);
-		stopRect = QRect(19, qRound(position.y()) - contentsY, stopMarker.width(), stopMarker.height());
-	}
+		// Stop marker
+		if(stopLine == lineCount)
+		{
+			p.drawPixmap(1, qRound(position.y()) - contentsY, stopMarker);
+			stopRect = QRect(1, qRound(position.y()) - contentsY, stopMarker.width(), stopMarker.height());
+		}
 
-	// Current line marker
-	if(currentLine == lineCount) {
-		p.drawPixmap(19, qRound(position.y()) - contentsY, currentMarker);
-		currentRect = QRect(19, qRound(position.y()) - contentsY, currentMarker.width(), currentMarker.height());
-	}
+		// Current line marker
+		if(currentLine == lineCount)
+		{
+			p.drawPixmap(1, qRound(position.y()) - contentsY, currentMarker);
+			currentRect = QRect(1, qRound(position.y()) - contentsY, currentMarker.width(), currentMarker.height());
+		}
 	}
 }
 
 bool InfoBar::event(QEvent *event)
 {
-	if(event->type() == QEvent::ToolTip) {
-	QHelpEvent *helpEvent = static_cast<QHelpEvent *>(event);
+	if(event->type() == QEvent::ToolTip)
+	{
+		QHelpEvent *helpEvent = static_cast<QHelpEvent *>(event);
 
-	if(stopRect.contains(helpEvent->pos())) {
-		QToolTip::showText(helpEvent->globalPos(), "Stop Here");
-	}
-	else if(currentRect.contains(helpEvent->pos())) {
-		QToolTip::showText(helpEvent->globalPos(), "Current Line");
-	}
-	else if(bugRect.contains(helpEvent->pos())) {
-		QToolTip::showText(helpEvent->globalPos(), "Error Line");
-	}
+		if(stopRect.contains(helpEvent->pos()))
+		{
+			QToolTip::showText(helpEvent->globalPos(), "Stop Here");
+		}
+		else if(currentRect.contains(helpEvent->pos()))
+		{
+			QToolTip::showText(helpEvent->globalPos(), "Current Line");
+		}
+		else if(bugRect.contains(helpEvent->pos()))
+		{
+			QToolTip::showText(helpEvent->globalPos(), "Error Line");
+		}
 	}
 
 	return QWidget::event(event);
@@ -124,9 +135,11 @@ QMagLuaEditor::QMagLuaEditor(QWidget *parent)
 	view->setFrameStyle(QFrame::NoFrame);
 	view->installEventFilter(this);
 
+	view->setTabStopWidth(16*4);
+
 	connect(view->document(), SIGNAL(contentsChange(int,int,int)), this, SLOT(textChanged(int,int,int)));
 
-	// Setup the line number pane
+	// Setup the info pane
 	info = new InfoBar(this);
 	info->setTextEdit(view);
 
@@ -140,6 +153,15 @@ QMagLuaEditor::QMagLuaEditor(QWidget *parent)
 	hbox->setMargin(0);
 	hbox->addWidget(info);
 	hbox->addWidget(view);
+
+	QFile file("../examples/databaseExamples/code.lua");
+	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+		return;
+
+	while(!file.atEnd())
+	{
+		view->insertPlainText(file.readLine());
+	}
 }
 
 QMagLuaEditor::~QMagLuaEditor()
@@ -167,10 +189,10 @@ void QMagLuaEditor::textChanged(int pos, int removed, int added)
 {
 	Q_UNUSED(pos);
 
-	if (removed == 0 && added == 0)
-	return;
+	if(removed == 0 && added == 0)
+		return;
 
-			QTextBlock block = cursor.block();
+	QTextBlock block = cursor.block();
 	QTextBlockFormat fmt = block.blockFormat();
 	QColor bg = view->palette().base().color();
 	fmt.setBackground(bg);
@@ -178,9 +200,8 @@ void QMagLuaEditor::textChanged(int pos, int removed, int added)
 
 	int lineCount = 1;
 	for (QTextBlock block = view->document()->begin();
-	  block.isValid(); block = block.next(), ++lineCount)
+	block.isValid(); block = block.next(), ++lineCount)
 	{
-
 		if(lineCount == currentLine)
 		{
 			fmt = block.blockFormat();
@@ -202,7 +223,6 @@ QTextEdit* QMagLuaEditor::textEdit() const
 }
 
 
-
 bool QMagLuaEditor::eventFilter(QObject *obj, QEvent *event)
 {
 	if(obj != view)
@@ -220,8 +240,7 @@ bool QMagLuaEditor::eventFilter(QObject *obj, QEvent *event)
 		emit mouseHover(word);
 		emit mouseHover(helpEvent->pos(), word);
 
-		// QToolTip::showText(helpEvent->globalPos(), word); // For testing
+		//QToolTip::showText(helpEvent->globalPos(), word); // For testing
 	}
-
 	return false;
 }

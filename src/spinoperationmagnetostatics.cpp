@@ -67,6 +67,8 @@ Magnetostatic::Magnetostatic(int nx, int ny, int nz)
 								FFTW_BACKWARD, FFTW_PATIENT);
 								
 	hasMatrices = false;
+	
+	crossover_tolerance = 0.0001;
 }
 
 void Magnetostatic::encode(buffer* b) const
@@ -117,7 +119,7 @@ void Magnetostatic::getMatrices()
 		gmax, ABC,
 		volumeDimensions,
 		XX, XY, XZ,
-		YY, YZ, ZZ);
+		YY, YZ, ZZ, crossover_tolerance);
 
 	fftw_iodim dims[2];
 	dims[0].n = nx;
@@ -412,6 +414,25 @@ static int l_mag_getcelldims(lua_State* L)
 	return 3;
 }
 
+static int l_mag_setcrossover(lua_State* L)
+{
+	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	if(!mag) return 0;
+	
+	mag->crossover_tolerance = lua_tonumber(L, 2);
+	return 0;
+}
+
+static int l_mag_getcrossover(lua_State* L)
+{
+	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	if(!mag) return 0;
+	
+	lua_pushnumber(L, mag->crossover_tolerance);
+	return 1;
+}
+
+
 
 static int l_mag_mt(lua_State* L)
 {
@@ -522,6 +543,22 @@ static int l_mag_help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_mag_setcrossover)
+	{
+		lua_pushstring(L, "Set the relative error to define the crossover from magnetostatics to dipole calculations in the interaction matrix generation. Initial value is 0.0001.");
+		lua_pushstring(L, "1 Number: The relative error for the crossover");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_mag_getcrossover)
+	{
+		lua_pushstring(L, "Get the relative error to define the crossover from magnetostatics to dipole calculations in the interaction matrix generation. Initial value is 0.0001.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: The relative error for the crossover");
+		return 3;
+	}
+	
 	return 0;
 }
 
@@ -543,6 +580,9 @@ void registerMagnetostatic(lua_State* L)
 		
 		{"setTruncation",l_mag_settrunc},
 		{"truncation",   l_mag_gettrunc},
+		
+		{"setCrossoverTolerance", l_mag_setcrossover},
+		{"crossoverTolerance", l_mag_setcrossover},
 		{NULL, NULL}
 	};
 		

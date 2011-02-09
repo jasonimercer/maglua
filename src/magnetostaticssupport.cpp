@@ -17,6 +17,41 @@
 #include <stdio.h>
 #include <math.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979
+#endif
+#define DipMagConversion (1.0 / (M_PI * 4.0))
+
+#include "dipolesupport.h" //to compare for crossover
+
+typedef struct mag_dip_crossover
+{
+	double r2;  //crossover at this distance (squared) (initially big)
+	double tol; //crossover at this tolerance (reset r)
+} mag_dip_crossover;
+
+bool equal_tol(double a, double b, double tolerance)
+{
+// 	if(a == b)
+// 		return true;
+	if(a == 0 && b == 0)
+		return true;
+	
+	if(b == 0 || a == 0)
+		return false;
+	
+	double t = fabs( (a-b)/b );
+// 	printf("%E, %e - %f, %f\n", a, b, t, tolerance);
+	return t < tolerance;
+}
+
+double min(double a, double b)
+{
+	if(a<b)
+		return a;
+	return b;
+}
+
 ///periodic XY
 static void getGAB(
 	const double* ABC, 
@@ -25,7 +60,8 @@ static void getGAB(
 	const int ix, const int iy, const int iz, 
 	const int gmax, 
 	double* XX, double* XY, double* XZ,
-	double* YY, double* YZ, double* ZZ)
+	double* YY, double* YZ, double* ZZ,
+	mag_dip_crossover& crossover)
 {
 	int smax;
 	int i, j, c;
@@ -41,6 +77,8 @@ static void getGAB(
 
 	smax = gmax/iL;
 
+	double volume2 = pow(prism[0] * prism[1] * prism[2], 2);
+	
 	const double d1 = prism[0];
 	const double l1 = prism[1];
 	const double w1 = prism[2];
@@ -56,6 +94,15 @@ static void getGAB(
 	double* gYZ = new double[smax*2+1];
 	double* gZZ = new double[smax*2+1];
 
+	double magXX, magXY, magXZ;
+	double dipXX, dipXY, dipXZ;
+	
+	double magYY, magYZ;
+	double dipYY, dipYZ;
+	
+	double magZZ;
+	double dipZZ;
+	
 	for(c=0; c<smax*2+1; c++)
 	{
 		gXX[c] = 0;
@@ -75,15 +122,61 @@ static void getGAB(
 			rz = ((double)i*nA+ix)*ABC[2] + ((double)j*nB+iy)*ABC[5] + ((double)iz)*ABC[8];
 			r2 = rx*rx + ry*ry + rz*rz;
 			//if(r2 != 0)
+			
+			if(r2 >= crossover.r2)
 			{
-				gXX[c] += gamma_xx_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				gXY[c] += gamma_xy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				gXZ[c] += gamma_xz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+				
+				gXX[c] += DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
+				gXY[c] += DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
+				gXZ[c] += DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
+				
+				gYY[c] += DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
+				gYZ[c] += DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
+				gZZ[c] += DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
+			}
+			else
+			{
+				magXX = gamma_xx_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+				magXY = gamma_xy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+				magXZ = gamma_xz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+				
+				magYY = gamma_yy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+				magYZ = gamma_yz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+				
+				magZZ = gamma_zz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+				
+				dipXX = DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
+				dipXY = DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
+				dipXZ = DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
+				
+				dipYY = DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
+				dipYZ = DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
+				dipZZ = DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
+				
+// 				if( sqrt(rx*rx+ry*ry+rz+rz) > 40)
+// 					printf("md: %E, %E\n", magXX, dipXX);
+				
+				bool same = equal_tol(magXX, dipXX, crossover.tol) &&
+							equal_tol(magXY, dipXY, crossover.tol) &&
+							equal_tol(magXZ, dipXZ, crossover.tol) &&
+							equal_tol(magYY, dipYY, crossover.tol) &&
+							equal_tol(magYZ, dipYZ, crossover.tol) &&
+							equal_tol(magZZ, dipZZ, crossover.tol);
 
-				gYY[c] += gamma_yy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				gYZ[c] += gamma_yz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-
-				gZZ[c] += gamma_zz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+				if(same && r2 > 0)
+				{
+					crossover.r2 = min(crossover.r2, fabs(r2));
+					
+					//printf("crossover at: r = %f\n", sqrt(crossover.r2));
+				}
+							
+				gXX[c] += magXX;
+				gXY[c] += magXY;
+				gXZ[c] += magXZ;
+				
+				gYY[c] += magYY;
+				gYZ[c] += magYZ;
+				gZZ[c] += magZZ;	
 			}
 
 #warning This is a hack to fix self terms. Eventually this will be in the numerical code.
@@ -376,9 +469,15 @@ void magnetostaticsLoad(
 	const int gmax, const double* ABC,
 	const double* prism, /* 3 vector */
 	double* XX, double* XY, double* XZ,
-	double* YY, double* YZ, double* ZZ)
+	double* YY, double* YZ, double* ZZ,
+	double tol)
 {
 	char fn[64] = "";
+	
+	mag_dip_crossover crossover;
+	crossover.r2  = 1E10;
+	crossover.tol = tol;
+	
 	
 	while(true)
 	{
@@ -409,7 +508,8 @@ void magnetostaticsLoad(
 							i, j, k,
 							gmax,
 							XX+c, XY+c, XZ+c,
-							YY+c, YZ+c, ZZ+c);
+							YY+c, YZ+c, ZZ+c, 
+							crossover);
 						c++;
 					}
 				}

@@ -14,12 +14,16 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     jobwidget.cpp \
     qmagluahighlighter.cpp \
-    qmagluaeditor.cpp
+    qmagluaeditor.cpp \
+	QMagLuaGraphicsView.cpp \
+    QMagLuaGraphicsNode.cpp
 
 HEADERS  += mainwindow.h \
     jobwidget.h \
     qmagluahighlighter.h \
-    qmagluaeditor.h
+    qmagluaeditor.h \
+	QMagLuaGraphicsView.h \
+    QMagLuaGraphicsNode.h
 
 FORMS    += mainwindow.ui \
     jobwidget.ui

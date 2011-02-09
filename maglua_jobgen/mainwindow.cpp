@@ -30,6 +30,9 @@ MainWindow::MainWindow(QWidget *parent) :
 	readSettings();
 
 	setUnifiedTitleAndToolBarOnMac(true);
+
+	JobWidget* child = createMdiChild();
+	child->showMaximized();
 }
 
 
