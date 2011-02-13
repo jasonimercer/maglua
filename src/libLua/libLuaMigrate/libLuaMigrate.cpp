@@ -142,9 +142,12 @@ void exportLuaVariable(lua_State* L, int index, lua_Variable* v)
 	const char* c;
 	
 	if(index < 0)
-		index = lua_gettop(L) - index + 1;
+		index = lua_gettop(L) + index + 1;
 	
-
+// 	for(int i=lua_gettop(L); i>0; i--)
+// 		printf(" %2i) %s\n", i, lua_typename(L, lua_type(L, i)));
+// 	printf("export (%i): %s\n", index, lua_typename(L, v->type));
+	
 	switch(v->type)
 	{
 		case LUA_TNIL:
@@ -183,8 +186,6 @@ void exportLuaVariable(lua_State* L, int index, lua_Variable* v)
 				initLuaVariable(&v->listVal[tablesize]);
 				exportLuaVariable(L, -2, & v->listKey[tablesize]);
 				exportLuaVariable(L, -1, & v->listVal[tablesize]);
-				//exportLuaVariable(L, index+1, & v->listKey[tablesize]);
-				//exportLuaVariable(L, index+2, & v->listVal[tablesize]);
 				tablesize++;
 				lua_pop(L, 1);
 			}

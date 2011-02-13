@@ -297,7 +297,11 @@ int LuaClient::remoteExecuteLua(lua_State* L)
  	sem_wait(&ioSem);
 	int n = lua_gettop(L);
 
-	if(!n) return 0;
+	if(!n)
+	{
+		sem_post(&ioSem);
+		return 0;
+	}
 
 	lua_Variable* vars = (lua_Variable*)malloc(sizeof(lua_Variable)*n);
 
@@ -368,10 +372,10 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 	
 	//now to put the downloaded vars on the stack
 	for(int i=0; i<n; i++)
+	{
 		importLuaVariable(L, &vars[i]);
-
-	for(int i=0; i<n; i++)
 		freeLuaVariable(&vars[i]);
+	}
 
 	free(vars);
 	return n;
