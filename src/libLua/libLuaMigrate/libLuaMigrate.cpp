@@ -181,8 +181,10 @@ void exportLuaVariable(lua_State* L, int index, lua_Variable* v)
 			{
 				initLuaVariable(&v->listKey[tablesize]);
 				initLuaVariable(&v->listVal[tablesize]);
-				exportLuaVariable(L, index+1, & v->listKey[tablesize]);
-				exportLuaVariable(L, index+2, & v->listVal[tablesize]);
+				exportLuaVariable(L, -2, & v->listKey[tablesize]);
+				exportLuaVariable(L, -1, & v->listVal[tablesize]);
+				//exportLuaVariable(L, index+1, & v->listKey[tablesize]);
+				//exportLuaVariable(L, index+2, & v->listVal[tablesize]);
 				tablesize++;
 				lua_pop(L, 1);
 			}
