@@ -182,14 +182,17 @@ bool LuaClient::connectTo(const char* host_port)
 
 void LuaClient::disconnect()
 {
-	int ok;
-	int cmd = SHUTDOWN;
-	sem_wait(&rwSem);
-	sure_write(sockfd, &cmd, sizeof(int), &ok);
-	sure_write(sockfd, &cmd, sizeof(int), &ok);
-	sem_post(&rwSem);
-	
-	_connected = false;
+	if(_connected)
+	{
+		int ok;
+		int cmd = SHUTDOWN;
+		sem_wait(&rwSem);
+		sure_write(sockfd, &cmd, sizeof(int), &ok);
+		sure_write(sockfd, &cmd, sizeof(int), &ok);
+		sem_post(&rwSem);
+		
+		_connected = false;
+	}
 }
 
 
@@ -308,10 +311,10 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 	
 	for(int i=0; i<n; i++)
 	{
-		printf("%i/%i\n", i+1, n);
+		//printf("%i/%i\n", i+1, n);
 		initLuaVariable(&vars[i]);
 		exportLuaVariable(L, i+1, &vars[i]);
-		printf("%i/%i\n", i+1, n);
+		//printf("%i/%i\n", i+1, n);
 	}
 
 	int b[2];
@@ -330,7 +333,7 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 
 	for(int i=0; i<n; i++)
 	{
-		printf("up %i/%i\n", i+1, n);
+		//printf("up %i/%i\n", i+1, n);
 
 		if(!rawVarUpload(&vars[i]))
 		{
@@ -341,7 +344,7 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 			return luaL_error(L, "network fail in :remote");
 		}
 
-		printf("up %i/%i\n", i+1, n);
+		//printf("up %i/%i\n", i+1, n);
 	}
 	
 	//lua function is now being run on the server. 
@@ -362,7 +365,7 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 		return luaL_error(L, "network fail in :remote");
 	}
 	
-	printf("%i return values\n", n);
+	//printf("%i return values\n", n);
 	
 	//n return variables
 	vars = (lua_Variable*)malloc(sizeof(lua_Variable)*n);
