@@ -305,10 +305,13 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 
 	lua_Variable* vars = (lua_Variable*)malloc(sizeof(lua_Variable)*n);
 
+	
 	for(int i=0; i<n; i++)
 	{
+		printf("%i/%i\n", i+1, n);
 		initLuaVariable(&vars[i]);
 		exportLuaVariable(L, i+1, &vars[i]);
+		printf("%i/%i\n", i+1, n);
 	}
 
 	int b[2];
@@ -327,6 +330,8 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 
 	for(int i=0; i<n; i++)
 	{
+		printf("up %i/%i\n", i+1, n);
+
 		if(!rawVarUpload(&vars[i]))
 		{
 			for(int i=0; i<n; i++)
@@ -335,6 +340,8 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 			sem_post(&ioSem); //we can let other communication happen now. 
 			return luaL_error(L, "network fail in :remote");
 		}
+
+		printf("up %i/%i\n", i+1, n);
 	}
 	
 	//lua function is now being run on the server. 
@@ -354,6 +361,8 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 		sem_post(&ioSem);
 		return luaL_error(L, "network fail in :remote");
 	}
+	
+	printf("%i return values\n", n);
 	
 	//n return variables
 	vars = (lua_Variable*)malloc(sizeof(lua_Variable)*n);
