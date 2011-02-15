@@ -70,7 +70,7 @@ end
 function writeheader(f, name)
 	f:write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2//EN\">\n")
 	f:write("<html><head><title>" .. name .. "</title>\n")
-	f:write("<link rel=\"stylesheet\" type=\"text/css\" href=\"pil.css\">\n")
+	f:write("<link rel=\"stylesheet\" type=\"text/css\" href=\"maglua.css\">\n")
 	f:write("</head>\n")
 	f:write("<body bgcolor=\"white\">\n")
 end
@@ -140,7 +140,7 @@ for k,v in pairs(arg) do
 	if desc then
 		print("Processing `" .. desc["SourceFile"] .. "'")
 
-		f = openFile(desc)
+		local f = openFile(desc)
 		writeheader(f, desc["SectionName"])
 
 		f:write("<h2>" .. desc["SectionName"] .. "</h2>\n")

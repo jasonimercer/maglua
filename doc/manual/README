@@ -3,6 +3,6 @@ is the driver program and all the other Lua scripts define documented tasks.
 
 To generate the documentation, run:
 
-	maglua GenerateManual.lua *.lua
+	make
 
 This will create an `index.html' along with supporting files for each task.
