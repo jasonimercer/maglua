@@ -5,12 +5,14 @@
 #include <QGraphicsRectItem>
 #include <MagLuaNode.h>
 #include <QtGui>
+#include <QGraphicsProxyWidget>
+#include <QGraphicsSvgItem>
 
 class QMagLuaGraphicsNode : public QObject, public QGraphicsRectItem
 {
 	Q_OBJECT
 public:
-	QMagLuaGraphicsNode(MagLuaNode* _node=0);
+	QMagLuaGraphicsNode(MagLuaNode* _node=0, QGraphicsProxyWidget* _txtName=0);
 	~QMagLuaGraphicsNode();
 
 	bool selected();
@@ -20,6 +22,16 @@ protected:
 	MagLuaNode* node;
 
 	QColor lookupNodeColorType(MagLuaNode::NodeType t);
+	QGraphicsProxyWidget* txtName;
+	QGraphicsSvgItem* icon;
+
+	int radius; //rounded corners
+	QRectF  r2;
+	QRectF topBanner;
+	QRectF bottomBanner;
+	QRectF centerBanner;
+	QRectF iconRect;
+	QRectF namesRect;
 };
 
 #endif // QMAGLUAGRAPHICSNODE_H

@@ -77,7 +77,7 @@ void getWAB(
 	else
 		iL = nB;
 
-	smax = gmax/iL;
+	smax = gmax/iL + 1;
 
 	double* gXX = new double[smax*2+1];
 	double* gXY = new double[smax*2+1];
@@ -99,25 +99,32 @@ void getWAB(
 	for(j=-smax; j<= smax; j++)
 		for(i=-smax, c=0; i<= smax; i++, c++)
 		{
-			rx = ((double)i*nA+ix)*ABC[0] + ((double)j*nB+iy)*ABC[3] + ((double)iz)*ABC[6];
-			ry = ((double)i*nA+ix)*ABC[1] + ((double)j*nB+iy)*ABC[4] + ((double)iz)*ABC[7];
-			rz = ((double)i*nA+ix)*ABC[2] + ((double)j*nB+iy)*ABC[5] + ((double)iz)*ABC[8];
-
-			r2 = rx*rx + ry*ry + rz*rz;
-			if(r2 != 0)
+			const int xx = i*nA+ix;
+			const int yy = j*nB+iy;
+			const int zz = iz;
+			
+			if(abs(xx) <= gmax && abs(yy) <= gmax && abs(zz) <= gmax)
 			{
-				ir = 1.0/sqrt(r2);
-				ir3 = ir*ir*ir;
-				ir5 = ir3*ir*ir;
-				
-				gXX[c] += ir3 - 3.0 * rx * rx * ir5;
-				gXY[c] +=     - 3.0 * rx * ry * ir5;
-				gXZ[c] +=     - 3.0 * rx * rz * ir5;
+				rx = ((double)i*nA+ix)*ABC[0] + ((double)j*nB+iy)*ABC[3] + ((double)iz)*ABC[6];
+				ry = ((double)i*nA+ix)*ABC[1] + ((double)j*nB+iy)*ABC[4] + ((double)iz)*ABC[7];
+				rz = ((double)i*nA+ix)*ABC[2] + ((double)j*nB+iy)*ABC[5] + ((double)iz)*ABC[8];
 
-				gYY[c] += ir3 - 3.0 * ry * ry * ir5;
-				gYZ[c] +=     - 3.0 * ry * rz * ir5;
+				r2 = rx*rx + ry*ry + rz*rz;
+				if(r2 != 0)
+				{
+					ir = 1.0/sqrt(r2);
+					ir3 = ir*ir*ir;
+					ir5 = ir3*ir*ir;
+					
+					gXX[c] += ir3 - 3.0 * rx * rx * ir5;
+					gXY[c] +=     - 3.0 * rx * ry * ir5;
+					gXZ[c] +=     - 3.0 * rx * rz * ir5;
 
-				gZZ[c] += ir3 - 3.0 * rz * rz * ir5;
+					gYY[c] += ir3 - 3.0 * ry * ry * ir5;
+					gYZ[c] +=     - 3.0 * ry * rz * ir5;
+
+					gZZ[c] += ir3 - 3.0 * rz * rz * ir5;
+				}
 			}
 		}
 	
@@ -168,7 +175,7 @@ static void _writemat(FILE* f, const char* name, int zoffset, const double* M, i
 		fprintf(f, "    {");
 		for(int i=0; i<nx; i++)
 		{
-			fprintf(f, "%-12g%s", M[i+j*nx], i==(nx-1)?"}":", ");
+			fprintf(f, "%-12e%s", M[i+j*nx], i==(nx-1)?"}":", ");
 		}
 		fprintf(f, "%c\n", j==(ny-1)?' ':',');
 	}

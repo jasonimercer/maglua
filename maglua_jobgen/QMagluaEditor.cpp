@@ -1,4 +1,4 @@
-#include "qmagluaeditor.h"
+#include "QMagluaEditor.h"
 #include <QtGui>
 
 InfoBar::InfoBar(QWidget *parent)

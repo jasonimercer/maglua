@@ -1,4 +1,4 @@
-#include "qmagluahighlighter.h"
+#include "QMagluaHighlighter.h"
 
 #if 0
 QMagLuaHighlighter::QMagLuaHighlighter(QTextDocument *parent)

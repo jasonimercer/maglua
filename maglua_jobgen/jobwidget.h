@@ -2,7 +2,7 @@
 #define JOBWIDGET_H
 
 #include <QWidget>
-#include "qmagluahighlighter.h"
+#include "QMagluaHighlighter.h"
 #include <QGraphicsScene>
 
 namespace Ui {

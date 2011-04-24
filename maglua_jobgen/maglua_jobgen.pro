@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui svg
 
 TARGET = maglua_jobgen
 TEMPLATE = app
@@ -13,8 +13,8 @@ TEMPLATE = app
 SOURCES += main.cpp\
         mainwindow.cpp \
     jobwidget.cpp \
-    qmagluahighlighter.cpp \
-    qmagluaeditor.cpp \
+	QMagluaHighlighter.cpp \
+	QMagluaEditor.cpp \
 	QMagLuaGraphicsView.cpp \
     QMagLuaGraphicsNode.cpp \
 	QMagLuaNodeConnection.cpp \
@@ -24,8 +24,8 @@ SOURCES += main.cpp\
 
 HEADERS  += mainwindow.h \
     jobwidget.h \
-    qmagluahighlighter.h \
-    qmagluaeditor.h \
+	QMagluaHighlighter.h \
+	QMagluaEditor.h \
 	QMagLuaGraphicsView.h \
     QMagLuaGraphicsNode.h \
 	QMagLuaNodeConnection.h \
