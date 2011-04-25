@@ -267,8 +267,8 @@ static int l_thermal_help(lua_State* L)
 	if(func == l_thermal_new)
 	{
 		lua_pushstring(L, "Create a new Thermal Operator.");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 Dipole object");
+		lua_pushstring(L, "1 *3Vector*: system size"); 
+		lua_pushstring(L, "1 Thermal object");
 		return 3;
 	}
 	

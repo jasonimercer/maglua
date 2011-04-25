@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # SVN is a keyword in this Makefile that is searched for in pack:
-OBJECTS=main.o spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o \
+OBJECTS=spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o \
 	llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o \
 	mersennetwister.o llgquat.o interpolatingfunction.o spinoperationdipole.o \
 	dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o \
@@ -27,6 +27,8 @@ LUALIBS=$(LIBBASE)/libLuaClient/libLuaClient.a \
 	$(LIBBASE)/libLuaSqlite/libLuaSqlite.a \
 	$(LIBBASE)/libLuaMigrate/libLuaMigrate.a
 
+LIBNAME=libMaglua.a
+
 # This makefile uses pkg-config. If you do not have Lua and FFTW registered 
 # with pkg-config, please fill out the proper LIBS and INCLUDEPATH
 PKGS=lua5.1 fftw3 sqlite3
@@ -36,7 +38,11 @@ INCLUDEPATH = `pkg-config --cflags-only-I $(PKGS)` \
 		-IlibLua/libLuaMigrate \
 		-IlibLua/libLuaClient 
 
+
 all: $(BUILDTYPE)
+
+$(LIBNAME) : $(OBJECTS)
+	ar cqs $(LIBNAME) $(OBJECTS)
 
 none:
 	@echo "Please choose a build type:"
@@ -64,8 +70,8 @@ uninstall:
 	rm -f $(HOME)/bin/$(BIN)
 	rm -f $(HOME)/bin/maglua_mpi
 
-$(BIN): ${OBJECTS}
-	@ ${CXX} $(CFLAGS) -o ${BIN} ${OBJECTS} ${LIBS}
+$(BIN): main.o $(LIBNAME)
+	@ ${CXX} $(CFLAGS) -o ${BIN} main.o $(LIBNAME) ${LIBS}
 	@ echo "LD ${BIN}"
 
 main.o : main.cpp main.h info.h

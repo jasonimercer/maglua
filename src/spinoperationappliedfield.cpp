@@ -151,7 +151,7 @@ int l_ap_set(lua_State* L)
 }
 
 
-int l_ap_get(lua_State* L)
+int l_ap_tostring(lua_State* L)
 {
 	AppliedField* ap = checkAppliedField(L, 1);
 	if(!ap) return 0;
@@ -161,7 +161,7 @@ int l_ap_get(lua_State* L)
 	return 1;
 }
 
-int l_ap_tostring(lua_State* L)
+int l_ap_get(lua_State* L)
 {
 	AppliedField* ap = checkAppliedField(L, 1);
 	if(!ap) return 0;

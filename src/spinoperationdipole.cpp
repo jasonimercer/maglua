@@ -416,7 +416,7 @@ static int l_dip_help(lua_State* L)
 	if(func == l_dip_new)
 	{
 		lua_pushstring(L, "Create a new Dipole Operator.");
-		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 *3Vector*: system size"); 
 		lua_pushstring(L, "1 Dipole object");
 		return 3;
 	}

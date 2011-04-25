@@ -279,7 +279,7 @@ static int l_ani_help(lua_State* L)
 	if(func == l_ani_new)
 	{
 		lua_pushstring(L, "Create a new Anisotropy Operator.");
-		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 *3Vector*: system size"); 
 		lua_pushstring(L, "1 Anisotropy object");
 		return 3;
 	}
