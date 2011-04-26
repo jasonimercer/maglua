@@ -4,7 +4,7 @@ function _lights(tab)
 		s = s .. string.format(
 				"light_source {\n" ..
 				"   <%f,%f,%f>, rgb <1, 1, 1>\n" ..
-				"   fade_distance 100\n" ..
+				"   fade_distance 300\n" ..
 				"}\n", v[1], v[2], v[3])
 	end
 	return s
@@ -104,7 +104,7 @@ function spin(mx, my, mz, x, y, z, r, g, b)
 	end
 	
 	mx, my, mz = mx / scale, my / scale, mz / scale
-	scale = scale * 0.4
+-- 	scale = scale * 0.4
 	local theta = math.atan2(my, mx)
 	local phi   = math.acos(mz)
 

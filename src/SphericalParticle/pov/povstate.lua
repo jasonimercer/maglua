@@ -2,11 +2,11 @@ dofile("colormap.lua")
 dofile("povspin.lua")
 
 
-loc = {18,14,18}
- at = {5.5,4.2,5.5}
+-- loc = {18,14,18}
+--  at = {5.5,4.2,5.5}
 -- loc = {12*10,12*10,-12*10}
-loc = {25,10,-25}
- at = {0,0,0}
+-- loc = {25,10,-25}
+--  at = {0,0,0}
 
 filename = io.read("*line")
 
@@ -48,30 +48,31 @@ while filename do
 	zmin, zmax = range(spins, 3)
 
 	at = {xmin + 0.5*(xmax-xmin),
-		  ymin + 0.4*(ymax-ymin),
+		  ymin + 0.5*(ymax-ymin),
 		  zmin + 0.5*(zmax-zmin)}
 	
 	local xx, yy, zz = 0.5*(xmax+xmin), 2.0*ymax, 0.5*(zmax+zmin)
 
 	yy = xx
-	loc = { 2*xx, 2.75*yy, -2*xx}
-	zz = 30*2
-	xx = 15*2
-	lightpos = {{xx, zz, -xx}, {-xx, zz, 0}, {0, zz, -xx}}
-
+	local m = 1.0
+	loc = { m*2.7*xx, m*2*xx, m*3*xx}
+	xx = xx*2
+	lightpos = {{xx, xx, 0}, {0, xx, xx}, {xx, xx, xx}, {xx, xx, xx}}
+-- 	table.insert(lightpos, loc)
+	
 	pov  = io.open(filename .. ".pov", "w")
 	pov:write( povprefix(loc, at, lightpos) )
 
 	for k,v in pairs(spins) do
 		r, g, b = colormap(v[4], v[5], v[6]) 
-		pov:write(spin(v[4], v[5], v[6], v[1], v[2], v[3], r, g, b))
+		print(v[1], v[2], v[3])
+		if v[1] < 49/2 then
+			pov:write(spin(v[4], v[5], v[6], v[1], v[2], v[3], r, g, b))
+		end
 	end
 	pov:close()
 
 	
 	filename = io.read("*line")
 end
-
-
-		
 

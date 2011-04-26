@@ -94,8 +94,10 @@ function report()
 	for z=1,nxyz[3] do
 		for y=1,nxyz[2] do
 			for x=1,nxyz[1] do
-				sx, sy, sz = ss:spin(x,y,z)
-				f:write(table.concat({x, y, z, sx, sy, sz}, "\t") .. "\n")
+				if x < radius or y < radius or z < radius then
+					sx, sy, sz = ss:spin(x,y,z)
+					f:write(table.concat({x, y, z, sx, sy, sz}, "\t") .. "\n")
+				end
 			end
 		end
 	end
