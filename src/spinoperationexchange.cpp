@@ -16,15 +16,21 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <vector>
+#include <algorithm>
+#include <string.h>
+
 Exchange::Exchange(int nx, int ny, int nz)
 	: SpinOperation("Exchange", EXCHANGE_SLOT, nx, ny, nz, ENCODE_EXCHANGE)
 {
 	size = 32;
 	num  = 0;
 
-	fromsite =    (int*)malloc(sizeof(int)    * size);
-	  tosite =    (int*)malloc(sizeof(int)    * size);
-	strength = (double*)malloc(sizeof(double) * size);
+	pathways = (sss*)malloc(sizeof(sss) * size);
+	
+// 	fromsite =    (int*)malloc(sizeof(int)    * size);
+// 	  tosite =    (int*)malloc(sizeof(int)    * size);
+// 	strength = (double*)malloc(sizeof(double) * size);
 }
 
 void Exchange::encode(buffer* b) const
@@ -37,9 +43,12 @@ void Exchange::encode(buffer* b) const
 	
 	for(int i=0; i<num; i++)
 	{
-		encodeInteger(fromsite[i], b);
-		encodeInteger(  tosite[i], b);
-		encodeDouble(strength[i], b);
+		encodeInteger(pathways[i].fromsite, b);
+// 		encodeInteger(fromsite[i], b);
+		encodeInteger(pathways[i].tosite, b);
+// 		encodeInteger(  tosite[i], b);
+		encodeDouble(pathways[i].strength, b);
+// 		encodeDouble(strength[i], b);
 	}
 }
 
@@ -55,27 +64,29 @@ int  Exchange::decode(buffer* b)
 	size = decodeInteger(b);
 	num = size;
 	size++; //so we can double if size == 0
-	fromsite =    (int*)malloc(sizeof(int)    * size);
-	  tosite =    (int*)malloc(sizeof(int)    * size);
-	strength = (double*)malloc(sizeof(double) * size);
+	pathways = (sss*)malloc(sizeof(sss) * size);
+// 	fromsite =    (int*)malloc(sizeof(int)    * size);
+// 	  tosite =    (int*)malloc(sizeof(int)    * size);
+// 	strength = (double*)malloc(sizeof(double) * size);
 	
 	for(int i=0; i<num; i++)
 	{
-		fromsite[i] = decodeInteger(b);
-		  tosite[i] = decodeInteger(b);
-		strength[i] = decodeDouble(b);
+		pathways[i].fromsite = decodeInteger(b);
+		pathways[i].tosite = decodeInteger(b);
+		pathways[i].strength = decodeDouble(b);
 	}
 	return 0;
 }
 
 void Exchange::deinit()
 {
-	if(fromsite)
+	if(pathways)
 	{
-		free(fromsite);
-		free(  tosite);
-		free(strength);
-		fromsite = 0;
+		free(pathways);
+// 		free(fromsite);
+// 		free(  tosite);
+// 		free(strength);
+		pathways = 0;
 	}
 }
 
@@ -93,19 +104,72 @@ bool Exchange::apply(SpinSystem* ss)
 	const double* sx = ss->x;
 	const double* sy = ss->y;
 	const double* sz = ss->z;
-	
-	#pragma omp parallel for shared(hx, hy, hz, sx, sy, sz)
+
+	#pragma omp parallel for shared(hx,sx)
 	for(int i=0; i<num; i++)
 	{
-		const int t    =   tosite[i];
-		const int f    = fromsite[i];
-		const double s = strength[i];
+		const int t    = pathways[i].tosite;
+		const int f    = pathways[i].fromsite;
+		const double s = pathways[i].strength;
 		
 		hx[t] += sx[f] * s;
+	}
+	#pragma omp parallel for shared(hy,sy)
+	for(int i=0; i<num; i++)
+	{
+		const int t    = pathways[i].tosite;
+		const int f    = pathways[i].fromsite;
+		const double s = pathways[i].strength;
+		
 		hy[t] += sy[f] * s;
+	}
+	#pragma omp parallel for shared(hz,sz)
+	for(int i=0; i<num; i++)
+	{
+		const int t    = pathways[i].tosite;
+		const int f    = pathways[i].fromsite;
+		const double s = pathways[i].strength;
+		
 		hz[t] += sz[f] * s;
 	}
 	return true;
+}
+
+static bool mysort(Exchange::sss* i, Exchange::sss* j)
+{
+	if(i->tosite > j->tosite)
+		return false;
+	
+	if(i->tosite == j->tosite)
+		return i->fromsite < j->fromsite;
+	
+	return true;
+}
+	
+// optimize the order of the sites
+void Exchange::opt()
+{
+	return;
+	// opt so that write and reads are ordered
+	sss* p2 = (sss*)malloc(sizeof(sss) * size);
+	memcpy(p2, pathways, sizeof(sss) * size);
+	vector<sss*> vp;
+	for(int i=0; i<num; i++)
+	{
+		vp.push_back(&p2[i]);
+	}
+	
+	sort (vp.begin(), vp.end(), mysort);
+	
+	for(unsigned int i=0; i<vp.size(); i++)
+	{
+		pathways[i].tosite = vp[i]->tosite;
+		pathways[i].fromsite = vp[i]->fromsite;
+		pathways[i].strength = vp[i]->strength;
+	}
+	
+	free(p2);
+	return;
 }
 
 void Exchange::addPath(int site1, int site2, double str)
@@ -113,15 +177,20 @@ void Exchange::addPath(int site1, int site2, double str)
 	if(num + 1 == size)
 	{
 		size *= 2;
-		fromsite =    (int*)realloc(fromsite, sizeof(int) * size);
-		  tosite =    (int*)realloc(  tosite, sizeof(int) * size);
-		strength = (double*)realloc(strength, sizeof(double) * size);
+		pathways = (sss*)realloc(pathways, sizeof(sss) * size);
+// 		fromsite =    (int*)realloc(fromsite, sizeof(int) * size);
+// 		  tosite =    (int*)realloc(  tosite, sizeof(int) * size);
+// 		strength = (double*)realloc(strength, sizeof(double) * size);
 	}
 	
-	fromsite[num] = site1;
-	  tosite[num] = site2;
-	strength[num] = str;
+	pathways[num].fromsite = site1;
+	pathways[num].tosite = site2;
+	pathways[num].strength = str;
+// 	fromsite[num] = site1;
+// 	  tosite[num] = site2;
+// 	strength[num] = str;
 	num++;
+	
 }
 
 
@@ -244,6 +313,14 @@ static int l_ex_tostring(lua_State* L)
 	return 1;
 }
 
+static int l_ex_opt(lua_State* L)
+{
+	Exchange* ex = checkExchange(L, 1);
+	if(!ex) return 0;
+	
+	ex->opt();
+}
+
 static int l_ex_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -298,6 +375,14 @@ static int l_ex_help(lua_State* L)
 		lua_pushstring(L, "1 Boolean: True if x, y, z is part of the Operation, False otherwise.");
 		return 3;
 	}
+		
+	if(func == l_ex_opt)
+	{
+		lua_pushstring(L, "Attempt to optimize the read/write patterns for exchange updates to minimize cache misses. Needs testing to see if it helps.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;
+	}
 	
 	return 0;
 }
@@ -310,6 +395,7 @@ void registerExchange(lua_State* L)
 		{"apply",        l_ex_apply},
 		{"addPath",      l_ex_addpath},
 		{"member",       l_ex_member},
+		{"optimize",     l_ex_opt},
 		{NULL, NULL}
 	};
 		

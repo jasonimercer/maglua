@@ -38,7 +38,7 @@ while filename do
 	while i do
 		local tn = tonumber
 		c = c + 1
-		spins[c] = {i, k, j, x, y, z} --swapping y and z
+		spins[c] = {i, k, j, x, y, z}
 		i, j, k, x, y, z = file:read(n,n,n,n,n,n)
 	end
 	file:close()
@@ -56,7 +56,7 @@ while filename do
 	yy = xx
 	local m = 1.0
 	loc = { m*2.7*xx, m*2*xx, m*3*xx}
-	xx = xx*2
+	xx = xx*5
 	lightpos = {{xx, xx, 0}, {0, xx, xx}, {xx, xx, xx}, {xx, xx, xx}}
 -- 	table.insert(lightpos, loc)
 	

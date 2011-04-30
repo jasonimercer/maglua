@@ -546,17 +546,20 @@ int l_ss_setspin(lua_State* L)
 	SpinSystem* ss = checkSpinSystem(L, 1);
 	if(!ss) return 0;
 	
-	int r;
+	int r1, r2;
 	int site[3];
 	double spin[3];
 	
-	r = lua_getNint(L, 3, site, 2, 1);
-	if(r < 0)
+	r1 = lua_getNint(L, 3, site, 2, 1);
+	if(r1 < 0)
 		return luaL_error(L, "invalid site");
 	
-	r = lua_getNdouble(L, 3, spin, 2+r, 0);
-	if(r < 0)
+	r2 = lua_getNdouble(L, 3, spin, 2+r1, 0);
+	if(r2 < 0)
 		return luaL_error(L, "invalid spin");
+	
+	bool n = lua_isnumber(L, 2+r1+r2);
+	
 	
 	int px = site[0] - 1;
 	int py = site[1] - 1;
@@ -565,6 +568,25 @@ int l_ss_setspin(lua_State* L)
 	double sx = spin[0];
 	double sy = spin[1];
 	double sz = spin[2];
+
+	if(n)
+	{
+		double len = lua_tonumber(L, 2+r1+r2);
+		double rr = sx*sx + sy*sy + sz*sz;
+		if(rr > 0)
+		{
+			rr = len / sqrt(rr);
+			sx *= rr;
+			sy *= rr;
+			sz *= rr;
+		}
+		else
+		{
+			sx = 0;
+			sy = 0;
+			sz = len;
+		}
+	}
 	
 	ss->set(px, py, pz, sx, sy, sz);
 	
@@ -945,7 +967,7 @@ static int l_ss_help(lua_State* L)
 	if(func == l_ss_setspin)
 	{
 		lua_pushstring(L, "Set the orientation and magnitude of a spin at a site.");
-		lua_pushstring(L, "2 *3Vector*s: The first argument represents a lattice site. The second represents the spin vector");
+		lua_pushstring(L, "2 *3Vector*s, 1 optional number: The first argument represents a lattice site. The second represents the spin vector. If the third argument is a number, the spin vector will be scaled to this length.");
 		lua_pushstring(L, "");
 		return 3;
 	}

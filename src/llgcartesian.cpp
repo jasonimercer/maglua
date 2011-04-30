@@ -58,7 +58,8 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem
 	const double dt    = spinfrom->dt;
 
 	//LLG from http://inoe.inoe.ro/joam/arhiva/pdf8_5/5Ciubotaru.pdf
-// 	#pragma omp parallel for
+
+	#pragma omp parallel for shared(x, y, z)
 	for(int i=0; i<spinfrom->nxyz; i++)
 	{
 		if(ms[i] > 0)

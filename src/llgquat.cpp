@@ -101,20 +101,22 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 // dS    -g
 // -- = ---- S X (h + a S X H)
 // dt   1+aa
-	Quaternion qRot;
-	Quaternion qVec;
-	Quaternion qRes;
 	
-	#pragma omp parallel for private (qRot, qVec, qRes) shared(hx, hy, hz, sx, sy, sz, x, y, z)
+// 	#pragma omp parallel for private (qRot, qVec, qRes) shared(hx, hy, hz, sx, sy, sz, x, y, z)
+	#pragma omp parallel for shared(x, y, z)
 	for(int i=0; i<spinfrom->nxyz; i++)
 	{
+		Quaternion qRot;
+		Quaternion qVec;
+		Quaternion qRes;
+		
 		if(ms[i] > 0)
 		{
 			double HLen;
 			double S[3];
 			double H[3];
 			double SH[3];
-			double inv = 1.0 / ms[i];
+			const double inv = 1.0 / ms[i];
 			double ra; //rotate amount
 			double sint, cost;
 			

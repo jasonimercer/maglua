@@ -27,16 +27,28 @@ public:
 
 	virtual void encode(buffer* b) const;
 	virtual int  decode(buffer* b);
-	
+	void opt();
+
+	typedef struct sss
+	{
+		int fromsite;
+		int tosite;
+		double strength;
+	} sss;
+
 private:
 	void deinit();
 	
 	int size;
 	int num;
 	
-	int* fromsite;
-	int* tosite;
-	double* strength;
+	
+	
+	sss* pathways;
+	
+// 	int* fromsite;
+// 	int* tosite;
+// 	double* strength;
 };
 
 Exchange* checkExchange(lua_State* L, int idx);

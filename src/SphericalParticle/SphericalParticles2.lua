@@ -1,9 +1,28 @@
 -- This script sets up and simulates a spherical particle.
--- See Byron's code and the Adebayo thesis.
+-- See Byron Southern's code and Ken Adebayo's thesis.
 
+--
+-- The first part of this script sets up the lattice as a list of
+-- locations, types (A1,A1,B1,..) and classifies as core/surf and
+-- vacancies.
+--
+-- The second part translates all site locations so that the smallest
+-- coordinate is 1. Neighbours are then defined by offsets.
+--
+-- With this information of site locations and neighbour lists, the
+-- standard maglua initialization starts. An update (step) function is
+-- defined and the main loop is entered.
+--
+-- Note: The exchange strength is set to 1/2 the strength in the MC 
+--       code this needs to be examined closely. 
 
 -- parameters from MC code
-L  = 6
+
+if arg[1] == nil then
+	error("Must supply L as first command line argument")
+end
+
+L  = tonumber(arg[1])
 RS = 4*L
 RC = RS-8
 
@@ -25,7 +44,7 @@ ksurf = 5
 nmax, nc, ns, nv = 0, 0, 0, 0
 
 rng = Random.new("Isaac")
-sites = {}
+sites = {} -- this will hold all site information during initialization
 
 -- given a coordinate, classify site and add to sites table
 function checkSite(x, y, z, lbl, occ)
@@ -154,6 +173,7 @@ maxy = maxy - miny + 1
 maxz = maxz - minz + 1
 
 
+
 -- calculating neighbour sites for all sites
 for i=1,nmax do
 	local neighbours = {}
@@ -164,6 +184,7 @@ for i=1,nmax do
 	end
 	s.neighbours = neighbours
 end
+
 
 -- mapping sites table to a 3D array (tables of tables of tables)
 data = {}
@@ -181,17 +202,15 @@ for i=1,nmax do
 end
 
 
--- create data and operator objects
+
+-- This is where the familiar Maglua script starts:
+-- Create data and operator objects
 dims = {maxx, maxy, maxz}
 ss  = SpinSystem.new(dims)
 ex  = Exchange.new(dims)
 ani = Anisotropy.new(dims)
 th  = Thermal.new(dims)
 llg = LLG.new("Quaternion")
-
-ss:setTimeStep(0.001)
-ss:setAlpha(0.5)
-
 
 
 
@@ -220,6 +239,7 @@ function exStr(s1, s2)
 
 end
 
+-- does site exist and is not a vacancy?
 function real_site(x,y,z)
 	if x < 1 or y < 1 or z < 1 then
 		return false
@@ -240,13 +260,15 @@ end
 for z=1,maxz do
 	for y=1,maxy do
 		for x=1,maxx do
-		
 			if real_site(x,y,z) then
 				local s1 = data[x][y][z]
 				local my_type = s1.lbl
 
-				-- set initial orientation
-				ss:setSpin({x,y,z}, {0,0,1})
+				-- initial orientation
+				--  site {x,y,z} will point in a random 
+				--  direction with unit magnetization
+				ss:setSpin({x,y,z}, 
+						   {rng:normal(),rng:normal(),rng:normal()}, 1)
 
 				-- setup exchange interaction
 				for k,v in pairs(s1.neighbours) do
@@ -261,6 +283,7 @@ for z=1,maxz do
 				if s1.core then
 					ani:setSite({x,y,z}, {0,0,1}, kcore)
 				else
+					-- radial vector is normalized in the C code
 					ani:setSite({x,y,z}, s1.radial, ksurf)
 				end
 			end
@@ -268,7 +291,35 @@ for z=1,maxz do
 	end
 end
 
+-- We will now make explicit lists of sites. These will be used to 
+-- collect magnetization stats.
 
+types = {"A1", "A2", "B1", "B2", "B3", "B4"}
+regions["core"] = {}
+regions["surf"] = {}
+for k,v in pairs(types) do
+	regions["core_" .. v] = {}
+	regions["surf_" .. v] = {}
+end
+for k,v in pairs(sites) do
+	if not v.vac then
+		if v.core then
+			table.insert(regions["core"], v)
+			table.insert(regions["core_" .. v.lbl], v)
+		else
+			table.insert(regions["surf"], v)
+			table.insert(regions["surf_" .. v.lbl], v)
+		end
+	end
+end
+
+mags = {}
+for k,v in pairs(regions) do
+	mags[k] = {}
+end
+
+
+-- update function
 function step()
 	ss:zeroFields()
 	
@@ -281,38 +332,103 @@ function step()
 	llg:apply(ss)
 end
 
+-- We will start at 40, equilibriate for 0.7t, record stats for 0.3t
+-- and then reduce temperature by 1T. When temp <6T, the step size will
+-- drop to 0.1T
+time_per_temp = 2
+eq_time       = 0.5
+next_step     = 0
+temp_step     = -5
+last_temp_steps = -1
+current_temp  = 100 - temp_step
+
+next_sample   = 0
+sample_dt     = 0.01
+
+
+ss:setTimeStep(0.005)
+ss:setAlpha(1.0)
+ss:setTime(-2) -- give the system some time to reach equilibrium
+-- core/surf net mag and core num samples
+
+f = io.open("mt" .. L .. ".dat", "w")
+f:write("# SphericalParticle2.lua script results\n")
+f:write("# temp cm sm tm\n")
+
+-- save configuration to file
 function report()
-	t = string.format("%05.3f", ss:time()) --formatted time
-	f = io.open("time-" .. t .. ".dat", "w")
-	for z=1,dims[3] do
-		for y=1,dims[2] do
-			for x=1,dims[1] do
-				sx, sy, sz = ss:spin(x,y,z)
-				if (sx^2 + sy^2 + sz^2) > 1e-5 then
-					
-					f:write(table.concat({x, y, z, sx, sy, sz}, "\t") .. "\n")
-				end
-			end
-		end
-	end
-	f:close()
-	print(t)
+-- 	t = string.format("%05.3f", ss:time()) --formatted time
+-- 	g = io.open("state-" .. t .. ".dat", "w")
+-- 	for z=1,dims[3] do
+-- 		for y=1,dims[2] do
+-- 			for x=1,dims[1] do
+-- 				sx, sy, sz = ss:spin(x,y,z)
+-- 				if sx^2 + sy^2 + sz^2 > 1e-4 then
+-- 					g:write(table.concat({x, y, z, sx, sy, sz}, "\t") .. "\n")
+-- 				end
+-- 			end
+-- 		end
+-- 	end
+-- 	g:close()
+-- 	print(t)
 end
+
+function avrgMag(region)
+	local avrg = 0
+	local count = 0
+	for k,v in pairs(region) do
+		avrg = avrg + v
+		count = count + 1
+	end
+	return avrg / count
+end
+
 
 -- Simulation main loop
-max_time = 10
-while ss:time() < max_time do
-	
+while current_temp >= 0 do
 	local t = ss:time()
-	print(t)
-	if t > max_time / 5 then
-		th:setTemperature(0)
-	else
-		th:setTemperature((max_time - t)/max_time)
+	print(t, next_step, current_temp)
+	-- check for next temperature step
+	if t >= next_step then
+		if current_temp < 6 then
+			temp_step = last_temp_steps
+		end
+		
+		for k,v in pairs(mags) do
+			
+		end
+		
+		if cn > 0 then
+			w = {current_temp, cm / cn, sm / sn, (cm+sm) / (cn+sn) }
+			line = table.concat(w, "\t")
+			f:write(line .. "\n")
+			f:flush() -- so we don't have to wait to see the data
+			print(line)
+			report()
+		end
+
+		current_temp = current_temp + temp_step
+		th:setTemperature(current_temp)
+		-- reset core/surf net mag and core num samples
+		cm, cn = 0, 0
+		sm, sn = 0, 0
+		
+		-- let the system adjust to the new temp
+		next_sample= t + eq_time
+		next_step  = t + time_per_temp
 	end
 
+	step() -- do 1 LLG step
 	
-	step()
+	-- check for sampling step
+	if t >= next_sample then
+		for k1,region in pairs(regions) do
+			for k2,site in pairs(region) do
+				local sx, sy, sz = ss:spin(site.x, site.y, site.z)
+				table.insert(mags[k1], (sx^2 + sy^2 + sz^2)^(1/2))
+			end
+		end
+		next_sample = ss:time() + sample_dt
+	end
 end
-
-report()
+f:close()

@@ -224,7 +224,7 @@ static int l_rand_help(lua_State* L)
 		return 3;
 	}
 
-	if(func == l_rand_uniform)
+	if(func == l_rand_normal)
 	{
 		lua_pushstring(L, "Return a value selected from a normal distribution");
 		lua_pushstring(L, "");

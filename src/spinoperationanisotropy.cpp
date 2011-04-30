@@ -93,21 +93,29 @@ bool Anisotropy::apply(SpinSystem* ss)
 	double SpinDotEasyAxis;
 	double v;
 	
-	#pragma omp parallel for shared(ss)
+	double* hx = ss->hx[slot];
+	double* hy = ss->hy[slot];
+	double* hz = ss->hz[slot];
+	
+	#pragma omp parallel for shared(hx,hy,hz)
 	for(int i=0; i<nxyz; i++)
 	{
 		const double ms = ss->ms[i];
 		if(ms > 0)
 		{
+			const double
 			SpinDotEasyAxis = ss->x[i] * ax[i] +
 			                  ss->y[i] * ay[i] +
 			                  ss->z[i] * az[i];
 
-			v = strength[i] * SpinDotEasyAxis / (ms * ms);
+			const double v = strength[i] * SpinDotEasyAxis / (ms * ms);
 
-			ss->hx[slot][i] = ax[i] * v;
-			ss->hy[slot][i] = ay[i] * v;
-			ss->hz[slot][i] = az[i] * v;
+// 			ss->hx[slot][i] = ax[i] * v;
+// 			ss->hy[slot][i] = ay[i] * v;
+// 			ss->hz[slot][i] = az[i] * v;
+			hx[i] = ax[i] * v;
+			hy[i] = ay[i] * v;
+			hz[i] = az[i] * v;
 		}
 	}
 	return true;
