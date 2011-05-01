@@ -52,7 +52,8 @@ public:
 	double** hx;
 	double** hy;
 	double** hz;
-	
+	bool* slot_used;
+
 	double* ms; // spin length
 	
 	double alpha;
@@ -82,7 +83,7 @@ private:
 	complex<double>* rx;
 	complex<double>* ry;
 	complex<double>* rz;
-
+	
 };
 
 SpinSystem* checkSpinSystem(lua_State* L, int idx);

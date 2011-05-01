@@ -63,6 +63,8 @@ void DipoleDisordered::setPosition(int site, double px, double py, double pz)
 
 bool DipoleDisordered::apply(SpinSystem* ss)
 {
+	markSlotUsed(ss);
+
 	double* x = ss->x;
 	double* y = ss->y;
 	double* z = ss->z;

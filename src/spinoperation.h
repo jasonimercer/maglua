@@ -51,6 +51,8 @@ public:
 	virtual int  decode(buffer* b) = 0;
 
 protected:
+	void markSlotUsed(SpinSystem* ss);
+	
 	std::string operationName;
 	int slot;
 };

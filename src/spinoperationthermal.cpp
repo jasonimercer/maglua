@@ -65,6 +65,8 @@ Thermal::~Thermal()
 
 bool Thermal::apply(RNG* rand, SpinSystem* ss)
 {
+	markSlotUsed(ss);
+
 	const double alpha = ss->alpha;
 	const double dt    = ss->dt;
 	const double gamma = ss->gamma;

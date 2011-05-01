@@ -90,6 +90,8 @@ Anisotropy::~Anisotropy()
 
 bool Anisotropy::apply(SpinSystem* ss)
 {
+	markSlotUsed(ss);
+
 	double SpinDotEasyAxis;
 	double v;
 	

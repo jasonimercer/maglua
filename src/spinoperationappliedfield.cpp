@@ -208,7 +208,7 @@ static int l_ap_help(lua_State* L)
 	if(func == l_ap_new)
 	{
 		lua_pushstring(L, "Create a new Applied Field Operator.");
-		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 *3Vector* system size"); 
 		lua_pushstring(L, "1 Applied Field object");
 		return 3;
 	}

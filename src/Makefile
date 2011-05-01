@@ -55,6 +55,7 @@ serial:
 	@ $(MAKE) maglua CXX="g++" BIN=maglua
 
 openmp:
+# 	@ $(MAKE) maglua_openmp CXX="kinst-ompp g++ -fopenmp" BIN=maglua_openmp
 	@ $(MAKE) maglua_openmp CXX="g++ -fopenmp" BIN=maglua_openmp
 
 all: $(BIN)
@@ -93,6 +94,7 @@ clean:
 	@ rm -f *.o
 	@ rm -f info.h # working SVN needed to rebuild
 	@ rm -f rev
+	@ rm -f *.inc *.mod.* #ompp profiling files
 	@ echo "Temporary files removed"
 
 distclean: clean

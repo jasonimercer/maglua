@@ -261,6 +261,8 @@ void Magnetostatic::collectIForces(SpinSystem* ss)
 
 bool Magnetostatic::apply(SpinSystem* ss)
 {
+	markSlotUsed(ss);
+
 	ss->fft();
 	collectIForces(ss);
 	ifftAppliedForce(ss);

@@ -254,6 +254,8 @@ void Dipole::collectIForces(SpinSystem* ss)
 
 bool Dipole::apply(SpinSystem* ss)
 {
+	markSlotUsed(ss);
+
 	ss->fft();
 	collectIForces(ss);
 	ifftAppliedForce(ss);

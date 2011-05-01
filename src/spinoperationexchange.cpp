@@ -97,6 +97,8 @@ Exchange::~Exchange()
 
 bool Exchange::apply(SpinSystem* ss)
 {
+	markSlotUsed(ss);
+
 	double* hx = ss->hx[slot];
 	double* hy = ss->hy[slot];
 	double* hz = ss->hz[slot];

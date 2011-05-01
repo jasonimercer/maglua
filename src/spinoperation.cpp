@@ -11,6 +11,7 @@
 ******************************************************************************/
 
 #include "spinoperation.h"
+#include "spinsystem.h"
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
 using namespace std;
@@ -31,6 +32,11 @@ const string& SpinOperation::name()
 	return operationName;
 }
 	
+void SpinOperation::markSlotUsed(SpinSystem* ss)
+{
+	ss->slot_used[slot] = true;
+}
+
 int SpinOperation::getSite(int x, int y, int z)
 {
 	x = (x+10*nx) % nx;

@@ -16,6 +16,7 @@
 #include <math.h>
 #include <strings.h>
 #include <string.h>
+#include <vector>
 
 using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
@@ -38,11 +39,12 @@ void SpinSystem::deinit()
 {
 	if(x)
 	{
-		delete [] x;
+		delete [] x; x = 0;
 		delete [] y;
 		delete [] z;
 		delete [] ms;
 
+		delete [] slot_used;
 		
 		for(int i=0; i<nslots; i++)
 		{
@@ -84,6 +86,9 @@ void SpinSystem::init()
 	hx = new double* [nslots];
 	hy = new double* [nslots];
 	hz = new double* [nslots];
+	
+	slot_used = new bool[nslots];
+
 	
 	for(int i=0; i<nslots; i++)
 	{
@@ -208,26 +213,80 @@ int  SpinSystem::decode(buffer* b)
 }
 
 
+
 void SpinSystem::sumFields()
 {
-	#pragma omp parallel for
+#if 0
+	vector<int> v;
+	for(int i=1; i<NSLOTS; i++)
+	{
+		if(slot_used[i])
+			v.push_back(i);
+	}
+	unsigned int n = v.size();
+	
+	double* sumx = hx[SUM_SLOT];
+	double* sumy = hy[SUM_SLOT];
+	double* sumz = hz[SUM_SLOT];
+	
+	#pragma omp parallel shared(sumx, sumy, sumz)
+	{
+		#pragma omp for nowait
+		for(int i=0; i<nxyz; i++)
+			sumx[i] = 0;
+		#pragma omp for nowait
+		for(int i=0; i<nxyz; i++)
+			sumy[i] = 0;
+		#pragma omp for nowait
+		for(int i=0; i<nxyz; i++)
+			sumz[i] = 0;
+		#pragma omp barrier
+	
+		#pragma omp for
+		for(unsigned int i=0; i<n; i++)
+		{
+			const int k = v[i];
+			for(int j=0; j<nxyz; j++)
+				sumx[j] += hx[k][j];
+			for(int j=0; j<nxyz; j++)
+				sumy[j] += hx[k][j];
+			for(int j=0; j<nxyz; j++)
+				sumz[j] += hx[k][j];
+			
+		}
+	}
+	
+#else
 	for(int j=0; j<nxyz; j++)
 	{
 		hx[SUM_SLOT][j] = hx[1][j];
-		hy[SUM_SLOT][j] = hy[1][j];
-		hz[SUM_SLOT][j] = hz[1][j];
-	}
-
-	#pragma omp parallel for
-	for(int i=2; i<NSLOTS; i++)
-	{
-		for(int j=0; j<nxyz; j++)
-		{
+		for(int i=2; i<NSLOTS; i++)
 			hx[SUM_SLOT][j] += hx[i][j];
+
+		hy[SUM_SLOT][j] = hy[1][j];
+		for(int i=2; i<NSLOTS; i++)
 			hy[SUM_SLOT][j] += hy[i][j];
+
+		hz[SUM_SLOT][j] = hz[1][j];
+		for(int i=2; i<NSLOTS; i++)
 			hz[SUM_SLOT][j] += hz[i][j];
-		}
 	}
+#endif	
+// 	#pragma omp parallel for
+// 	for(int j=0; j<nxyz; j++)
+// 	{
+// 		hx[SUM_SLOT][j] = hx[1][j];
+// 		for(int i=2; i<NSLOTS; i++)
+// 			hx[SUM_SLOT][j] += hx[i][j];
+// 
+// 		hy[SUM_SLOT][j] = hy[1][j];
+// 		for(int i=2; i<NSLOTS; i++)
+// 			hy[SUM_SLOT][j] += hy[i][j];
+// 
+// 		hz[SUM_SLOT][j] = hz[1][j];
+// 		for(int i=2; i<NSLOTS; i++)
+// 			hz[SUM_SLOT][j] += hz[i][j];
+// 	}
 }
 
 bool SpinSystem::addFields(double mult, SpinSystem* addThis)
@@ -306,6 +365,7 @@ void SpinSystem::zeroFields()
 {
 	for(int i=0; i<NSLOTS; i++)
 	{
+		slot_used[i] = false;
 		for(int j=0; j<nxyz; j++)
 		{
 			hx[i][j] = 0;
