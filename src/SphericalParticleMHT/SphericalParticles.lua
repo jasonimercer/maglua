@@ -1,5 +1,9 @@
 -- This script sets up and simulates a spherical particle.
 -- See Byron Southern's code and Ken Adebayo's thesis.
+--
+-- This simulation cools from high temp to zero and then start
+-- running loops at increasing temp
+
 
 dofile("SetupSphericalParticle.lua") -- load in setup function
 dofile("Magnetization.lua") -- get magnetization functions
@@ -20,8 +24,16 @@ ST  = 8
 rng = Random.new("Isaac")
 
 -- setup system, objects, etc
-ss, ex, ani, regions, info = makeSphericalParticle(L, ST, rng)
-print(info)
+ss, ex, ani, regions, sinfo = makeSphericalParticle(L, ST, rng)
+-- k1 to k4 for rk4
+k1 = ss:copy()
+k2 = ss:copy()
+k3 = ss:copy()
+k4 = ss:copy()
+
+odt = ss:timeStep() --original timestep
+
+print(sinfo)
 
 th  = Thermal.new(ss:nx(), ss:ny(), ss:nz())
 af  = AppliedField.new(ss:nx(), ss:ny(), ss:nz())
@@ -32,6 +44,17 @@ llg = LLG.new("Quaternion")
 -- executing the function func (or a dummy, empty function)
 -- every r time. The arguments func and r are optional.
 function run(dt, func, r)
+	-- Calculate Fields given a spin system
+	local function fields(spinsystem)
+		spinsystem:zeroFields()
+		
+		ani:apply(spinsystem)
+		ex:apply(spinsystem)
+		af:apply(spinsystem)
+		
+		spinsystem:sumFields()
+	end
+	
 	-- x = x or v is a way to give default args when they
 	-- aren't passed in (and are therefore nil/false)
 	func = func or function() end
@@ -40,17 +63,39 @@ function run(dt, func, r)
 	local next_func_call = ss:time() + r
 	local t = ss:time()
 	while ss:time() <=  t + dt do
-		-- standard field/update calc
+		print(ss:time(), next_func_call, t+dt)
+		-- rk4 update
+		ss:copyTo(k1)
+		fields(k1) -- fields at time t
+
+		--llg has a special form where we can specify:
+		-- src spins, src fields and dest spins
+		ss:setTimeStep(odt/2)
+		llg:apply(ss, k1, k2)
+		fields(k2) --fields at t+dt/2 using k1
+		
+		--ss:setTimeStep(dt/2)
+		llg:apply(ss, k2, k3)
+		fields(k3) --fields at t+dt/2 using k2
+		
+		ss:setTimeStep(odt)
+		llg:apply(ss, k3, k4)
+		fields(k4) --fields at t+dt   using k3
+		
+		-- y(n+1) = y(n) + 1/6(k1 + 2k2 + 2k3 + k4)
 		ss:zeroFields()
-		
-		ani:apply(ss)
-		ex:apply(ss)
-		af:apply(ss)
-		th:apply(rng, ss)
-		
-		ss:sumFields()
+		ss:addFields(1/6, k1)
+		ss:addFields(2/6, k2)
+		ss:addFields(2/6, k3)
+		ss:addFields(1/6, k4)
 		
 		llg:apply(ss)
+		
+		-- apply noise in a non-advancing llg step
+		ss:zeroFields()
+		th:apply(rng, ss)
+		ss:sumFields()
+		llg:apply(ss, false) --false does not advance time
 		
 		if ss:time() >= next_func_call then
 			func()
@@ -63,44 +108,57 @@ end
 cfn = string.format("CoolingMT_%02iL_%05.3fR.dat", L, rate)
 
 f = io.open(cfn, "w")
-cols = {"total", "surf", "core"}
-header = {"temp", "time", "hz"}
-for k1,v1 in pairs({"total", "surf", "core"}) do
-	for k2,v2 in pairs({"x", "y", "z"}) do
-		table.insert(header, v1 .. "_" .. v2)
-	end
+header = {}
+for k,v in pairs(regions) do
+	table.insert(header, k)
 end
-f:write("#" .. table.concat(header, "\t") .. "\n")
 
--- if false then
--- first, cool from T=50 to T=1 collecting magnetization stats
+table.sort(header)
+
+f:write(info("# ") .. "\n")
+f:write(sinfo .. "\n#\n")
+f:write("# temp time hz " .. table.concat(header, " ") .. "\n")
+f:flush()
+
+-- first, cool from T=100 to T=0 collecting magnetization stats
 -- to compare against previous runs
-for T=100,0,-1 do
+af:set({0,0,0})
+function runCoolingTemp(T)
 	print("Temperature="..T)
-	af:set({0,0,0})
 	th:setTemperature(T)
 	run(0.7)
 	resetMagStats()
-	run(0.3, collectMagStats, 0.01)
+	run(0.3, collectMagStats, 0.05)
 	
 	local stats = calculateMagStats()
 	
-	-- prefixing mag data with temp, time and field and 
+	-- prefixing mag data with temp, time and field 
 	f:write(th:temperature() .. "\t")
 	f:write(ss:time() .. "\t")
 	f:write(af:get()[3] .. "\t")
-	reportMagStats(stats, cols, f)
+	reportMagStats(stats, header, f)
+	f:flush()
 end
--- end
-f:close()
 
+-- COOLING MAIN LOOP
+for T=100,10,-5 do
+	runCoolingTemp(T)
+end
+for T=9.5,0,-0.5 do
+	runCoolingTemp(T)
+end
+
+f:close()
+error() -- ending prematurely, need to get good netmag first
 
 function doLoop(T)
 	fn = string.format("MH_%05.1fT_%02iL_%05.3fR.dat", T, L, rate)
 	print(fn)
 	g = io.open(fn, "w")
+	g:write(info("# ") .. "\n")
+	g:write(sinfo .. "\n#\n")
 	g:write("#" .. table.concat(header, "\t") .. "\n")
-	local hmin, hmax, step = -400, 400, 8
+	local hmin, hmax, step = -1000, 1000, 20
 
 	th:setTemperature(T)
 
@@ -108,12 +166,11 @@ function doLoop(T)
 		af:set(0,0,H)
 		local time_per_field = 1.0 / rate
 		local dt = time_per_field * step
-		print(dt,H)
 		
-		run(0.7 * dt)
+-- 		run(0.7 * dt * 0.5)
 		resetMagStats()
 
-		run(0.3 * dt, collectMagStats, 0.03 * dt)
+		run(0.3 * dt * 0.1, collectMagStats, 0.03 * dt * 0.1)
 
 		local stats = calculateMagStats()
 
@@ -123,6 +180,7 @@ function doLoop(T)
 		g:write(af:get()[3] .. "\t")
 		reportMagStats(stats, cols, g)
 		g:flush()
+		print(dt,H)
 	end
 	
 	-- rate = field/time
@@ -154,91 +212,3 @@ for T=15,100,5 do
 	doLoop(T)
 end
 
-
-
-error()
-
-ss:setTime(-2) -- give the system some time to reach equilibrium
--- core/surf net mag and core num samples
-
-f = io.open("mt" .. L .. ".dat", "w")
-f:write("# SphericalParticle2.lua script results\n")
-f:write("# temp cm sm tm\n")
-
--- save configuration to file
-function report()
--- 	t = string.format("%05.3f", ss:time()) --formatted time
--- 	g = io.open("state-" .. t .. ".dat", "w")
--- 	for z=1,dims[3] do
--- 		for y=1,dims[2] do
--- 			for x=1,dims[1] do
--- 				sx, sy, sz = ss:spin(x,y,z)
--- 				if sx^2 + sy^2 + sz^2 > 1e-4 then
--- 					g:write(table.concat({x, y, z, sx, sy, sz}, "\t") .. "\n")
--- 				end
--- 			end
--- 		end
--- 	end
--- 	g:close()
--- 	print(t)
-end
-
-function avrgMag(region)
-	local avrg = 0
-	local count = 0
-	for k,v in pairs(region) do
-		avrg = avrg + v
-		count = count + 1
-	end
-	return avrg / count
-end
-
-
--- Simulation main loop
-while current_temp >= 0 do
-	local t = ss:time()
-	print(t, next_step, current_temp)
-	-- check for next temperature step
-	if t >= next_step then
-		if current_temp < 6 then
-			temp_step = last_temp_steps
-		end
-		
-		for k,v in pairs(mags) do
-			
-		end
-		
-		if cn > 0 then
-			w = {current_temp, cm / cn, sm / sn, (cm+sm) / (cn+sn) }
-			line = table.concat(w, "\t")
-			f:write(line .. "\n")
-			f:flush() -- so we don't have to wait to see the data
-			print(line)
-			report()
-		end
-
-		current_temp = current_temp + temp_step
-		th:setTemperature(current_temp)
-		-- reset core/surf net mag and core num samples
-		cm, cn = 0, 0
-		sm, sn = 0, 0
-		
-		-- let the system adjust to the new temp
-		next_sample= t + eq_time
-		next_step  = t + time_per_temp
-	end
-
-	step() -- do 1 LLG step
-	
-	-- check for sampling step
-	if t >= next_sample then
-		for k1,region in pairs(regions) do
-			for k2,site in pairs(region) do
-				local sx, sy, sz = ss:spin(site.x, site.y, site.z)
-				table.insert(mags[k1], (sx^2 + sy^2 + sz^2)^(1/2))
-			end
-		end
-		next_sample = ss:time() + sample_dt
-	end
-end
-f:close()

@@ -176,23 +176,25 @@ void Exchange::opt()
 
 void Exchange::addPath(int site1, int site2, double str)
 {
-	if(num + 1 == size)
+	if(str != 0)
 	{
-		size *= 2;
-		pathways = (sss*)realloc(pathways, sizeof(sss) * size);
-// 		fromsite =    (int*)realloc(fromsite, sizeof(int) * size);
-// 		  tosite =    (int*)realloc(  tosite, sizeof(int) * size);
-// 		strength = (double*)realloc(strength, sizeof(double) * size);
+		if(num + 1 == size)
+		{
+			size *= 2;
+			pathways = (sss*)realloc(pathways, sizeof(sss) * size);
+	// 		fromsite =    (int*)realloc(fromsite, sizeof(int) * size);
+	// 		  tosite =    (int*)realloc(  tosite, sizeof(int) * size);
+	// 		strength = (double*)realloc(strength, sizeof(double) * size);
+		}
+		
+		pathways[num].fromsite = site1;
+		pathways[num].tosite = site2;
+		pathways[num].strength = str;
+	// 	fromsite[num] = site1;
+	// 	  tosite[num] = site2;
+	// 	strength[num] = str;
+		num++;
 	}
-	
-	pathways[num].fromsite = site1;
-	pathways[num].tosite = site2;
-	pathways[num].strength = str;
-// 	fromsite[num] = site1;
-// 	  tosite[num] = site2;
-// 	strength[num] = str;
-	num++;
-	
 }
 
 
@@ -274,8 +276,6 @@ int l_ex_addpath(lua_State* L)
 	double strength = lua_isnumber(L, 2+r1+r2)?lua_tonumber(L, 2+r1+r2):1.0;
 	int s1 = ex->getSite(s1x, s1y, s1z);
 	int s2 = ex->getSite(s2x, s2y, s2z);
-
-// 	printf("%i (%i %i %i)     %i (%i %i %i)    %g\n", s1, s1x, s1y, s1z, s2, s2x, s2y, s2z, strength);
 
 	ex->addPath(s1, s2, strength);
 	return 0;

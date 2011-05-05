@@ -35,6 +35,62 @@ SpinSystem::~SpinSystem()
 	deinit();
 }
 
+SpinSystem* SpinSystem::copy(lua_State* L)
+{
+	SpinSystem* c = new SpinSystem(nx, ny, nz);
+	
+	c->copyFrom(L, this);
+	
+	return c;
+}
+
+bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
+{
+	if(nx != src->nx) return false;
+	if(ny != src->ny) return false;
+	if(nz != src->nz) return false;
+	
+	memcpy(hx[SUM_SLOT], src->hx[SUM_SLOT], nxyz * sizeof(double));
+	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
+	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
+	
+	memcpy(x, src->x, nxyz * sizeof(double));
+	memcpy(y, src->y, nxyz * sizeof(double));
+	memcpy(z, src->z, nxyz * sizeof(double));
+	
+	alpha = src->alpha;
+	gamma = src->gamma;
+	dt = src->dt;
+	
+	fft_time = time - 1.0;
+	
+	
+	// unref data - if exists
+	for(int i=0; i<nxyz; i++)
+	{
+		if(extra_data[i] >= 0)
+			luaL_unref(L, LUA_REGISTRYINDEX,extra_data[i]);
+	}
+	
+	// make copies of references
+	for(int i=0; i<nxyz; i++)
+	{
+		if(src->extra_data[i] < 0)
+		{
+			extra_data[i] = -1;
+		}
+		else
+		{
+			lua_rawgeti(L, LUA_REGISTRYINDEX, src->extra_data[i]);
+			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
+		}
+	}
+	
+	
+	return true;
+}
+
+
 void SpinSystem::deinit()
 {
 	if(x)
@@ -66,6 +122,8 @@ void SpinSystem::deinit()
 		delete [] qz;
 		
 		
+		delete [] extra_data;
+		
 		fftw_destroy_plan(r2q);
 	}
 }
@@ -89,6 +147,9 @@ void SpinSystem::init()
 	
 	slot_used = new bool[nslots];
 
+	extra_data = new int[nxyz];
+	for(int i=0; i<nxyz; i++)
+		extra_data[i] = -1;
 	
 	for(int i=0; i<nslots; i++)
 	{
@@ -411,9 +472,21 @@ void SpinSystem::set(const int px, const int py, const int pz, const double sx, 
 
 int  SpinSystem::getidx(const int px, const int py, const int pz) const
 {
-	const int x = CLAMP(px, nx-1);
-	const int y = CLAMP(py, ny-1);
-	const int z = CLAMP(pz, nz-1);
+	int x = px;
+	int y = py;
+	int z = pz;
+	
+	while(x >= nx) x-=nx;
+	while(y >= ny) y-=ny;
+	while(z >= nz) z-=nz;
+	
+	while(x < 0) x+=nx;
+	while(y < 0) y+=ny;
+	while(z < 0) z+=nz;
+	
+// 	const int x = CLAMP(px, nx-1);
+// 	const int y = CLAMP(py, ny-1);
+// 	const int z = CLAMP(pz, nz-1);
 	
 	return x + y*nx + z*nx*ny;
 }
@@ -438,28 +511,6 @@ void SpinSystem::getNetMag(double* v8)
 	v8[7] = sqrt(v8[4]*v8[4] + v8[5]*v8[5] + v8[6]*v8[6]);
 }
 
-bool SpinSystem::copy(SpinSystem* src)
-{
-	if(nx != src->nx) return false;
-	if(ny != src->ny) return false;
-	if(nz != src->nz) return false;
-	
-	memcpy(hx[SUM_SLOT], src->hx[SUM_SLOT], nxyz * sizeof(double));
-	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
-	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
-	
-	memcpy(x, src->x, nxyz * sizeof(double));
-	memcpy(y, src->y, nxyz * sizeof(double));
-	memcpy(z, src->z, nxyz * sizeof(double));
-	
-	alpha = src->alpha;
-	gamma = src->gamma;
-	dt = src->dt;
-	
-	fft_time = time - 1.0;
-	
-	return true;
-}
 
 
 
@@ -528,8 +579,14 @@ int l_ss_gc(lua_State* L)
 	
 	ss->refcount--;
 	if(ss->refcount == 0)
+	{
+		for(int i=0; i<ss->nxyz; i++)
+		{
+			if(ss->extra_data[i] != -1)
+				luaL_unref(L, LUA_REGISTRYINDEX, ss->extra_data[i]);
+		}
 		delete ss;
-	
+	}
 	return 0;
 }
 
@@ -631,7 +688,7 @@ int l_ss_setspin(lua_State* L)
 
 	if(n)
 	{
-		double len = lua_tonumber(L, 2+r1+r2);
+		double len = fabs(lua_tonumber(L, 2+r1+r2));
 		double rr = sx*sx + sy*sy + sz*sz;
 		if(rr > 0)
 		{
@@ -691,7 +748,13 @@ int l_ss_getspin(lua_State* L)
 	lua_pushnumber(L, ss->y[idx]);
 	lua_pushnumber(L, ss->z[idx]);
 	
-	return 3;
+	double len2 = ss->x[idx]*ss->x[idx] 
+				+ ss->y[idx]*ss->y[idx]
+				+ ss->z[idx]*ss->z[idx];
+	
+	lua_pushnumber(L, sqrt(len2));
+	
+	return 4;
 }
 
 int l_ss_getunitspin(lua_State* L)
@@ -896,17 +959,78 @@ int l_ss_addfields(lua_State* L)
 
 int l_ss_copy(lua_State* L)
 {
-	SpinSystem* dest = checkSpinSystem(L, 1);
-	if(!dest) return 0;
-	
-	SpinSystem* src = checkSpinSystem(L, 2);
+	SpinSystem* src = checkSpinSystem(L, 1);
 	if(!src) return 0;
 	
-	if(!dest->copy(src))
-		return luaL_error(L, "Failed to copy");
+	lua_pushSpinSystem(L, src->copy(L));
+	return 1;
+}
+
+int l_ss_copyto(lua_State* L)
+{
+	SpinSystem* src = checkSpinSystem(L, 1);
+	if(!src) return 0;
+	
+	SpinSystem* dest = checkSpinSystem(L, 2);
+	if(!dest) return 0;
+
+	if(!dest->copyFrom(L, src))
+		return luaL_error(L, "Failed to copyTo");
 	
 	return 0;
 }
+
+static int l_ss_getextradata(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+
+	int site[3];
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	const int px = site[0] - 1;
+	const int py = site[1] - 1;
+	const int pz = site[2] - 1;
+	
+	int idx = ss->getidx(px, py, pz);
+	
+	if(ss->extra_data[idx] < 0)
+		lua_pushnil(L);
+	else
+		lua_rawgeti(L, LUA_REGISTRYINDEX, ss->extra_data[idx]);
+	return 1;
+}
+
+static int l_ss_setextradata(lua_State* L)
+{
+	SpinSystem* ss = checkSpinSystem(L, 1);
+	if(!ss) return 0;
+
+	int site[3];
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	const int px = site[0] - 1;
+	const int py = site[1] - 1;
+	const int pz = site[2] - 1;
+	
+	int idx = ss->getidx(px, py, pz);
+	
+	if(ss->extra_data[idx] >= 0)
+	{
+		luaL_unref(L, LUA_REGISTRYINDEX, ss->extra_data[idx]);
+	}
+	
+	lua_pushvalue(L, r+2);
+	
+	ss->extra_data[idx] = luaL_ref(L, LUA_REGISTRYINDEX);
+	
+	return 0;
+}
+
 
 int l_ss_getinversespin(lua_State* L)
 {
@@ -1132,8 +1256,19 @@ static int l_ss_help(lua_State* L)
 
 	if(func == l_ss_copy)
 	{
-		lua_pushstring(L, "Copy all aspects of the given *SpinSystem* to the calling system.");
-		lua_pushstring(L, "1 *SpinSystem*: Source spin system.");
+		lua_pushstring(L, "Create a new copy of the spinsystem.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 *SpinSystem*");
+// 		lua_pushstring(L, "Copy all aspects of the given *SpinSystem* to the calling system.");
+// 		lua_pushstring(L, "1 *SpinSystem*: Source spin system.");
+// 		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ss_copyto)
+	{
+		lua_pushstring(L, "Copy all aspects of the calling *SpinSystem* to the given system.");
+		lua_pushstring(L, "1 *SpinSystem*: Destination spin system.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -1186,6 +1321,25 @@ static int l_ss_help(lua_State* L)
 		return 3;
 	}
 
+	if(func == l_ss_setextradata)
+	{
+		lua_pushstring(L, "Set site specific extra data. This may be used for book keeping during initialization.");
+		lua_pushstring(L, "1 *3Vector*, 1 Value: Stores the value at the site specified. Implicit PBC.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_ss_getextradata)
+	{
+		lua_pushstring(L, "Get site specific extra data. This may be used for book keeping during initialization.");
+		lua_pushstring(L, "1 *3Vector*: Site position. Implicit PBC.");
+		lua_pushstring(L, "1 Value: The value stored at this site position.");
+		return 3;
+	}
+
+
+
+
 	return 0;
 }
 
@@ -1211,12 +1365,15 @@ void registerSpinSystem(lua_State* L)
 		{"inverseSpin",  l_ss_getinversespin},
 		{"addFields",    l_ss_addfields},
 		{"copy",         l_ss_copy},
+		{"copyTo",       l_ss_copyto},
 		{"setAlpha",     l_ss_setalpha},
 		{"alpha",        l_ss_getalpha},
 		{"setTimeStep",  l_ss_settimestep},
 		{"timeStep",     l_ss_gettimestep},
 		{"setGamma",     l_ss_setgamma},
 		{"gamma",        l_ss_getgamma},
+		{"setExtraData", l_ss_setextradata},
+		{"extraData",    l_ss_getextradata},
 		{NULL, NULL}
 	};
 		

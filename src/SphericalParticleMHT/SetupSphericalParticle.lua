@@ -1,7 +1,6 @@
 -- This script/function sets up a spherical particle.
 -- See Byron Southern's code and Ken Adebayo's thesis.
 
-
 -- Input:
 --  L = radius/4
 -- ST = Surface Thickness
@@ -11,7 +10,7 @@ function makeSphericalParticle(L, ST, rng)
 	local RC = RS-ST
 
 	local rjaacc=-21*2
-	local rjabcc=-29.1*2
+	local rjabcc=-28.1*2
 	local rjbbcc=-8.6*2
 
 	local rjaacs=-21
@@ -25,13 +24,14 @@ function makeSphericalParticle(L, ST, rng)
 	local kcore = 0.02
 	local ksurf = 5
 
+	-- used for initial state stats matching MC code
 	local nmax, nc, ns, nv = 0, 0, 0, 0
 
-
-	local sites = {} -- this will hold all site information during initialization
+	-- this will hold all site information during initialization
+	local sites = {} 
 
 	-- given a coordinate, classify site and add to sites table
-	local function checkSite(x, y, z, lbl, occ)
+	local function addSite(x, y, z, lbl, occ)
 		if x^2 + y^2 + z^2 <= RS^2 then
 			local s={
 					x=x, y=y, z=z,
@@ -62,37 +62,37 @@ function makeSphericalParticle(L, ST, rng)
 				local ax1 = 4*(i+k)
 				local ay1 = 4*(i+j)
 				local az1 = 4*(j+k)
-				checkSite(ax1, ay1, az1, "A1", 1.0)
+				addSite(ax1, ay1, az1, "A1", 1.0)
 				
 				-- A1 sites (1/4,1/4,1/4)+fcc
 				local ax2 = ax1+2
 				local ay2 = ay1+2
 				local az2 = az1+2
-				checkSite(ax2, ay2, az2, "A2", 1.0)
+				addSite(ax2, ay2, az2, "A2", 1.0)
 				
 				-- B1 sites (1/8,5/8,1/8)+fcc
 				local bx1 = ax1 + 1
 				local by1 = ay1 + 1
 				local bz1 = az1 - 3
-				checkSite(bx1, by1, bz1, "B1", 5/6)
+				addSite(bx1, by1, bz1, "B1", 5/6)
 				
 				-- B2 sites (3/8,5/8,3/8)+fcc
 				local bx2 = ax1 + 3
 				local by2 = ay1 + 1
 				local bz2 = az1 - 1
-				checkSite(bx2, by2, bz2, "B2", 5/6)
+				addSite(bx2, by2, bz2, "B2", 5/6)
 				
 				-- B3 sites (3/8,7/8,1/8)+fcc
 				local bx3 = ax1 - 1
 				local by3 = ay1 + 3
 				local bz3 = az1 + 1
-				checkSite(bx3, by3, bz3, "B3", 5/6)
+				addSite(bx3, by3, bz3, "B3", 5/6)
 				
 				-- B4 sites (1/8,7/8,3/8)+fcc
 				local bx4 = ax1 + 1
 				local by4 = ay1 + 3
 				local bz4 = az1 - 1
-				checkSite(bx4, by4, bz4, "B4", 5/6)
+				addSite(bx4, by4, bz4, "B4", 5/6)
 			end
 		end
 	end
@@ -113,23 +113,23 @@ function makeSphericalParticle(L, ST, rng)
 				{ 1, 1, 3}, { 1,-3,-1}, {-3, 1,-1}, -- b3
 				{-1, 1,-3}, {-1,-3, 1}, { 3, 1, 1}} -- b4
 
-	nn["B1"] = {{ 2, 1, 2}, {-2, 1,-2}, { 2, 2, 1}, -- b2,b3,b4
-				{-2,-2, 1}, { 1, 2, 2}, { 1,-2,-2}, 
+	nn["B1"] = {{ 2, 0, 2}, {-2, 0,-2}, { 2, 2, 0}, -- b2,b3,b4
+				{-2,-2, 0}, { 0, 2, 2}, { 0,-2,-2}, 
 				{-1,-1, 3}, {-1, 3,-1}, { 3,-1,-1}, -- a1,a2
 				{ 1, 1,-3}, { 1,-3, 1}, {-3, 1, 1}}
 
-	nn["B2"] = {{ 2, 1, 2}, {-2, 1,-2}, {-2, 2, 1}, -- b1,b3,b4
-				{ 2,-2, 1}, { 1, 2,-2}, { 1,-2, 2},
+	nn["B2"] = {{ 2, 0, 2}, {-2, 0,-2}, {-2, 2, 0}, -- b1,b3,b4
+				{ 2,-2, 0}, { 0, 2,-2}, { 0,-2, 2},
 				{ 1,-1,-3}, { 1, 3, 1}, {-3,-1, 1}, -- a1,a2
 				{-1, 1, 3}, {-1,-3,-1}, { 3, 1,-1}}
 
-	nn["B3"] = {{ 2, 1,-2}, {-2, 1, 2}, { 2, 2, 1}, -- b1,b2,b4
-				{-2,-2, 1}, { 1, 2,-2}, { 1,-2, 2},
+	nn["B3"] = {{ 2, 0,-2}, {-2, 0, 2}, { 2, 2, 0}, -- b1,b2,b4
+				{-2,-2, 0}, { 0, 2,-2}, { 0,-2, 2},
 				{ 1, 1, 3}, { 1,-3,-1}, {-3, 1,-1}, -- a1,a2
 				{-1,-1,-3}, {-1, 3, 1}, { 3,-1, 1}}
 
-	nn["B4"] = {{ 2, 1,-2}, {-2, 1, 2}, { 2,-2, 1}, -- b1,b2,b3
-				{-2, 2, 1}, { 1, 2, 2}, { 1,-2,-2},
+	nn["B4"] = {{ 2, 0,-2}, {-2, 0, 2}, { 2,-2, 0}, -- b1,b2,b3
+				{-2, 2, 0}, { 0, 2, 2}, { 0,-2,-2},
 				{-1, 1,-3}, {-1,-3, 1}, { 3, 1, 1}, -- a1,a2
 				{ 1,-1, 3}, { 1, 3,-1}, {-3,-1,-1}}
 
@@ -209,14 +209,14 @@ function makeSphericalParticle(L, ST, rng)
 			return rjbbss
 		end
 
+		-- A-B
 		if c1 ~= c2 then return rjabcs end 
 		if c1       then return rjabcc end
 		return rjabss
-
 	end
 
 	-- does site exist and is not a vacancy?
-	function real_site(x,y,z)
+	function real_site(x,y,z, mis_check)
 		if x < 1 or y < 1 or z < 1 then
 			return false
 		end
@@ -244,12 +244,13 @@ function makeSphericalParticle(L, ST, rng)
 					--  site {x,y,z} will point in a random 
 					--  direction with unit magnetization
 					ss:setSpin({x,y,z}, 
-							{rng:normal(),rng:normal(),rng:normal()}, 1)
+-- 							{rng:normal(),rng:normal(),rng:normal()}, 1)
+							{0,0,-1})
 
 					-- setup exchange interaction
 					for k,v in pairs(s1.neighbours) do
 						local a, b, c = v[1], v[2], v[3]
-						if real_site(a,b,c) then
+						if real_site(a,b,c, true) then
 							local s2 = data[a][b][c]
 							ex:addPath({x,y,z}, {a,b,c}, exStr(s1, s2))
 						end
@@ -269,31 +270,33 @@ function makeSphericalParticle(L, ST, rng)
 
 	-- We will now make explicit lists of sites. 
 	-- These will be used to collect stats.
--- 	types = {"A1", "A2", "B1", "B2", "B3", "B4"}
+	types = {"A1", "A2", "B1", "B2", "B3", "B4"}
 	local regions = {}
 	regions["core"] = {}
 	regions["surf"] = {}
 	regions["total"] = {}
--- 	for k,v in pairs(types) do
--- 		regions["core_" .. v] = {}
--- 		regions["surf_" .. v] = {}
--- 	end
+	for k,v in pairs(types) do
+		regions["core_" .. v] = {}
+		regions["surf_" .. v] = {}
+		regions["total_" .. v] = {}
+	end
 	for k,v in pairs(sites) do
 		if not v.vac then
 			table.insert(regions["total"], v)
+			table.insert(regions["total_" .. v.lbl], v)
 			if v.core then
 				table.insert(regions["core"], v)
--- 				table.insert(regions["core_" .. v.lbl], v)
+				table.insert(regions["core_" .. v.lbl], v)
 			else
 				table.insert(regions["surf"], v)
--- 				table.insert(regions["surf_" .. v.lbl], v)
+				table.insert(regions["surf_" .. v.lbl], v)
 			end
 		end
 	end
 
-	ss:setTimeStep(0.001)
+	ss:setTimeStep(0.01)
 -- 	ss:setTimeStep(0.01)
-	ss:setAlpha(1.0)
+	ss:setAlpha(0.1)
 	
 	return ss, ex, ani, regions, info
 end

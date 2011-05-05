@@ -177,18 +177,19 @@ void Dipole::ifftAppliedForce(SpinSystem* ss)
 	double* hx = ss->hx[slot];
 	double* hy = ss->hy[slot];
 	double* hz = ss->hz[slot];
-
+	const int nxy = nx*ny;
+	
 	for(int i=0; i<nz; i++)
 	{
 		fftw_execute_dft(backward, 
-				reinterpret_cast<fftw_complex*>(&hqx[i*nxyz]),
-				reinterpret_cast<fftw_complex*>(&hrx[i*nxyz]));
+				reinterpret_cast<fftw_complex*>(&hqx[i*nxy]),
+				reinterpret_cast<fftw_complex*>(&hrx[i*nxy]));
 		fftw_execute_dft(backward, 
-				reinterpret_cast<fftw_complex*>(&hqy[i*nxyz]),
-				reinterpret_cast<fftw_complex*>(&hry[i*nxyz]));
+				reinterpret_cast<fftw_complex*>(&hqy[i*nxy]),
+				reinterpret_cast<fftw_complex*>(&hry[i*nxy]));
 		fftw_execute_dft(backward, 
-				reinterpret_cast<fftw_complex*>(&hqz[i*nxyz]),
-				reinterpret_cast<fftw_complex*>(&hrz[i*nxyz]));
+				reinterpret_cast<fftw_complex*>(&hqz[i*nxy]),
+				reinterpret_cast<fftw_complex*>(&hrz[i*nxy]));
 	}
 
 	for(int i=0; i<nxyz; i++)
@@ -236,19 +237,18 @@ void Dipole::collectIForces(SpinSystem* ss)
 		targetOffset = targetLayer * nxy;
 		sourceOffset = sourceLayer * nxy;
 		demagOffset  = ( sourceLayer - targetLayer + nz - 1 ) * nxy;
-
 		//these are complex multiplies and adds
-		for(c=0; c<nxyz; c++) hqx[cTo]+=qXX[cDo]*sqx[cSo];
-		for(c=0; c<nxyz; c++) hqx[cTo]+=qXY[cDo]*sqy[cSo];
-		for(c=0; c<nxyz; c++) hqx[cTo]+=qXZ[cDo]*sqz[cSo];
+		for(c=0; c<nxy; c++) hqx[cTo]+=qXX[cDo]*sqx[cSo];
+		for(c=0; c<nxy; c++) hqx[cTo]+=qXY[cDo]*sqy[cSo];
+		for(c=0; c<nxy; c++) hqx[cTo]+=qXZ[cDo]*sqz[cSo];
 
-		for(c=0; c<nxyz; c++) hqy[cTo]+=qXY[cDo]*sqx[cSo];
-		for(c=0; c<nxyz; c++) hqy[cTo]+=qYY[cDo]*sqy[cSo];
-		for(c=0; c<nxyz; c++) hqy[cTo]+=qYZ[cDo]*sqz[cSo];
+		for(c=0; c<nxy; c++) hqy[cTo]+=qXY[cDo]*sqx[cSo];
+		for(c=0; c<nxy; c++) hqy[cTo]+=qYY[cDo]*sqy[cSo];
+		for(c=0; c<nxy; c++) hqy[cTo]+=qYZ[cDo]*sqz[cSo];
 
-		for(c=0; c<nxyz; c++) hqz[cTo]+=qXZ[cDo]*sqx[cSo];
-		for(c=0; c<nxyz; c++) hqz[cTo]+=qYZ[cDo]*sqy[cSo];
-		for(c=0; c<nxyz; c++) hqz[cTo]+=qZZ[cDo]*sqz[cSo];
+		for(c=0; c<nxy; c++) hqz[cTo]+=qXZ[cDo]*sqx[cSo];
+		for(c=0; c<nxy; c++) hqz[cTo]+=qYZ[cDo]*sqy[cSo];
+		for(c=0; c<nxy; c++) hqz[cTo]+=qZZ[cDo]*sqz[cSo];
 	}
 }
 

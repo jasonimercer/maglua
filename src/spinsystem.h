@@ -24,6 +24,9 @@ class SpinSystem : public Encodable
 public:
 	SpinSystem(const int nx, const int ny, const int nz);
 	~SpinSystem();
+
+	SpinSystem* copy(lua_State* L);
+	bool copyFrom(lua_State* L, SpinSystem* src);
 	
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);
@@ -33,7 +36,6 @@ public:
 	
 	void zeroFields();
 	bool addFields(double mult, SpinSystem* addThis);
-	bool copy(SpinSystem* src);
 	
 	int getSlot(const char* name);
 	static const char* slotName(int index);
@@ -53,6 +55,7 @@ public:
 	double** hy;
 	double** hz;
 	bool* slot_used;
+	int* extra_data; //used for site specific lua data
 
 	double* ms; // spin length
 	
