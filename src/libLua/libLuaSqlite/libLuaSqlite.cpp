@@ -13,7 +13,7 @@ using namespace std;
 
 static map<string,sem_t> semLookup;
 
-void waitDB(string name)
+static void waitDB(string name)
 {
 	if(semLookup.find(name) == semLookup.end()) //doesn't exist
 	{
@@ -27,7 +27,7 @@ void waitDB(string name)
 }
 
 
-void postDB(string name)
+static void postDB(string name)
 {
 	if(semLookup.find(name) == semLookup.end()) //doesn't exist
 	{
@@ -136,7 +136,7 @@ int l_sql_new(lua_State* L)
 	return 1;
 }
 
-int l_sql_tostring(lua_State* L)
+static int l_sql_tostring(lua_State* L)
 {
 	lua_pushstring(L, "SQL");
 	return 1;	
@@ -144,7 +144,7 @@ int l_sql_tostring(lua_State* L)
 
 
 
-int l_sql_gc(lua_State* L)
+static int l_sql_gc(lua_State* L)
 {
 	sqlite3_conn* sql = lua_toSQLite(L, 1);
 	if(!sql) return 0;
@@ -155,7 +155,7 @@ int l_sql_gc(lua_State* L)
 	return 0;
 }
 
-int exec_callback(void* arg, int numcols, char** colvalues, char** colnames)
+static int exec_callback(void* arg, int numcols, char** colvalues, char** colnames)
 {
 	LI* li = (LI*)arg;
 	lua_State* L = li->L;
@@ -175,7 +175,7 @@ int exec_callback(void* arg, int numcols, char** colvalues, char** colnames)
 	return 0;
 }
 
-int l_sql_exec(lua_State* L)
+static int l_sql_exec(lua_State* L)
 {
 	sqlite3_conn* sql = lua_toSQLite(L, 1);
 	if(!sql) return 0;
@@ -222,7 +222,7 @@ int l_sql_exec(lua_State* L)
 	return luaL_error(L, "Failed to execute statement");
 }
 	
-int l_sql_close(lua_State* L)
+static int l_sql_close(lua_State* L)
 {
 	sqlite3_conn* sql = lua_toSQLite(L, 1);
 	if(!sql) return 0;
@@ -233,7 +233,7 @@ int l_sql_close(lua_State* L)
 	return 0;
 }
 
-int l_sql_changes(lua_State* L)
+static int l_sql_changes(lua_State* L)
 {
 	sqlite3_conn* sql = lua_toSQLite(L, 1);
 	if(!sql) return 0;
@@ -248,7 +248,6 @@ int registerSQLite(lua_State* L)
 	static const struct luaL_reg methods [] = {
 		{"__gc",         l_sql_gc},
 		{"__tostring",   l_sql_tostring},
-		{"exec",         l_sql_exec},
 		{"exec",         l_sql_exec},
 		{"close",        l_sql_close},
 		{"changes",      l_sql_changes},
