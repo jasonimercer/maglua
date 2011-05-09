@@ -378,8 +378,8 @@ void* __threadLuaMain(void* args)
 
 	LuaThread* thread = (LuaThread*)args;
 
-	lua_State*  L = thread->L;	
-	LuaComm* c = thread->comm;	
+	lua_State*  L = thread->L;
+	LuaComm* c = thread->comm;
 
 	int r = setjmp(thread->env);
 
@@ -448,7 +448,7 @@ int LuaServer_::addLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm)
 lua_Variable* LuaServer_::executeLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm, int* nret)
 {
 	//limit the number of simultaneous lua states running
-	//this can cause a problem is the server runs code that
+	//this can cause a problem if the server runs code that
 	//makes a new connection to itself and that connection cannot run
 	sem_wait(&availableStates);
 	
@@ -460,12 +460,12 @@ lua_Variable* LuaServer_::executeLuaFunction(lua_Variable* vars, int nvars, LuaC
 
 	for(int i=0; i<nvars; i++)
 		importLuaVariable(L, &vars[i]);
-
+	
 	int nargs = lua_gettop(L)-1;
 
 	if(lua_pcall(L, nargs, LUA_MULTRET, 0))
 	{
-		string s = lua_tostring(L, -1);		
+		string s = lua_tostring(L, -1);
 		cerr << s << endl;
 		LuaServer.addError(s, comm); //only error back to src client, not all clients
 	}
