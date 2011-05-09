@@ -141,15 +141,41 @@ function runCoolingTemp(T)
 end
 
 -- COOLING MAIN LOOP
-for T=100,10,-5 do
-	runCoolingTemp(T)
-end
-for T=9.5,0,-0.5 do
-	runCoolingTemp(T)
-end
+-- for T=100,10,-5 do
+-- 	runCoolingTemp(T)
+-- end
+-- for T=9.5,0,-0.5 do
+-- 	runCoolingTemp(T)
+-- end
+
+-- for T=40,0,-5 do
+-- 	runCoolingTemp(T)
+-- end
 
 f:close()
-error() -- ending prematurely, need to get good netmag first
+
+-- quenching to zero temperature
+th:setTemperature(0)
+run(10.0)
+
+print("Writing final state")
+f = io.open("Final_State.dat", "w")
+for z=1,ss:nz() do
+	for y=1,ss:ny() do
+		for x=1,ss:nx() do
+			if ss:extraData(x,y,z) then
+				local lbl = ss:extraData(x,y,z)[1]
+				local sc  = ss:extraData(x,y,z)[2]
+				local sx, sy, sz = ss:spin(x,y,z)
+				f:write(table.concat({x,y,z,sx,sy,sz,lbl,sc}, "\t") .. "\n")
+			end
+		end
+	end
+end
+f:close()
+
+
+error("ending prematurely, need to get good netmag first")
 
 function doLoop(T)
 	fn = string.format("MH_%05.1fT_%02iL_%05.3fR.dat", T, L, rate)

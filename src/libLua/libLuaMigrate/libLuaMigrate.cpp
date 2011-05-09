@@ -6,14 +6,9 @@ void addToBuff(char** buf, int* bsize, int* blen, const char* data, int dlen)
 {
 	if(*blen + dlen > *bsize) //need to expand buffer
 	{
-		char* b = (char*)malloc(sizeof(char) **bsize * 2);
-		memcpy(b, *buf, *bsize);
-		free(*buf);
-		*buf = b;
-
 		*bsize *= 2;
-
-		return addToBuff(buf, bsize, blen, data, dlen);
+		*bsize += dlen;
+		*buf = (char*)realloc(*buf, *bsize);
 	}
 
 	memcpy(*buf+*blen, data, dlen);
@@ -27,9 +22,6 @@ static int lexportwriter(lua_State *L, const void* b, size_t size, void* d)
 
 	addToBuff(&v->funcchunk, &v->chunksize, &v->chunklength, (const char*)b, size);
 
-// 	printf("chunk now: %i\n", v->chunklength);
-
-
 	return 0;
 }
 
@@ -38,9 +30,7 @@ const char* limportreader(lua_State* L, void* data, size_t* size)
 	(void)L;
 	lua_Variable* v = (lua_Variable*)data;
 
-// 	printf("1 chunk of size: %i\n", *size);
 	*size = v->chunklength;
-// 	printf("2 chunk of size: %i\n", *size);
 
 	v->chunklength = 0;
 
@@ -51,14 +41,14 @@ void initLuaVariable(lua_Variable* v)
 {
 	v->type = LUA_TNIL;
 
-	v->s = (char*)malloc(sizeof(char)*32);
-	v->ssize = 32;
+	v->s = 0;
+	v->ssize = 0;
 	v->slength = 0;
 
 	v->val = 0;
 
-	v->chunksize  = 512;
-	v->funcchunk  = (char*)malloc(sizeof(char)*v->chunksize);
+	v->chunksize  = 0;
+	v->funcchunk  = 0;//(char*)malloc(sizeof(char)*v->chunksize);
 	v->chunklength= 0;
 
 	v->listKey = 0;

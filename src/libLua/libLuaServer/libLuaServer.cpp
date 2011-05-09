@@ -656,10 +656,20 @@ bool LuaComm::rawVarRead(int fd, lua_Variable* v)
 	int ok = 1;
 	
 // 	cout << fctrl(fd, F_GETFD);
+	initLuaVariable(v);
+	int v6[6];
 	
-	sure_read(fd, v, sizeof(lua_Variable), &ok);
+	sure_read(fd, v6, sizeof(int)*6, &ok);
 	if(!ok) return false;
-
+	
+	v->ssize = v6[0];
+	v->slength = v6[1];
+	v->chunksize = v6[2];
+	v->chunklength = v6[3];
+	v->listlength = v6[4];
+	v->type = v6[5];
+	
+	
 	if(v->ssize)
 	{
 		v->s = (char*)malloc(sizeof(char)*v->ssize);
@@ -690,9 +700,20 @@ bool LuaComm::rawVarRead(int fd, lua_Variable* v)
 bool LuaComm::rawVarWrite(int fd, lua_Variable* v)
 {
 	int ok = 1;
-	sure_write(fd, v, sizeof(lua_Variable), &ok);
-	if(!ok) return false;
+// 	sure_write(fd, v, sizeof(lua_Variable), &ok);
+// 	if(!ok) return false;
 
+	int v6[6];
+	v6[0] = v->ssize;
+	v6[1] = v->slength;
+	v6[2] = v->chunksize;
+	v6[3] = v->chunklength;
+	v6[4] = v->listlength;
+	v6[5] = v->type;
+	
+	sure_write(fd, v6, sizeof(int)*6, &ok); if(!ok) return false;
+
+	
 	if(v->ssize)
 	{
 		sure_write(fd, v->s, sizeof(char)*v->ssize, &ok);

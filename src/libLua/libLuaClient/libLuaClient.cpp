@@ -177,6 +177,8 @@ bool LuaClient::connectTo(const char* host_port)
 	_connected = true;
 	sourcename = host_port;
 
+	delete [] host;
+
 	return true;
 }
 
@@ -200,15 +202,23 @@ bool LuaClient::rawVarUpload(lua_Variable* v)
 {
 	int ok = 1;
 	//no sems here since these will be parts of larger actions
-	sure_write(sockfd, v, sizeof(lua_Variable), &ok);
+	//sure_write(sockfd, v, sizeof(lua_Variable), &ok);
 
-	if(!ok) return false;
-		
+	int v6[6];
+	v6[0] = v->ssize;
+	v6[1] = v->slength;
+	v6[2] = v->chunksize;
+	v6[3] = v->chunklength;
+	v6[4] = v->listlength;
+	v6[5] = v->type;
 	
+	sure_write(sockfd, v6, sizeof(int)*6, &ok); if(!ok) return false;
+		
 	if(v->ssize)
 		sure_write(sockfd, v->s, v->ssize, &ok);
 	if(!ok) return false;
 	
+
 	if(v->chunksize)
 		sure_write(sockfd, v->funcchunk, v->chunksize, &ok);
 	if(!ok) return false;
@@ -226,10 +236,22 @@ bool LuaClient::rawVarUpload(lua_Variable* v)
 bool LuaClient::rawVarDownload(lua_Variable* v)
 {
 	int ok = 1;
+	initLuaVariable(v);
 	
 	//no sems here since these will be part of larger actions
-	sure_read(sockfd, v, sizeof(lua_Variable), &ok);
+	int v6[6];
+
+	sure_read(sockfd, v6, sizeof(int)*6, &ok);
 	if(!ok) return false;
+
+	
+	v->ssize = v6[0];
+	v->slength = v6[1];
+	v->chunksize = v6[2];
+	v->chunklength = v6[3];
+	v->listlength = v6[4];
+	v->type = v6[5];
+	
 	
 	if(v->ssize)
 	{
@@ -333,8 +355,6 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 
 	for(int i=0; i<n; i++)
 	{
-		//printf("up %i/%i\n", i+1, n);
-
 		if(!rawVarUpload(&vars[i]))
 		{
 			for(int i=0; i<n; i++)

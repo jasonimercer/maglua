@@ -1,6 +1,18 @@
 -- This script/function sets up a spherical particle.
 -- See Byron Southern's code and Ken Adebayo's thesis.
 
+-- 
+-- This script makes use of a new feature to maglua:
+--
+--  SpinSystem:setExtraData and SpinSystem:extraData
+-- 
+-- These methods allow you to set and get arbitrary data
+-- at lattice sites. Here we are using them to store sublattice 
+-- names.
+-- 
+--         requires: maglua-r86 or newer
+-- 
+
 -- Input:
 --  L = radius/4
 -- ST = Surface Thickness
@@ -24,7 +36,7 @@ function makeSphericalParticle(L, ST, rng)
 	local kcore = 0.02
 	local ksurf = 5
 
-	-- used for initial state stats matching MC code
+	-- used for initial state stats. matching MC code
 	local nmax, nc, ns, nv = 0, 0, 0, 0
 
 	-- this will hold all site information during initialization
@@ -232,6 +244,15 @@ function makeSphericalParticle(L, ST, rng)
 		return not (data[x][y][z].vac)
 	end
 
+	-- add labels & surf/core to spin system
+	for k,v in pairs(sites) do
+		if v.core then
+			ss:setExtraData({v.x,v.y,v.z}, {v.lbl, "core"})
+		else
+			ss:setExtraData({v.x,v.y,v.z}, {v.lbl, "surf"})
+		end
+	end
+	
 	-- setup system: initial orientation, exchage & anisotropy
 	for z=1,maxz do
 		for y=1,maxy do
@@ -244,9 +265,9 @@ function makeSphericalParticle(L, ST, rng)
 					--  site {x,y,z} will point in a random 
 					--  direction with unit magnetization
 					ss:setSpin({x,y,z}, 
--- 							{rng:normal(),rng:normal(),rng:normal()}, 1)
-							{0,0,-1})
+							{rng:normal(),rng:normal(),rng:normal()}, 1)
 
+					
 					-- setup exchange interaction
 					for k,v in pairs(s1.neighbours) do
 						local a, b, c = v[1], v[2], v[3]
@@ -295,8 +316,7 @@ function makeSphericalParticle(L, ST, rng)
 	end
 
 	ss:setTimeStep(0.01)
--- 	ss:setTimeStep(0.01)
-	ss:setAlpha(0.1)
+	ss:setAlpha(0.5)
 	
 	return ss, ex, ani, regions, info
 end
