@@ -228,9 +228,9 @@ void Magnetostatic::collectIForces(SpinSystem* ss)
 		getMatrices();
 	
 	const complex<double> cz(0,0);
-	for(c=0; c<nxy; c++) hqx[c] = cz;
-	for(c=0; c<nxy; c++) hqy[c] = cz;
-	for(c=0; c<nxy; c++) hqz[c] = cz;
+	for(c=0; c<nxyz; c++) hqx[c] = cz;
+	for(c=0; c<nxyz; c++) hqy[c] = cz;
+	for(c=0; c<nxyz; c++) hqz[c] = cz;
 
 	
 # define cSo c+sourceOffset
