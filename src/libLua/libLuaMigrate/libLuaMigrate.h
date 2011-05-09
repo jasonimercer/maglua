@@ -14,13 +14,7 @@ struct lua_Variable
 {
 	int type;
 
-	char* s; //string
-	int   ssize;
-	int   slength;
-
-	double val;
-	
-	char* funcchunk;
+	char* chunk;
 	int   chunksize;
 	int   chunklength;
 

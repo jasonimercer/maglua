@@ -201,34 +201,27 @@ void LuaClient::disconnect()
 bool LuaClient::rawVarUpload(lua_Variable* v)
 {
 	int ok = 1;
-	//no sems here since these will be parts of larger actions
-	//sure_write(sockfd, v, sizeof(lua_Variable), &ok);
+	int v3[3];
+	v3[0] = v->chunklength;
+	v3[1] = v->listlength;
+	v3[2] = v->type;
+	
+	sure_write(sockfd, v3, sizeof(int)*3, &ok); if(!ok) return false;
 
-	int v6[6];
-	v6[0] = v->ssize;
-	v6[1] = v->slength;
-	v6[2] = v->chunksize;
-	v6[3] = v->chunklength;
-	v6[4] = v->listlength;
-	v6[5] = v->type;
-	
-	sure_write(sockfd, v6, sizeof(int)*6, &ok); if(!ok) return false;
-		
-	if(v->ssize)
-		sure_write(sockfd, v->s, v->ssize, &ok);
-	if(!ok) return false;
-	
+	if(v->chunklength)
+	{
+		sure_write(sockfd, v->chunk, v->chunklength, &ok); 
+		if(!ok) return false;
+	}
 
-	if(v->chunksize)
-		sure_write(sockfd, v->funcchunk, v->chunksize, &ok);
-	if(!ok) return false;
-	
 	if(v->listlength)
+	{
 		for(int i=0; i<v->listlength; i++)
 		{
 			if(!rawVarUpload(&v->listKey[i])) return false;
 			if(!rawVarUpload(&v->listVal[i])) return false;
 		}
+	}
 	return true;
 }
 
@@ -237,33 +230,20 @@ bool LuaClient::rawVarDownload(lua_Variable* v)
 {
 	int ok = 1;
 	initLuaVariable(v);
+	int v3[3];
 	
-	//no sems here since these will be part of larger actions
-	int v6[6];
-
-	sure_read(sockfd, v6, sizeof(int)*6, &ok);
+	sure_read(sockfd, v3, sizeof(int)*3, &ok);
 	if(!ok) return false;
-
 	
-	v->ssize = v6[0];
-	v->slength = v6[1];
-	v->chunksize = v6[2];
-	v->chunklength = v6[3];
-	v->listlength = v6[4];
-	v->type = v6[5];
+	v->chunksize = v3[0];
+	v->chunklength = v3[0];
+	v->listlength = v3[1];
+	v->type = v3[2];
 	
-	
-	if(v->ssize)
-	{
-		v->s = (char*)malloc(sizeof(char)*v->ssize);
-		sure_read(sockfd, v->s, v->ssize, &ok);
-		if(!ok) return false;
-	}
-
 	if(v->chunksize)
 	{
-		v->funcchunk = (char*)malloc(sizeof(char)*v->chunksize);
-		sure_read(sockfd, v->funcchunk, v->chunksize, &ok);
+		v->chunk = (char*)malloc(sizeof(char)*v->chunklength);
+		sure_read(sockfd, v->chunk, v->chunklength, &ok); 
 		if(!ok) return false;
 	}
 
@@ -273,9 +253,7 @@ bool LuaClient::rawVarDownload(lua_Variable* v)
 		v->listVal = (lua_Variable*)malloc(sizeof(lua_Variable)*v->listlength);
 		for(int i=0; i<v->listlength; i++)
 		{
-// 			printf("downloading key %i of %i\n", i+1, v->listlength); 
 			if(!rawVarDownload(&v->listKey[i])) return false;
-// 			printf("downloading val %i of %i\n", i+1, v->listlength); 
 			if(!rawVarDownload(&v->listVal[i])) return false;
 		}
 	}

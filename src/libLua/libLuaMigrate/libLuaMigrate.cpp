@@ -20,7 +20,7 @@ static int lexportwriter(lua_State *L, const void* b, size_t size, void* d)
 	(void)L;
 	lua_Variable* v = (lua_Variable*)d;
 
-	addToBuff(&v->funcchunk, &v->chunksize, &v->chunklength, (const char*)b, size);
+	addToBuff(&v->chunk, &v->chunksize, &v->chunklength, (const char*)b, size);
 
 	return 0;
 }
@@ -34,21 +34,15 @@ const char* limportreader(lua_State* L, void* data, size_t* size)
 
 	v->chunklength = 0;
 
-	return v->funcchunk;
+	return v->chunk;
 }
 
 void initLuaVariable(lua_Variable* v)
 {
 	v->type = LUA_TNIL;
 
-	v->s = 0;
-	v->ssize = 0;
-	v->slength = 0;
-
-	v->val = 0;
-
+	v->chunk  = 0;
 	v->chunksize  = 0;
-	v->funcchunk  = 0;//(char*)malloc(sizeof(char)*v->chunksize);
 	v->chunklength= 0;
 
 	v->listKey = 0;
@@ -58,12 +52,10 @@ void initLuaVariable(lua_Variable* v)
 
 void freeLuaVariable(lua_Variable* v)
 {
-	if(v->s)
-		free(v->s);
-
-	if(v->funcchunk)
-		free(v->funcchunk);
-
+	if(v->chunk)
+		free(v->chunk);
+	v->chunk = 0;
+	
 	for(int i=0; i<v->listlength; i++)
 	{
 		freeLuaVariable(&v->listKey[i]);
@@ -86,16 +78,16 @@ void importLuaVariable(lua_State* L, lua_Variable* v)
 			lua_pushnil(L);
 		break;
 		case LUA_TBOOLEAN:
-			lua_pushboolean(L, v->val>0.5);
+			lua_pushboolean(L, *((double*)v->chunk)>0.5);
 		break;
 		case LUA_TLIGHTUSERDATA:
 			luaL_error(L, "Cannot import LIGHTUSERDATA");
 		break;
 		case LUA_TNUMBER:
-			lua_pushnumber(L, v->val);
+			lua_pushnumber(L, *((double*)v->chunk));
 		break;
 		case LUA_TSTRING:
-			lua_pushstring(L, v->s);
+			lua_pushstring(L, v->chunk);
 		break;
 		case LUA_TTABLE:
 			lua_newtable(L);
@@ -143,17 +135,23 @@ void exportLuaVariable(lua_State* L, int index, lua_Variable* v)
 		case LUA_TNIL:
 		break;
 		case LUA_TBOOLEAN:
-			v->val = lua_toboolean(L, index);
+		{
+			double d = lua_toboolean(L, index);
+			addToBuff(&(v->chunk), &(v->chunksize), &(v->chunklength), (const char*)&d, sizeof(double));
+		}
 		break;
 		case LUA_TLIGHTUSERDATA:
 			luaL_error(L, "Cannot export LIGHTUSERDATA");
 		break;
 		case LUA_TNUMBER:
-			v->val = lua_tonumber(L, index);
+		{
+			double d = lua_tonumber(L, index);
+			addToBuff(&(v->chunk), &(v->chunksize), &(v->chunklength), (const char*)&d, sizeof(double));
+		}
 		break;
 		case LUA_TSTRING:
 			c = lua_tostring(L, index);
-			addToBuff(&v->s, &v->ssize, &v->slength, c, strlen(c)+1);
+			addToBuff(&(v->chunk), &(v->chunksize), &(v->chunklength), c, strlen(c)+1);
 		break;
 		case LUA_TTABLE:
 			tablesize = 0;
