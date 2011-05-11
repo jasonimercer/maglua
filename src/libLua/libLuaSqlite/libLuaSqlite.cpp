@@ -105,8 +105,8 @@ int l_sql_new(lua_State* L)
 		if(rv == SQLITE_BUSY)
 		{
 			int s = SLEEP_TIME;
-// 			printf("%s is busy, sleeping for %i\n", filename, s);
-			usleep(SLEEP_TIME); //sleep for a bit and then try again
+			printf("%s is busy, sleeping for %i\n", filename, s);
+			usleep(s); //sleep for a bit and then try again
 		}
 		else
 		{

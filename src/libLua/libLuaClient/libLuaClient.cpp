@@ -191,8 +191,8 @@ void LuaClient::disconnect()
 		sem_wait(&rwSem);
 		sure_write(sockfd, &cmd, sizeof(int), &ok);
 		sure_write(sockfd, &cmd, sizeof(int), &ok);
+		close(sockfd);
 		sem_post(&rwSem);
-		
 		_connected = false;
 	}
 }
