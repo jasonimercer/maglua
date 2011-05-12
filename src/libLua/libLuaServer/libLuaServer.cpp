@@ -131,8 +131,13 @@ void* __threadCommMain(void* args)
 
 	mc->do_comm(fd);
 
+	printf(">>>> %s:%i shutdown\n", __FILE__, __LINE__);
 	shutdown(fd, SHUT_RDWR);
+	printf(">>>> %s:%i close\n", __FILE__, __LINE__);
 	close(fd);
+
+	d->status = 0;
+	pthread_exit(0);
 }
 
 void __main_kill(int)
@@ -261,9 +266,11 @@ int LuaServer_::establish(unsigned short portnum)
 	sa.sin_family= hp->h_addrtype; /* this is our host address */
 	sa.sin_port= htons(portnum); /* this is our port number */
 
+	printf(">>>> %s:%i socket\n", __FILE__, __LINE__);
 	if((s= socket(AF_INET, SOCK_STREAM, 0)) < 0) /* create socket */
 		return(-1);
 
+	printf(">>>> %s:%i bind\n", __FILE__, __LINE__);
 	if(bind(s,(struct sockaddr *)&sa,sizeof(struct sockaddr_in)) < 0) 
 	{
 		close(s);
@@ -271,6 +278,7 @@ int LuaServer_::establish(unsigned short portnum)
 		return(-1); /* bind address to socket */
 	}
 
+	printf(">>>> %s:%i listen\n", __FILE__, __LINE__);
 	listen(s, 128); /* max # of queued connects */
 	return(s);
 }
@@ -282,6 +290,7 @@ int LuaServer_::get_connection(int s, char* connectionName)
 
 	int fd;
 	printf("waiting for connection\n");
+	printf(">>>> %s:%i accept\n", __FILE__, __LINE__);
 	fd = accept(s, (struct sockaddr*)(&cli_addr), &addrlen);
 	if(fd < 0)
 	{
@@ -672,8 +681,6 @@ void LuaComm::do_comm(int fd)
 	}
 
 	cout << "Client disconnect" << endl;
-	cdata->status = 0;
-	pthread_exit(0);
 }
 
 
