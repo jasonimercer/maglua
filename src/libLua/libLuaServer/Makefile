@@ -25,7 +25,7 @@ $(LIBNAME) : $(OBJECTS)
 	ar cqs $(LIBNAME) $(OBJECTS)
 
 %.o : %.cpp  %.h
-	$(CXX) $(INCLUDEPATH) -c $*.cpp -o $*.o 
+	$(CXX) $(CFLAGS) $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 test: $(LIBNAME) main.o ../libLuaMigrate/libLuaMigrate.a
 	$(CXX) $(CFLAGS) -o $(BIN) main.o $(LIBNAME) $(LIBS)  ../libLuaMigrate/libLuaMigrate.a

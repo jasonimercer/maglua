@@ -10,8 +10,7 @@
 
 CXX=g++
 
-# CFLAGS=-ansi -O2 -g
-CFLAGS=-ansi -g
+CFLAGS=-ansi -O2 -g
 PKG=lua5.1
 INCLUDEPATH=	`pkg-config --cflags-only-I $(PKG) ` \
 		-I../libLuaMigrate \

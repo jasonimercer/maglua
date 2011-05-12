@@ -80,7 +80,7 @@ void lua_pushSQLite(lua_State* L, sqlite3_conn* s)
 }
 
 
-int l_sql_new(lua_State* L)
+static int l_sql_new(lua_State* L)
 {
 	const char* filename = lua_tostring(L, 1);
 	if(!filename)

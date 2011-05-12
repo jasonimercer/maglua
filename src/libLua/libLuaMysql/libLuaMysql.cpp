@@ -44,7 +44,7 @@ void lua_pushMySQL(lua_State* L, mysql_conn* s)
 }
 
 
-int l_sql_new(lua_State* L)
+static int l_sql_new(lua_State* L)
 {
 	if(lua_gettop(L) < 4)
 		return luaL_error(L, "MySQL.new requires a host, user, passwd and dbname");
@@ -133,43 +133,53 @@ static int l_sql_exec(lua_State* L)
 	
 	sql->num_rows = mysql_affected_rows(mysql);
 	
-	lua_newtable(L);
-	MYSQL_RES *result = mysql_store_result(mysql);
-	if (result)
+	int num_ret = 0;
+	
+	do
 	{
-		unsigned int num_fields;
-		unsigned int num_rows;
-		unsigned int i;
-		unsigned int rr = 1;
-
-		MYSQL_FIELD *fields;
-		MYSQL_ROW row;
-		
-		num_fields = mysql_num_fields(result);
-		num_rows   = mysql_num_rows(result);
-		fields     = mysql_fetch_fields(result);
-
-		while((row = mysql_fetch_row(result)))
+		MYSQL_RES *result = mysql_store_result(mysql);
+		if (result)
 		{
-			lua_pushinteger(L, rr); rr++;
+			unsigned int num_fields;
+			unsigned int num_rows;
+			unsigned int i;
+			unsigned int rr = 1;
+
+			MYSQL_FIELD *fields;
+			MYSQL_ROW row;
 			
-			unsigned long *lengths;
-			lengths = mysql_fetch_lengths(result);
-			
-			lua_newtable(L);
-			for(i = 0; i < num_fields; i++)
+			num_fields = mysql_num_fields(result);
+			num_rows   = mysql_num_rows(result);
+			fields     = mysql_fetch_fields(result);
+
+			if(num_fields > 0)
 			{
-				lua_pushstring(L, fields[i].name);
-				lua_pushfstring(L, "%s", row[i] ? row[i] : "NULL");
+				lua_newtable(L);
+				num_ret++;
+			}
+			
+			while((row = mysql_fetch_row(result)))
+			{
+				lua_pushinteger(L, rr); rr++;
+				
+				unsigned long *lengths;
+				lengths = mysql_fetch_lengths(result);
+				
+				lua_newtable(L);
+				for(i = 0; i < num_fields; i++)
+				{
+					lua_pushstring(L, fields[i].name);
+					lua_pushfstring(L, "%s", row[i] ? row[i] : "NULL");
+					lua_settable(L, -3);
+				}
 				lua_settable(L, -3);
 			}
-			lua_settable(L, -3);
-		}
 
-		mysql_free_result(result);
-	}
+			mysql_free_result(result);
+		}
+	}while(! mysql_next_result(mysql));
     
-	return 1;
+	return num_ret;
 }
 	
 // static int l_sql_close(lua_State* L)
