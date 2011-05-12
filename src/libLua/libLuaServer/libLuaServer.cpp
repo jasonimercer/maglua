@@ -131,15 +131,8 @@ void* __threadCommMain(void* args)
 
 	mc->do_comm(fd);
 
-// 	cout << "*****  SHUTTING DOWN " << fd << endl;
 	shutdown(fd, SHUT_RDWR);
 	close(fd);
-		
-// 	LuaServer.removeComm(mc);
-	//printf("thread done\n");
-	
-// 	free(a->name);
-// 	free(a);
 }
 
 void __main_kill(int)
@@ -247,6 +240,8 @@ void LuaServer_::serve()
 		
 		while(removeComm());
 	}
+	
+	while(removeComm());
 }
 
 int LuaServer_::establish(unsigned short portnum)
@@ -329,7 +324,7 @@ int LuaServer_::removeComm()
 
 	if(rem)
 	{
-		cout << "PTHREAD_JOIN" << endl;
+		// cout << "PTHREAD_JOIN" << endl;
 		if(pthread_join(*(*it)->cdata->thread, NULL))
 			cerr << "PTHREAD JOIN ERROR" << endl;
 
