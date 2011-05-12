@@ -226,7 +226,6 @@ int registerMySQL(lua_State* L)
 		{NULL, NULL}
 	};
 		
-	mysql_library_init(0, NULL, NULL);
 	
 	luaL_register(L, "MySQL", functions);
 	lua_pop(L,1);

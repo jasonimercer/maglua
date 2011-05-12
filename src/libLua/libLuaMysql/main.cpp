@@ -27,6 +27,8 @@ int pushtraceback(lua_State* L)
 
 int main(int argc, char** argv)
 {
+	mysql_library_init(0, NULL, NULL);
+
 	lua_State *L = lua_open();
 	luaL_openlibs(L);
 	registerMySQL(L);
@@ -37,5 +39,7 @@ int main(int argc, char** argv)
 
 	lua_close(L);
 
+	mysql_library_end();
+	
 	return 0;
 }
