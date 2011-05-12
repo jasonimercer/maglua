@@ -33,6 +33,7 @@ sem_t LuaServer_::updateSem;
 
 sem_t LuaServer_::availableStates;
 
+static jmp_buf root_env;
 
 vector<LuaComm*> LuaServer_::comms;
 
@@ -117,20 +118,14 @@ static int sure_read_(int fd, void* data, int sz, int* ok, const char* file, int
 void __threadSignalHandler(int signo);
 
 
-struct fd_name
-{
-	int fd;
-	char* name;
-};
+
 
 void* __threadCommMain(void* args)
 {
-	fd_name* a = (fd_name*)args;
+	LuaComm::CommData* d = (LuaComm::CommData*)args;
 
-	int   fd = a->fd;
-	const char* cn = a->name;
-
-	LuaComm* mc = new LuaComm(cn);
+	int   fd =   d->fd;
+	LuaComm* mc = new LuaComm(d->name.c_str(),  d);
 
 	LuaServer.addComm(mc);
 
@@ -140,13 +135,20 @@ void* __threadCommMain(void* args)
 	shutdown(fd, SHUT_RDWR);
 	close(fd);
 		
-	LuaServer.removeComm(mc);
+// 	LuaServer.removeComm(mc);
 	//printf("thread done\n");
 	
-	free(a->name);
-	free(a);
+// 	free(a->name);
+// 	free(a);
 }
 
+void __main_kill(int)
+{
+	if(pthread_equal(LuaServer.rootThread, pthread_self()))
+	{
+		longjmp(root_env, 1);
+	}
+}
 
 bool LuaServer_::init(int argc, char** argv)
 {
@@ -159,7 +161,9 @@ bool LuaServer_::init(int argc, char** argv)
 	rootThread = pthread_self();
 
 	signal(SIGUSR1, __threadSignalHandler); //install sig handler
+	signal(SIGINT, __main_kill); //install sig handler
 
+	
 	if(argc == 2) 
 		port = atoi(argv[1]);
 	else
@@ -215,6 +219,10 @@ void LuaServer_::serve()
 	}
 
 	char connectionName[512];
+
+	int r = setjmp(root_env);
+
+	if(!r)
 	for(;;)
 	{
 		fd = get_connection(s, connectionName);
@@ -229,14 +237,15 @@ void LuaServer_::serve()
 
 		pthread_t* thread = new pthread_t();
 
-		fd_name* a = (fd_name*)malloc(sizeof(fd_name));
+		LuaComm::CommData* a = new LuaComm::CommData;
 		a->fd = fd;
-		a->name = (char*)malloc(strlen(connectionName)+1);
-		strcpy(a->name, connectionName);
-		
+		a->name = connectionName;
+		a->thread = thread;
 		commThread.push_back(thread);
 
 		pthread_create(thread, NULL, __threadCommMain, (void *)a);
+		
+		while(removeComm());
 	}
 }
 
@@ -302,22 +311,37 @@ void LuaServer_::addComm(LuaComm* comm)
 }
 
 
-void LuaServer_::removeComm(LuaComm* comm)
+// remove comm if it is dead
+int LuaServer_::removeComm()
 {
 	sem_wait(&addCommSem);
-
+	bool rem = false;
 	vector<LuaComm*>::iterator it;
 
 	for(it = comms.begin();it != comms.end(); ++it)
 	{
-		if( (*it) == comm )
+		if( (*it)->cdata->status == 0 )
+		{
+			rem = true;
 			break;
+		}
 	}
 
-	if((*it) == comm)
+	if(rem)
+	{
+		cout << "PTHREAD_JOIN" << endl;
+		if(pthread_join(*(*it)->cdata->thread, NULL))
+			cerr << "PTHREAD JOIN ERROR" << endl;
+
+		delete (*it)->cdata->thread;
+
+		delete *it;
 		comms.erase(it);
+	}
 
 	sem_post(&addCommSem);
+	
+	return rem;
 }
 
 void threadShutdown()
@@ -440,7 +464,12 @@ int LuaServer_::addLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm)
 		runningLuathreads.push_back(thread);
 	sem_post(&luaThreadSem);
 
-	pthread_create(&(thread->thread), NULL, __threadLuaMain, (void *)thread);
+	pthread_attr_t tattr;
+	int ret;
+	/* set the thread detach state */
+	ret = pthread_attr_setdetachstate(&tattr,PTHREAD_CREATE_DETACHED);
+	
+	pthread_create(&(thread->thread), &tattr, __threadLuaMain, (void *)thread);
 	pthread_detach(thread->thread); //we wont be joining
 	return retval;
 }
@@ -496,12 +525,12 @@ lua_Variable* LuaServer_::executeLuaFunction(lua_Variable* vars, int nvars, LuaC
 
 
 
-
-LuaComm::LuaComm(const char* Name)
+LuaComm::LuaComm(const char* Name, LuaComm::CommData* d)
 {
 	sem_init(&qSem, 0, 1);
 	strncpy(_name, Name, 512);
-
+	cdata = d;
+	cdata->status = 1;
 }
 
 LuaComm::~LuaComm()
@@ -562,7 +591,7 @@ void LuaComm::do_comm(int fd)
 		if(b < 2*sizeof(int))
 			cmd = SHUTDOWN;
 
-		fflush(stdout);
+// 		fflush(stdout);
 	
 		yesno = 0;
 		switch(cmd)
@@ -648,6 +677,8 @@ void LuaComm::do_comm(int fd)
 	}
 
 	cout << "Client disconnect" << endl;
+	cdata->status = 0;
+	pthread_exit(0);
 }
 
 

@@ -5,6 +5,7 @@
 #include <semaphore.h>
 #include <stdlib.h>
 #include <iostream>
+#include <string>
 #include <queue>
 #include <pthread.h> 
 #include <vector>
@@ -25,7 +26,15 @@ extern "C" {
 class LuaComm
 {
 public:
-	LuaComm(const char* Name);
+	struct CommData
+	{
+		int fd;
+		string name;
+		int status;
+		pthread_t* thread;
+	};
+	
+	LuaComm(const char* Name, CommData* d);
 	~LuaComm();
 	void do_comm(int fd);
 
@@ -34,6 +43,7 @@ public:
 
 	const char* name();
 
+	CommData* cdata;
 private:
 	bool rawVarRead(int fd, lua_Variable* v);
 	bool rawVarWrite(int fd, lua_Variable* v);
@@ -43,6 +53,7 @@ private:
 	queue<string> infos;
 
 	char _name[512];
+	
 };
 
 struct LuaThread
@@ -73,7 +84,7 @@ public:
 	void serve();
 
 	void addComm(LuaComm* comm);
-	void removeComm(LuaComm* comm);
+	int removeComm(/*LuaComm* comm*/); //remove any dead comms (and pthread_join them)
 
 	void addError(string e, LuaComm* c=0);
 	void addInfo (string e, LuaComm* c=0);

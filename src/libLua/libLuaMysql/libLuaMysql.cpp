@@ -11,7 +11,7 @@ using namespace std;
 
 typedef struct mysql_conn
 {
-	MYSQL* db;
+	MYSQL db;
 	int refcount;
 	int num_rows;
 } mysql_conn;
@@ -44,7 +44,7 @@ void lua_pushMySQL(lua_State* L, mysql_conn* s)
 }
 
 
-static int l_sql_new(lua_State* L)
+static int l_new(lua_State* L)
 {
 	if(lua_gettop(L) < 4)
 		return luaL_error(L, "MySQL.new requires a host, user, passwd and dbname");
@@ -52,13 +52,13 @@ static int l_sql_new(lua_State* L)
 	mysql_conn* sql = new mysql_conn();
 
 	sql->refcount = 0;
-	sql->db = mysql_init(0);
 	sql->num_rows = 0;
 	
-	if(!sql->db)
+	
+	if(!mysql_init(&sql->db))
 	{
 		delete sql;
-		return luaL_error(L, "Failed to initialize MYSQL pointer");
+		return luaL_error(L, "Failed to initialize MySQL");
 	}
 	
 	const char* host = lua_tostring(L, 1);
@@ -66,16 +66,16 @@ static int l_sql_new(lua_State* L)
 	const char* passwd = lua_tostring(L, 3);
 	const char* dbname = lua_tostring(L, 4);
 	
-	if(!mysql_real_connect(sql->db, host, user, passwd, dbname, 0, 0, CLIENT_MULTI_STATEMENTS))
+	if(!mysql_real_connect(&(sql->db), host, user, passwd, dbname, 0, 0, CLIENT_MULTI_STATEMENTS))
 	{
-		return luaL_error(L, "connect error: %s",  mysql_error(sql->db));
+		return luaL_error(L, "connect error: %s",  mysql_error(&(sql->db)));
 	}
 	
 	lua_pushMySQL(L, sql);
 	return 1;
 }
 
-static int l_sql_tostring(lua_State* L)
+static int l_tostring(lua_State* L)
 {
 	lua_pushstring(L, "MySQL");
 	return 1;	
@@ -83,61 +83,39 @@ static int l_sql_tostring(lua_State* L)
 
 
 
-static int l_sql_gc(lua_State* L)
+static int l_gc(lua_State* L)
 {
 	mysql_conn* sql = lua_toMySQL(L, 1);
 	if(!sql) return 0;
-	if(sql->db)
-		mysql_close(sql->db);
-	sql->db = 0;
-	
+	printf("GC!!\n");
+	mysql_close(&(sql->db));
 	delete sql;
-
 	return 0;
 }
 
-
-// static int l_sql_connect(lua_State* L)
-// {
-// 	mysql_conn* sql = lua_toMySQL(L, 1);
-// 	if(!sql) return 0;
-// 
-// 	const char* host = lua_tostring(L, 2);
-// 	const char* user = lua_tostring(L, 3);
-// 	const char* passwd = lua_tostring(L, 4);
-// 	const char* dbname = lua_tostring(L, 5);
-// 	if(!mysql_real_connect(sql->db, host, user, passwd, dbname, 0, 0, CLIENT_MULTI_STATEMENTS))
-// 	{
-// 		return luaL_error("%s",  mysql_error(&mysql));
-// 	}
-// 	
-// 	return 0;
-// }
-
-static int l_sql_exec(lua_State* L)
+static int l_exec(lua_State* L)
 {
 	mysql_conn* sql = lua_toMySQL(L, 1);
 	if(!sql) return 0;
-	if(!sql->db) return luaL_error(L, "Database is not opened");
-	MYSQL* mysql = sql->db;
+	MYSQL& mysql = sql->db;
 	
 	const char* statement = lua_tostring(L, 2);
 
 	if(!statement)
 		return luaL_error(L, "statement is null");
 
-	if(mysql_query(mysql, statement))
+	if(mysql_query(&mysql, statement))
 	{
-		return luaL_error(L, "%s",  mysql_error(mysql));
+		return luaL_error(L, "%s",  mysql_error(&mysql));
 	}
 	
-	sql->num_rows = mysql_affected_rows(mysql);
+	sql->num_rows = mysql_affected_rows(&mysql);
 	
 	int num_ret = 0;
 	
 	do
 	{
-		MYSQL_RES *result = mysql_store_result(mysql);
+		MYSQL_RES *result = mysql_store_result(&mysql);
 		if (result)
 		{
 			unsigned int num_fields;
@@ -162,8 +140,8 @@ static int l_sql_exec(lua_State* L)
 			{
 				lua_pushinteger(L, rr); rr++;
 				
-				unsigned long *lengths;
-				lengths = mysql_fetch_lengths(result);
+// 				unsigned long *lengths;
+// 				lengths = mysql_fetch_lengths(result);
 				
 				lua_newtable(L);
 				for(i = 0; i < num_fields; i++)
@@ -177,12 +155,12 @@ static int l_sql_exec(lua_State* L)
 
 			mysql_free_result(result);
 		}
-	}while(! mysql_next_result(mysql));
+	}while(!mysql_next_result(&mysql));
     
 	return num_ret;
 }
 	
-// static int l_sql_close(lua_State* L)
+// static int l_close(lua_State* L)
 // {
 // 	mysql_conn* sql = lua_toMySQL(L, 1);
 // 	if(!sql) return 0;
@@ -193,7 +171,7 @@ static int l_sql_exec(lua_State* L)
 // 	return 0;
 // }
 
-static int l_sql_changes(lua_State* L)
+static int l_changes(lua_State* L)
 {
 	mysql_conn* sql = lua_toMySQL(L, 1);
 	if(!sql) return 0;
@@ -205,11 +183,11 @@ static int l_sql_changes(lua_State* L)
 int registerMySQL(lua_State* L)
 {
 	static const struct luaL_reg methods [] = {
-		{"__gc",         l_sql_gc},
-		{"__tostring",   l_sql_tostring},
-		{"exec",         l_sql_exec},
-// 		{"close",        l_sql_close},
-		{"changes",      l_sql_changes},
+		{"__gc",         l_gc},
+		{"__tostring",   l_tostring},
+		{"exec",         l_exec},
+// 		{"close",        l_close},
+		{"changes",      l_changes},
 		{NULL, NULL}
 	};
 		
@@ -221,8 +199,8 @@ int registerMySQL(lua_State* L)
 	lua_pop(L,1); //metatable is registered
 		
 	static const struct luaL_reg functions [] = {
-		{"new",                 l_sql_new},
-		{"open",                l_sql_new},
+		{"new",                 l_new},
+		{"open",                l_new},
 		{NULL, NULL}
 	};
 		
