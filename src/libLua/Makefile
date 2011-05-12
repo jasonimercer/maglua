@@ -12,9 +12,10 @@ LIBBASE=.
 LUALIBS=$(LIBBASE)/libLuaClient/libLuaClient.a \
         $(LIBBASE)/libLuaServer/libLuaServer.a \
 	$(LIBBASE)/libLuaSqlite/libLuaSqlite.a \
-	$(LIBBASE)/libLuaMigrate/libLuaMigrate.a
+	$(LIBBASE)/libLuaMigrate/libLuaMigrate.a \
+	$(LIBBASE)/libLuaMysql/libLuaMysql.a
 
-SUBDIRS=libLuaClient libLuaServer libLuaSqlite libLuaMigrate sampleSQLiteServer
+SUBDIRS=libLuaClient libLuaServer libLuaSqlite libLuaMigrate sampleSQLiteServer libLuaMysql
 
 all: $(LUALIBS)
 

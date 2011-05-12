@@ -151,6 +151,7 @@ static int l_sql_gc(lua_State* L)
 	if(!sql->db) return 0;
 	
 	sqlite3_close(sql->db);
+	delete sql;
 
 	return 0;
 }
