@@ -88,6 +88,7 @@ void Exchange::deinit()
 // 		free(strength);
 		pathways = 0;
 	}
+	num = 0;
 }
 
 Exchange::~Exchange()
@@ -178,10 +179,14 @@ void Exchange::addPath(int site1, int site2, double str)
 {
 	if(str != 0)
 	{
-		if(num + 1 == size)
+		if(num + 1 >= size)
 		{
 			size *= 2;
+			size++;
 			pathways = (sss*)realloc(pathways, sizeof(sss) * size);
+			
+			addPath(site1, site2, str);
+			return;
 	// 		fromsite =    (int*)realloc(fromsite, sizeof(int) * size);
 	// 		  tosite =    (int*)realloc(  tosite, sizeof(int) * size);
 	// 		strength = (double*)realloc(strength, sizeof(double) * size);

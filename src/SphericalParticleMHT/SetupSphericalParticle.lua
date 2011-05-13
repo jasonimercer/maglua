@@ -315,7 +315,7 @@ function makeSphericalParticle(L, ST, rng)
 		end
 	end
 
-	ss:setTimeStep(0.01)
+	ss:setTimeStep(0.001)
 	ss:setAlpha(0.5)
 	
 	return ss, ex, ani, regions, info

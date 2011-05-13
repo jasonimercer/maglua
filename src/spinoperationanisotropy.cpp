@@ -237,8 +237,9 @@ int l_ani_set(lua_State* L)
 		ani->ay[idx] /= sqrt(lena);
 		ani->az[idx] /= sqrt(lena);
 	}
-	// else leave it as zero
-
+	else
+		return 0; //don't add ani
+		
 	if(lua_isnumber(L, 2+r1+r2))
 		ani->strength[idx] = lua_tonumber(L, 2+r1+r2);
 	else

@@ -1,4 +1,4 @@
-sql = MySQL.open("localhost", "jmercer", "thepasswd", "Test")
+sql = MySQL.open("localhost", "jmercer", "xxxxxxxxxxxxxxxxxx", "Test")
 
 sql:exec("DROP TABLE IF EXISTS People;")
 sql:exec("CREATE TABLE People(id INTEGER PRIMARY KEY AUTO_INCREMENT, name TEXT, age INTEGER);")
