@@ -18,6 +18,10 @@ extern "C" {
 
 using namespace std;
 
+#define MAXHOSTCACHE 64
+static long servers[MAXHOSTCACHE];
+static char names[MAXHOSTCACHE][256];
+static int num_name_cache = 0;
 
 static int sock_valid(int sockfd)
 {
@@ -146,22 +150,45 @@ bool LuaClient::connectTo(const char* host_port)
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sockfd < 0)
 	{
-		fprintf(stderr, "ERROR: failed to open socket\n");
+		fprintf(stderr, "ERROR: failed to open socket: %s\n", strerror(errno));
 		return false;
 	}
 	
-	server = gethostbyname(host);
-	if(server == NULL) 
+	// gethostbyname seems to have anti-DOS gibbereish inside so we'll cache
+	// any lookedup values. This means we'll first look at the cache for
+	// server_addys
+	long saddr = 0;
+	for(int i=0; i<num_name_cache && !saddr; i++)
 	{
-		fprintf(stderr,"ERROR: No such host (%s)\n", host);
-		return 0;
+		if(strcmp(names[i], host) == 0)
+		{
+			saddr = servers[i];
+		}
+	}
+	
+	if(!saddr) //then we need to look it up
+	{
+		struct hostent *server = gethostbyname(host);
+		if(server == NULL) 
+		{
+			fprintf(stderr,"ERROR: No such host (%s)\n", host);
+			return 0;
+		}
+		
+		if(num_name_cache < MAXHOSTCACHE)
+		{
+			servers[num_name_cache] = *(long*) (server->h_addr_list[0]);
+			saddr = servers[num_name_cache];
+			strncpy(names[num_name_cache], host, 256);
+			num_name_cache++;
+		}
 	}
 	
 	memset(&serv_addr, 0, sizeof(serv_addr));	// create and zero struct
 	
 	serv_addr.sin_family = AF_INET;    /* select internet protocol */
 	serv_addr.sin_port = htons(port);         /* set the port # */
-	serv_addr.sin_addr.s_addr = *(long*) (server->h_addr_list[0]); /* set the addr */
+	serv_addr.sin_addr.s_addr = saddr; //*(long*) (server->h_addr_list[0]);  /* set the addr */
 	
 	if(connect(sockfd, (const sockaddr*)&(serv_addr), sizeof(serv_addr)))
 	{
@@ -191,7 +218,8 @@ void LuaClient::disconnect()
 		sure_write(sockfd, &cmd, sizeof(int), &ok);
 		sure_write(sockfd, &cmd, sizeof(int), &ok);
 		//printf("ok: %i\n", ok);
-		//close(sockfd);
+		close(sockfd);
+		sockfd = 0;
 		sem_post(&rwSem);
 		_connected = false;
 		//printf("Sent shutdown signal\n");

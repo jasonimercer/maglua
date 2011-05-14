@@ -19,7 +19,7 @@ using namespace std;
 
 int LuaServer_::port;
 
-vector<pthread_t*> LuaServer_::commThread;
+// vector<pthread_t*> LuaServer_::commThread;
 
 sem_t LuaServer_::luaThreadSem;
 
@@ -131,12 +131,13 @@ void* __threadCommMain(void* args)
 
 	mc->do_comm(fd);
 
-	printf(">>>> %s:%i shutdown\n", __FILE__, __LINE__);
+	//printf(">>>> %s:%i shutdown\n", __FILE__, __LINE__);
 	shutdown(fd, SHUT_RDWR);
-	printf(">>>> %s:%i close\n", __FILE__, __LINE__);
+	//printf(">>>> %s:%i close\n", __FILE__, __LINE__);
 	close(fd);
 
 	d->status = 0;
+	
 	pthread_exit(0);
 }
 
@@ -239,7 +240,7 @@ void LuaServer_::serve()
 		a->fd = fd;
 		a->name = connectionName;
 		a->thread = thread;
-		commThread.push_back(thread);
+// 		commThread.push_back(thread);
 
 		pthread_create(thread, NULL, __threadCommMain, (void *)a);
 		
@@ -266,11 +267,11 @@ int LuaServer_::establish(unsigned short portnum)
 	sa.sin_family= hp->h_addrtype; /* this is our host address */
 	sa.sin_port= htons(portnum); /* this is our port number */
 
-	printf(">>>> %s:%i socket\n", __FILE__, __LINE__);
+	//printf(">>>> %s:%i socket\n", __FILE__, __LINE__);
 	if((s= socket(AF_INET, SOCK_STREAM, 0)) < 0) /* create socket */
 		return(-1);
 
-	printf(">>>> %s:%i bind\n", __FILE__, __LINE__);
+	//printf(">>>> %s:%i bind\n", __FILE__, __LINE__);
 	if(bind(s,(struct sockaddr *)&sa,sizeof(struct sockaddr_in)) < 0) 
 	{
 		close(s);
@@ -278,7 +279,7 @@ int LuaServer_::establish(unsigned short portnum)
 		return(-1); /* bind address to socket */
 	}
 
-	printf(">>>> %s:%i listen\n", __FILE__, __LINE__);
+	//printf(">>>> %s:%i listen\n", __FILE__, __LINE__);
 	listen(s, 128); /* max # of queued connects */
 	return(s);
 }
@@ -290,7 +291,7 @@ int LuaServer_::get_connection(int s, char* connectionName)
 
 	int fd;
 	printf("waiting for connection\n");
-	printf(">>>> %s:%i accept\n", __FILE__, __LINE__);
+	//printf(">>>> %s:%i accept\n", __FILE__, __LINE__);
 	fd = accept(s, (struct sockaddr*)(&cli_addr), &addrlen);
 	if(fd < 0)
 	{
@@ -338,7 +339,7 @@ int LuaServer_::removeComm()
 			cerr << "PTHREAD JOIN ERROR" << endl;
 
 		delete (*it)->cdata->thread;
-
+		delete (*it)->cdata;
 		delete *it;
 		comms.erase(it);
 	}

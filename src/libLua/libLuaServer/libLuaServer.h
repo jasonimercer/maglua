@@ -100,7 +100,7 @@ public:
 	static int port;
 	static luafunc registerCallback;
 
-	static vector<pthread_t*> commThread;
+// 	static vector<pthread_t*> commThread;
 
 	static pthread_t rootThread;
 

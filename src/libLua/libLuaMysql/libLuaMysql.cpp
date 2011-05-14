@@ -88,6 +88,7 @@ static int l_gc(lua_State* L)
 	mysql_conn* sql = lua_toMySQL(L, 1);
 	if(!sql) return 0;
 	
+	mysql_thread_end();
 	mysql_close(&(sql->db));
 	delete sql;
 	return 0;

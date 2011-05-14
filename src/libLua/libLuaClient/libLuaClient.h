@@ -67,7 +67,7 @@ private:
 
 	int port;
 	struct sockaddr_in serv_addr;
-	struct hostent *server;
+	//struct hostent *server;
 	
 	socklen_t addrlen;
 	
