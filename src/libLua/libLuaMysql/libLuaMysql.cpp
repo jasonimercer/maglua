@@ -187,18 +187,23 @@ static int l_escapestring(lua_State* L)
 	mysql_conn* sql = lua_toMySQL(L, 1);
 	if(!sql) return 0;
 
-	const char* from = lua_tostring(L, 2);
-	unsigned long length = strlen(from);
+	int n = lua_gettop(L) - 1;
 	
-	char* to = new char[length*2+1];
-	
-	mysql_real_escape_string(&(sql->db), to, from, length);
+	for(int i=0; i<n; i++)
+	{
+		const char* from = lua_tostring(L, n+2);
+		unsigned long length = strlen(from);
+		
+		char* to = new char[length*2+1];
+		
+		mysql_real_escape_string(&(sql->db), to, from, length);
 
-	lua_pushstring(L, to);
+		lua_pushstring(L, to);
 
-	delete [] to;
+		delete [] to;
+	}
 
-	return 1;
+	return n;
 }
 
 int registerMySQL(lua_State* L)
