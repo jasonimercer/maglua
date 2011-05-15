@@ -186,23 +186,34 @@ static int l_escapestring(lua_State* L)
 {
 	mysql_conn* sql = lua_toMySQL(L, 1);
 	if(!sql) return 0;
-
+  
+	// :escapeString("a", "b")
+	// gettop = 3
+	// strings at 2, 3
+	
 	int n = lua_gettop(L) - 1;
 	
 	for(int i=0; i<n; i++)
 	{
-		const char* from = lua_tostring(L, n+2);
-		unsigned long length = strlen(from);
-		
-		char* to = new char[length*2+1];
-		
-		mysql_real_escape_string(&(sql->db), to, from, length);
+		const char* from = lua_tostring(L, i+2);
 
-		lua_pushstring(L, to);
-
-		delete [] to;
-	}
-
+		if(from)
+		{
+			unsigned long length = strlen(from);
+			
+			char* to = new char[length*2+1];
+			
+			mysql_real_escape_string(&(sql->db), to, from, length);
+			
+			lua_pushstring(L, to);
+	  
+			delete [] to;
+		}
+		else
+		{
+			lua_pushstring(L, "");
+		}
+    }
 	return n;
 }
 
