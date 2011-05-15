@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <string.h>
 
 using namespace std;
 
@@ -181,6 +182,25 @@ static int l_changes(lua_State* L)
 	return 1;
 }
 
+static int l_escapestring(lua_State* L)
+{
+	mysql_conn* sql = lua_toMySQL(L, 1);
+	if(!sql) return 0;
+
+	const char* from = lua_tostring(L, 2);
+	unsigned long length = strlen(from);
+	
+	char* to = new char[length*2+1];
+	
+	mysql_real_escape_string(&(sql->db), to, from, length);
+
+	lua_pushstring(L, to);
+
+	delete [] to;
+
+	return 1;
+}
+
 int registerMySQL(lua_State* L)
 {
 	static const struct luaL_reg methods [] = {
@@ -188,6 +208,7 @@ int registerMySQL(lua_State* L)
 		{"__tostring",   l_tostring},
 		{"exec",         l_exec},
 // 		{"close",        l_close},
+		{"escapeString", l_escapestring},
 		{"changes",      l_changes},
 		{NULL, NULL}
 	};
