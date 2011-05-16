@@ -54,17 +54,17 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
 	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
 	
-	memcpy(x, src->x, nxyz * sizeof(double));
-	memcpy(y, src->y, nxyz * sizeof(double));
-	memcpy(z, src->z, nxyz * sizeof(double));
+	memcpy( x, src->x,  nxyz * sizeof(double));
+	memcpy( y, src->y,  nxyz * sizeof(double));
+	memcpy( z, src->z,  nxyz * sizeof(double));
+	memcpy(ms, src->ms, nxyz * sizeof(double));
 	
 	alpha = src->alpha;
 	gamma = src->gamma;
 	dt = src->dt;
 	
 	fft_time = time - 1.0;
-	
-	
+		
 	// unref data - if exists
 	for(int i=0; i<nxyz; i++)
 	{
