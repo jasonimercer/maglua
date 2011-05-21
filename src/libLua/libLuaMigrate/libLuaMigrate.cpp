@@ -71,7 +71,7 @@ void freeLuaVariable(lua_Variable* v)
 
 void importLuaVariable(lua_State* L, lua_Variable* v)
 {
-	int i;
+	int i, j;
 	switch(v->type)
 	{
 		case LUA_TNIL:
@@ -91,12 +91,12 @@ void importLuaVariable(lua_State* L, lua_Variable* v)
 		break;
 		case LUA_TTABLE:
 			lua_newtable(L);
-
+			j = lua_gettop(L);
 			for(i=0; i<v->listlength; i++)
 			{
 				importLuaVariable(L, &v->listKey[i]);
 				importLuaVariable(L, &v->listVal[i]);
-				lua_settable(L, -3);
+				lua_settable(L, j);
 			}
 		break;
 		case LUA_TFUNCTION:
@@ -125,11 +125,26 @@ void exportLuaVariable(lua_State* L, int index, lua_Variable* v)
 	
 	if(index < 0)
 		index = lua_gettop(L) + index + 1;
-	
-// 	for(int i=lua_gettop(L); i>0; i--)
-// 		printf(" %2i) %s\n", i, lua_typename(L, lua_type(L, i)));
-// 	printf("export (%i): %s\n", index, lua_typename(L, v->type));
-	
+
+#if 0
+	printf("\nExport:\n");
+ 	for(int i=lua_gettop(L); i>0; i--)
+	{
+		if(i == index)
+			printf("**");
+		else
+			printf("  ");
+ 		printf(" %2i) %s  ", i, lua_typename(L, lua_type(L, i)));
+		lua_getglobal(L, "tostring");
+		lua_pushvalue(L, i);
+		lua_call(L, 1, 1);
+		printf(" '%s'\n", lua_tostring(L, -1));
+		lua_pop(L, 1);
+	}
+
+ 	//printf("export (%i): %s\n", index, lua_typename(L, v->type));
+#endif
+
 	switch(v->type)
 	{
 		case LUA_TNIL:
@@ -172,8 +187,8 @@ void exportLuaVariable(lua_State* L, int index, lua_Variable* v)
 			{
 				initLuaVariable(&v->listKey[tablesize]);
 				initLuaVariable(&v->listVal[tablesize]);
-				exportLuaVariable(L, -2, & v->listKey[tablesize]);
-				exportLuaVariable(L, -1, & v->listVal[tablesize]);
+				exportLuaVariable(L, lua_gettop(L)-1, & v->listKey[tablesize]);
+				exportLuaVariable(L, lua_gettop(L),   & v->listVal[tablesize]);
 				tablesize++;
 				lua_pop(L, 1);
 			}
