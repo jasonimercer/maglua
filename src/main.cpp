@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (C) 2008-2010 Jason Mercer.  All rights reserved.
+* Copyright (C) 2008-2011 Jason Mercer.  All rights reserved.
 *
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -14,16 +14,16 @@
 #include <string.h>
 #include "info.h"
 
-int goodargs(int argc, char** argv)
-{
-	if(argc < 2)
-	{
-		cerr << __info << endl;
-		cerr << "Please supply a Maglua script" << endl;
-		return 0;
-	}
-	return 1;
-}
+// int goodargs(int argc, char** argv)
+// {
+// 	if(argc < 2)
+// 	{
+// 		cerr << __info << endl;
+// 		cerr << "Please supply a Maglua script" << endl;
+// 		return 0;
+// 	}
+// 	return 1;
+// }
 
 void lua_addargs(lua_State* L, int argc, char** argv)
 {
@@ -113,30 +113,46 @@ int main(int argc, char** argv)
 	if(!suppress)
 	{
 		cout << "MagLua r-" << __rev << " by Jason Mercer (c) 2011" << endl;
-		luaL_dostring(L, 
-		"if table.maxn(module_path) > 0 then\n"
-		" print(\"Loading modules from the following locations:\")\n"
-		" for k,v in pairs(module_path) do\n"
-		"  print(k, v)\n"
-		" end\n"
-		"end\n"
-		);
+// 		luaL_dostring(L, 
+// 		"if table.maxn(module_path) > 0 then\n"
+// 		" print(\"Loading modules from the following locations:\")\n"
+// 		" for k,v in pairs(module_path) do\n"
+// 		"  print(k, v)\n"
+// 		" end\n"
+// 		"end\n"
+// 		);
 	}
 	
 	registerLibs(suppress, L);
+	bool script = false;
+
+	lua_pushcfunction(L, l_info);
+	lua_setglobal(L, "info");
+
+	lua_addargs(L, argc, argv);
 	
-	if(goodargs(argc, argv))
+	for(int i=1; i<argc; i++)
 	{
-		lua_pushcfunction(L, l_info);
-		lua_setglobal(L, "info");
-
-		lua_addargs(L, argc, argv);
-
-		if(luaL_dofile(L, argv[1]))
+		const char* fn = argv[i];
+		int len = strlen(fn);
+		
+		if(len > 4)
 		{
-			cerr << "Error:" << endl;
-			cerr << lua_tostring(L, -1) << endl;
+			if(strncasecmp(fn+len-4, ".lua", 4) == 0)
+			{
+				script = true;
+				if(luaL_dofile(L, fn))
+				{
+					cerr << "Error:" << endl;
+					cerr << lua_tostring(L, -1) << endl;
+				}
+			}
 		}
+	}
+	
+	if(!script && !suppress)
+	{
+		cerr << "Please supply a Maglua script" << endl;
 	}
 	lua_close(L);
 	
