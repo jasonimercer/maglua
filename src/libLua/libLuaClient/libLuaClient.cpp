@@ -513,7 +513,6 @@ static int l_client_new(lua_State* L)
 }
 
 
-
 void registerLuaClient(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -542,3 +541,16 @@ void registerLuaClient(lua_State* L)
 	lua_pop(L,1);
 }
 
+int lib_register(lua_State* L)
+{
+	registerLuaClient(L);
+	return 0;
+}
+
+int lib_deps(lua_State* L)
+{
+// 	lua_pushstring(L, "LuaMigrate");
+// 	lua_pushstring(L, "test1");
+// 	lua_pushstring(L, "test2");
+	return 0;
+}

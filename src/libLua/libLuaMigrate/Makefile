@@ -16,15 +16,21 @@ INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) `
 LIBS=`pkg-config --libs $(PKG) `
 OBJECTS=libLuaMigrate.o
 
-LIBNAME=libLuaMigrate.a
+LIBNAME=libLuaMigrate
 
-all: $(LIBNAME)
+all: $(LIBNAME).a
 
-${LIBNAME} : ${OBJECTS}
-	ar cqs ${LIBNAME} ${OBJECTS}
+$(LIBNAME).a : $(OBJECTS)
+	ar cqs $(LIBNAME).a $(OBJECTS)
 
-%.o : %.cpp  libLuaMigrate.h
-	${CXX} ${INCLUDEPATH} -c $*.cpp -o $*.o 
+$(LIBNAME).so : $(OBJECTS)
+	$(CXX) -fPIC -shared $(OBJECTS) -o $(LIBNAME).so
+
+%.o : %.cpp  %.h
+	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
+
+uninstall: distclean
+	rm -f $(LIBNAME).a
 
 clena: clean
 
@@ -33,4 +39,5 @@ clean:
 	rm -f *.o
 
 distclean: clean
-	rm -f $(LIBNAME)
+	rm -f $(LIBNAME).a
+	rm -f $(BIN)

@@ -607,3 +607,15 @@ void registerMagnetostatic(lua_State* L)
 	lua_pop(L,1);	
 }
 
+
+int lib_register(lua_State* L)
+{
+	registerMagnetostatic(L);
+	return 0;
+}
+
+int lib_deps(lua_State* L)
+{
+	return 0;
+}
+

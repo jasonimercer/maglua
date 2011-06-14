@@ -16,20 +16,27 @@ PKG=lua5.1
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I../libLuaMigrate
 LIBS=`pkg-config --libs $(PKG) ` -lpthread
 OBJECTS=libLuaClient.o
-
-LIBNAME=libLuaClient.a
+LIBMIGRATE=../libLuaMigrate/libLuaMigrate.a
+LIBNAME=Client
 BIN=client
 
-all: $(LIBNAME)
+all: $(LIBNAME).so
 
-$(LIBNAME) : $(OBJECTS)
-	ar cqs $(LIBNAME) $(OBJECTS)
+$(LIBNAME).so : $(OBJECTS)
+	$(CXX) -fPIC -shared $(OBJECTS) $(LIBMIGRATE) -o $(LIBNAME).so
 
 %.o : %.cpp  %.h
-	$(CXX) $(CFLAGS) $(INCLUDEPATH) -c $*.cpp -o $*.o 
+	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 test: $(LIBNAME) main.o ../libLuaMigrate/libLuaMigrate.a
 	$(CXX) $(CFLAGS) -o $(BIN) main.o $(LIBNAME) $(LIBS)  ../libLuaMigrate/libLuaMigrate.a
+
+install: all
+	mkdir -p ../lib
+	cp -f $(LIBNAME).so ../lib
+
+uninstall: distclean
+	rm -f $(LIBNAME).so
 
 clena: clean
 
@@ -38,5 +45,7 @@ clean:
 	rm -f *.o
 
 distclean: clean
-	rm -f $(LIBNAME)
+	rm -f $(LIBNAME).a
+	rm -f $(LIBNAME).so
 	rm -f $(BIN)
+

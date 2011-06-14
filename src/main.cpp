@@ -11,6 +11,7 @@
 ******************************************************************************/
 
 #include "main.h"
+#include <string.h>
 #include "info.h"
 
 int goodargs(int argc, char** argv)
@@ -76,11 +77,56 @@ int main(int argc, char** argv)
 	MPI_Init(&argc, &argv);
 #endif
 	
+	int suppress = 0;
+	
+	for(int i=0; i<argc; i++)
+	{
+		if(strcmp("-q", argv[i]) == 0)
+			suppress = 1;
+	}
+	
+	lua_State *L = lua_open();
+	luaL_openlibs(L);
+
+	int modbase = 1;
+	lua_newtable(L);
+#ifdef MAGLUAMODULESPATH
+	lua_pushinteger(L, modbase);
+	lua_pushstring(L, MAGLUAMODULESPATH);
+	lua_settable(L, -3);
+	modbase++;
+#endif	
+
+	for(int i=0; i<argc-1; i++)
+	{
+		if(strcmp("-L", argv[i]) == 0)
+		{
+			lua_pushinteger(L, modbase);
+			lua_pushstring(L, argv[i+1]);
+			lua_settable(L, -3);
+			modbase++;
+		}
+	}
+
+	lua_setglobal(L, "module_path");
+
+	if(!suppress)
+	{
+		cout << "MagLua r-" << __rev << " by Jason Mercer (c) 2011" << endl;
+		luaL_dostring(L, 
+		"if table.maxn(module_path) > 0 then\n"
+		" print(\"Loading modules from the following locations:\")\n"
+		" for k,v in pairs(module_path) do\n"
+		"  print(k, v)\n"
+		" end\n"
+		"end\n"
+		);
+	}
+	
+	registerLibs(suppress, L);
+	
 	if(goodargs(argc, argv))
 	{
-		lua_State *L = lua_open();
-		registerLibs(L);
-		
 		lua_pushcfunction(L, l_info);
 		lua_setglobal(L, "info");
 
@@ -88,11 +134,11 @@ int main(int argc, char** argv)
 
 		if(luaL_dofile(L, argv[1]))
 		{
-		  cerr << "Error:" << endl;
+			cerr << "Error:" << endl;
 			cerr << lua_tostring(L, -1) << endl;
 		}
-		lua_close(L);
 	}
+	lua_close(L);
 	
 #ifdef _MPI
 	MPI_Finalize();

@@ -25,7 +25,7 @@
 #include "spinoperationanisotropy.h"
 #include "spinoperationdipole.h"
 #include "spinoperationdipoledisordered.h"
-#include "spinoperationmagnetostatics.h"
+// #include "spinoperationmagnetostatics.h"
 #include "mersennetwister.h"
 #include "spinoperationthermal.h"
 #include "interpolatingfunction.h"

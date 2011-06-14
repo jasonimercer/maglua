@@ -244,7 +244,15 @@ static int l_sql_changes(lua_State* L)
 	return 1;
 }
 
-int registerSQLite(lua_State* L)
+
+int lib_deps(lua_State* L)
+{
+// 	lua_pushstring(L, "test1");
+// 	lua_pushstring(L, "test2");
+	return 0;
+}
+
+int lib_register(lua_State* L)
 {
 	static const struct luaL_reg methods [] = {
 		{"__gc",         l_sql_gc},
@@ -270,4 +278,10 @@ int registerSQLite(lua_State* L)
 		
 	luaL_register(L, "SQL", functions);
 	lua_pop(L,1);
+	return 0;
+}
+
+int registerSQLite(lua_State* L)
+{
+	return lib_register(L);
 }

@@ -13,8 +13,9 @@ OBJECTS=spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o \
 	llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o \
 	mersennetwister.o llgquat.o interpolatingfunction.o spinoperationdipole.o \
 	dipolesupport.o random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o \
-	llgfake.o llgalign.o luampi.o luamigrate.o encodable.o  spinoperationdipoledisordered.o \
-	spinoperationmagnetostatics.o magnetostaticssupport.o
+	llgfake.o llgalign.o luampi.o luamigrate.o encodable.o  spinoperationdipoledisordered.o
+
+#	spinoperationmagnetostatics.o magnetostaticssupport.o
 
 CFLAGS=-ansi -O2 -g
 
@@ -22,28 +23,32 @@ BUILDTYPE=serial
 BUILDTYPES=mpi serial openmp
 
 #these lua libs provide client and db
-LIBBASE=libLua
-LUALIBS=$(LIBBASE)/libLuaClient/libLuaClient.a \
-	$(LIBBASE)/libLuaSqlite/libLuaSqlite.a \
-	$(LIBBASE)/libLuaMigrate/libLuaMigrate.a
+# LIBBASE=libLua
+# LUALIBS=$(LIBBASE)/libLuaMigrate/libLuaMigrate.a
 
-LIBNAME=libMaglua.a
+#	$(LIBBASE)/libLuaSqlite/libLuaSqlite.a \
+
+LIBNAME=libMaglua
 
 # This makefile uses pkg-config. If you do not have Lua and FFTW registered 
 # with pkg-config, please fill out the proper LIBS and INCLUDEPATH
-PKGS=lua5.1 fftw3 sqlite3
-LIBS = `pkg-config --libs $(PKGS)` magnetostatics/magnetostatics.a $(LUALIBS)
-INCLUDEPATH = `pkg-config --cflags-only-I $(PKGS)` \
-		-IlibLua/libLuaSqlite  \
-		-IlibLua/libLuaMigrate \
-		-IlibLua/libLuaClient 
-
+PKGS=lua5.1 fftw3 
+#sqlite3
+LIBS = `pkg-config --libs $(PKGS)` 
+# magnetostatics/magnetostatics.a
+INCLUDEPATH = `pkg-config --cflags-only-I $(PKGS)` 
+# 		-IlibLua/libLuaSqlite  \
+# 		-IlibLua/libLuaMigrate \
+# 		-IlibLua/libLuaClient 
+DEFINES=-DMAGLUAMODULESPATH=\"$(shell pwd)/lib\"
 
 all: $(BUILDTYPE)
 
-$(LIBNAME) : $(OBJECTS)
-	ar cqs $(LIBNAME) $(OBJECTS)
+# $(LIBNAME) : $(OBJECTS)
+# 	ar cqs $(LIBNAME) $(OBJECTS)
 
+$(LIBNAME).so : $(OBJECTS)
+	$(CXX) -Wl,-rpath,$(shell pwd) -fPIC -shared $(LIBS) $(OBJECTS) -o $(LIBNAME).so
 none:
 	@echo "Please choose a build type:"
 	@echo "    $(BUILDTYPES)"
@@ -71,17 +76,17 @@ uninstall:
 	rm -f $(HOME)/bin/$(BIN)
 	rm -f $(HOME)/bin/maglua_mpi
 
-$(BIN): main.o $(LIBNAME)
-	@ ${CXX} $(CFLAGS) -o ${BIN} main.o $(LIBNAME) ${LIBS}
-	@ echo "LD ${BIN}"
+$(BIN): main.o $(LIBNAME).so
+	${CXX} -Wl,-rpath,$(shell pwd) $(CFLAGS) -o ${BIN} -L. -lMaglua main.o  ${LIBS}
+	echo "LD ${BIN}"
 
 main.o : main.cpp main.h info.h
-	@ ${CXX} $(CFLAGS) ${INCLUDEPATH} -c main.cpp -o main.o
-	@ echo "CC main"
+	@ ${CXX} $(CFLAGS) $(DEFINES) ${INCLUDEPATH} -fPIC -c main.cpp -o main.o
+	@ echo "CXX main"
 
 %.o : %.cpp %.h
-	@ ${CXX} $(CFLAGS) ${INCLUDEPATH} -c $*.cpp -o $*.o
-	@ echo "CC $*"
+	@ ${CXX} $(CFLAGS) $(DEFINES) ${INCLUDEPATH} -fPIC -c $*.cpp -o $*.o
+	@ echo "CXX $*"
 
 info.h: premake.sh                         # working SVN required
 	@ ./premake.sh "$(CXX) $(CFLAGS)"  # working SVN required
@@ -99,7 +104,7 @@ clean:
 
 distclean: clean
 	make -C libLua clean
-	make -C magnetostatics clean
+#	make -C magnetostatics clean
 	rm -f maglua maglua_mpi maglua_openmp
 
 pack:   info.h
@@ -108,7 +113,7 @@ pack:   info.h
 	mkdir `cat rev`
 	cp *.cpp *.h help.lua maglua.css README COPYRIGHT `cat rev`
 	cp -r ../doc/manual `cat rev`
-	cp -r magnetostatics `cat rev`
+#	cp -r magnetostatics `cat rev`
 	cp -r libLua `cat rev`
 	cat Makefile | head -n -10 | grep -v SVN > `cat rev`/Makefile
 	tar -czf `cat rev`.tar.gz `cat rev`

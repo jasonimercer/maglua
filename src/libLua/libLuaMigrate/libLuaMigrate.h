@@ -2,12 +2,6 @@
 #include <stdlib.h>
 #include <string>
 
-extern "C" {
-	#include <lua.h>
-	#include <lualib.h>
-	#include <lauxlib.h>
-}
-
 #ifndef JLUAVAR
 #define JLUAVAR
 struct lua_Variable
@@ -24,9 +18,18 @@ struct lua_Variable
 };
 #endif
 
+extern "C" {
+	#include <lua.h>
+	#include <lualib.h>
+	#include <lauxlib.h>
+
 void initLuaVariable(lua_Variable* v);
 void freeLuaVariable(lua_Variable* v);
 void exportLuaVariable(lua_State* L, int index, lua_Variable* v);
 void importLuaVariable(lua_State* L, lua_Variable* v);
+}
+
+
+
 
 
