@@ -245,4 +245,16 @@ int registerMySQL(lua_State* L)
 	
 	luaL_register(L, "MySQL", functions);
 	lua_pop(L,1);
+	return 0;
 }
+
+int lib_register(lua_State* L)
+{
+	return registerMySQL(L);
+}
+
+int lib_deps(lua_State* L)
+{
+	return 0;
+}
+

@@ -11,30 +11,33 @@
 CXX=g++
 
 CFLAGS=-ansi -O2 -g
-PKG=lua5.1
-INCLUDEPATH=	`pkg-config --cflags-only-I $(PKG) ` \
-		-I../libLuaMigrate \
-		`mysql_config --include`
 
-LIBS=	`pkg-config --libs $(PKG) ` \
-	-lpthread \
-	`mysql_config --libs_r`
-
+PKG=lua5.1 
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
+             -I../libLuaMigrate \
+            `mysql_config --include`
+LIBS=`pkg-config --libs $(PKG) ` -lpthread `mysql_config --libs_r`
 OBJECTS=libLuaMysql.o
+LIBMIGRATE=../libLuaMigrate/libLuaMigrate.a
+LIBNAME=Mysql
 
-LIBNAME=libLuaMysql.a
-BIN=sql
+all: $(LIBNAME).so
 
-all: $(LIBNAME)
-
-$(LIBNAME) : $(OBJECTS)
-	ar cqs $(LIBNAME) $(OBJECTS)
+$(LIBNAME).so : $(OBJECTS)
+	$(CXX) -fPIC -shared  $(LIBS) $(OBJECTS) $(LIBMIGRATE) -o $(LIBNAME).so
 
 %.o : %.cpp  %.h
-	$(CXX) $(CFLAGS) $(INCLUDEPATH) -c $*.cpp -o $*.o 
+	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 test: $(LIBNAME) main.o ../libLuaMigrate/libLuaMigrate.a
 	$(CXX) $(CFLAGS) -o $(BIN) main.o $(LIBNAME) $(LIBS)  ../libLuaMigrate/libLuaMigrate.a
+
+install: all
+	mkdir -p ../lib
+	cp -f $(LIBNAME).so ../lib
+
+uninstall: distclean
+	rm -f $(LIBNAME).so
 
 clena: clean
 
@@ -43,5 +46,6 @@ clean:
 	rm -f *.o
 
 distclean: clean
-	rm -f $(LIBNAME)
-	rm -f $(BIN)
+	rm -f $(LIBNAME).so
+
+
