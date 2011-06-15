@@ -7,7 +7,12 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+#
+# When configuring fftw3:
+# ./configure  --prefix=$(HOME) --with-pic --ennable-shared
 
+#
 CXX=g++
 
 CFLAGS=-ansi -O2 -g
@@ -26,18 +31,16 @@ DEFINES=-DMAGLUAMODULESPATH=\"$(shell pwd)/lib\"
 LIBNAME=Core
 BIN=maglua
 
-all: lib bin
+all: $(LIBNAME).so $(BIN)
 
-bin: main.o
-	$(CXX) $(CFLAGS) -o $(BIN) main.o $(LIBS)
-
-lib: $(LIBNAME).so
+$(BIN): main.o
+	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group $(LIBS) main.o  -Wl,--end-group
 
 $(LIBNAME).so : $(OBJECTS)
-	$(CXX) -fPIC -shared $(OBJECTS) $(LIBMIGRATE) -o $(LIBNAME).so
+	$(CXX) $(LIBS) -fPIC -rdynamic -shared $(OBJECTS) $(LIBMIGRATE) -o $(LIBNAME).so
 
 main.o : main.cpp  info.h
-	$(CXX) -fPIC  $(DEFINES) $(INCLUDEPATH) -c $*.cpp -o $*.o 
+	$(CXX) -fPIC $(DEFINES) $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 %.o : %.cpp  %.h
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
