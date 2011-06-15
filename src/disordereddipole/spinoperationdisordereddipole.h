@@ -17,11 +17,11 @@
 
 using namespace std;
 
-class DipoleDisordered : public SpinOperation
+class DisorderedDipole : public SpinOperation
 {
 public:
-	DipoleDisordered(int nx, int ny, int nz);
-	virtual ~DipoleDisordered();
+	DisorderedDipole(int nx, int ny, int nz);
+	virtual ~DisorderedDipole();
 	
 	bool apply(SpinSystem* ss);
 	
@@ -38,9 +38,8 @@ public:
 	double* posz;
 };
 
-void lua_pushDipoleDisordered(lua_State* L, DipoleDisordered* d);
-DipoleDisordered* checkDipoleDisordered(lua_State* L, int idx);
-void registerDipoleDisordered(lua_State* L);
-
+void lua_pushDisorderedDipole(lua_State* L, DisorderedDipole* d);
+DisorderedDipole* checkDisorderedDipole(lua_State* L, int idx);
+void registerDisorderedDipole(lua_State* L);
 
 #endif

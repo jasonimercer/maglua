@@ -616,6 +616,7 @@ int lib_register(lua_State* L)
 
 int lib_deps(lua_State* L)
 {
-	return 0;
+	lua_pushstring(L, "Core");
+	return 1;
 }
 

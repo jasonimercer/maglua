@@ -16,6 +16,7 @@
 #include "llgfake.h"
 #include "llgalign.h"
 #include <string.h>
+#include "spinsystem.h"
 
 LLG::LLG(const char* llgtype, int etype)
 : Encodable(etype), type(llgtype), refcount(0), disablePrecession(false)

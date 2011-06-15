@@ -10,66 +10,40 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "main.h"
-#include <string.h>
+// This is the main entry point for maglua. It loads in the 
+// modules in the default directory and any others specified
+// with -L options
+
+
+extern "C" {
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+}
+
 #include "info.h"
 
-// int goodargs(int argc, char** argv)
-// {
-// 	if(argc < 2)
-// 	{
-// 		cerr << __info << endl;
-// 		cerr << "Please supply a Maglua script" << endl;
-// 		return 0;
-// 	}
-// 	return 1;
-// }
-
-void lua_addargs(lua_State* L, int argc, char** argv)
-{
-	lua_pushinteger(L, argc);
-	lua_setglobal(L, "argc");
-
-	lua_newtable(L);
-	for(int i=0; i<argc; i++)
-	{
-		lua_pushinteger(L, i+1);
-		lua_pushstring(L, argv[i]);
-		lua_settable(L, -3);
-	}
-	lua_setglobal(L, "argv");
-	
-	lua_newtable(L);
-	for(int i=2; i<argc; i++)
-	{
-		lua_pushinteger(L, i-1);
-		lua_pushstring(L, argv[i]);
-		lua_settable(L, -3);
-	}
-	lua_setglobal(L, "arg");
-}
-
-static int l_info(lua_State* L)
-{
-	string result;
-	if(lua_gettop(L))
-		result.append(lua_tostring(L, 1));
-
-	for(int pos=0; __info[pos]; pos++)
-		if(__info[pos] != '\n' || __info[pos+1] != 0)
-		{
-			result.append(1, __info[pos]);
-			if(lua_gettop(L) && __info[pos] == '\n' && __info[pos+1])
-					result.append(lua_tostring(L, 1));
-		}
-
-	lua_pushstring(L, result.c_str());
-	return 1;
-}
-
+#include <string.h>
+#include <dlfcn.h>
+#include <dirent.h>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <errno.h>
 #ifdef _MPI
  #include <mpi.h>
 #endif
+
+
+using namespace std;
+
+
+vector<string> loaded;
+vector<string> mod_dirs;
+
+void registerLibs(int suppress, lua_State* L);
+void lua_addargs(lua_State* L, int argc, char** argv);
+static int l_info(lua_State* L);
 
 int main(int argc, char** argv)
 {
@@ -111,17 +85,7 @@ int main(int argc, char** argv)
 	lua_setglobal(L, "module_path");
 
 	if(!suppress)
-	{
 		cout << "MagLua r-" << __rev << " by Jason Mercer (c) 2011" << endl;
-// 		luaL_dostring(L, 
-// 		"if table.maxn(module_path) > 0 then\n"
-// 		" print(\"Loading modules from the following locations:\")\n"
-// 		" for k,v in pairs(module_path) do\n"
-// 		"  print(k, v)\n"
-// 		" end\n"
-// 		"end\n"
-// 		);
-	}
 	
 	registerLibs(suppress, L);
 	bool script = false;
@@ -131,6 +95,7 @@ int main(int argc, char** argv)
 
 	lua_addargs(L, argc, argv);
 	
+	// execute each lua script on the command line
 	for(int i=1; i<argc; i++)
 	{
 		const char* fn = argv[i];
@@ -162,3 +127,203 @@ int main(int argc, char** argv)
 	
 	return 0;
 }
+
+
+
+// add command line args to the lua state
+// adding argc, argv and a table arg
+void lua_addargs(lua_State* L, int argc, char** argv)
+{
+	lua_pushinteger(L, argc);
+	lua_setglobal(L, "argc");
+
+	lua_newtable(L);
+	for(int i=0; i<argc; i++)
+	{
+		lua_pushinteger(L, i+1);
+		lua_pushstring(L, argv[i]);
+		lua_settable(L, -3);
+	}
+	lua_setglobal(L, "argv");
+	
+	lua_newtable(L);
+	for(int i=2; i<argc; i++)
+	{
+		lua_pushinteger(L, i-1);
+		lua_pushstring(L, argv[i]);
+		lua_settable(L, -3);
+	}
+	lua_setglobal(L, "arg");
+}
+
+// get info about the build
+static int l_info(lua_State* L)
+{
+	string result;
+	if(lua_gettop(L))
+		result.append(lua_tostring(L, 1));
+
+	for(int pos=0; __info[pos]; pos++)
+		if(__info[pos] != '\n' || __info[pos+1] != 0)
+		{
+			result.append(1, __info[pos]);
+			if(lua_gettop(L) && __info[pos] == '\n' && __info[pos+1])
+					result.append(lua_tostring(L, 1));
+		}
+
+	lua_pushstring(L, result.c_str());
+	return 1;
+}
+
+
+
+// load a library into the process
+static int load_lib(int suppress, lua_State* L, const string& name)
+{
+	char buf[4096];
+	
+	for(unsigned int i=0; i<loaded.size(); i++)
+	{
+		if(name.compare(loaded[i]) == 0) //then already loaded
+			return 1;
+	}
+	
+	if(!suppress)
+		cout << "  Loading Module: " << name << endl;
+	
+	void* handle = 0;
+	
+	
+	for(unsigned int i=0; i<mod_dirs.size(); i++)
+	{
+		snprintf(buf, 4096, "%s/%s.so", mod_dirs[i].c_str(), name.c_str());
+
+		handle = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);
+
+		if(handle)
+		{
+			dlerror(); // reset errors
+			break;
+		}
+	}
+
+	if(!handle)
+	{
+		cerr << "Cannot load `" << name << "': " << dlerror() << '\n';
+		return 1;
+	}
+	
+
+	typedef int (*lua_func)(lua_State*);
+
+
+	lua_func lib_deps = (lua_func) dlsym(handle, "lib_deps");
+	const char *dlsym_error = dlerror();
+	if(dlsym_error)
+	{
+        cerr << "Cannot load symbol `register_lib': " << dlsym_error << endl;
+        dlclose(handle);
+        return 1;
+    }
+    
+	int n = lib_deps(L);
+	vector<string> deps;
+	for(int i=0; i<n; i++)
+	{
+		deps.push_back(lua_tostring(L, -1));
+		lua_pop(L, 1);
+	}
+	
+	// for each dependancy, check the loaded list
+	// if it does not exist, load it.
+	for(int i=0; i<n; i++)
+	{
+		bool dep_loaded = false;
+		for(unsigned int j=0; j<loaded.size(); j++)
+		{
+			if(deps[i].compare(loaded[j]) == 0)
+				dep_loaded = true;
+		}
+		
+		//cout << name << " depends on " << deps[i] << endl;
+		if(!dep_loaded)
+		{
+			if(load_lib(suppress, L, deps[i]))
+			{
+				cerr << "Dependancy for `" << name << "' failed to load" << endl;
+				return 1;
+			}
+		}
+	}
+	
+	dlerror();    // reset errors
+
+	lua_func lib_register = (lua_func) dlsym(handle, "lib_register");
+
+    if(!lib_register)
+	{
+		cerr << "Cannot load symbol lib_register': " << dlsym_error << endl;
+		dlclose(handle);
+		return 1;
+    }
+    
+
+	lib_register(L); // call the register function from the library
+	loaded.push_back(name);
+	
+// 	dlclose(handle);
+	
+	return 0;
+}
+
+
+void registerLibs(int suppress, lua_State* L)
+{
+	loaded.clear();
+	mod_dirs.clear();
+
+	lua_getglobal(L, "module_path");
+	lua_pushnil(L);
+	while(lua_next(L, -2) != 0)
+	{
+		mod_dirs.push_back(lua_tostring(L, -1));
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1); //pop table
+	
+	for(unsigned int d=0; d<mod_dirs.size(); d++)
+	{
+		struct dirent *dp;
+	
+		DIR *dir = opendir(mod_dirs[d].c_str());
+		if(dir)
+		{
+			while( (dp=readdir(dir)) != NULL)
+			{
+				const char* filename = dp->d_name;
+				
+
+				int len = strlen(filename);
+				if(strncasecmp(filename+len-3, ".so", 3) == 0) //then ends with .so
+				{
+					char* n = new char[len+2];
+					strncpy(n, filename, len-3);
+					n[len-3] = 0;
+					
+					load_lib(suppress, L, n);
+
+					delete [] n;
+				}
+			}
+			closedir(dir);
+		}
+		else
+		{
+			cerr << "Failed to read directory `" << mod_dirs[d] << "': " << strerror(errno) << endl;
+		}
+	}
+}
+
+
+
+

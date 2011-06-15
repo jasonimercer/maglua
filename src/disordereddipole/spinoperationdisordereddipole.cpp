@@ -10,16 +10,15 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "spinoperationdipoledisordered.h"
+#include "spinoperationdisordereddipole.h"
 #include "spinsystem.h"
 
 #include <stdlib.h>
 #include <math.h>
 
-DipoleDisordered::DipoleDisordered(int nx, int ny, int nz)
-	: SpinOperation("DipoleDisordered", DIPOLE_SLOT, nx, ny, nz, ENCODE_DIPOLE)
+DisorderedDipole::DisorderedDipole(int nx, int ny, int nz)
+	: SpinOperation("DisorderedDipole", DIPOLE_SLOT, nx, ny, nz, ENCODE_DIPOLE)
 {
-	
 	posx = new double [nxyz];
 	posy = new double [nxyz];
 	posz = new double [nxyz];
@@ -32,24 +31,24 @@ DipoleDisordered::DipoleDisordered(int nx, int ny, int nz)
 	}
 }
 
-void DipoleDisordered::encode(buffer* b) const
+void DisorderedDipole::encode(buffer* b) const
 {
 	
 }
 
-int  DipoleDisordered::decode(buffer* b)
+int  DisorderedDipole::decode(buffer* b)
 {
 	return 0;
 }
 
-DipoleDisordered::~DipoleDisordered()
+DisorderedDipole::~DisorderedDipole()
 {
 	delete [] posx;
 	delete [] posy;
 	delete [] posz;
 }
 
-void DipoleDisordered::setPosition(int site, double px, double py, double pz)
+void DisorderedDipole::setPosition(int site, double px, double py, double pz)
 {
 	if(site >= 0 && site <= nxyz)
 	{
@@ -61,7 +60,7 @@ void DipoleDisordered::setPosition(int site, double px, double py, double pz)
 
 
 
-bool DipoleDisordered::apply(SpinSystem* ss)
+bool DisorderedDipole::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
 
@@ -120,20 +119,20 @@ bool DipoleDisordered::apply(SpinSystem* ss)
 
 
 
-DipoleDisordered* checkDipoleDisordered(lua_State* L, int idx)
+DisorderedDipole* checkDisorderedDipole(lua_State* L, int idx)
 {
-	DipoleDisordered** pp = (DipoleDisordered**)luaL_checkudata(L, idx, "MERCER.dipoledisordered");
-    luaL_argcheck(L, pp != NULL, 1, "`DipoleDisordered' expected");
+	DisorderedDipole** pp = (DisorderedDipole**)luaL_checkudata(L, idx, "MERCER.disordereddipole");
+    luaL_argcheck(L, pp != NULL, 1, "`DisorderedDipole' expected");
     return *pp;
 }
 
-void lua_pushDipoleDisordered(lua_State* L, DipoleDisordered* dip)
+void lua_pushDisorderedDipole(lua_State* L, DisorderedDipole* dip)
 {
 	dip->refcount++;
-	DipoleDisordered** pp = (DipoleDisordered**)lua_newuserdata(L, sizeof(DipoleDisordered**));
+	DisorderedDipole** pp = (DisorderedDipole**)lua_newuserdata(L, sizeof(DisorderedDipole**));
 	
 	*pp = dip;
-	luaL_getmetatable(L, "MERCER.dipoledisordered");
+	luaL_getmetatable(L, "MERCER.disordereddipole");
 	lua_setmetatable(L, -2);
 }
 
@@ -142,14 +141,14 @@ int l_dipdis_new(lua_State* L)
 	int n[3];
 	lua_getnewargs(L, n, 1);
 
-	lua_pushDipoleDisordered(L, new DipoleDisordered(n[0], n[1], n[2]));
+	lua_pushDisorderedDipole(L, new DisorderedDipole(n[0], n[1], n[2]));
 	return 1;
 }
 
 
 int l_dipdis_setstrength(lua_State* L)
 {
-	DipoleDisordered* dip = checkDipoleDisordered(L, 1);
+	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
 	if(!dip) return 0;
 
 	dip->g = lua_tonumber(L, 2);
@@ -158,7 +157,7 @@ int l_dipdis_setstrength(lua_State* L)
 
 int l_dipdis_gc(lua_State* L)
 {
-	DipoleDisordered* dip = checkDipoleDisordered(L, 1);
+	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
 	if(!dip) return 0;
 
 	dip->refcount--;
@@ -170,7 +169,7 @@ int l_dipdis_gc(lua_State* L)
 
 int l_dipdis_apply(lua_State* L)
 {
-	DipoleDisordered* dip = checkDipoleDisordered(L, 1);
+	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
 	if(!dip) return 0;
 	SpinSystem* ss = checkSpinSystem(L, 2);
 	
@@ -182,7 +181,7 @@ int l_dipdis_apply(lua_State* L)
 
 int l_dipdis_getstrength(lua_State* L)
 {
-	DipoleDisordered* dip = checkDipoleDisordered(L, 1);
+	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
 	if(!dip) return 0;
 
 	lua_pushnumber(L, dip->g);
@@ -192,7 +191,7 @@ int l_dipdis_getstrength(lua_State* L)
 
 int l_dipdis_setsiteposition(lua_State* L)
 {
-	DipoleDisordered* dip = checkDipoleDisordered(L, 1);
+	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
 	if(!dip) return 0;
 	
 	int r1;
@@ -217,7 +216,7 @@ int l_dipdis_setsiteposition(lua_State* L)
 
 int l_dipdis_siteposition(lua_State* L)
 {
-	DipoleDisordered* dip = checkDipoleDisordered(L, 1);
+	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
 	if(!dip) return 0;
 	
 	int r1;
@@ -237,14 +236,14 @@ int l_dipdis_siteposition(lua_State* L)
 
 static int l_dipdis_mt(lua_State* L)
 {
-	luaL_getmetatable(L, "MERCER.dipoledisordered");
+	luaL_getmetatable(L, "MERCER.disordereddipole");
 	return 1;
 }
 
 
 static int l_dipdis_tostring(lua_State* L)
 {
-	DipoleDisordered* dip = checkDipoleDisordered(L, 1);
+	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
 	if(!dip) return 0;
 	
 	lua_pushfstring(L, "DisorderedDipole (%dx%dx%d)", dip->nx, dip->ny, dip->nz);
@@ -276,9 +275,9 @@ static int l_dipdis_help(lua_State* L)
 	
 	if(func == l_dipdis_new)
 	{
-		lua_pushstring(L, "Create a new DipoleDisordered Operator.");
+		lua_pushstring(L, "Create a new DisorderedDipole Operator.");
 		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 DipoleDisordered object");
+		lua_pushstring(L, "1 DisorderedDipole object");
 		return 3;
 	}
 	
@@ -329,7 +328,7 @@ static int l_dipdis_help(lua_State* L)
 }
 
 
-void registerDipoleDisordered(lua_State* L)
+void registerDisorderedDipole(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_dipdis_gc},
@@ -342,7 +341,7 @@ void registerDipoleDisordered(lua_State* L)
 		{NULL, NULL}
 	};
 		
-	luaL_newmetatable(L, "MERCER.dipoledisordered");
+	luaL_newmetatable(L, "MERCER.disordereddipole");
 	lua_pushstring(L, "__index");
 	lua_pushvalue(L, -2);  /* pushes the metatable */
 	lua_settable(L, -3);  /* metatable.__index = metatable */
@@ -358,5 +357,24 @@ void registerDipoleDisordered(lua_State* L)
 		
 	luaL_register(L, "DisorderedDipole", functions);
 	lua_pop(L,1);	
+}
+
+
+extern "C"
+{
+int lib_register(lua_State* L);
+int lib_deps(lua_State* L);
+}
+
+int lib_register(lua_State* L)
+{
+	registerDisorderedDipole(L);
+	return 0;
+}
+
+int lib_deps(lua_State* L)
+{
+	lua_pushstring(L, "Core");
+	return 1;
 }
 

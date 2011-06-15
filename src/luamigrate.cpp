@@ -25,6 +25,8 @@
 #include "spinoperationthermal.h"
 #include "spinoperationappliedfield.h"
 #include "spinoperationanisotropy.h"
+#include "interpolatingfunction2d.h"
+#include "interpolatingfunction.h"
 
 static int lexportwriter(lua_State *L, const void* chunk, size_t size, void* data) 
 {

@@ -17,4 +17,3 @@ extern "C" {
         #include <lauxlib.h>
 }
 
-void registerLibs(int suppress, lua_State* L);
