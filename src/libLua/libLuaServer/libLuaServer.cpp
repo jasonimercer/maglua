@@ -1,45 +1,146 @@
-#include <errno.h>
+#include "libLuaMigrate.h"
+
 #include <stdio.h>
-#include <string.h>
+#include <semaphore.h>
+#include <stdlib.h>
+#include <iostream>
+#include <string>
+#include <queue>
+#include <pthread.h> 
+#include <vector>
+#include <deque>
+#include <map>
+#include <setjmp.h>
+#include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <string>
 #include <arpa/inet.h>
-
-using namespace std;
-
 #include <string.h>
-#include <stdlib.h>
-
-#include "libLuaServer.h"
-
-int LuaServer_::port;
-
-// vector<pthread_t*> LuaServer_::commThread;
-
-sem_t LuaServer_::luaThreadSem;
-
-pthread_t LuaServer_::rootThread;
-int LuaServer_::nextThreadID = 0;
-vector<LuaThread*> LuaServer_::runningLuathreads;
-luafunc LuaServer_::registerCallback = 0;
-
-sem_t LuaServer_::addCommSem;
-sem_t LuaServer_::updateSem;
-
-sem_t LuaServer_::availableStates;
-
-static jmp_buf root_env;
-
-vector<LuaComm*> LuaServer_::comms;
 
 #define SHUTDOWN        0
 #define UPLOADLUA       10
 #define REMOTELUA       11
+
+
+extern "C" {
+	#include <lua.h>
+	#include <lualib.h>
+	#include <lauxlib.h>
+}
+
+using namespace std;
+
+
+typedef int(*luafunc)(lua_State*);
+
+
+
+
+
+class LuaServer;
+
+class LuaComm
+{
+public:
+	struct CommData
+	{
+		int fd;
+		string name;
+		int status;
+		pthread_t* thread;
+		LuaServer* server;
+	};
+	
+	LuaComm(const char* Name, CommData* d);
+	~LuaComm();
+	void do_comm(int fd);
+
+	void addError (string e);
+	void addInfo  (string e);
+
+	const char* name();
+
+	CommData* cdata;
+	LuaServer* server;
+	
+private:
+	bool rawVarRead(int fd, lua_Variable* v);
+	bool rawVarWrite(int fd, lua_Variable* v);
+
+	sem_t qSem;
+	queue<string> errors;
+	queue<string> infos;
+
+	char _name[512];
+	
+};
+
+struct LuaThread
+{
+	pthread_t thread;
+	lua_State* L;
+	LuaComm* comm;
+	string fingerprint;
+	jmp_buf env;
+	int id;
+	sem_t sem;
+};
+
+
+// #define LuaServer (LuaServer::Instance())
+
+class LuaServer
+{
+public:
+	LuaServer(int port=55000);
+	
+	//bool init(int argc, char** argv);
+	void serve();
+
+	void addComm(LuaComm* comm);
+	int removeComm(/*LuaComm* comm*/); //remove any dead comms (and pthread_join them)
+
+	void addError(string e, LuaComm* c=0);
+	void addInfo (string e, LuaComm* c=0);
+
+	int  establish(unsigned short portnum);
+	int  get_connection(int s, char* c);
+
+	int addLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm);
+ 	lua_Variable* executeLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm, int* nret);
+
+	LuaThread* getThread(int pid);
+	
+	int port;
+	luafunc registerCallback;
+
+// 	static vector<pthread_t*> commThread;
+
+	pthread_t rootThread;
+
+	sem_t luaThreadSem;
+	int nextThreadID;
+	vector<LuaThread*> runningLuathreads;
+
+	sem_t addCommSem;
+	sem_t updateSem;
+
+	sem_t availableStates;
+
+	vector<LuaComm*> comms;
+	
+	jmp_buf root_env;
+	int refcount; //for lua
+
+};
+
+
+
+
 
 static int sock_valid(int sockfd)
 {
@@ -127,8 +228,8 @@ void* __threadCommMain(void* args)
 	int   fd =   d->fd;
 	LuaComm* mc = new LuaComm(d->name.c_str(),  d);
 
-	LuaServer.addComm(mc);
-
+	d->server->addComm(mc);
+	
 	mc->do_comm(fd);
 
 	//printf(">>>> %s:%i shutdown\n", __FILE__, __LINE__);
@@ -143,41 +244,57 @@ void* __threadCommMain(void* args)
 
 void __main_kill(int)
 {
-	if(pthread_equal(LuaServer.rootThread, pthread_self()))
-	{
-		longjmp(root_env, 1);
-	}
+// 	if(pthread_equal(LuaServer.rootThread, pthread_self()))
+// 	{
+// 		longjmp(root_env, 1);
+// 	}
 }
 
-bool LuaServer_::init(int argc, char** argv)
+LuaServer::LuaServer(int default_port)
 {
+	sem_init(&addCommSem,   0, 1);
+	sem_init(&updateSem,    0, 1);
+	sem_init(&luaThreadSem, 0, 1);
+	
+	sem_init(&availableStates,  0, 10);
+	
+	refcount = 0;
+	port = default_port;
+
+	rootThread = pthread_self();
+
+	registerCallback = 0;
+}
+
+// bool LuaServer::init(int argc, char** argv)
+// {
 // 	if(argc == 1 || argc > 3)
 // 	{
 // 		cerr << "Expected: " << argv[0] << " tagfile [port number]" << endl;
 // 		return false;
 // 	}
 
-	rootThread = pthread_self();
+// 	rootThread = pthread_self();
 
-	signal(SIGUSR1, __threadSignalHandler); //install sig handler
-	signal(SIGINT, __main_kill); //install sig handler
+// 	signal(SIGUSR1, __threadSignalHandler); //install sig handler
+// 	signal(SIGINT, __main_kill); //install sig handler
+// 
+// 	
+// 	if(argc == 2) 
+// 		port = atoi(argv[1]);
+// 	else
+// 		port = 55000;
 
-	
-	if(argc == 2) 
-		port = atoi(argv[1]);
-	else
-		port = 55000;
+// 	sem_init(&addCommSem,   0, 1);
+// 	sem_init(&updateSem,    0, 1);
+// 	sem_init(&luaThreadSem, 0, 1);
+// 	
+// 	sem_init(&availableStates,  0, 10);
 
-	sem_init(&addCommSem,   0, 1);
-	sem_init(&updateSem,    0, 1);
-	sem_init(&luaThreadSem, 0, 1);
-	
-	sem_init(&availableStates,  0, 10);
+// 	return true;
+// }
 
-	return true;
-}
-
-void LuaServer_::addError(string e, LuaComm* c)
+void LuaServer::addError(string e, LuaComm* c)
 {
 	sem_wait(&updateSem);
 	sem_wait(&addCommSem);
@@ -191,7 +308,7 @@ void LuaServer_::addError(string e, LuaComm* c)
 	sem_post(&addCommSem);
 	sem_post(&updateSem);
 }
-void LuaServer_::addInfo(string e, LuaComm* c)
+void LuaServer::addInfo(string e, LuaComm* c)
 {
 	sem_wait(&updateSem);
 	sem_wait(&addCommSem);
@@ -208,7 +325,7 @@ void LuaServer_::addInfo(string e, LuaComm* c)
 
 
 
-void LuaServer_::serve()
+void LuaServer::serve()
 {
 	int fd, s;
 	if((s = establish(port)) < 0)
@@ -240,6 +357,7 @@ void LuaServer_::serve()
 		a->fd = fd;
 		a->name = connectionName;
 		a->thread = thread;
+		a->server = this;
 // 		commThread.push_back(thread);
 
 		pthread_create(thread, NULL, __threadCommMain, (void *)a);
@@ -250,7 +368,7 @@ void LuaServer_::serve()
 	while(removeComm());
 }
 
-int LuaServer_::establish(unsigned short portnum)
+int LuaServer::establish(unsigned short portnum)
 {
 	char myname[128+1];
 	int s;
@@ -284,7 +402,7 @@ int LuaServer_::establish(unsigned short portnum)
 	return(s);
 }
 
-int LuaServer_::get_connection(int s, char* connectionName)
+int LuaServer::get_connection(int s, char* connectionName)
 {
 	sockaddr_in cli_addr;
 	socklen_t addrlen = 1024;
@@ -308,7 +426,7 @@ int LuaServer_::get_connection(int s, char* connectionName)
 	return fd;
 }
 
-void LuaServer_::addComm(LuaComm* comm)
+void LuaServer::addComm(LuaComm* comm)
 {
 	sem_wait(&addCommSem);
 		comms.push_back(comm);	
@@ -317,7 +435,7 @@ void LuaServer_::addComm(LuaComm* comm)
 
 
 // remove comm if it is dead
-int LuaServer_::removeComm()
+int LuaServer::removeComm()
 {
 	sem_wait(&addCommSem);
 	bool rem = false;
@@ -351,52 +469,54 @@ int LuaServer_::removeComm()
 
 void threadShutdown()
 {
-	sem_wait(&LuaServer.luaThreadSem);
-	vector<LuaThread*>::iterator it;
-
-	for(it=LuaServer.runningLuathreads.begin(); it != LuaServer.runningLuathreads.end(); ++it)
-	{
-		if(pthread_equal( (*it)->thread, pthread_self() ))
-		{
-			sem_post(&LuaServer.luaThreadSem);
-			longjmp((*it)->env, 1);
-		}
-	}
-	sem_post(&LuaServer.luaThreadSem);
-
-	fprintf(stderr, "FAILED to find self in thread vector (%s:%i)\n", __FILE__, __LINE__);
+#warning need to fix this
+// 	sem_wait(&LuaServer.luaThreadSem);
+// 	vector<LuaThread*>::iterator it;
+// 
+// 	for(it=LuaServer.runningLuathreads.begin(); it != LuaServer.runningLuathreads.end(); ++it)
+// 	{
+// 		if(pthread_equal( (*it)->thread, pthread_self() ))
+// 		{
+// 			sem_post(&LuaServer.luaThreadSem);
+// 			longjmp((*it)->env, 1);
+// 		}
+// 	}
+// 	sem_post(&LuaServer.luaThreadSem);
+// 
+// 	fprintf(stderr, "FAILED to find self in thread vector (%s:%i)\n", __FILE__, __LINE__);
 }
 
 void __threadSignalHandler(int signo)
 {
-	if(signo == SIGUSR1)
-	{
-		if(!pthread_equal(LuaServer.rootThread, pthread_self()))
-		{
-			//printf("SIGUSR1 - thread long jumping\n");
-			threadShutdown();
-		}
-		else
-		{
-			//printf("root got SIGUSR1, ignoring\n");
-		}
-	}
+#warning need to fix this
+// 	if(signo == SIGUSR1)
+// 	{
+// 		if(!pthread_equal(LuaServer.rootThread, pthread_self()))
+// 		{
+// 			//printf("SIGUSR1 - thread long jumping\n");
+// 			threadShutdown();
+// 		}
+// 		else
+// 		{
+// 			//printf("root got SIGUSR1, ignoring\n");
+// 		}
+// 	}
 }
 
-LuaThread* LuaServer_::getThread(int pid)
+LuaThread* LuaServer::getThread(int pid)
 {
 	LuaThread* t = 0;
 	sem_wait(&luaThreadSem);
-		vector<LuaThread*>::iterator it;
-	
-		for(it=LuaServer.runningLuathreads.begin(); it != LuaServer.runningLuathreads.end(); ++it)
+	vector<LuaThread*>::iterator it;
+
+	for(it=runningLuathreads.begin(); it != runningLuathreads.end(); ++it)
+	{
+		if((*it)->id == pid)
 		{
-			if((*it)->id == pid)
-			{
-				t = *it;
-				break;
-			}
+			t = *it;
+			break;
 		}
+	}
 	sem_post(&luaThreadSem);
 	return t;
 }
@@ -420,19 +540,22 @@ void* __threadLuaMain(void* args)
 		{
 			string s = lua_tostring(L, -1);
 			cerr << s << endl;
-			LuaServer.addError(s, c); //only error back to src client, not all clients
+			c->server->addError(s, c); //only error back to src client, not all clients
 		}
 	}
 
-	sem_wait(&LuaServer.luaThreadSem);
+	sem_t& sem = c->server->luaThreadSem;
+	
+
+	sem_wait(&sem);
 	vector<LuaThread*>::iterator it;
 
-	for(it=LuaServer.runningLuathreads.begin(); it != LuaServer.runningLuathreads.end(); ++it)
+	for(it=c->server->runningLuathreads.begin(); it != c->server->runningLuathreads.end(); ++it)
 	{
 		if(pthread_equal( (*it)->thread, pthread_self() ))
 		{
 			LuaThread* lv = *it;
-			LuaServer.runningLuathreads.erase(it);
+			c->server->runningLuathreads.erase(it);
 
 			lua_close(lv->L);
 			delete lv;
@@ -440,11 +563,11 @@ void* __threadLuaMain(void* args)
 			break;
 		}
 	}
-	sem_post(&LuaServer.luaThreadSem);
+	sem_post(&sem);
 }
 
 
-int LuaServer_::addLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm)
+int LuaServer::addLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm)
 {
 	int retval = -1;
 	lua_State* L;
@@ -479,7 +602,7 @@ int LuaServer_::addLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm)
 	return retval;
 }
 
-lua_Variable* LuaServer_::executeLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm, int* nret)
+lua_Variable* LuaServer::executeLuaFunction(lua_Variable* vars, int nvars, LuaComm* comm, int* nret)
 {
 	//limit the number of simultaneous lua states running
 	//this can cause a problem if the server runs code that
@@ -501,7 +624,7 @@ lua_Variable* LuaServer_::executeLuaFunction(lua_Variable* vars, int nvars, LuaC
 	{
 		string s = lua_tostring(L, -1);
 		cerr << s << endl;
-		LuaServer.addError(s, comm); //only error back to src client, not all clients
+		addError(s, comm); //only error back to src client, not all clients
 	}
 
 	//we started with a clean stack so whatever's on it now gets pushed back to the client
@@ -536,6 +659,7 @@ LuaComm::LuaComm(const char* Name, LuaComm::CommData* d)
 	strncpy(_name, Name, 512);
 	cdata = d;
 	cdata->status = 1;
+	server = d->server;
 }
 
 LuaComm::~LuaComm()
@@ -650,7 +774,8 @@ void LuaComm::do_comm(int fd)
 				
 				//add it to a state
 // 				cout << "EX START"<< CFD  << endl;
-				returnlvars = LuaServer.executeLuaFunction(luavars, numluavars, this, &numReturnLuavars);
+// 				returnlvars = LuaServer.executeLuaFunction(luavars, numluavars, this, &numReturnLuavars);
+				returnlvars = server->executeLuaFunction(luavars, numluavars, this, &numReturnLuavars);
 // 				cout << "EX END"<< CFD  << endl;
 				
 				for(i=0; i<numluavars; i++)
@@ -747,3 +872,152 @@ bool LuaComm::rawVarWrite(int fd, lua_Variable* v)
 	}
 	return true;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// int l_func(lua_State* L)
+// {
+// 	lua_pushstring(L, "server");
+// 	return 1;
+// }
+// 
+// int l_registerCustom(lua_State* L)
+// {
+// 	lua_pushcfunction(L, l_func);
+// 	lua_setglobal(L, "func");
+// }
+// 
+// int main(int argc, char** argv)
+// {
+// 	LuaServer.init(argc, argv);
+// 	LuaServer.registerCallback = l_registerCustom;
+// 	LuaServer.serve();
+// 
+// 	return 0;
+// }
+// 
+// 
+// 
+// 
+LuaServer* checkLuaServer(lua_State* L, int idx)
+{
+	LuaServer** pp = (LuaServer**)luaL_checkudata(L, idx, "Server");
+	luaL_argcheck(L, pp != NULL, 1, "Server' expected");
+	return *pp;
+}
+
+void lua_pushLuaServer(lua_State* L, LuaServer* lc)
+{
+	lc->refcount++;
+	LuaServer** pp = (LuaServer**)lua_newuserdata(L, sizeof(LuaServer**));
+	*pp = lc;
+	luaL_getmetatable(L, "Server");
+	lua_setmetatable(L, -2);
+}
+
+
+static int l_gc(lua_State* L)
+{
+	LuaServer* ls = checkLuaServer(L, 1);
+	ls->refcount--;
+	if(ls->refcount <= 0)
+	{
+		delete ls;
+	}
+	return 0;
+}
+static int l_tostring(lua_State* L)
+{
+	lua_pushstring(L, "Server");
+	return 1;
+}
+
+static int l_new(lua_State* L)
+{
+	LuaServer* ls = new LuaServer;
+	
+	if(lua_isnumber(L, 1))
+	{
+		ls->port = lua_tointeger(L, 1);
+	}
+	
+	lua_pushLuaServer(L, ls);
+	return 1;
+}
+
+static int l_start(lua_State* L)
+{
+	LuaServer* ls = checkLuaServer(L, 1);
+	ls->serve();
+	return 0;
+}
+
+void registerLuaServer(lua_State* L)
+{
+	static const struct luaL_reg methods [] = { //methods
+	{"__gc",         l_gc},
+	{"__tostring",   l_tostring},
+	{"start",        l_start},
+	{NULL, NULL}
+	};
+	
+	luaL_newmetatable(L, "Server");
+	lua_pushstring(L, "__index");
+	lua_pushvalue(L, -2);  /* pushes the metatable */
+	lua_settable(L, -3);  /* metatable.__index = metatable */
+	luaL_register(L, NULL, methods);
+	lua_pop(L,1); //metatable is registered
+	
+	static const struct luaL_reg functions [] = {
+		{"new",                 l_new},
+		{NULL, NULL}
+	};
+	
+	luaL_register(L, "Server", functions);
+	lua_pop(L,1);
+}
+
+
+
+
+extern "C"
+{
+	int lib_register(lua_State* L);
+	int lib_deps(lua_State* L);
+}
+
+int lib_register(lua_State* L)
+{
+	registerLuaServer(L);
+	return 0;
+}
+
+int lib_deps(lua_State* L)
+{
+	return 0;
+}
+
+
+
+
+
