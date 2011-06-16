@@ -20,7 +20,7 @@ LIBNAME=Magnetostatics
 all: $(LIBNAME).so
 
 $(LIBNAME).so : $(OBJECTS)
-	$(CXX) -rdynamic -fPIC -shared $(LIBS) $(OBJECTS) -o $(LIBNAME).so
+	$(CXX) -fPIC -rdynamic -shared $(LIBS) $(OBJECTS) -o $(LIBNAME).so
 
 %.o : %.cpp  %.h
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 

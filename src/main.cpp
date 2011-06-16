@@ -188,8 +188,6 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 			return 1;
 	}
 	
-	if(!suppress)
-		cout << "  Loading Module: " << name << endl;
 	
 	void* handle = 0;
 	
@@ -197,8 +195,10 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 	for(unsigned int i=0; i<mod_dirs.size(); i++)
 	{
 		snprintf(buf, 4096, "%s/%s.so", mod_dirs[i].c_str(), name.c_str());
-
-		handle = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);
+		
+		// loading lazy because we may need deps first
+		// will load full at end of function
+		handle = dlopen(buf, RTLD_LAZY);
 
 		if(handle)
 		{
@@ -209,27 +209,49 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 
 	if(!handle)
 	{
-		cerr << "Cannot load `" << name << "': " << dlerror() << '\n';
+		cerr << " Cannot load `" << name << "': " << dlerror() << '\n';
 		return 1;
 	}
 	
 
 	typedef int (*lua_func)(lua_State*);
 
+#if 0
+	lua_func lib_name = (lua_func) dlsym(handle, "lib_name");
+	
+	const char* dlsym_error_name = dlerror();
+	if(dlsym_error_name)
+	{
+//         cerr << "Cannot load symbol `lib_name': " << dlsym_error_name << endl;
+//         dlclose(handle);
+//         return 1;
+    }
+    else
+	{
+		int n = lib_name(L);
+		printf("n(name) = %i\n", n);
+		while(n)
+		{
+			printf("%s\n", lua_tostring(L, -1));
+			n--;
+		}
+	}
+#endif
 
 	lua_func lib_deps = (lua_func) dlsym(handle, "lib_deps");
 	const char *dlsym_error = dlerror();
 	if(dlsym_error)
 	{
-        cerr << "Cannot load symbol `register_lib': " << dlsym_error << endl;
+        cerr << "Cannot load symbol lib_deps': " << dlsym_error << endl;
         dlclose(handle);
         return 1;
     }
-    
 	int n = lib_deps(L);
+
 	vector<string> deps;
 	for(int i=0; i<n; i++)
 	{
+		cout << lua_tostring(L, -1) << endl;
 		deps.push_back(lua_tostring(L, -1));
 		lua_pop(L, 1);
 	}
@@ -245,7 +267,7 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 				dep_loaded = true;
 		}
 		
-		//cout << name << " depends on " << deps[i] << endl;
+		cout << name << " depends on " << deps[i] << endl;
 		if(!dep_loaded)
 		{
 			if(load_lib(suppress, L, deps[i]))
@@ -271,8 +293,11 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 	lib_register(L); // call the register function from the library
 	loaded.push_back(name);
 	
-// 	dlclose(handle);
-	
+	if(!suppress)
+		cout << "  Loading Module: " << name << endl;
+	dlclose(handle);
+	handle = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);
+
 	return 0;
 }
 

@@ -608,15 +608,29 @@ void registerMagnetostatic(lua_State* L)
 }
 
 
+extern "C" {
+int lib_name(lua_State* L);
+int lib_register(lua_State* L);
+int lib_deps(lua_State* L);
+}
+
+int lib_name(lua_State* L)
+{
+	printf("mag name\n");
+	lua_pushstring(L, "Magnetostatic");
+	return 1;
+}
+
 int lib_register(lua_State* L)
 {
+	printf("mag reg\n");
 	registerMagnetostatic(L);
 	return 0;
 }
 
 int lib_deps(lua_State* L)
 {
+	printf("CORE!!\n");
 	lua_pushstring(L, "Core");
 	return 1;
 }
-

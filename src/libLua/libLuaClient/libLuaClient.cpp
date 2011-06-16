@@ -543,14 +543,13 @@ void registerLuaClient(lua_State* L)
 
 int lib_register(lua_State* L)
 {
+	printf("client reg\n");
 	registerLuaClient(L);
 	return 0;
 }
 
 int lib_deps(lua_State* L)
 {
-// 	lua_pushstring(L, "LuaMigrate");
-// 	lua_pushstring(L, "test1");
-// 	lua_pushstring(L, "test2");
+	printf("client deps\n");
 	return 0;
 }

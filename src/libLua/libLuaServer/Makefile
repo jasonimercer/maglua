@@ -23,7 +23,7 @@ LIBNAME=Server
 all: $(LIBNAME).so
 
 $(LIBNAME).so : $(OBJECTS)
-	$(CXX) -fPIC -shared $(OBJECTS) $(LIBMIGRATE) -o $(LIBNAME).so
+	$(CXX) -fPIC -shared $(OBJECTS) $(LIBS) $(LIBMIGRATE) -o $(LIBNAME).so
 
 %.o : %.cpp  %.h
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
