@@ -42,6 +42,8 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 	int tablesize;
 	const char* c;
 
+	printf("exporting BBBB %i\n", t);
+	
 	if(index < 0)
 	{
 		index = lua_gettop(L) + index + 1;
@@ -301,7 +303,10 @@ int _importLuaVariable(lua_State* L, buffer* b)
 			luaL_error(L, "Cannot import THREAD");
 		break;
 		default:
+		{
+			printf("AAAAA %i\n", t);
 			luaL_error(L, "unknown import type: %i", t);
+		}
 	}
 	return 0;
 }

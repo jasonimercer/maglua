@@ -15,6 +15,7 @@
 #include <iostream>
 #include <math.h>
 #include <strings.h>
+#include <stdlib.h>
 #include <string.h>
 #include <vector>
 

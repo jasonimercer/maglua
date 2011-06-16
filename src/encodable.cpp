@@ -18,14 +18,10 @@ void ensureSize(int add, buffer* b)
 {
 	if(b->pos + add >= b->size)
 	{
-		if(b->size)
-		{
-			b->size *= 2;
-			if(b->pos + add >= b->size)
-				b->size += add;
-		}
-		else
+		b->size *= 2;
+		if(b->pos + add >= b->size)
 			b->size += add;
+
 		b->buf = (char*)realloc(b->buf, b->size);
 	}
 }
