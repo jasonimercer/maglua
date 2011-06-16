@@ -10,10 +10,59 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
+// 
+// CheckPoint adds 2 functions.
+// 
+// checkpointSave(filename, a, b, c, d, ...)
+//  saves the values a, b, c, d ... to the file: filename
+// 
+// a, b, c, d, ... = checkpointLoad(fn)
+//  loads the variables in the file: filename to the 
+//  variables a, b, c, d, ...
+
 #include "luamigrate.h"
 #include "checkpoint.h"
 #include <stdio.h>
 #include <stdlib.h>
+
+static int sure_fwrite(const void* _data, int sizeelement, int numelement, FILE* f)
+{
+	int sz = 0;
+	const char* data = (const char*)_data;
+	
+	do
+	{
+		int w = fwrite(data + sz*sizeelement, sizeelement, numelement - sz, f);
+		sz += w;
+
+		if(w == 0)
+		{
+			return 0;
+		}
+	}while(sz < numelement);
+
+	return sz;
+}
+
+static int sure_fread(void* _data, int sizeelement, int numelement, FILE* f)
+{
+	char* data = (char*)_data;
+	int sz = 0;
+	
+	do
+	{
+		int r = fread(data + sz*sizeelement, sizeelement, numelement - sz, f);
+		sz += r;
+
+		if(r == 0)
+		{
+			return 0;
+		}
+	}while(sz < numelement);
+	
+	return sz;
+}
+
 
 static int l_checkpoint_save(lua_State* L)
 {
@@ -33,25 +82,34 @@ static int l_checkpoint_save(lua_State* L)
 	}
 	
 	char header[128];
-	for(int i=0; i<128; i++) header[i] = 0;
+	for(int i=0; i<128; i++)
+		header[i] = 0;
 	
 	snprintf(header, 128, "CHECKPOINT");
-	fwrite(header, 1, 128, f); //write header
-	
-	fwrite(&n, 1, sizeof(int), f); //write number of variables
+	sure_fwrite(header, 1, 128, f); //write header
+	sure_fwrite(&n, sizeof(int), 1, f); //write number of variables
 	
 	for(int i=2; i<=n+1; i++)
 	{
 		int size;
 		char* buf = exportLuaVariable(L, i, &size);
-
-		printf("size %i = %i\n", i, size);
-		fwrite(&size, 1, sizeof(int), f);
-		fwrite(buf, 1, size, f);
+		int sz = 0;
+		
+		if(!sure_fwrite(&size, sizeof(int), 1, f))
+		{
+			fclose(f);
+			return luaL_error(L, "failed in write\n");
+		}
+		if(!sure_fwrite(buf, 1, size, f))
+		{
+			fclose(f);
+			return luaL_error(L, "failed in write\n");
+		}
 		
 		free(buf);
 	}
 	
+	fclose(f);
 	return 0;
 }
 
@@ -71,22 +129,33 @@ static int l_checkpoint_load(lua_State* L)
 	}
 	
 	char header[128];
-	fread(header, 1, 128, f); //should be CHECKPOINT\0\0\0...
 	int n;
-	fread(&n, 1, sizeof(int), f); //read number of variables
+
+	sure_fread(header, 1,         128, f); //should be CHECKPOINT\0\0\0...
+	sure_fread(    &n, sizeof(int), 1, f); //read number of variables
 
 	for(int i=0; i<n; i++)
 	{
 		int size;
-		fread(&size, 1, sizeof(int), f);
-			
+		if(!sure_fread(&size, sizeof(int), 1, f))
+		{
+			fclose(f);
+			return luaL_error(L, "failed in read\n");
+		}
+
 		char* buf = (char*)malloc(size+1);
-		fread(buf, 1, size, f);
+		if(!sure_fread(buf, 1, size, f))
+		{
+			fclose(f);
+			return luaL_error(L, "failed in read\n");
+		}
 		
 		importLuaVariable(L, buf, size);
 
 		free(buf);
 	}
+	
+	fclose(f);
 	return n;
 }
 
