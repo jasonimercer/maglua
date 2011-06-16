@@ -117,9 +117,9 @@ int main(int argc, char** argv)
 			}
 		}
 		
-		if(!script && !suppress)
+		if(!script)
 		{
-			cerr << "Please supply a Maglua script" << endl;
+			cerr << "Please supply a MagLua script (*.lua)" << endl;
 		}
 		lua_close(L);
 	
@@ -173,6 +173,23 @@ static int l_info(lua_State* L)
 			if(lua_gettop(L) && __info[pos] == '\n' && __info[pos+1])
 					result.append(lua_tostring(L, 1));
 		}
+
+
+	if(lua_gettop(L))
+		result.append(lua_tostring(L, 1));
+
+	result.append("\nModules: ");
+
+	map<string,int>::iterator mit;
+	for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
+	{
+		result.append((*mit).first);
+		mit++;
+		if(mit != loaded.end())
+			result.append(", ");
+		mit--;
+	}
+	result.append("\n");
 
 	lua_pushstring(L, result.c_str());
 	return 1;
@@ -250,11 +267,11 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 	if(buf)
 		delete [] buf;
 
-	if(!suppress)
-	{
-		cout << "  Loading Module: " << name << endl;
+// 	if(!suppress)
+// 	{
+// 		cout << "  Loading Module: " << name << endl;
 		//cout << "    from " << src_dir << endl;
-	}
+// 	}
 	
 	loaded[name]++;
 
@@ -335,6 +352,20 @@ int registerLibs(int suppress, lua_State* L)
 		}
 	}while(num_loaded_this_round > 0);
 	
+	
+	if(!suppress)
+	{
+		cout << "Loaded Modules: ";
+		for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
+		{
+			cout << (*mit).first;
+			mit++;
+			if( mit != loaded.end())
+				cout << ", ";
+			mit--;
+		}
+		cout << endl;
+	}
 	
 	// we've either loaded all the modules or there are some left with errors
 	// check to see if and of the unloaded have finite value

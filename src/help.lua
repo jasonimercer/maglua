@@ -19,16 +19,16 @@ f:write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n" ..
 	"<html>\n" ..
  	"\n" ..
 	"<head>\n" ..
-	"<title>Maglua Reference Manual</title>\n" ..
+	"<title>MagLua Reference Manual</title>\n" ..
 	"<link rel=\"stylesheet\" type=\"text/css\" href=\"maglua.css\">\n" ..
 	"<META HTTP-EQUIV=\"content-type\" CONTENT=\"text/html; charset=iso-8859-1\">\n" .. 
 	"</head>\n" ..
  	"\n" ..
 	"<body>\n")
 
-f:write("<H1>Maglua</H1>\n")
-f:write("<p>Maglua is an extension to the base Lua language that allows a user to build micromagnetic simulations in the Lua scripting language.\n")
-f:write(lp("<p>Maglua is composed of 3 conceptual parts\n<ul>\n<li>Data - Spin vectors and fields, these are held in a *SpinSystem*.\n<li>Operators - Objects which calculate fields based on spins or external influences such as *Anisotropy*, *Dipole*, *Thermal*, etc.\n<li>Integrators - Objects which update spin orientations based on calculated effective fields. Different integrators can be created using *LLG*.\n</ul>\n"))
+f:write("<H1>MagLua</H1>\n")
+f:write("<p>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations in the Lua scripting language.\n")
+f:write(lp("<p>MagLua is composed of 3 conceptual parts\n<ul>\n<li>Data - Spin vectors and fields, these are held in a *SpinSystem*.\n<li>Operators - Objects which calculate fields based on spins or external influences such as *Anisotropy*, *Dipole*, *Thermal*, etc.\n<li>Integrators - Objects which update spin orientations based on calculated effective fields. Different integrators can be created using *LLG*.\n</ul>\n"))
 f:write("<p>The following is a list of the objects and functions which may be combined to create a simulation.\n")
 
 -- Add a section heading
@@ -121,7 +121,7 @@ end
 
 -- here we will explain what a 3Vector is, it appears in the documentation
 addsection("3Vector", 2, nil, true) --true - don't add index to index
-dl("A 3Vector is an argument of some methods in Maglua, it can either be 3 numbers or a table with 3 values. If it is a table with less than 3 values, sensible defaults are used or an error is returned if none exist.", "", "") 
+dl("A 3Vector is an argument of some methods in MagLua, it can either be 3 numbers or a table with 3 values. If it is a table with less than 3 values, sensible defaults are used or an error is returned if none exist.", "", "") 
 
 -- write index, 4 columns
 addsection("Index", 2, nil, true) --true - don't add index to index
