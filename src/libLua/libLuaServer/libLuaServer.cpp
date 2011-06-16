@@ -1003,20 +1003,10 @@ void registerLuaServer(lua_State* L)
 extern "C"
 {
 int lib_register(lua_State* L);
-int lib_deps(lua_State* L);
-int lib_name(lua_State* L);  
 }
 
 int lib_register(lua_State* L)
 {
-	printf("server reg\n");
 	registerLuaServer(L);
 	return 0;
 }
-
-int lib_deps(lua_State* L)
-{
-	printf("server deps\n");
-	return 0;
-}
-

@@ -4,5 +4,4 @@ extern "C" {
 	#include <lauxlib.h>
 	
 int lib_register(lua_State* L);
-int lib_deps(lua_State* L);
 }

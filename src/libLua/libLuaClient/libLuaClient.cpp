@@ -543,13 +543,6 @@ void registerLuaClient(lua_State* L)
 
 int lib_register(lua_State* L)
 {
-	printf("client reg\n");
 	registerLuaClient(L);
-	return 0;
-}
-
-int lib_deps(lua_State* L)
-{
-	printf("client deps\n");
 	return 0;
 }
