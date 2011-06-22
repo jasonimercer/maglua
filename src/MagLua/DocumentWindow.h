@@ -40,6 +40,7 @@ public slots:
 	void paste();
 	void cut();
 	void run();
+	void stop();
 
 private slots:
 	void documentWasModified();

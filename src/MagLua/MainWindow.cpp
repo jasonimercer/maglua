@@ -149,6 +149,12 @@ void MainWindow::run()
 		activeMdiChild()->run();
 }
 
+void MainWindow::stop()
+{
+	if(activeMdiChild())
+		activeMdiChild()->stop();
+}
+
 void MainWindow::about()
 {
 	QMessageBox::about(this, tr("About MagLua"),
@@ -171,6 +177,7 @@ void MainWindow::updateMenus()
 	previousAct->setEnabled(hasMdiChild);
 	separatorAct->setVisible(hasMdiChild);
 	runAct->setEnabled(hasMdiChild);
+	stopAct->setEnabled(hasMdiChild);
 
 	bool hasSelection = (activeMdiChild() &&
 						 activeMdiChild()->textCursor().hasSelection());
@@ -307,6 +314,11 @@ void MainWindow::createActions()
 	runAct->setStatusTip(tr("Run the current script"));
 	connect(runAct, SIGNAL(triggered()), this, SLOT(run()));
 
+	stopAct = new QAction(QIcon(":/icons/stop.png"), tr("&Stop"), this);
+	stopAct->setShortcuts(QKeySequence::Refresh);
+	stopAct->setStatusTip(tr("Stop the current script"));
+	connect(stopAct, SIGNAL(triggered()), this, SLOT(stop()));
+
 	closeAct = new QAction(tr("Cl&ose"), this);
 	closeAct->setStatusTip(tr("Close the active window"));
 	connect(closeAct, SIGNAL(triggered()),
@@ -408,6 +420,7 @@ void MainWindow::createMenus()
 	editMenu->addAction(modAct);
 	editMenu->addSeparator();
 	editMenu->addAction(runAct);
+	editMenu->addAction(stopAct);
 
 	windowMenu = menuBar()->addMenu(tr("&Window"));
 	updateWindowMenu();
@@ -433,7 +446,7 @@ void MainWindow::createToolBars()
 	editToolBar->addAction(pasteAct);
 	editToolBar->addSeparator();
 	editToolBar->addAction(runAct);
-
+	editToolBar->addAction(stopAct);
 }
 
 void MainWindow::createStatusBar()

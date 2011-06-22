@@ -6,9 +6,11 @@
         <file alias="copy.png">images/edit-copy.png</file>
         <file alias="cut.png">images/edit-cut.png</file>
         <file alias="paste.png">images/edit-paste.png</file>
-        <file alias="run.png">images/debug-run.png</file>
+        <file alias="run_old.png">images/debug-run.png</file>
         <file alias="delete.png">images/edit-delete.png</file>
         <file alias="add.png">images/list-add.png</file>
         <file alias="remove.png">images/list-remove.png</file>
+        <file alias="run.png">images/media-playback-start.png</file>
+        <file alias="stop.png">images/media-playback-stop.png</file>
     </qresource>
 </RCC>

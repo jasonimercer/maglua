@@ -23,6 +23,7 @@ public:
 
 	void execute(lua_State* L);
 	void stop();
+	bool stopRequested() const;
 signals:
 	void printOutput(const QString& text);
 	void printError(const QString& text);
@@ -34,6 +35,7 @@ private:
 	lua_State* L;
 	QMutex mutex;
 	QWaitCondition condition;
+	bool requestStop;
 };
 
 #endif // LUATHREAD_H

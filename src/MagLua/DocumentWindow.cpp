@@ -52,6 +52,7 @@ DocumentWindow::~DocumentWindow()
 
 void DocumentWindow::printOutput(const QString& txt)
 {
+	ui->tabWidget->setCurrentWidget(ui->tabOutput);
 	QString t = ui->txtOutput->toPlainText();
 	t.append(txt);
 	ui->txtOutput->setPlainText(t);
@@ -59,6 +60,7 @@ void DocumentWindow::printOutput(const QString& txt)
 
 void DocumentWindow::printError(const QString& txt)
 {
+	ui->tabWidget->setCurrentWidget(ui->tabError);
 	QString t = ui->txtError->toPlainText();
 	t.append(txt);
 	ui->txtError->setPlainText(t);
@@ -149,7 +151,11 @@ void DocumentWindow::run()
 
 
 	thread.execute(L);
+}
 
+void DocumentWindow::stop()
+{
+	thread.stop();
 }
 
 QTextCursor DocumentWindow::textCursor () const

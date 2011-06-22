@@ -6,6 +6,7 @@ LuaThread::LuaThread(QObject *parent) :
     QThread(parent)
 {
 	L = 0;
+	requestStop = false;
 }
 
 LuaThread::~LuaThread()
@@ -17,9 +18,14 @@ LuaThread::~LuaThread()
 
 }
 
+bool LuaThread::stopRequested() const
+{
+	return requestStop;
+}
+
+
 void LuaThread::PrintOutput(const QString& text)
 {
-	printf("output %s\n", text.toStdString().c_str());
 	emit(printOutput(text));
 }
 
@@ -32,7 +38,6 @@ void LuaThread::PrintError(const QString& text)
 
 static int print(lua_State* L)
 {
-	printf("print\n");
 	LuaThread* thread = (LuaThread*)lua_touserdata(L, lua_upvalueindex(1));
 	if(!thread)
 		return luaL_error(L, "LuaThread upvalue is not set");
@@ -64,13 +69,18 @@ static int print(lua_State* L)
 	return 0;
 }
 
-static void l_handler(lua_State *L, lua_Debug *ar)
+static void l_handler(lua_State *L, lua_Debug* /* ar */)
 {
-	printf("Handler!!\n");
-
-	// NEED TO ADD SOME SORT OF A CLOSURE FOR THIS.
-	// HANDLER NEEDS POINTER TO LUATHREAD TO CHECK IS STOP IS REQUESTED
-
+	lua_rawgeti(L, LUA_REGISTRYINDEX, 100);
+	LuaThread* thread = (LuaThread*) lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	if(thread)
+	{
+		if(thread->stopRequested())
+		{
+			luaL_error(L, "Stopped by user request");
+		}
+	}
 }
 
 void LuaThread::run()
@@ -89,16 +99,7 @@ void LuaThread::run()
 
 void LuaThread::stop()
 {
-	if(!L)
-		return;
-
-	mutex.lock();
-
-
-
-
-	mutex.unlock();
-
+	requestStop = true;
 }
 
 void LuaThread::execute(lua_State* LL)
@@ -109,9 +110,14 @@ void LuaThread::execute(lua_State* LL)
 	lua_pushcclosure(L, print, 1);
 	lua_setglobal(L, "print");
 
+	lua_pushlightuserdata(L, this);
+	lua_rawseti(L, LUA_REGISTRYINDEX, 100);
+
 	lua_sethook(L, l_handler, LUA_MASKCOUNT, 10);
 
-	QMutexLocker locker(&mutex);
+//	QMutexLocker locker(&mutex);
+
+	requestStop = false;
 
 	if(!isRunning())
 	{
@@ -120,7 +126,7 @@ void LuaThread::execute(lua_State* LL)
 	else
 	{
 //		restart = true;
-		condition.wakeOne();
+//		condition.wakeOne();
 	}
 
 //	lua_close(L);
