@@ -37,7 +37,7 @@ install: all
 	cp -f maglua $(HOME)/bin 2> /dev/null || true
 
 info.h:
-	./premake.sh
+	./premake.sh $(CXX) $(CFLAGS)
 
 uninstall: distclean
 	rm -f ~/bin/maglua
