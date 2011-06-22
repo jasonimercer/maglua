@@ -12,7 +12,7 @@ CXX=g++
 
 CFLAGS=-ansi -O2 -g
 PKG=lua5.1 fftw3
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I..
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core
 LIBS=`pkg-config --libs $(PKG) ` -lpthread
 OBJECTS=spinoperationdisordereddipole.o
 LIBNAME=DisorderedDipole

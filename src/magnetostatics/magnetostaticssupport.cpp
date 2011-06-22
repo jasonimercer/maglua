@@ -12,7 +12,7 @@
 
 #include "luacommon.h"
 #include "magnetostaticssupport.h"
-#include "magnetostatics/gamma_ab_v.h"
+#include "gamma_ab_v.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
