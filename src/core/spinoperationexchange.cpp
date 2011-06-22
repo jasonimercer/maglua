@@ -401,8 +401,10 @@ void registerExchange(lua_State* L)
 		{"__tostring",   l_ex_tostring},
 		{"apply",        l_ex_apply},
 		{"addPath",      l_ex_addpath},
+		{"add",          l_ex_addpath},
+//		{"set",          l_ex_addpath},
 		{"member",       l_ex_member},
-		{"optimize",     l_ex_opt},
+//		{"optimize",     l_ex_opt},
 		{NULL, NULL}
 	};
 		

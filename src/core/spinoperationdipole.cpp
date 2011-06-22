@@ -343,8 +343,20 @@ int l_dip_setunitcell(lua_State* L)
 	Dipole* dip = checkDipole(L, 1);
 	if(!dip) return 0;
 
-	for(int i=0; i<9; i++)
-		dip->ABC[i] = lua_tonumber(L, i+2);
+	double A[3];
+	double B[3];
+	double C[3];
+	
+	int r1 = lua_getNdouble(L, 3, A, 2, 0);
+	int r2 = lua_getNdouble(L, 3, B, 2+r1, 0);
+	int r3 = lua_getNdouble(L, 3, C, 2+r2+r3, 0);
+	
+	for(int i=0; i<3; i++)
+	{
+		dip->ABC[i+0] = A[i];
+		dip->ABC[i+3] = B[i];
+		dip->ABC[i+6] = C[i];
+	}
 
 	return 0;
 }
@@ -353,10 +365,23 @@ int l_dip_getunitcell(lua_State* L)
 	Dipole* dip = checkDipole(L, 1);
 	if(!dip) return 0;
 
-	for(int i=0; i<9; i++)
-		lua_pushnumber(L, dip->ABC[i]);
-
-	return 9;
+	double* ABC[3];
+	ABC[0] = &(dip->ABC[0]);
+	ABC[1] = &(dip->ABC[3]);
+	ABC[2] = &(dip->ABC[6]);
+	
+	for(int i=0; i<3; i++)
+	{
+		lua_newtable(L);
+		for(int j=0; j<3; j++)
+		{
+			lua_pushinteger(L, j+1);
+			lua_pushnumber(L, ABC[i][j]);
+			lua_settable(L, -3);
+		}
+	}
+	
+	return 3;
 }
 int l_dip_settrunc(lua_State* L)
 {
@@ -451,7 +476,7 @@ static int l_dip_help(lua_State* L)
 	if(func == l_dip_setunitcell)
 	{
 		lua_pushstring(L, "Set the unit cell of a lattice site");
-		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. By default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
+		lua_pushstring(L, "3 *3Vector*: The A, B and C vectors defining the unit cell. By default, this is {1,0,0},{0,1,0},{0,0,1} or a cubic system.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -460,7 +485,7 @@ static int l_dip_help(lua_State* L)
 	{
 		lua_pushstring(L, "Get the unit cell of a lattice site");
 		lua_pushstring(L, "");
-		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. By default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
+		lua_pushstring(L, "3 tables: The A, B and C vectors defining the unit cell. By default, this is {1,0,0},{0,1,0},{0,0,1} or a cubic system.");
 		return 3;
 	}
 

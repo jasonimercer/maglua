@@ -10,34 +10,46 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifndef SPINOPERATIONANISOTROPY
-#define SPINOPERATIONANISOTROPY
+#ifndef SPINOPERATIONEXCHANGE
+#define SPINOPERATIONEXCHANGE
 
 #include "spinoperation.h"
 
-class Anisotropy : public SpinOperation
+class Exchange : public SpinOperation
 {
 public:
-	Anisotropy(int nx, int ny, int nz);
-	virtual ~Anisotropy();
+	Exchange(int nx, int ny, int nz);
+	virtual ~Exchange();
 	
 	bool apply(SpinSystem* ss);
 
-	double* ax;
-	double* ay;
-	double* az;
-	double* strength;
-	
+	void addPath(int site1, int site2, double strength);
+
 	virtual void encode(buffer* b) const;
 	virtual int  decode(buffer* b);
+	void opt();
 
-	void init();
+	typedef struct sss
+	{
+		int fromsite;
+		int tosite;
+		double strength;
+	} sss;
+
+private:
 	void deinit();
+	
+	int size;
+	int num;
+	sss* pathways;
+	
+// 	int* fromsite;
+// 	int* tosite;
+// 	double* strength;
 };
 
-void lua_pushAnisotropy(lua_State* L, Anisotropy* ani);
-Anisotropy* checkAnisotropy(lua_State* L, int idx);
-void registerAnisotropy(lua_State* L);
-
+Exchange* checkExchange(lua_State* L, int idx);
+void registerExchange(lua_State* L);
+void lua_pushExchange(lua_State* L, Exchange* ex);
 
 #endif

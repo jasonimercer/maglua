@@ -18,66 +18,82 @@
 Anisotropy::Anisotropy(int nx, int ny, int nz)
 	: SpinOperation("Anisotropy", ANISOTROPY_SLOT, nx, ny, nz, ENCODE_ANISOTROPY)
 {
+	ops = 0;
+	size = nx*ny*nz;
 	init();
 }
 
 void Anisotropy::init()
 {
-	nxyz = nx * ny * nz;
-	ax = new double[nxyz];
-	ay = new double[nxyz];
-	az = new double[nxyz];
-	strength = new double[nxyz];
-
-	for(int i=0; i<nxyz; i++)
+/*	typedef struct ani
 	{
-		ax[i] = 0;
-		ay[i] = 0;
-		az[i] = 1;
+		int site;
+		double axis[3];
+		double strength;
+	} ani;
+	
+	ani* ops;*/
+	num = 0;
+	if(size < 0)
+		size = 1;
 
-		strength[i] = 1;
-	}
+	ops = (ani*)malloc(sizeof(ani) * size);
 }
 
 void Anisotropy::deinit()
 {
-	if(ax)
+	if(ops)
 	{
-		delete [] ax;
-		delete [] ay;
-		delete [] az;
-		delete [] strength;
+		delete [] ops;
 	}
-	ax = 0;
+	size = 0;
+	ops = 0;
+}
+
+void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double K)
+{
+	if(num == size)
+	{
+		size = size * 2 + 16;
+		ops = (ani*)realloc(ops, sizeof(ani) * size);
+	}
+	ops[num].site = site;
+	ops[num].axis[0] = nx;
+	ops[num].axis[1] = ny;
+	ops[num].axis[2] = nz;
+	ops[num].strength = K;
+	num++;
 }
 
 void Anisotropy::encode(buffer* b) const
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
-	for(int i=0; i<nxyz; i++)
+	encodeInteger(num, b);
+	for(int i=0; i<num; i++)
 	{
-		encodeDouble(ax[i], b);
-		encodeDouble(ay[i], b);
-		encodeDouble(az[i], b);
-		encodeDouble(strength[i], b);
+		encodeInteger(ops[i].site, b);
+		encodeDouble(ops[i].axis[0], b);
+		encodeDouble(ops[i].axis[1], b);
+		encodeDouble(ops[i].axis[2], b);
+		encodeDouble(ops[i].strength, b);
 	}
 }
 
 int Anisotropy::decode(buffer* b)
 {
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	
+	deinit();
+	num = decodeInteger(b);
+	size = num;
 	init();
+	
 	for(int i=0; i<nxyz; i++)
 	{
-		ax[i] = decodeDouble(b);
-		ay[i] = decodeDouble(b);
-		az[i] = decodeDouble(b);
-		strength[i] = decodeDouble(b);
+		const int site = decodeInteger(b);
+		const double nx = decodeDouble(b);
+		const double ny = decodeDouble(b);
+		const double nz = decodeDouble(b);
+		const double  K = decodeDouble(b);
+		
+		addAnisotropy(site, nx, ny, nz, K);
 	}
 	return 0;
 }
@@ -92,32 +108,32 @@ bool Anisotropy::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
 
-	double SpinDotEasyAxis;
-	double v;
-	
 	double* hx = ss->hx[slot];
 	double* hy = ss->hy[slot];
 	double* hz = ss->hz[slot];
+
+	for(int i=0; i<nxyz; i++) hx[i] = 0;
+	for(int i=0; i<nxyz; i++) hy[i] = 0;
+	for(int i=0; i<nxyz; i++) hz[i] = 0;
 	
 	#pragma omp parallel for shared(hx,hy,hz)
-	for(int i=0; i<nxyz; i++)
+	for(int j=0; j<num; j++)
 	{
+		const ani& op = ops[j];
+		const int i = op.site;
 		const double ms = ss->ms[i];
 		if(ms > 0)
 		{
-			const double
-			SpinDotEasyAxis = ss->x[i] * ax[i] +
-			                  ss->y[i] * ay[i] +
-			                  ss->z[i] * az[i];
+			const double SpinDotEasyAxis = 
+								ss->x[i] * op.axis[0] +
+								ss->y[i] * op.axis[1] +
+								ss->z[i] * op.axis[2];
 
-			const double v = strength[i] * SpinDotEasyAxis / (ms * ms);
+			const double v = 2.0 * op.strength * SpinDotEasyAxis / (ms * ms);
 
-// 			ss->hx[slot][i] = ax[i] * v;
-// 			ss->hy[slot][i] = ay[i] * v;
-// 			ss->hz[slot][i] = az[i] * v;
-			hx[i] = ax[i] * v;
-			hy[i] = ay[i] * v;
-			hz[i] = az[i] * v;
+			hx[i] += op.axis[0] * v;
+			hy[i] += op.axis[1] * v;
+			hz[i] += op.axis[2] * v;
 		}
 	}
 	return true;
@@ -199,7 +215,7 @@ int l_ani_member(lua_State* L)
 	return 1;
 }
 
-int l_ani_set(lua_State* L)
+int l_ani_add(lua_State* L)
 {
 	Anisotropy* ani = checkAnisotropy(L, 1);
 	if(!ani) return 0;
@@ -220,30 +236,39 @@ int l_ani_set(lua_State* L)
 	int r2 = lua_getNdouble(L, 3, a, 2+r1, 0);
 	if(r2<0)
 		return luaL_error(L, "invalid anisotropy direction");
-		
-	ani->ax[idx] = a[0];
-	ani->ay[idx] = a[1];
-	ani->az[idx] = a[2];
+	
+	
+	
+// 	ani->ax[idx] = a[0];
+// 	ani->ay[idx] = a[1];
+// 	ani->az[idx] = a[2];
 
 	/* anisotropy axis is a unit vector */
-	const double lena = 
-		ani->ax[idx]*ani->ax[idx] +
-		ani->ay[idx]*ani->ay[idx] +
-		ani->az[idx]*ani->az[idx];
+	const double lena = sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+// 		ani->ax[idx]*ani->ax[idx] +
+// 		ani->ay[idx]*ani->ay[idx] +
+// 		ani->az[idx]*ani->az[idx];
 	
 	if(lena > 0)
 	{
-		ani->ax[idx] /= sqrt(lena);
-		ani->ay[idx] /= sqrt(lena);
-		ani->az[idx] /= sqrt(lena);
+		a[0] /= lena;
+		a[1] /= lena;
+		a[2] /= lena;
+// 		ani->ax[idx] /= sqrt(lena);
+// 		ani->ay[idx] /= sqrt(lena);
+// 		ani->az[idx] /= sqrt(lena);
 	}
 	else
 		return 0; //don't add ani
-		
+	
+	double K = 0;
+	
 	if(lua_isnumber(L, 2+r1+r2))
-		ani->strength[idx] = lua_tonumber(L, 2+r1+r2);
+		K = lua_tonumber(L, 2+r1+r2);
 	else
 		return luaL_error(L, "anisotropy needs strength");
+	
+	ani->addAnisotropy(idx, a[0], a[1], a[2], K);
 
 	return 0;
 }
@@ -304,9 +329,9 @@ static int l_ani_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_ani_set)
+	if(func == l_ani_add)
 	{
-		lua_pushstring(L, "Define a lattice site which has anisotropy");
+		lua_pushstring(L, "Add a lattice site to the anisotropy calculation");
 		lua_pushstring(L, "2 *3Vector*s, 1 number: The first *3Vector* defines a lattice site, the second defines an easy axis and is normalized. The number defines the strength of the Anisotropy.");
 		lua_pushstring(L, "");
 		return 3;
@@ -330,7 +355,8 @@ void registerAnisotropy(lua_State* L)
 		{"__gc",         l_ani_gc},
 		{"__tostring",   l_ani_tostring},
 		{"apply",        l_ani_apply},
-		{"setSite",      l_ani_set},
+		//{"setSite",      l_ani_set},
+		{"add",          l_ani_add},
 		{"member",       l_ani_member},
 		{NULL, NULL}
 	};

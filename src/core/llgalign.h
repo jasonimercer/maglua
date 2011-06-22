@@ -11,17 +11,17 @@
 ******************************************************************************/
 
 #include "luacommon.h"
-#include "main.h"
 
-#ifndef LLGQUATDEF
-#define LLGQUATDEF
+#ifndef LLGALIGNDEF
+#define LLGALIGNDEF
 
 #include "llg.h"
 
-class LLGQuaternion : public LLG
+//make spin align with field
+class LLGAlign : public LLG
 {
 public:
-	LLGQuaternion();
+	LLGAlign();
 
 	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 };

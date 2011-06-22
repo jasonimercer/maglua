@@ -10,49 +10,19 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifndef SPINOPERATIONEXCHANGE
-#define SPINOPERATIONEXCHANGE
+#include "luacommon.h"
 
-#include "spinoperation.h"
+#ifndef LLGQUATDEF
+#define LLGQUATDEF
 
-class Exchange : public SpinOperation
+#include "llg.h"
+
+class LLGQuaternion : public LLG
 {
 public:
-	Exchange(int nx, int ny, int nz);
-	virtual ~Exchange();
-	
-	bool apply(SpinSystem* ss);
+	LLGQuaternion();
 
-	void addPath(int site1, int site2, double strength);
-
-	virtual void encode(buffer* b) const;
-	virtual int  decode(buffer* b);
-	void opt();
-
-	typedef struct sss
-	{
-		int fromsite;
-		int tosite;
-		double strength;
-	} sss;
-
-private:
-	void deinit();
-	
-	int size;
-	int num;
-	
-	
-	
-	sss* pathways;
-	
-// 	int* fromsite;
-// 	int* tosite;
-// 	double* strength;
+	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 };
-
-Exchange* checkExchange(lua_State* L, int idx);
-void registerExchange(lua_State* L);
-void lua_pushExchange(lua_State* L, Exchange* ex);
 
 #endif

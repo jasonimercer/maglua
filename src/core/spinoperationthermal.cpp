@@ -333,7 +333,7 @@ void registerThermal(lua_State* L)
 		{"temperature",  l_thermal_gettemp},
 		{NULL, NULL}
 	};
-		
+	
 	luaL_newmetatable(L, "MERCER.thermal");
 	lua_pushstring(L, "__index");
 	lua_pushvalue(L, -2);  /* pushes the metatable */

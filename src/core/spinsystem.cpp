@@ -907,7 +907,7 @@ int l_ss_getfield(lua_State* L)
 	const char* name = lua_tostring(L, 2);
 
 	if(!name)
-		return luaL_error(L, "Second argument must a string");
+		return luaL_error(L, "First argument must a string");
 	
 	int site[3];
 	int r = lua_getNint(L, 3, site, 3, 1);
@@ -1350,7 +1350,7 @@ void registerSpinSystem(lua_State* L)
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_ss_gc},
 		{"__tostring",   l_ss_tostring},
-		{"netMag",       l_ss_netmag},
+		{"netMoment",    l_ss_netmag},
 		{"netField",     l_ss_netfield},
 		{"setSpin",      l_ss_setspin},
 		{"spin"   ,      l_ss_getspin},
@@ -1359,10 +1359,12 @@ void registerSpinSystem(lua_State* L)
 		{"ny",           l_ss_ny},
 		{"nz",           l_ss_nz},
 		{"sumFields",    l_ss_sumfields},
-		{"zeroFields",   l_ss_zerofields},
+//		{"zeroFields",   l_ss_zerofields},
+		{"resetFields",  l_ss_zerofields},
 		{"setTime",      l_ss_settime},
 		{"time",         l_ss_gettime},
-		{"getField",     l_ss_getfield},
+		{"field",        l_ss_getfield},
+//		{"getField",     l_ss_getfield},
 		{"inverseSpin",  l_ss_getinversespin},
 		{"addFields",    l_ss_addfields},
 		{"copy",         l_ss_copy},
