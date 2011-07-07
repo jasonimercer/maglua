@@ -16,6 +16,7 @@ INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core
 LIBS=`pkg-config --libs $(PKG) ` -lpthread
 OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o
 LIBNAME=Magnetostatics
+MODDIR=$(shell maglua --module_path)
 
 all: $(LIBNAME).so
 
@@ -26,11 +27,11 @@ $(LIBNAME).so : $(OBJECTS)
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 install: all
-	mkdir -p ../lib
-	cp -f $(LIBNAME).so ../lib
+	mkdir -p $(MODDIR)
+	cp -f $(LIBNAME).so $(MODDIR)
 
 uninstall: distclean
-	rm -f ../lib/$(LIBNAME).so
+	rm -f $(MODDIR)/$(LIBNAME).so
 
 clena: clean
 
@@ -40,5 +41,3 @@ clean:
 
 distclean: clean
 	rm -f $(LIBNAME).so
-
-

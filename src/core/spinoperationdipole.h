@@ -29,6 +29,8 @@ public:
 	bool apply(SpinSystem* ss);
 	void getMatrices();
 	
+	void threadApply(SpinSystem* ss);
+	
 	double g;
 
 	double ABC[9];
@@ -37,7 +39,7 @@ public:
 	virtual void encode(buffer* b) const;
 	virtual int  decode(buffer* b);
 
-	private:
+private:
 	void ifftAppliedForce(SpinSystem* ss);
 	void collectIForces(SpinSystem* ss);
 

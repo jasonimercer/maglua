@@ -252,6 +252,31 @@ void Dipole::collectIForces(SpinSystem* ss)
 	}
 }
 
+// struct dipss
+// {
+// 	Dipole* dip;
+// 	SpinSystem* ss;
+// };
+// 
+// static void* thread_dipole_wrapper(void* ds)
+// {
+// 	struct dipss* x = (struct dipss*)ds;
+// 	
+// 	x->dip->apply(x->ss);
+// 	
+// 	delete x;
+// 	return 0;
+// }
+// 
+// void Dipole::threadApply(SpinSystem* ss)
+// {
+// 	struct dipss* x = new struct dipss;
+// 	x->dip = this;
+// 	x->ss  = ss;
+// 	
+// 	ss->start_thread(DIPOLE_SLOT, thread_dipole_wrapper, x);
+// }
+	
 bool Dipole::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
@@ -328,6 +353,17 @@ int l_dip_apply(lua_State* L)
 	
 	return 0;
 }
+
+// int l_dip_threadapply(lua_State* L)
+// {
+// 	Dipole* dip = checkDipole(L, 1);
+// 	if(!dip) return 0;
+// 	SpinSystem* ss = checkSpinSystem(L, 2);
+// 	
+// 	dip->threadApply(ss);
+// 	
+// 	return 0;
+// }
 
 int l_dip_getstrength(lua_State* L)
 {
@@ -515,6 +551,7 @@ void registerDipole(lua_State* L)
 		{"__gc",         l_dip_gc},
 		{"__tostring",   l_dip_tostring},
 		{"apply",        l_dip_apply},
+// 		{"threadApply",  l_dip_threadapply},
 		{"setStrength",  l_dip_setstrength},
 		{"strength",     l_dip_getstrength},
 		{"setUnitCell",  l_dip_setunitcell},

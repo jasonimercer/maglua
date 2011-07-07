@@ -25,6 +25,7 @@
 #include "luacommon.h"
 #include <string>
 #include "encodable.h"
+
 class SpinSystem;
 
 class SpinOperation : public Encodable

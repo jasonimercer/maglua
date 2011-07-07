@@ -86,6 +86,8 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 	const double* sz = spinfrom->z;
 	const double* ms = spinfrom->ms;
 
+	      double* mt = spinto->ms;
+
 	const double* hx = fieldfrom->hx[SUM_SLOT];
 	const double* hy = fieldfrom->hy[SUM_SLOT];
 	const double* hz = fieldfrom->hz[SUM_SLOT];
@@ -110,6 +112,7 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 		Quaternion qVec;
 		Quaternion qRes;
 		
+		mt[i] = ms[i];
 		if(ms[i] > 0)
 		{
 			double HLen;

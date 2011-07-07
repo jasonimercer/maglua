@@ -146,7 +146,7 @@ int l_llg_apply(lua_State* L)
 				return 0;
 			
 			llg->apply(spinfrom, fieldfrom, spinto, advanceTime);
-			
+
 			return 0;
 		}
 	}

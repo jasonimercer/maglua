@@ -17,6 +17,8 @@
 #include <fftw3.h>
 #include "luacommon.h"
 #include "encodable.h"
+#include "jthread.h"
+
 using namespace std;
 
 class SpinSystem : public Encodable
@@ -27,6 +29,8 @@ public:
 
 	SpinSystem* copy(lua_State* L);
 	bool copyFrom(lua_State* L, SpinSystem* src);
+	bool copySpinsFrom(lua_State* L, SpinSystem* src);
+	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
 	
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);
@@ -43,6 +47,8 @@ public:
 	
 	void getNetMag(double* v4);
 	
+	void diff(SpinSystem* other, double* v4);
+	
 	double* x;
 	double* y;
 	double* z;
@@ -58,6 +64,9 @@ public:
 	int* extra_data; //used for site specific lua data
 
 	double* ms; // spin length
+	
+// 	int start_thread(int idx, void *(*start_routine)(void*), void* arg);
+// 	JThread** jthreads;
 	
 	double alpha;
 	double gamma;
@@ -77,6 +86,8 @@ public:
 	
 	virtual void encode(buffer* b) const;
 	virtual int  decode(buffer* b);
+
+	lua_State* L;
 
 private:
 	void init();

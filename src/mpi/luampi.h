@@ -10,8 +10,13 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
+extern "C" {
+        #include <lua.h>
+        #include <lualib.h>
+        #include <lauxlib.h>
+}
+
 #ifdef _MPI
-#include "luacommon.h"
 
 void registerMPI(lua_State* L);
 

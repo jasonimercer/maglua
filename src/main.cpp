@@ -23,6 +23,7 @@ extern "C" {
 
 #include "info.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <dirent.h>
@@ -34,7 +35,7 @@ extern "C" {
 #ifdef _MPI
  #include <mpi.h>
 #endif
-
+#include "setup_code.h"
 
 using namespace std;
 
@@ -42,9 +43,21 @@ using namespace std;
 map<string,int> loaded;
 vector<string> mod_dirs;
 
+int getmoddirs(vector<string>& mds, const int argc, char** argv);
 int registerLibs(int suppress, lua_State* L);
 void lua_addargs(lua_State* L, int argc, char** argv);
 static int l_info(lua_State* L);
+void print_help();
+const char* reference();
+// 
+// command line switches:
+//  -L                  add moduel dir to search path
+//  -q                  run quietly, omit some startup info printing
+//  --module_path       print primary mod dir
+//  --setup mod_dir     setup startup files in $(HOME)/.maglua.d
+//                        with mod_dir in the list of module paths  
+//  -h --help           show this help
+// 
 
 int main(int argc, char** argv)
 {
@@ -53,40 +66,106 @@ int main(int argc, char** argv)
 #endif
 	
 	int suppress = 0;
-	
+	int shutdown = 0;
 	for(int i=0; i<argc; i++)
 	{
 		if(strcmp("-q", argv[i]) == 0)
 			suppress = 1;
+
+		if(strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
+		{
+			print_help();
+			shutdown = 1;
+		}
+		
+		if(strcmp("--module_path", argv[i]) == 0)
+		{
+			vector<string> mp;
+			getmoddirs(mp, argc, argv);
+			for(unsigned int i=0; i<mp.size() && i < 1; i++)
+			{
+				cout << mp[i] << endl;
+			}
+			shutdown = 1;
+		}
+
+		if(strcmp("--setup", argv[i]) == 0)
+		{
+			if(i < argc-1)
+			{
+				lua_State *L = lua_open();
+				luaL_openlibs(L);
+
+				if(luaL_dostring(L, setup_lua_code))
+				{
+					fprintf(stderr, "%s\n", lua_tostring(L, -1));
+				}
+				
+				printf("\n\n%s\n\n", setup_lua_code);
+				
+				lua_getglobal(L, "setup");
+				lua_pushstring(L, argv[i+1]);
+				
+				if(lua_pcall(L, 1,0,0))
+				{
+					fprintf(stderr, "%s\n", lua_tostring(L, -1));
+				}
+				
+				lua_close(L);
+				shutdown = 1;
+			}
+			
+		}
 	}
+	
+	if(shutdown)
+	{
+		#ifdef _MPI
+			MPI_Finalize();
+		#endif
+		return 0;
+	}
+	
+#ifdef _MPI
+	{
+		//suppress startup messages for non-root rank
+		int rank;
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		suppress |= rank;
+	}
+#endif
+
 	
 	lua_State *L = lua_open();
 	luaL_openlibs(L);
 
 	int modbase = 1;
 	lua_newtable(L);
-#ifdef MAGLUAMODULESPATH
-	lua_pushinteger(L, modbase);
-	lua_pushstring(L, MAGLUAMODULESPATH);
-	lua_settable(L, -3);
-	modbase++;
-#endif	
-
-	for(int i=0; i<argc-1; i++)
+	
+	
 	{
-		if(strcmp("-L", argv[i]) == 0)
+		vector<string> m;
+		getmoddirs(m, argc, argv);
+		for(unsigned int i=0; i<m.size(); i++)
 		{
 			lua_pushinteger(L, modbase);
-			lua_pushstring(L, argv[i+1]);
+			lua_pushstring(L, m[i].c_str());
 			lua_settable(L, -3);
 			modbase++;
 		}
+	
+
 	}
 
 	lua_setglobal(L, "module_path");
 
 	if(!suppress)
+	{
 		cout << "MagLua r-" << __rev << " by Jason Mercer (c) 2011" << endl;
+		cout << endl;
+		cout << reference() << endl;
+		cout << endl;
+	}
 	
 	if(!registerLibs(suppress, L))
 	{
@@ -132,6 +211,77 @@ int main(int argc, char** argv)
 }
 
 
+int getmoddirs(vector<string>& mds, const int argc, char** argv)
+{
+	for(int i=0; i<argc-1; i++)
+	{
+		if(strcmp("-L", argv[i]) == 0)
+		{
+			mds.push_back(argv[i+1]);
+			i++;
+		}
+	}
+
+
+	lua_State *L = lua_open();
+	luaL_openlibs(L);
+	
+	char* home = getenv("HOME");
+	int home_len = 0;
+	if(home)
+	{
+		home_len = strlen(home);
+	}
+	
+	char* init_file = new char[home_len + 128];
+	
+	init_file[0] = 0;
+	if(home)
+	{
+		strcpy(init_file, home);
+	}
+	else
+	{
+		strcpy(init_file, ".");
+	}
+	
+	strcat(init_file, "/.maglua.d/module_path.lua");
+	
+	if(!luaL_dofile(L, init_file))
+	{
+		lua_getglobal(L, "module_path");
+		if(lua_istable(L, -1))
+		{
+			lua_pushnil(L);
+			while(lua_next(L, -2))
+			{
+				if(lua_isstring(L, -1))
+				{
+					mds.push_back(lua_tostring(L, -1));
+				}
+				lua_pop(L, 1);
+			}
+		}
+		else
+		{
+			if(lua_isstring(L, -1))
+			{
+				mds.push_back(lua_tostring(L, -1));
+			}
+		}
+	}
+	else
+	{
+		printf("%s\n", lua_tostring(L, -1));
+	}
+	
+	delete [] init_file;
+
+	
+	
+	lua_close(L);
+}
+
 
 // add command line args to the lua state
 // adding argc, argv and a table arg
@@ -173,7 +323,6 @@ static int l_info(lua_State* L)
 			if(lua_gettop(L) && __info[pos] == '\n' && __info[pos+1])
 					result.append(lua_tostring(L, 1));
 		}
-
 
 	if(lua_gettop(L))
 		result.append(lua_tostring(L, 1));
@@ -397,6 +546,30 @@ int registerLibs(int suppress, lua_State* L)
 	return bad_fail;
 }
 
+const char* reference()
+{
+	return "\"MagLua, a Micromagnetics Programming Environment\". Mercer, Jason I. (2011). Journal. Vol, pages";
+}
 
-
+void print_help()
+{
+	cout << "MagLua r-" << __rev << " by Jason Mercer (c) 2011" << endl;
+	cout << endl;
+	cout << " MagLua is a micromagnetics programming environment built" << endl;
+	cout << " ontop of the Lua scripting language." << endl;
+	cout << endl;
+	cout << "Command Line Arguments:" << endl;
+	cout << " -L mod_dir       Add module <mod_dir> to search path" << endl;
+	cout << " -q               Run quietly, omit some startup messages" << endl;
+	cout << " --module_path    Print primary module directory" << endl;
+	cout << " --setup mod_dir  Setup startup files in $(HOME)/.maglua.d" << endl;
+	cout << "                   with <mod_dir> in the list of paths" << endl;
+	cout << " -h, --help       Show this help" << endl;
+	cout << endl;
+	cout << "Use the following reference when citing this code:" << endl;
+	cout << "*** reference incomplete ***" << endl;
+	cout << reference() << endl;
+	
+	cout << endl;
+}
 

@@ -33,7 +33,6 @@ int lib_deps(lua_State* L);
 #include "spinoperationthermal.h"
 #include "interpolatingfunction.h"
 #include "interpolatingfunction2d.h"
-#include "luampi.h"
 	
 int lib_register(lua_State* L)
 {
@@ -47,10 +46,6 @@ int lib_register(lua_State* L)
 	registerThermal(L);
 	registerInterpolatingFunction(L);
 	registerInterpolatingFunction2D(L);
-
-#ifdef _MPI
-	registerMPI(L);
-#endif
 
 	return 0;
 }

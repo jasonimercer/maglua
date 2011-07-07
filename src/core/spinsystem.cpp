@@ -11,6 +11,7 @@
 ******************************************************************************/
 
 #include "spinsystem.h"
+#include "jthread.h"
 #include "spinoperation.h"
 #include <iostream>
 #include <math.h>
@@ -18,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+#include "luamigrate.h"
 
 using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
@@ -29,6 +31,7 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 		nslots(NSLOTS), time(0)
 {
 	init();
+	L = 0;
 }
 
 SpinSystem::~SpinSystem()
@@ -44,6 +47,39 @@ SpinSystem* SpinSystem::copy(lua_State* L)
 	
 	return c;
 }
+
+void SpinSystem::diff(SpinSystem* other, double* v4)
+{
+	if(	nx != other->nx ||
+		ny != other->ny ||
+		nz != other->nz)
+	{
+		v4[0] = 1e8;
+		v4[1] = 1e8;
+		v4[2] = 1e8;
+		v4[3] = 1e8;
+		return;
+	}
+	
+	v4[0] = 0;
+	v4[1] = 0;
+	v4[2] = 0;
+	
+	const double* txyz[3] = {x,y,z};
+	const double* oxyz[3] = {other->x,other->y,other->z};
+	
+	for(int j=0; j<3; j++)
+	{
+		for(int i=0; i<nxyz; i++)
+		{
+// 			printf("%f\n", txyz[j][i]);
+			v4[j] += fabs(txyz[j][i] - oxyz[j][i]);
+		}
+	}
+	
+	v4[3] = sqrt(v4[0]*v4[0] + v4[1]*v4[1] + v4[2]*v4[2]);
+}
+
 
 bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 {
@@ -69,24 +105,51 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	// unref data - if exists
 	for(int i=0; i<nxyz; i++)
 	{
-		if(extra_data[i] >= 0)
-			luaL_unref(L, LUA_REGISTRYINDEX,extra_data[i]);
+		if(extra_data[i] != LUA_REFNIL)
+			luaL_unref(L, LUA_REGISTRYINDEX, extra_data[i]);
+		extra_data[i] = LUA_REFNIL;
 	}
 	
 	// make copies of references
 	for(int i=0; i<nxyz; i++)
 	{
-		if(src->extra_data[i] < 0)
-		{
-			extra_data[i] = -1;
-		}
-		else
+		if(src->extra_data[i] != LUA_REFNIL)
 		{
 			lua_rawgeti(L, LUA_REGISTRYINDEX, src->extra_data[i]);
 			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
 		}
 	}
 	
+	return true;
+}
+
+bool SpinSystem::copySpinsFrom(lua_State* L, SpinSystem* src)
+{
+	if(nx != src->nx) return false;
+	if(ny != src->ny) return false;
+	if(nz != src->nz) return false;
+	
+	memcpy( x, src->x,  nxyz * sizeof(double));
+	memcpy( y, src->y,  nxyz * sizeof(double));
+	memcpy( z, src->z,  nxyz * sizeof(double));
+	memcpy(ms, src->ms, nxyz * sizeof(double));
+	
+	fft_time = time - 1.0;
+	
+	return true;
+}
+
+bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
+{
+	if(nx != src->nx) return false;
+	if(ny != src->ny) return false;
+	if(nz != src->nz) return false;
+	
+	memcpy(hx[SUM_SLOT], src->hx[SUM_SLOT], nxyz * sizeof(double));
+	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
+	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
+	
+	fft_time = time - 1.0;
 	
 	return true;
 }
@@ -96,6 +159,17 @@ void SpinSystem::deinit()
 {
 	if(x)
 	{
+		if(L)
+		{
+			for(int i=0; i<nxyz; i++)
+			{
+				if(extra_data[i] != LUA_REFNIL)
+				{
+					lua_unref(L, extra_data[i]);
+				}
+			}
+		}
+		
 		delete [] x; x = 0;
 		delete [] y;
 		delete [] z;
@@ -105,10 +179,13 @@ void SpinSystem::deinit()
 		
 		for(int i=0; i<nslots; i++)
 		{
+// 			if(jthreads[i])
+// 				delete jthreads[i];
 			delete [] hx[i];
 			delete [] hy[i];
 			delete [] hz[i];
 		}
+// 		delete [] jthreads;
 
 		delete [] hx;
 		delete [] hy;
@@ -122,9 +199,8 @@ void SpinSystem::deinit()
 		delete [] qy;
 		delete [] qz;
 		
-		
 		delete [] extra_data;
-		
+
 		fftw_destroy_plan(r2q);
 	}
 }
@@ -148,9 +224,13 @@ void SpinSystem::init()
 	
 	slot_used = new bool[nslots];
 
+// 	jthreads = new JThread* [nslots];
+// 	for(int i=0; i<nslots; i++)
+// 		jthreads[i] = 0;
+	
 	extra_data = new int[nxyz];
 	for(int i=0; i<nxyz; i++)
-		extra_data[i] = -1;
+		extra_data[i] = LUA_REFNIL;
 	
 	for(int i=0; i<nslots; i++)
 	{
@@ -158,12 +238,12 @@ void SpinSystem::init()
 		hy[i] = new double[nxyz];
 		hz[i] = new double[nxyz];
 		
-// 		for(int j=0; j<nxyz; j++)
-// 		{
-// 			hx[i][j] = 0;
-// 			hy[i][j] = 0;
-// 			hz[i][j] = 0;
-// 		}
+		for(int j=0; j<nxyz; j++)
+		{
+			hx[i][j] = 0;
+			hy[i][j] = 0;
+			hz[i][j] = 0;
+		}
 	}
 	zeroFields();
 	
@@ -197,6 +277,19 @@ void SpinSystem::init()
 //    int decodeInteger(const char* buf, int* pos);
 // double decodeDouble(const char* buf, int* pos);
 
+// int SpinSystem::start_thread(int idx, void *(*start_routine)(void*), void* arg)
+// {
+// 	if(!jthreads[idx])
+// 	{
+// 		jthreads[idx] = new JThread(start_routine, arg);
+// 		jthreads[idx]->start();
+// 	}
+// // 	else
+// // 	{
+// // 		
+// // 	}
+// 	
+// }
 
 void SpinSystem::encode(buffer* b) const
 {
@@ -215,22 +308,48 @@ void SpinSystem::encode(buffer* b) const
 		encodeDouble(x[i], b);
 		encodeDouble(y[i], b);
 		encodeDouble(z[i], b);
-		
-// 		encodeDouble(qx[i].real(), b);
-// 		encodeDouble(qx[i].imag(), b);
-
-// 		encodeDouble(qy[i].real(), b);
-// 		encodeDouble(qy[i].imag(), b);
-
-// 		encodeDouble(qz[i].real(), b);
-// 		encodeDouble(qz[i].imag(), b);
-
-// 		for(int j=0; j<nslots; j++)
-// 		{
-// 			encodeDouble(hx[j][i], b);
-// 			encodeDouble(hy[j][i], b);
-// 			encodeDouble(hz[j][i], b);
-// 		}
+	}
+	
+	
+	int numExtraData = 0;
+	
+	for(int i=0; i<nxyz; i++)
+	{
+		if(extra_data[i] != LUA_REFNIL)
+			numExtraData++;
+	}
+	
+	if(numExtraData > nxyz / 2) //then we'll write all explicitly
+	{
+		encodeInteger(-1, b); //flag for "all data"
+		for(int i=0; i<nxyz; i++)
+		{
+			if(extra_data[i] != LUA_REFNIL)
+			{
+				lua_rawgeti(L, LUA_REGISTRYINDEX, extra_data[i]);
+			}
+			else
+			{
+				lua_pushnil(L);
+			}
+			
+			_exportLuaVariable(L, -1, b);
+			lua_pop(L, 1);
+		}
+	}
+	else
+	{
+		encodeInteger(numExtraData, b); //flag for "partial data" and number of partial data
+		for(int i=0; i<nxyz; i++)
+		{
+			if(extra_data[i] != LUA_REFNIL)
+			{
+				encodeInteger(i, b);
+				lua_rawgeti(L, LUA_REGISTRYINDEX, extra_data[i]);
+				_exportLuaVariable(L, -1, b);
+				lua_pop(L, 1);
+			}
+		}
 	}
 }
 
@@ -255,22 +374,30 @@ int  SpinSystem::decode(buffer* b)
 		x[j] = decodeDouble(b);
 		y[j] = decodeDouble(b);
 		z[j] = decodeDouble(b);
-		
-// 		r = decodeDouble(b); i = decodeDouble(b);
-// 		qx[j] = complex<double>(r, i);
-// 		r = decodeDouble(b); i = decodeDouble(b);
-// 		qy[j] = complex<double>(r, i);
-// 		r = decodeDouble(b); i = decodeDouble(b);
-// 		qz[j] = complex<double>(r, i);
-// 		
-// 		for(int k=0; k<nslots; k++)
-// 		{
-// 			hx[k][j] = decodeDouble(b);
-// 			hy[k][j] = decodeDouble(b);
-// 			hz[k][j] = decodeDouble(b);
-// 		}
+		ms[j] = sqrt(x[j]*x[j]+y[j]*y[j]+z[j]*z[j]);
 	}
 	
+
+
+	int numPartialData = decodeInteger(b);
+	if(numPartialData < 0) //then all, implicitly
+	{
+		for(int i=0; i<nxyz; i++)
+		{
+			_importLuaVariable(L, b);
+			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
+		}
+	}
+	else
+	{
+		for(int i=0; i<numPartialData; i++)
+		{
+			int idx = decodeInteger(b);
+			_importLuaVariable(L, b);
+			extra_data[idx] = luaL_ref(L, LUA_REGISTRYINDEX);
+		}
+	}
+
 	return 0;
 }
 
@@ -278,6 +405,15 @@ int  SpinSystem::decode(buffer* b)
 
 void SpinSystem::sumFields()
 {
+// 	for(int i=0; i<NSLOTS; i++)
+// 	{
+// 		if(jthreads[i])
+// 		{
+// 			jthreads[i]->join();
+// 			delete jthreads[i];
+// 			jthreads[i] = 0;
+// 		}
+// 	}
 #if 0
 	vector<int> v;
 	for(int i=1; i<NSLOTS; i++)
@@ -537,6 +673,7 @@ SpinSystem* checkSpinSystem(lua_State* L, int idx)
 void lua_pushSpinSystem(lua_State* L, SpinSystem* ss)
 {
 	ss->refcount++;
+	ss->L = L;
 	
 	SpinSystem** pp = (SpinSystem**)lua_newuserdata(L, sizeof(SpinSystem**));
 	
@@ -568,6 +705,7 @@ int l_ss_new(lua_State* L)
 	ny = n[1];
 	nz = n[2];
 
+	
 	lua_pushSpinSystem(L, new SpinSystem(nx, ny, nz));
 	
 	return 1;
@@ -981,6 +1119,34 @@ int l_ss_copyto(lua_State* L)
 	return 0;
 }
 
+int l_ss_copyfieldsto(lua_State* L)
+{
+	SpinSystem* src = checkSpinSystem(L, 1);
+	if(!src) return 0;
+	
+	SpinSystem* dest = checkSpinSystem(L, 2);
+	if(!dest) return 0;
+
+	if(!dest->copyFieldsFrom(L, src))
+		return luaL_error(L, "Failed to copyTo");
+	
+	return 0;
+}
+
+int l_ss_copyspinsto(lua_State* L)
+{
+	SpinSystem* src = checkSpinSystem(L, 1);
+	if(!src) return 0;
+	
+	SpinSystem* dest = checkSpinSystem(L, 2);
+	if(!dest) return 0;
+
+	if(!dest->copySpinsFrom(L, src))
+		return luaL_error(L, "Failed to copyTo");
+	
+	return 0;
+}
+
 static int l_ss_getextradata(lua_State* L)
 {
 	SpinSystem* ss = checkSpinSystem(L, 1);
@@ -1020,7 +1186,7 @@ static int l_ss_setextradata(lua_State* L)
 	
 	int idx = ss->getidx(px, py, pz);
 	
-	if(ss->extra_data[idx] >= 0)
+	if(ss->extra_data[idx] != LUA_REFNIL)
 	{
 		luaL_unref(L, LUA_REGISTRYINDEX, ss->extra_data[idx]);
 	}
@@ -1028,6 +1194,7 @@ static int l_ss_setextradata(lua_State* L)
 	lua_pushvalue(L, r+2);
 	
 	ss->extra_data[idx] = luaL_ref(L, LUA_REGISTRYINDEX);
+	ss->L = L;
 	
 	return 0;
 }
@@ -1082,7 +1249,24 @@ int l_ss_getinversespin(lua_State* L)
 	return 3;
 }
 
+static int l_ss_getdiff(lua_State* L)
+{
+	SpinSystem* sa = checkSpinSystem(L, 1);
+	if(!sa) return 0;
+	
+	SpinSystem* sb = checkSpinSystem(L, 2);
+	if(!sb) return 0;
+	
+	double v4[4];
+	
+	sa->diff(sb, v4);
+	for(int i=0; i<4; i++)
+	{
+		lua_pushnumber(L, v4[i]);
+	}
 
+	return 4;
+}
 
 static int l_ss_mt(lua_State* L)
 {
@@ -1274,6 +1458,24 @@ static int l_ss_help(lua_State* L)
 		return 3;
 	}
 
+	
+	if(func == l_ss_copyspinsto)
+	{
+		lua_pushstring(L, "Copy spins of the calling *SpinSystem* to the given system.");
+		lua_pushstring(L, "1 *SpinSystem*: Destination spin system.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	
+	if(func == l_ss_copyfieldsto)
+	{
+		lua_pushstring(L, "Copy fields of the calling *SpinSystem* to the given system.");
+		lua_pushstring(L, "1 *SpinSystem*: Destination spin system.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
 	if(func == l_ss_setalpha)
 	{
 		lua_pushstring(L, "Set the damping value for the spin system. This is used in *LLG* routines as well as *Thermal* calculations.");
@@ -1338,6 +1540,14 @@ static int l_ss_help(lua_State* L)
 		return 3;
 	}
 
+	if(func == l_ss_getdiff)
+	{
+		lua_pushstring(L, "Compute the absolute difference between the current *SpinSystem* and a given *SpinSystem*. dx = Sum( |x[i] - other:x[i]|)");
+		lua_pushstring(L, "1 *SpinSystem*: to compare against.");
+		lua_pushstring(L, "4 Numbers: The differences in the x, y and z components and the length of the difference vector.");
+		return 3;
+	}
+
 
 
 
@@ -1369,6 +1579,8 @@ void registerSpinSystem(lua_State* L)
 		{"addFields",    l_ss_addfields},
 		{"copy",         l_ss_copy},
 		{"copyTo",       l_ss_copyto},
+		{"copySpinsTo",  l_ss_copyspinsto},
+		{"copyFieldsTo", l_ss_copyfieldsto},
 		{"setAlpha",     l_ss_setalpha},
 		{"alpha",        l_ss_getalpha},
 		{"setTimeStep",  l_ss_settimestep},
@@ -1377,6 +1589,7 @@ void registerSpinSystem(lua_State* L)
 		{"gamma",        l_ss_getgamma},
 		{"setExtraData", l_ss_setextradata},
 		{"extraData",    l_ss_getextradata},
+		{"diff",         l_ss_getdiff},
 		{NULL, NULL}
 	};
 		

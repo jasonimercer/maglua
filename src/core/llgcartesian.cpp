@@ -44,6 +44,8 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem
 	const double* sy = spinfrom->y;
 	const double* sz = spinfrom->z;
 	const double* ms = spinfrom->ms;
+	
+	      double* mt = spinto->ms;
 
 	const double* hx = fieldfrom->hx[SUM_SLOT];
 	const double* hy = fieldfrom->hy[SUM_SLOT];
@@ -62,6 +64,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem
 	#pragma omp parallel for shared(x, y, z)
 	for(int i=0; i<spinfrom->nxyz; i++)
 	{
+		mt[i] = ms[i];
 		if(ms[i] > 0)
 		{
 			double dM[3];

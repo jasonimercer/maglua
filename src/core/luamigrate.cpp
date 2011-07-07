@@ -141,7 +141,7 @@ char* exportLuaVariable(lua_State* L, int index, int* chunksize)
 int _importLuaVariable(lua_State* L, buffer* b)
 {
 	int t = decodeInteger(b);
-	
+
 	switch(t)
 	{
 		case LUA_TNIL:
@@ -194,6 +194,7 @@ int _importLuaVariable(lua_State* L, buffer* b)
 				case ENCODE_SPINSYSTEM:
 				{
 					SpinSystem* ss = new SpinSystem(2,2,2);
+					ss->L = L;
 					ss->decode(b);
 					lua_pushSpinSystem(L, ss);
 				}

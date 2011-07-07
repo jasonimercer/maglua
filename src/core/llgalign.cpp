@@ -26,6 +26,7 @@ bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* sp
 	const double* sy = spinfrom->y;
 	const double* sz = spinfrom->z;
 	const double* ms = spinfrom->ms;
+	      double* mt = spinto->ms;
 
 	const double* hx = fieldfrom->hx[SUM_SLOT];
 	const double* hy = fieldfrom->hy[SUM_SLOT];
@@ -38,6 +39,7 @@ bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* sp
 	for(int i=0; i<spinfrom->nxyz; i++)
 	{
 		const double h = sqrt(hx[i]*hx[i] + hy[i]*hy[i] + hz[i]*hz[i]);
+		mt[i] = ms[i];
 		if(ms[i] > 0 && h > 0)
 		{
 			x[i] = ms[i] * hx[i] / h;

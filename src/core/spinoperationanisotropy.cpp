@@ -85,7 +85,7 @@ int Anisotropy::decode(buffer* b)
 	size = num;
 	init();
 	
-	for(int i=0; i<nxyz; i++)
+	for(int i=0; i<size; i++)
 	{
 		const int site = decodeInteger(b);
 		const double nx = decodeDouble(b);

@@ -10,12 +10,12 @@
 
 CXX=g++
 
-CFLAGS=-ansi -O2 -g
-PKG=lua5.1 fftw3
+CFLAGS=-O2 -g
+PKG=lua5.1
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core
-LIBS=`pkg-config --libs $(PKG) ` -lpthread
-OBJECTS=spinoperationdisordereddipole.o
-LIBNAME=DisorderedDipole
+LIBS=`pkg-config --libs $(PKG) ` -lpthread -lrt
+OBJECTS=mtimer.o
+LIBNAME=Timer
 MODDIR=$(shell maglua --module_path)
 
 all: $(LIBNAME).so
@@ -23,8 +23,8 @@ all: $(LIBNAME).so
 $(LIBNAME).so : $(OBJECTS)
 	$(CXX) -rdynamic -fPIC -shared $(LIBS) $(OBJECTS) -o $(LIBNAME).so
 
-%.o : %.cpp  %.h
-	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
+%.o : %.c  %.h
+	$(CXX) -fPIC $(INCLUDEPATH) -c $*.c -o $*.o 
 
 install: all
 	mkdir -p $(MODDIR)
@@ -41,6 +41,5 @@ clean:
 
 distclean: clean
 	rm -f $(LIBNAME).so
-
 
 

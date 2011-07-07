@@ -18,3 +18,7 @@ extern "C" {
 
 char* exportLuaVariable(lua_State* L, int index,   int* chunksize);
 int   importLuaVariable(lua_State* L, char* chunk, int  chunksize);
+
+#include "encodable.h"
+void _exportLuaVariable(lua_State* L, int index, buffer* b);
+int _importLuaVariable(lua_State* L, buffer* b);

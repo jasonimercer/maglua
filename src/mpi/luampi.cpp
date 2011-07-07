@@ -10,6 +10,12 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
+extern "C" {
+        #include <lua.h>
+        #include <lualib.h>
+        #include <lauxlib.h>
+}
+
 #ifdef _MPI
 #include <mpi.h>
 #include <stdlib.h>
@@ -328,3 +334,20 @@ void registerMPI(lua_State* L)
 }
 
 #endif
+
+
+extern "C"
+{
+int lib_register(lua_State* L)
+{
+#ifdef _MPI
+	registerMPI(L);
+#endif
+	return 0;
+}
+
+int lib_deps(lua_State* L)
+{
+	return 0;
+}
+}

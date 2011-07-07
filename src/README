@@ -1,9 +1,9 @@
-* What is Maglua?
+* What is MagLua?
   ---------------
-  Maglua is an extension to the base Lua language that allows a user to build
+  MagLua is an extension to the base Lua language that allows a user to build
   micromagnetic simulations in the Lua scripting language.
 
-  Maglua is composed of 3 conceptual parts:
+  MagLua is composed of 3 conceptual parts:
     * Data -        Spin vectors and fields, these are held in a SpinSystem.
     * Operators -   Objects which calculate fields based on spins or external 
                      influences such as Anisotropy, Dipole, Thermal, etc.
@@ -13,20 +13,28 @@
 
 * Installation
   ------------
-  Maglua can be built using "make" in 3 different ways:
-    * "make serial"   - builds the serial version of Maglua
-    * "make openmp"   - build the parallel OpenMP version of Maglua +
-    * "make mpi"      - build the parallel MPI version of Maglua +
 
-  Once it is built, you can install maglua with "make install" this will place 
-  any of the 3 executables in your ~/bin directory. Make sure this directory
-  is in your $PATH.
+  MagLua can be built using "make", "make install" will copy the binary to
+  your ~/bin directory. MagLua makes use of Modules installed in a module 
+  directory. The module directory is read from a startup file. To create 
+  the startup file(s) run MagLua giving the location of the directory
 
-        + Experimental
+    maglua --setup MODULE_DIRECTORY
+
+  where MODULE_DIRECTORY is a place where you will install the modules.
+
+  Once MagLua is compiled, installed and the startup files are created, 
+  the modules may be built and installed. In the included subdirectories
+  type "make install". This will place the created modules in a common
+  directory.
+
 
 * Documentation
   -------------
-  Maglua has build in documentation. An HTML file can be built with the 
+  A the command line switch "-h" and "--help" will print information about
+  command line options and how to correctly cite the code. 
+
+  MagLua has build in documentation. An HTML file can be built with the 
   supplied script "help.lua". Run it with "maglua help.lua" to generate
   the help file. 
 
