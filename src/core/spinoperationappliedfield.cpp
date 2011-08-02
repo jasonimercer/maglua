@@ -63,13 +63,22 @@ bool AppliedField::apply(SpinSystem* ss)
 
 
 
+int lua_isAppliedField(lua_State* L, int idx)
+{
+	if(!lua_isuserdata(L, idx))
+		return 0;
+	lua_getmetatable(L, idx);
+	luaL_getmetatable(L, "MERCER.appliedfield");
+	int eq = lua_equal(L, -2, -1);
+	lua_pop(L, 2);
+	return eq;
+}
 
-
-AppliedField* checkAppliedField(lua_State* L, int idx)
+AppliedField* lua_toAppliedField(lua_State* L, int idx)
 {
 	AppliedField** pp = (AppliedField**)luaL_checkudata(L, idx, "MERCER.appliedfield");
-    luaL_argcheck(L, pp != NULL, 1, "`AppliedField' expected");
-    return *pp;
+	luaL_argcheck(L, pp != NULL, idx, "`AppliedField' expected");
+	return *pp;
 }
 
 void lua_pushAppliedField(lua_State* L, AppliedField* ap)
@@ -95,7 +104,7 @@ int l_ap_new(lua_State* L)
 
 int l_ap_gc(lua_State* L)
 {
-	AppliedField* ap = checkAppliedField(L, 1);
+	AppliedField* ap = lua_toAppliedField(L, 1);
 	if(!ap) return 0;
 	
 	ap->refcount--;
@@ -105,9 +114,61 @@ int l_ap_gc(lua_State* L)
 	return 0;
 }
 
+int l_x(lua_State* L)
+{
+	AppliedField* ap = lua_toAppliedField(L, 1);
+	if(!ap) return 0;
+	
+	lua_pushnumber(L, ap->B[0]);
+	return 1;
+}
+int l_y(lua_State* L)
+{
+	AppliedField* ap = lua_toAppliedField(L, 1);
+	if(!ap) return 0;
+	
+	lua_pushnumber(L, ap->B[1]);
+	return 1;
+}
+int l_z(lua_State* L)
+{
+	AppliedField* ap = lua_toAppliedField(L, 1);
+	if(!ap) return 0;
+	
+	lua_pushnumber(L, ap->B[2]);
+	return 1;
+}
+
+int l_sx(lua_State* L)
+{
+	AppliedField* ap = lua_toAppliedField(L, 1);
+	if(!ap) return 0;
+	
+	ap->B[0] = lua_tonumber(L, 2);
+	return 0;
+}
+int l_sy(lua_State* L)
+{
+	AppliedField* ap = lua_toAppliedField(L, 1);
+	if(!ap) return 0;
+	
+	ap->B[1] = lua_tonumber(L, 2);
+	return 0;
+}
+int l_sz(lua_State* L)
+{
+	AppliedField* ap = lua_toAppliedField(L, 1);
+	if(!ap) return 0;
+	
+	ap->B[2] = lua_tonumber(L, 2);
+	return 0;
+}
+
+
+
 int l_ap_apply(lua_State* L)
 {
-	AppliedField* ap = checkAppliedField(L, 1);
+	AppliedField* ap = lua_toAppliedField(L, 1);
 	SpinSystem* ss = checkSpinSystem(L, 2);
 	
 	if(!ap->apply(ss))
@@ -118,7 +179,7 @@ int l_ap_apply(lua_State* L)
 
 int l_ap_member(lua_State* L)
 {
-	AppliedField* ap = checkAppliedField(L, 1);
+	AppliedField* ap = lua_toAppliedField(L, 1);
 	if(!ap) return 0;
 
 	int px = lua_tointeger(L, 2) - 1;
@@ -135,7 +196,7 @@ int l_ap_member(lua_State* L)
 
 int l_ap_set(lua_State* L)
 {
-	AppliedField* ap = checkAppliedField(L, 1);
+	AppliedField* ap = lua_toAppliedField(L, 1);
 	if(!ap) return 0;
 	
 	double a[3];
@@ -153,7 +214,7 @@ int l_ap_set(lua_State* L)
 
 int l_ap_tostring(lua_State* L)
 {
-	AppliedField* ap = checkAppliedField(L, 1);
+	AppliedField* ap = lua_toAppliedField(L, 1);
 	if(!ap) return 0;
 	
 	lua_pushfstring(L, "AppliedField (%dx%dx%d)", ap->nx, ap->ny, ap->nz);
@@ -163,7 +224,7 @@ int l_ap_tostring(lua_State* L)
 
 int l_ap_get(lua_State* L)
 {
-	AppliedField* ap = checkAppliedField(L, 1);
+	AppliedField* ap = lua_toAppliedField(L, 1);
 	if(!ap) return 0;
 	
 	lua_newtable(L);
@@ -247,6 +308,54 @@ static int l_ap_help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_x)
+	{
+		lua_pushstring(L, "Get the X component of the applied field.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: X component of the applied field");
+		return 3;
+	}
+	if(func == l_y)
+	{
+		lua_pushstring(L, "Get the Y component of the applied field.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: Y component of the applied field");
+		return 3;
+	}
+	if(func == l_z)
+	{
+		lua_pushstring(L, "Get the Z component of the applied field.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: Z component of the applied field");
+		return 3;
+	}
+	
+	
+
+	if(func == l_sx)
+	{
+		lua_pushstring(L, "set the X component of the applied field.");
+		lua_pushstring(L, "1 Number: X component of the applied field");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_sy)
+	{
+		lua_pushstring(L, "set the Y component of the applied field.");
+		lua_pushstring(L, "1 Number: Y component of the applied field");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_sz)
+	{
+		lua_pushstring(L, "set the Z component of the applied field.");
+		lua_pushstring(L, "1 Number: Z component of the applied field");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+
+		
 	return 0;
 }
 
@@ -259,6 +368,12 @@ void registerAppliedField(lua_State* L)
 		{"apply",        l_ap_apply},
 		{"set",          l_ap_set},
 		{"get",          l_ap_get},
+		{"x",            l_x},
+		{"y",            l_y},
+		{"z",            l_z},
+		{"setX",         l_sx},
+		{"setY",         l_sy},
+		{"setZ",         l_sz},
 		{"member",       l_ap_member},
 		{NULL, NULL}
 	};

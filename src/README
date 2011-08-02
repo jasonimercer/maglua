@@ -35,8 +35,11 @@
   command line options and how to correctly cite the code. 
 
   MagLua has build in documentation. An HTML file can be built with the 
-  supplied script "help.lua". Run it with "maglua help.lua" to generate
-  the help file. 
+  supplied script "help.lua" in the help directory. Run it with 
+
+     maglua help.lua
+ 
+  to generate the help file. 
 
   Information on the Lua scripting language can be found at www.lua.org
 

@@ -548,7 +548,9 @@ int registerLibs(int suppress, lua_State* L)
 
 const char* reference()
 {
-	return "\"MagLua, a Micromagnetics Programming Environment\". Mercer, Jason I. (2011). Journal. Vol, pages";
+	return "Use the following reference when citing this code:\n" \
+		   "*** reference incomplete ***\n" \
+	       "\"MagLua, a Micromagnetics Programming Environment\". Mercer, Jason I. (2011). Journal. Vol, pages";
 }
 
 void print_help()
@@ -556,7 +558,7 @@ void print_help()
 	cout << "MagLua r-" << __rev << " by Jason Mercer (c) 2011" << endl;
 	cout << endl;
 	cout << " MagLua is a micromagnetics programming environment built" << endl;
-	cout << " ontop of the Lua scripting language." << endl;
+	cout << " on top of the Lua scripting language." << endl;
 	cout << endl;
 	cout << "Command Line Arguments:" << endl;
 	cout << " -L mod_dir       Add module <mod_dir> to search path" << endl;
@@ -566,8 +568,6 @@ void print_help()
 	cout << "                   with <mod_dir> in the list of paths" << endl;
 	cout << " -h, --help       Show this help" << endl;
 	cout << endl;
-	cout << "Use the following reference when citing this code:" << endl;
-	cout << "*** reference incomplete ***" << endl;
 	cout << reference() << endl;
 	
 	cout << endl;
