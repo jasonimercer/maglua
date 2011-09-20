@@ -28,7 +28,6 @@ int lib_deps(lua_State* L);
 #include "spinoperationexchange.h"
 #include "spinoperationappliedfield.h"
 #include "spinoperationanisotropy.h"
-#include "spinoperationdipole.h"
 #include "mersennetwister.h"
 #include "spinoperationthermal.h"
 #include "interpolatingfunction.h"
@@ -41,7 +40,6 @@ int lib_register(lua_State* L)
 	registerExchange(L);
 	registerAppliedField(L);
 	registerAnisotropy(L);
-	registerDipole(L);
 	registerRandom(L);
 	registerThermal(L);
 	registerInterpolatingFunction(L);

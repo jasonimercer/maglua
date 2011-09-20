@@ -579,3 +579,22 @@ void registerDipole(lua_State* L)
 	lua_pop(L,1);	
 }
 
+extern "C"
+{
+int lib_register(lua_State* L);
+int lib_deps(lua_State* L);
+}
+
+int lib_register(lua_State* L)
+{
+	registerDipole(L);
+	return 0;
+}
+
+int lib_deps(lua_State* L)
+{
+	lua_pushstring(L, "Core");
+	return 1;
+}
+
+

@@ -7,49 +7,31 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-#
-# When configuring fftw3:
-# ./configure  --prefix=$(HOME) --with-pic --enable-shared
 
-#
-#CXX=g++
-CXX=mpic++ -D_MPI
+CXX=g++
 
-CFLAGS=-ansi -O2
-
+CFLAGS=-ansi -O2 -g
 PKG=lua5.1 fftw3
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
-LIBS=`pkg-config --libs $(PKG)` -lpthread -lcufft
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core
+LIBS=`pkg-config --libs $(PKG) ` -lpthread
+OBJECTS=spinoperationdipole.o dipolesupport.o
+LIBNAME=Dipole
+MODDIR=$(shell maglua --module_path)
 
-BIN=maglua
+all: $(LIBNAME).so
 
-.PHONY : mpi
+$(LIBNAME).so : $(OBJECTS)
+	$(CXX) -rdynamic -fPIC -shared $(LIBS) $(OBJECTS) -o $(LIBNAME).so
 
-
-all: $(BIN)
-
-mpi:
-	make CXX="mpic++ -D_MPI" BIN=maglua_mpi all
-
-$(BIN): main.o
-	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group $(LIBS) main.o  -Wl,--end-group
-
-# lib/Core.so:
-# 	make -C core install
-
-main.o : main.cpp  info.h setup_code.h
+%.o : %.cpp  %.h
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 install: all
-	mkdir -p $(HOME)/bin
-	cp -f maglua $(HOME)/bin 2> /dev/null || true
-
-info.h:
-	./premake.sh $(CXX) $(CFLAGS)
+	mkdir -p $(MODDIR)
+	cp -f $(LIBNAME).so $(MODDIR)
 
 uninstall: distclean
-	rm -f ~/bin/maglua
+	rm -f $(MODDIR)/$(LIBNAME).so
 
 clena: clean
 
@@ -58,5 +40,7 @@ clean:
 	rm -f *.o
 
 distclean: clean
-	rm -f $(BIN)
-	rm -f info.h
+	rm -f $(LIBNAME).so
+
+
+

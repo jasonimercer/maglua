@@ -610,6 +610,7 @@ void registerMagnetostatic(lua_State* L)
 
 extern "C" {
 int lib_register(lua_State* L);
+int lib_deps(lua_State* L);
 }
 
 int lib_register(lua_State* L)
@@ -617,3 +618,10 @@ int lib_register(lua_State* L)
 	registerMagnetostatic(L);
 	return 0;
 }
+int lib_deps(lua_State* L)
+{
+	lua_pushstring(L, "Core");
+	lua_pushstring(L, "Dipole");
+	return 2;
+}
+

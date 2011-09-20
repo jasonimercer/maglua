@@ -504,7 +504,7 @@ int registerLibs(int suppress, lua_State* L)
 	
 	if(!suppress)
 	{
-		cout << "Loaded Modules: ";
+		cout << "Modules: ";
 		for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
 		{
 			cout << (*mit).first;
