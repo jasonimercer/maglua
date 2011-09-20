@@ -259,6 +259,12 @@ int l_ex_addpath(lua_State* L)
 	Exchange* ex = checkExchange(L, 1);
 	if(!ex) return 0;
 
+	bool PBC = true;
+	if(lua_isboolean(L, -1))
+	{
+		PBC = lua_toboolean(L, -1);
+	}
+	
 	int r1, r2;
 	int a[3];
 	int b[3];
@@ -277,6 +283,14 @@ int l_ex_addpath(lua_State* L)
 	int s2x = b[0]-1;
 	int s2y = b[1]-1;
 	int s2z = b[2]-1;
+	
+	if(!PBC)
+	{
+		if(!ex->member(s1x,s1y,s1z))
+			return 0;
+		if(!ex->member(s2x,s2y,s2z))
+			return 0;
+	}
 	
 	double strength = lua_isnumber(L, 2+r1+r2)?lua_tonumber(L, 2+r1+r2):1.0;
 	int s1 = ex->getSite(s1x, s1y, s1z);

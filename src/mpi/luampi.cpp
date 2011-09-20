@@ -34,6 +34,8 @@ inline int mpi_rank()
 	return rank;
 }
 
+
+
 inline int mpi_size()
 {
 	int size;
@@ -64,6 +66,34 @@ static int l_mpi_get_rank(lua_State* L)
 	return 1;
 }
 
+static int l_mpi_next_rank(lua_State* L)
+{
+	int r;
+	if(lua_isnumber(L, 1))
+		r = lua_tonumber(L, 1);
+	else
+		r = mpi_rank();
+
+	const int s = mpi_size();
+		
+	lua_pushinteger(L, ((r+1)%s)+1);
+	return 1;
+}
+
+static int l_mpi_prev_rank(lua_State* L)
+{
+	int r;
+	if(lua_isnumber(L, 1))
+		r = lua_tonumber(L, 1);
+	else
+		r = mpi_rank();
+
+	const int s = mpi_size();
+		
+	lua_pushinteger(L, ((r-1+s)%s)+1);
+	return 1;
+}
+	
 static int l_mpi_barrier(lua_State* L)
 {
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -281,8 +311,129 @@ int l_mpi_isend(lua_State* L)
 
 int l_mpi_irecv(lua_State* L)
 {
-
+	return 0;
 }
+
+static int l_mpi_help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Exposes basic MPI functions");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(lua_istable(L, 1))
+	{
+		return 0;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_mpi_get_processor_name)
+	{
+		lua_pushstring(L, "Returns the name of the processor as known by MPI.");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 String: Name");
+		return 3;
+	}	
+	if(func == l_mpi_get_size)
+	{
+		lua_pushstring(L, "Return the total number of proccesses in the global workgroup");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 Number: Number of processes");
+		return 3;
+	}	
+	if(func == l_mpi_get_rank)
+	{
+		lua_pushstring(L, "The rank of the calling process");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 Number: Rank");
+		return 3;
+	}	
+	if(func == l_mpi_send)
+	{
+		lua_pushstring(L, "Send data to another process in the workgroup");
+		lua_pushstring(L, "1 Number, ...: Index of remote process followed by zero or more variables"); 
+		lua_pushstring(L, "");
+		return 3;
+	}	
+	if(func == l_mpi_recv)
+	{
+		lua_pushstring(L, "Receive data from another process in the workgroup");
+		lua_pushstring(L, "1 Number: Index of remote process sending the data"); 
+		lua_pushstring(L, "...: zero or more pieces of data");
+		return 3;
+	}	
+	if(func == l_mpi_barrier)
+	{
+		lua_pushstring(L, "Syncronization barrier");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_mpi_next_rank)
+	{
+		lua_pushstring(L, "Return the rank of the next process with periodic bounds.");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 Number: Next rank");
+		return 3;
+	}
+	if(func == l_mpi_prev_rank)
+	{
+		lua_pushstring(L, "Return the rank of the previous process with periodic bounds.");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "1 Number: Previous rank");
+		return 3;
+	}
+	
+#if 0
+	if(func == l_mpi_gather)
+	{
+		lua_pushstring(L, "");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_mpi_newrequest)
+	{
+		lua_pushstring(L, "");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_mpi_isend)
+	{
+		lua_pushstring(L, "");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_mpi_irecv)
+	{
+		lua_pushstring(L, "");
+		lua_pushstring(L, ""); 
+		lua_pushstring(L, "");
+		return 3;
+	}
+#endif
+	return 0;
+}
+
+static int l_mpi_metatable(lua_State* L)
+{
+	lua_newtable(L);
+	return 1;
+}
+
+
 
 
 int l_mpirequest_gc(lua_State* L)
@@ -329,7 +480,11 @@ void registerMPI(lua_State* L)
 	add("new_request",        l_mpi_newrequest        );
 	add("isend",              l_mpi_isend             );
 	add("irecv",              l_mpi_irecv             );
-	
+	add("help",               l_mpi_help              );
+	add("metatable",          l_mpi_metatable         );
+	add("next_rank",          l_mpi_next_rank         );
+	add("prev_rank",          l_mpi_prev_rank         );
+
 	lua_setglobal(L, "mpi");
 }
 

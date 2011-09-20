@@ -25,7 +25,7 @@ void CRand::seed( const uint32 oneSeed )
 
 uint32 CRand::randInt()
 {
-	uint32 t = 0xFFFFFFFF & rand_r(&_seed);
+	uint32 t = 0xFFFFFFFF & (rand_r(&_seed) ^ (rand_r(&_seed) << 16));
 	return t;
 }
 

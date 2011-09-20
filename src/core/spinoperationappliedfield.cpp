@@ -211,6 +211,23 @@ int l_ap_set(lua_State* L)
 	return 0;
 }
 
+int l_ap_add(lua_State* L)
+{
+	AppliedField* ap = lua_toAppliedField(L, 1);
+	if(!ap) return 0;
+	
+	double a[3];
+	int r = lua_getNdouble(L, 3, a, 2, 0);
+	if(r<0)
+		return luaL_error(L, "invalid field");
+	
+	ap->B[0] += a[0];
+	ap->B[1] += a[1];
+	ap->B[2] += a[2];
+	
+	return 0;
+}
+
 
 int l_ap_tostring(lua_State* L)
 {
@@ -287,6 +304,14 @@ static int l_ap_help(lua_State* L)
 	{
 		lua_pushstring(L, "Set the direction and strength of the Applied Field");
 		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines the strength and direction of the applied field");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_ap_add)
+	{
+		lua_pushstring(L, "Add the direction and strength of the Applied Field");
+		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines the strength and direction of the applied field addition");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -368,6 +393,7 @@ void registerAppliedField(lua_State* L)
 		{"apply",        l_ap_apply},
 		{"set",          l_ap_set},
 		{"get",          l_ap_get},
+		{"add",          l_ap_add},
 		{"x",            l_x},
 		{"y",            l_y},
 		{"z",            l_z},
