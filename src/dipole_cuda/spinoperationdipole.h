@@ -10,12 +10,11 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifndef SPINOPERATIONDIPOLE
-#define SPINOPERATIONDIPOLE
+#ifndef SPINOPERATIONDIPOLECUDA
+#define SPINOPERATIONDIPOLECUDA
 
 #include "spinoperation.h"
-
-#include <cufft.h>
+#include "kernel.hpp"
 
 using namespace std;
 
@@ -26,7 +25,6 @@ public:
 	virtual ~DipoleCuda();
 	
 	bool apply(SpinSystem* ss);
-	void getMatrices();
 	
 	void threadApply(SpinSystem* ss);
 	
@@ -39,33 +37,9 @@ public:
 	virtual int  decode(buffer* b);
 
 private:
-	void ifftAppliedForce(SpinSystem* ss);
-	void collectIForces(SpinSystem* ss);
+	void getPlan();
 
-	bool hasMatrices;
-
-	cufftDoubleComplex* srx;
-	cufftDoubleComplex* sry;
-	cufftDoubleComplex* srz;
-
-	cufftDoubleComplex* hqx;
-	cufftDoubleComplex* hqy;
-	cufftDoubleComplex* hqz;
-
-	cufftDoubleComplex* hrx;
-	cufftDoubleComplex* hry;
-	cufftDoubleComplex* hrz;
-
-
-	cufftDoubleComplex* qXX;
-	cufftDoubleComplex* qXY;
-	cufftDoubleComplex* qXZ;
-
-	cufftDoubleComplex* qYY;
-	cufftDoubleComplex* qYZ;
-	cufftDoubleComplex* qZZ;
-
-	cufftHandle plan;
+	JM_LONGRANGE_PLAN* plan;
 };
 
 void lua_pushDipoleCuda(lua_State* L, DipoleCuda* d);

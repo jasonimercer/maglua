@@ -9,12 +9,13 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 CXX=g++
+NVCC=/usr/bin/nvcc
 
 CFLAGS=-ansi -O2 -g
-PKG=lua5.1 fftw3
+PKG=lua5.1
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core
-LIBS=`pkg-config --libs $(PKG) ` -lpthread
-OBJECTS=spinoperationdipole.o dipolesupport.o
+LIBS=`pkg-config --libs $(PKG) ` -lpthread -lrt
+OBJECTS=spinoperationdipole.o dipolesupport.o kernel.cuo
 LIBNAME=DipoleCUDA
 MODDIR=$(shell maglua --module_path)
 
@@ -26,18 +27,21 @@ $(LIBNAME).so : $(OBJECTS)
 %.o : %.cpp  %.h
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
+%.cuo : %.cu
+	$(NVCC) -Xcompiler -fPIC $(INCLUDEPATH) -arch=sm_21 -c $*.cu -o $*.cuo
+
 install: all
 	mkdir -p $(MODDIR)
 	cp -f $(LIBNAME).so $(MODDIR)
 
-uninstall: distclean
+uninstall:
 	rm -f $(MODDIR)/$(LIBNAME).so
 
 clena: clean
 
 clean:
 	rm -f *~
-	rm -f *.o
+	rm -f $(OBJECTS)
 
 distclean: clean
 	rm -f $(LIBNAME).so
