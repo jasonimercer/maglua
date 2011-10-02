@@ -13,14 +13,14 @@
 # ./configure  --prefix=$(HOME) --with-pic --enable-shared
 
 #
-#CXX=g++
-CXX=mpic++ -D_MPI
+CXX=g++
+# CXX=mpic++ -D_MPI
 
 CFLAGS=-ansi -O2
 
 PKG=lua5.1 fftw3
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
-LIBS=`pkg-config --libs $(PKG)` -lpthread -lcufft
+LIBS=-lpthread `pkg-config --libs $(PKG)` 
 
 BIN=maglua
 
@@ -38,7 +38,7 @@ $(BIN): main.o
 # lib/Core.so:
 # 	make -C core install
 
-main.o : main.cpp  info.h setup_code.h
+main.o : main.cpp  info.h setup_code.h Makefile
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 install: all

@@ -19,10 +19,8 @@ using namespace std;
 { \
 	const cudaError_t i = cudaGetLastError();\
 	if(i) \
-		printf("(%s:%i) %s\n",  __FILE__, __LINE__, cudaGetErrorString(i));\
+		printf("(%s:%i) %s\n",  __FILE__, __LINE__-1, cudaGetErrorString(i));\
 }
-
-// static Timer* timer;
 
 #define BIT(patt, num) ((patt & (1 << num)) >> num)
 static int bit_rev_perm(unsigned int i, unsigned int log2n)
@@ -130,17 +128,6 @@ __global__ void twiddle2DCC(const int N_x, const int N_y, int* d_brp_x, int* d_b
 	d_dest[ti + ty * N_x] = d_src[i + y * N_x];
 }
 
-__global__ void copyCCDevDev(const int N_x, const int N_y, CUCOMPLEX* d_dest,  CUCOMPLEX* d_src)
-{
-	const int i = blockDim.x * blockIdx.x + threadIdx.x;
-	const int y = blockDim.y * blockIdx.y + threadIdx.y;
-	
-	if(i >= N_x || y >= N_y)
-		return;
-
-	d_dest[i + y * N_x] = d_src[i + y * N_x];
-}
-
 __global__ void scaleC(const int N_x, const int N_y, CUCOMPLEX* d, CUCOMPLEX* s,  double v)
 {
 	const int i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -214,7 +201,7 @@ typedef struct JM_LONGRANGE_PLAN
 JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z, 
 	double* GammaXX, double* GammaXY, double* GammaXZ,
 	                 double* GammaYY, double* GammaYZ,
-	                                   double* GammaZZ)
+	                                  double* GammaZZ)
 {
 	const int nz = N_z + N_z - 1;
 	const int log2N_x = log2((double)N_x);

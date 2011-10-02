@@ -383,7 +383,13 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 		
 		snprintf(buf, bufsize, "%s/%s.so", mod_dirs[i].c_str(), name.c_str());
 		
+		dlerror();
 		handle = dlopen(buf,  RTLD_NOW | RTLD_GLOBAL);
+		const char* dle = dlerror();
+		if(dle)
+		{
+			fprintf(stderr, "dlsym error: `%s'\n", dle);
+		}
 
 		if(handle)
 		{
@@ -398,12 +404,15 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 		return 2;
 	}
 	
-
 	typedef int (*lua_func)(lua_State*);
 
-
 	lua_func lib_register = (lua_func) dlsym(handle, "lib_register");
-
+	const char* dle = dlerror();
+	if(dle)
+	{
+		fprintf(stderr, "dlsym error: `%s'\n", dle);
+	}
+	
     if(!lib_register)
 	{
 		// we'll report this later 

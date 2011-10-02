@@ -14,7 +14,7 @@ NVCC=/usr/bin/nvcc
 CFLAGS=-ansi -O2 -g
 PKG=lua5.1
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core
-LIBS=`pkg-config --libs $(PKG) ` -lpthread -lrt
+LIBS=`pkg-config --libs $(PKG) ` -lpthread -lcudart -lcuda
 OBJECTS=spinoperationdipole.o dipolesupport.o kernel.cuo
 LIBNAME=DipoleCUDA
 MODDIR=$(shell maglua --module_path)
@@ -28,7 +28,7 @@ $(LIBNAME).so : $(OBJECTS)
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 %.cuo : %.cu
-	$(NVCC) -Xcompiler -fPIC $(INCLUDEPATH) -arch=sm_21 -c $*.cu -o $*.cuo
+	$(NVCC) --ptxas-options="-v" -Xcompiler -fPIC $(INCLUDEPATH) -arch=sm_23 -c $*.cu -o $*.cuo
 
 install: all
 	mkdir -p $(MODDIR)
