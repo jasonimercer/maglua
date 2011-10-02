@@ -43,13 +43,13 @@ void ss_h_free3DArray(double* v)
 
 void ss_copyDeviceToHost(double* dest, double* src, int nxyz)
 {
-	const cudaError_t err = cudaMemcpy(dest, src, nxyz, cudaMemcpyDeviceToHost);
+	const cudaError_t err = cudaMemcpy(dest, src, sizeof(double)*nxyz, cudaMemcpyDeviceToHost);
 	CHECK
 }
 
 void ss_copyHostToDevice(double* dest, double* src, int nxyz)
 {
-	const cudaError_t err = cudaMemcpy(dest, src, nxyz, cudaMemcpyHostToDevice);
+	const cudaError_t err = cudaMemcpy(dest, src, sizeof(double)*nxyz, cudaMemcpyHostToDevice);
 	CHECK
 }
 

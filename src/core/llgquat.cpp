@@ -163,10 +163,10 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 				y[i] = qRes.y;
 				z[i] = qRes.z;
 
-				double l = 1.0 / sqrt(x[i] * x[i] + y[i] * y[i] + z[i] * z[i]);
-				x[i] *= l * ms[i];
-				y[i] *= l * ms[i];
-				z[i] *= l * ms[i];
+// 				double l = 1.0 / sqrt(x[i] * x[i] + y[i] * y[i] + z[i] * z[i]);
+// 				x[i] *= l * ms[i];
+// 				y[i] *= l * ms[i];
+// 				z[i] *= l * ms[i];
 			}
 			else
 			{

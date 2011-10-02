@@ -58,5 +58,16 @@ clean:
 	rm -f *.o
 
 distclean: clean
+	make -C checkpoint distclean
+	make -C core distclean
+	make -C core_purecuda distclean
+	make -C dipole distclean
+	make -C dipole_cuda distclean
+	make -C dipole_purecuda distclean
+	make -C disordereddipole distclean
+	make -C magnetostatics distclean
+	make -C timer distclean
 	rm -f $(BIN)
 	rm -f info.h
+
+
