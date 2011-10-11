@@ -12,6 +12,7 @@
 
 #include "spinoperationappliedfield.h"
 #include "spinsystem.h"
+#include "spinsystem.hpp"
 
 #include <stdlib.h>
 
@@ -44,18 +45,18 @@ AppliedField::~AppliedField()
 
 bool AppliedField::apply(SpinSystem* ss)
 {
-	double* hx = ss->hx[slot];
-	double* hy = ss->hy[slot];
-	double* hz = ss->hz[slot];
+	double* d_hx = ss->d_hx[slot];
+	double* d_hy = ss->d_hy[slot];
+	double* d_hz = ss->d_hz[slot];
 
-	for(int i=0; i<nxyz; i++)
-	{
-		hx[i] = B[0];
-		hy[i] = B[1];
-		hz[i] = B[2];
-		
-		//printf("%g %g %g\n", hx[i], hy[i], hz[i]);
-	}
+	markSlotUsed(ss);
+	
+	ss_d_set3DArray(d_hx, nx, ny, nz, B[0]);
+	ss_d_set3DArray(d_hy, nx, ny, nz, B[1]);
+	ss_d_set3DArray(d_hz, nx, ny, nz, B[2]);
+	
+	ss->new_device_fields[slot] = true;
+	
 	return true;
 }
 

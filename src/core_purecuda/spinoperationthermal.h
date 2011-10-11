@@ -14,6 +14,8 @@
 #define SPINOPERATIONTHERMAL
 
 #include "spinoperation.h"
+#include "hybridtaus.hpp"
+#include <stdint.h>
 
 class RNG;
 class LLG;
@@ -28,11 +30,28 @@ public:
 
 	void scaleSite(int px, int py, int pz, double strength);
 
+	void init();
+	void deinit();
+	
 	double temperature;
-	double* scale;
+
+
+	state_t* d_state;
+	float* d_rngs;
+	
+	void sync_dh(bool force=false);
+	void sync_hd(bool force=false);
 	
 	virtual void encode(buffer* b) const;
 	virtual int  decode(buffer* b);
+	
+	bool new_device;
+	bool new_host;
+private:
+	double* d_scale;
+	double* h_scale;
+
+	int twiddle;
 };
 
 Thermal* checkThermal(lua_State* L, int idx);

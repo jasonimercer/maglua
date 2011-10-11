@@ -11,6 +11,8 @@
 ******************************************************************************/
 
 #include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "llgquat.h"
 #include "spinsystem.h"
 #include "spinoperation.h"
@@ -39,13 +41,14 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 	const double alpha = spinfrom->alpha;
 	const double dt    = spinfrom->dt;
 
+	// if new spins/fields exist on the host copy them to the device
 	spinfrom->sync_spins_hd();
 	fieldfrom->sync_fields_hd(SUM_SLOT);
 	
 	const int nx = spinfrom->nx;
 	const int ny = spinfrom->ny;
 	const int nz = spinfrom->nz;
-	
+
 	cuda_llg_quat_apply(nx, ny, nz,
 						spinto->d_x, spinto->d_y, spinto->d_z, spinto->d_ms, 
 						spinfrom->d_x, spinfrom->d_y, spinfrom->d_z, spinfrom->d_ms, 
@@ -54,7 +57,8 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSyste
 								fieldfrom->d_hz[SUM_SLOT],
 						spinfrom->d_ws1, spinfrom->d_ws2, spinfrom->d_ws3, spinfrom->d_ws4,
 						alpha, dt, gamma);	
-	
+
+	// mark spins as new for future d->h syncing
 	spinto->new_device_spins = true;
 	
 	if(advancetime)

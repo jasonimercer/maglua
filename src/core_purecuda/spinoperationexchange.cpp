@@ -11,6 +11,7 @@
 ******************************************************************************/
 
 #include "spinoperationexchange.h"
+#include "spinoperationexchange.hpp"
 #include "spinsystem.h"
 
 #include <stdlib.h>
@@ -23,11 +24,17 @@
 Exchange::Exchange(int nx, int ny, int nz)
 	: SpinOperation("Exchange", EXCHANGE_SLOT, nx, ny, nz, ENCODE_EXCHANGE)
 {
-	size = 32;
-	num  = 0;
-
-	pathways = (sss*)malloc(sizeof(sss) * size);
+	pathways = 0;
 	
+	d_strength = 0;
+	d_fromsite = 0;
+	maxFromSites = -1;
+	h_strength = 0;
+	h_fromsite = 0;
+	
+	new_host = true;
+	
+	init();
 // 	fromsite =    (int*)malloc(sizeof(int)    * size);
 // 	  tosite =    (int*)malloc(sizeof(int)    * size);
 // 	strength = (double*)malloc(sizeof(double) * size);
@@ -44,11 +51,8 @@ void Exchange::encode(buffer* b) const
 	for(int i=0; i<num; i++)
 	{
 		encodeInteger(pathways[i].fromsite, b);
-// 		encodeInteger(fromsite[i], b);
 		encodeInteger(pathways[i].tosite, b);
-// 		encodeInteger(  tosite[i], b);
 		encodeDouble(pathways[i].strength, b);
-// 		encodeDouble(strength[i], b);
 	}
 }
 
@@ -65,9 +69,6 @@ int  Exchange::decode(buffer* b)
 	num = size;
 	size++; //so we can double if size == 0
 	pathways = (sss*)malloc(sizeof(sss) * size);
-// 	fromsite =    (int*)malloc(sizeof(int)    * size);
-// 	  tosite =    (int*)malloc(sizeof(int)    * size);
-// 	strength = (double*)malloc(sizeof(double) * size);
 	
 	for(int i=0; i<num; i++)
 	{
@@ -75,17 +76,114 @@ int  Exchange::decode(buffer* b)
 		pathways[i].tosite = decodeInteger(b);
 		pathways[i].strength = decodeDouble(b);
 	}
+	
+	new_host = true;
 	return 0;
 }
 
+void Exchange::sync()
+{
+	if(!new_host)
+		return;
+	new_host = false;
+	opt();
+	
+	int oldMaxToSites = maxFromSites;
+	
+	//find out max number of neighbours
+	int* nn = new int[nxyz];
+	for(int i=0; i<nxyz; i++)
+	{
+		nn[i] = 0;
+	}
+
+	for(int i=0; i<num; i++)
+	{
+		nn[ pathways[i].tosite ]++;
+	}
+	
+	maxFromSites = 0;
+	
+	for(int i=0; i<num; i++)
+	{
+		const int j = nn[ pathways[i].fromsite ];
+		if(maxFromSites < j)
+			maxFromSites = j;
+	}
+	
+	// we will use nn to count number of recorded neighbours
+	for(int i=0; i<nxyz; i++)
+	{
+		nn[i] = 0;
+	}
+	
+	
+	if(oldMaxToSites != maxFromSites)
+	{
+		if(d_strength)
+		{
+			ex_d_freeStrengthArray(d_strength);
+			ex_d_freeNeighbourArray(d_fromsite);
+			
+			ex_h_freeStrengthArray(h_strength);
+			ex_h_freeNeighbourArray(h_fromsite);
+		}
+		ex_d_makeStrengthArray(&d_strength, nx, ny, nz, maxFromSites);
+		ex_d_makeNeighbourArray(&d_fromsite, nx, ny, nz, maxFromSites);
+		
+		ex_h_makeStrengthArray(&h_strength, nx, ny, nz, maxFromSites);
+		ex_h_makeNeighbourArray(&h_fromsite, nx, ny, nz, maxFromSites);
+	}
+	
+	for(int i=0; i<nxyz*maxFromSites; i++)
+	{
+		h_fromsite[i] = -1;
+	}
+	
+	for(int i=0; i<num; i++)
+	{
+		int& j = pathways[i].fromsite;
+		int& k = pathways[i].tosite;
+		
+		int& n = nn[k];
+		
+		h_fromsite[k*maxFromSites + n] = j;
+		h_strength[k*maxFromSites + n] = pathways[i].strength;
+		n++;
+	}	
+	delete [] nn;
+	
+	ex_hd_syncNeighbourArray(d_fromsite, h_fromsite, nx, ny, nz, maxFromSites);
+	ex_hd_syncStrengthArray(d_strength, h_strength, nx, ny, nz, maxFromSites);
+}
+	
+void Exchange::init()
+{
+	if(pathways)
+		deinit();
+
+	size = 32;
+	num  = 0;
+	pathways = (sss*)malloc(sizeof(sss) * size);
+
+}
 void Exchange::deinit()
 {
 	if(pathways)
 	{
 		free(pathways);
-// 		free(fromsite);
-// 		free(  tosite);
-// 		free(strength);
+		
+		if(d_strength)
+		{
+			ex_d_freeStrengthArray(d_strength);
+			ex_d_freeNeighbourArray(d_fromsite);
+			
+			ex_h_freeStrengthArray(h_strength);
+			ex_h_freeNeighbourArray(h_fromsite);
+			
+			d_strength = 0;
+		}
+		
 		pathways = 0;
 	}
 	num = 0;
@@ -99,42 +197,24 @@ Exchange::~Exchange()
 bool Exchange::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
+	sync();
+	
+	double* d_hx = ss->d_hx[slot];
+	double* d_hy = ss->d_hy[slot];
+	double* d_hz = ss->d_hz[slot];
 
-	double* hx = ss->hx[slot];
-	double* hy = ss->hy[slot];
-	double* hz = ss->hz[slot];
+	const double* d_sx = ss->d_x;
+	const double* d_sy = ss->d_y;
+	const double* d_sz = ss->d_z;
 
-	const double* sx = ss->x;
-	const double* sy = ss->y;
-	const double* sz = ss->z;
-
-	#pragma omp parallel for shared(hx,sx)
-	for(int i=0; i<num; i++)
-	{
-		const int t    = pathways[i].tosite;
-		const int f    = pathways[i].fromsite;
-		const double s = pathways[i].strength;
-		
-		hx[t] += sx[f] * s;
-	}
-	#pragma omp parallel for shared(hy,sy)
-	for(int i=0; i<num; i++)
-	{
-		const int t    = pathways[i].tosite;
-		const int f    = pathways[i].fromsite;
-		const double s = pathways[i].strength;
-		
-		hy[t] += sy[f] * s;
-	}
-	#pragma omp parallel for shared(hz,sz)
-	for(int i=0; i<num; i++)
-	{
-		const int t    = pathways[i].tosite;
-		const int f    = pathways[i].fromsite;
-		const double s = pathways[i].strength;
-		
-		hz[t] += sz[f] * s;
-	}
+	cuda_exchange(
+		d_sx, d_sy, d_sz,
+		d_strength, d_fromsite, maxFromSites,
+		d_hx, d_hy, d_hz,
+		nx, ny, nz);
+	
+	ss->new_device_fields[slot] = true;
+	
 	return true;
 }
 
@@ -152,7 +232,7 @@ static bool mysort(Exchange::sss* i, Exchange::sss* j)
 // optimize the order of the sites
 void Exchange::opt()
 {
-	return;
+// 	return;
 	// opt so that write and reads are ordered
 	sss* p2 = (sss*)malloc(sizeof(sss) * size);
 	memcpy(p2, pathways, sizeof(sss) * size);
@@ -187,18 +267,14 @@ void Exchange::addPath(int site1, int site2, double str)
 			
 			addPath(site1, site2, str);
 			return;
-	// 		fromsite =    (int*)realloc(fromsite, sizeof(int) * size);
-	// 		  tosite =    (int*)realloc(  tosite, sizeof(int) * size);
-	// 		strength = (double*)realloc(strength, sizeof(double) * size);
 		}
 		
 		pathways[num].fromsite = site1;
 		pathways[num].tosite = site2;
 		pathways[num].strength = str;
-	// 	fromsite[num] = site1;
-	// 	  tosite[num] = site2;
-	// 	strength[num] = str;
 		num++;
+		
+		new_host = true;
 	}
 }
 

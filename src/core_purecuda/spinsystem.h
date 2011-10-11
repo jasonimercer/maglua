@@ -74,6 +74,8 @@ public:
 	double* d_ws3;
 	double* d_ws4;
 	
+	double* h_ws1;
+	
 	double** d_hx;
 	double** d_hy;
 	double** d_hz;

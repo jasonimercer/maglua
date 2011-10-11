@@ -36,12 +36,22 @@ public:
 		double strength;
 	} sss;
 
+	
 private:
 	void deinit();
+	void init();
+	void sync();
+	bool new_host;
 	
 	int size;
 	int num;
 	sss* pathways;
+	
+	double* d_strength;
+	double* h_strength;
+	int* d_fromsite;
+	int* h_fromsite;
+	int maxFromSites;
 	
 // 	int* fromsite;
 // 	int* tosite;

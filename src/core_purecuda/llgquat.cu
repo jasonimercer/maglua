@@ -22,7 +22,7 @@
 }
 
 
-__device__ double4 qconjugate(double4 q)
+__device__ double4 qconjugate(const double4 q)
 {
 	double4 r;
 	r.x = -1.0 * q.x;
@@ -32,7 +32,7 @@ __device__ double4 qconjugate(double4 q)
 	return r;
 }
 
-__device__ double4 qmult(double4 a, double4 b)
+__device__ double4 qmult(const double4 a, const double4 b)
 {
 	double4 ab;
 
@@ -45,7 +45,7 @@ __device__ double4 qmult(double4 a, double4 b)
 }
 
 // quat mult without calculating the W component
-__device__ double4 qmultXYZ(double4 a, double4 b)
+__device__ double4 qmultXYZ(const double4 a, const double4 b)
 {
 	double4 ab;
 
@@ -62,20 +62,18 @@ __device__ double4 qmultXYZ(double4 a, double4 b)
 // -- = ---- S X (H +---S X H)
 // dt   1+aa         |S|
 __global__ void llg_quat_apply_1(
-	const int nx, const int ny, const int offset,
+//	const int nx, const int ny, const int offset,
+	const int nxyz,
 	double alpha,
 	double* sx, double* sy, double* sz, double* sms,
 	double* hx, double* hy, double* hz,
 	// ws1, ws2, ws3,     ws4
 	double* wx, double* wy, double* wz, double* ww) 
 {
-	const int x = blockDim.x * blockIdx.x + threadIdx.x;
-	const int y = blockDim.y * blockIdx.y + threadIdx.y;
+	const int i = blockDim.x * blockIdx.x + threadIdx.x;
 	
-	if(x >= nx || y >= ny)
+	if(i >= nxyz)
 		return;
-
-	const int i = x + y*nx + offset;
 	
 	wx[i] = sy[i]*hz[i] - sz[i]*hy[i];
 	wy[i] = sz[i]*hx[i] - sx[i]*hz[i];
@@ -106,18 +104,16 @@ __global__ void llg_quat_apply_1(
 // dt   1+aa         |S|
 // the rhs vec and len is in ws
 __global__ void llg_quat_apply_2(
-	const int nx, const int ny, const int offset,
+//	const int nx, const int ny, const int offset,
+	const int nxyz,
 	double* ssx, double* ssy, double* ssz, // src
 	double* wx, double* wy, double* wz, double* ww,
 	double alpha, double gadt)
 {
-	const int x = blockDim.x * blockIdx.x + threadIdx.x;
-	const int y = blockDim.y * blockIdx.y + threadIdx.y;
+	const int i = blockDim.x * blockIdx.x + threadIdx.x;
 	
-	if(x >= nx || y >= ny)
+	if(i >= nxyz)
 		return;
-
-	const int i = x + y*nx + offset;
 
 	if(ww[i] == 0) // dst = src  in _3
 	{
@@ -158,18 +154,16 @@ __global__ void llg_quat_apply_2(
 
 // _3 normalize
 __global__ void llg_quat_apply_3(
-	const int nx, const int ny, const int offset,
+//	const int nx, const int ny, const int offset,
+	const int nxyz,
 	double*  wx, double*  wy, double*  wz, double* ww,
 	double* ssx, double* ssy, double* ssz, double* sms,
  	double* dsx, double* dsy, double* dsz, double* dms)
 {
-	const int x = blockDim.x * blockIdx.x + threadIdx.x;
-	const int y = blockDim.y * blockIdx.y + threadIdx.y;
+	const int i = blockDim.x * blockIdx.x + threadIdx.x;
 	
-	if(x >= nx || y >= ny)
+	if(i >= nxyz)
 		return;
-
-	const int i = x + y*nx + offset;
 
 	dms[i] = sms[i];
 	
@@ -192,17 +186,15 @@ __global__ void llg_quat_apply_3(
 
 // _4
 __global__ void llg_quat_apply_4(
-	const int nx, const int ny, const int offset,
+//	const int nx, const int ny, const int offset,
+	const int nxyz,
 	double*  wx, double*  wy, double*  wz, double* ww,
  	double* dsx, double* dsy, double* dsz)
 {
-	const int x = blockDim.x * blockIdx.x + threadIdx.x;
-	const int y = blockDim.y * blockIdx.y + threadIdx.y;
+	const int i = blockDim.x * blockIdx.x + threadIdx.x;
 	
-	if(x >= nx || y >= ny)
+	if(i >= nxyz)
 		return;
-
-	const int i = x + y*nx + offset;
 
 	if(ww[i] == 0)
 	{
@@ -226,39 +218,32 @@ void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
 	// the 0.5 is for the quaternions
 	double gadt = (0.5 * gamma * dt) / (1.0 + alpha * alpha);
 
-	const int blocksx = nx / 32 + 1;
-	const int blocksy = ny / 32 + 1;
-	
-	dim3 blocks(blocksx, blocksy);
-	dim3 threads(32, 32);
-	
-	for(int zz=0; zz<nz; zz++)
-	{
-		const int offset = nx*ny*zz;
-		
-		llg_quat_apply_1<<<blocks, threads>>>(nx, ny, offset,
-						alpha,
-						ssx, ssy, ssz, sms,
-						 hx,  hy,  hz,
-						ws1, ws2, ws3, ws4);
-		CHECK
-		
-		llg_quat_apply_2<<<blocks, threads>>>(nx, ny, offset,
-						ssx, ssy, ssz,
-						ws1, ws2, ws3, ws4,
-						alpha, gadt);
-		CHECK
+	const int nxyz = nx*ny*nz;
+	const int threads = 512;
+	const int blocks = nxyz / threads + 1;
 
-		llg_quat_apply_3<<<blocks, threads>>>(nx, ny, offset,
-						ws1, ws2, ws3, ws4,
-						ssx, ssy, ssz, sms,
-						dsx, dsy, dsz, dms);
-		CHECK
-		
-		llg_quat_apply_4<<<blocks, threads>>>(nx, ny, offset,
-						ws1, ws2, ws3, ws4,
-						dsx, dsy, dsz);
-		CHECK
-	}
+	llg_quat_apply_1<<<blocks, threads>>>(nxyz,
+					alpha,
+					ssx, ssy, ssz, sms,
+						hx,  hy,  hz,
+					ws1, ws2, ws3, ws4);
+	CHECK
+	
+	llg_quat_apply_2<<<blocks, threads>>>(nxyz,
+					ssx, ssy, ssz,
+					ws1, ws2, ws3, ws4,
+					alpha, gadt);
+	CHECK
+
+	llg_quat_apply_3<<<blocks, threads>>>(nxyz,
+					ws1, ws2, ws3, ws4,
+					ssx, ssy, ssz, sms,
+					dsx, dsy, dsz, dms);
+	CHECK
+	
+	llg_quat_apply_4<<<blocks, threads>>>(nxyz,
+					ws1, ws2, ws3, ws4,
+					dsx, dsy, dsz);
+	CHECK
 }
 

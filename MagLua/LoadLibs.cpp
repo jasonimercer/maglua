@@ -1,5 +1,6 @@
 #include "LoadLibs.h"
-
+#include <iostream>
+using namespace std;
 #include <dlfcn.h>
 
 static int load_lib(lua_State* L, QStringList& loaded, const QString& name)

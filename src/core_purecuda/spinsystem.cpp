@@ -43,7 +43,6 @@ void SpinSystem::sync_spins_dh(bool force)
 		{
 			printf("(%s:%i) overwriting new host spins\n", __FILE__, __LINE__);
 		}
-	
 		ss_copyDeviceToHost(h_x, d_x, nxyz);
 		ss_copyDeviceToHost(h_y, d_y, nxyz);
 		ss_copyDeviceToHost(h_z, d_z, nxyz);
@@ -241,6 +240,8 @@ void SpinSystem::deinit()
 		ss_d_free3DArray(d_ws2);
 		ss_d_free3DArray(d_ws3);
 		ss_d_free3DArray(d_ws4);
+		
+		ss_h_free3DArray(h_ws1);
 			
 		ss_h_free3DArray(h_x);
 		ss_h_free3DArray(h_y);
@@ -294,10 +295,6 @@ void SpinSystem::init()
 		new_device_fields[i] = false;
 	}
 
-	ss_d_make3DArray(&d_ws1, nx, ny, nz);
-	ss_d_make3DArray(&d_ws2, nx, ny, nz);
-	ss_d_make3DArray(&d_ws3, nx, ny, nz);
-	ss_d_make3DArray(&d_ws4, nx, ny, nz);
 
 	ss_d_make3DArray(&d_x,  nx, ny, nz);
 	ss_d_make3DArray(&d_y,  nx, ny, nz);
@@ -317,6 +314,21 @@ void SpinSystem::init()
 	ss_d_set3DArray(d_ms, nx, ny, nz, 0);
 	new_device_spins = true;
 	sync_spins_dh();
+	
+	
+	ss_d_make3DArray(&d_ws1, nx, ny, nz);
+	ss_d_make3DArray(&d_ws2, nx, ny, nz);
+	ss_d_make3DArray(&d_ws3, nx, ny, nz);
+	ss_d_make3DArray(&d_ws4, nx, ny, nz);
+	
+	const int min_size = (nx*ny*nz) / 64 + 1;
+	
+	if(nx*ny*nz < min_size)
+	{
+		ss_h_make3DArray(&h_ws1, min_size, 1, 1);
+	}
+	else
+		ss_h_make3DArray(&h_ws1, nx, ny, nz);
 	
 	
 	d_hx = new double* [nslots];
@@ -490,16 +502,6 @@ int  SpinSystem::decode(buffer* b)
 
 void SpinSystem::sumFields()
 {
-// 	for(int i=0; i<NSLOTS; i++)
-// 	{
-// 		if(jthreads[i])
-// 		{
-// 			jthreads[i]->join();
-// 			delete jthreads[i];
-// 			jthreads[i] = 0;
-// 		}
-// 	}
-
 	ss_d_set3DArray(d_hx[SUM_SLOT], nx, ny, nz, 0);
 	ss_d_set3DArray(d_hy[SUM_SLOT], nx, ny, nz, 0);
 	ss_d_set3DArray(d_hz[SUM_SLOT], nx, ny, nz, 0);
@@ -508,85 +510,14 @@ void SpinSystem::sumFields()
 	{
 		if(slot_used[i])
 		{
+			sync_fields_hd(i);
 			ss_d_add3DArray(d_hx[SUM_SLOT], nx, ny, nz, d_hx[SUM_SLOT], d_hx[i]);
 			ss_d_add3DArray(d_hy[SUM_SLOT], nx, ny, nz, d_hy[SUM_SLOT], d_hy[i]);
 			ss_d_add3DArray(d_hz[SUM_SLOT], nx, ny, nz, d_hz[SUM_SLOT], d_hz[i]);
 		}
 	}
 	
-#if 0
-#if 0
-	vector<int> v;
-	for(int i=1; i<NSLOTS; i++)
-	{
-		if(slot_used[i])
-			v.push_back(i);
-	}
-	unsigned int n = v.size();
-	
-	double* sumx = hx[SUM_SLOT];
-	double* sumy = hy[SUM_SLOT];
-	double* sumz = hz[SUM_SLOT];
-	
-	#pragma omp parallel shared(sumx, sumy, sumz)
-	{
-		#pragma omp for nowait
-		for(int i=0; i<nxyz; i++)
-			sumx[i] = 0;
-		#pragma omp for nowait
-		for(int i=0; i<nxyz; i++)
-			sumy[i] = 0;
-		#pragma omp for nowait
-		for(int i=0; i<nxyz; i++)
-			sumz[i] = 0;
-		#pragma omp barrier
-	
-		#pragma omp for
-		for(unsigned int i=0; i<n; i++)
-		{
-			const int k = v[i];
-			for(int j=0; j<nxyz; j++)
-				sumx[j] += hx[k][j];
-			for(int j=0; j<nxyz; j++)
-				sumy[j] += hx[k][j];
-			for(int j=0; j<nxyz; j++)
-				sumz[j] += hx[k][j];
-			
-		}
-	}
-	
-#else
-	for(int j=0; j<nxyz; j++)
-	{
-		hx[SUM_SLOT][j] = hx[1][j];
-		for(int i=2; i<NSLOTS; i++)
-			hx[SUM_SLOT][j] += hx[i][j];
-
-		hy[SUM_SLOT][j] = hy[1][j];
-		for(int i=2; i<NSLOTS; i++)
-			hy[SUM_SLOT][j] += hy[i][j];
-
-		hz[SUM_SLOT][j] = hz[1][j];
-		for(int i=2; i<NSLOTS; i++)
-			hz[SUM_SLOT][j] += hz[i][j];
-	}
-#endif	
-// 	#pragma omp parallel for
-// 	for(int j=0; j<nxyz; j++)
-// 	{
-// 		hx[SUM_SLOT][j] = hx[1][j];
-// 		for(int i=2; i<NSLOTS; i++)
-// 			hx[SUM_SLOT][j] += hx[i][j];
-// 
-// 		hy[SUM_SLOT][j] = hy[1][j];
-// 		for(int i=2; i<NSLOTS; i++)
-// 			hy[SUM_SLOT][j] += hy[i][j];
-// 
-// 		hz[SUM_SLOT][j] = hz[1][j];
-// 		for(int i=2; i<NSLOTS; i++)
-// 			hz[SUM_SLOT][j] += hz[i][j];
-// 	}
-#endif	
+	new_device_fields[SUM_SLOT] = true;
 }
 /*
 bool SpinSystem::addFields(double mult, SpinSystem* addThis)
@@ -668,14 +599,6 @@ void SpinSystem::zeroField(int i)
 	ss_d_set3DArray(d_hy[i], nx, ny, nz, 0);
 	ss_d_set3DArray(d_hz[i], nx, ny, nz, 0);
 
-	
-// 	for(int j=0; j<nxyz; j++)
-// 	{
-// 		h_hx[i][j] = 0;
-// 		h_hy[i][j] = 0;
-// 		h_hz[i][j] = 0;
-// 	}
-
 	//will need to fetch fields from device before we can use them here
 	new_device_fields[i] = true;
 }
@@ -684,7 +607,8 @@ void SpinSystem::zeroFields()
 {
 	for(int i=0; i<NSLOTS; i++)
 	{
-		zeroField(i);
+		if(slot_used[i])
+			zeroField(i);
 	}
 }
 
@@ -719,7 +643,6 @@ void SpinSystem::set(const int px, const int py, const int pz, const double sx, 
 		return; //out of bounds
 	}
 	
-	sync_spins_dh(); // get latest spin state, we don't want to clobber it with old local state
 	const int idx = px + py*nx + pz*nx*ny;
 	
 	set(idx, sx, sy, sz);
@@ -746,11 +669,32 @@ int  SpinSystem::getidx(const int px, const int py, const int pz) const
 	return x + y*nx + z*nx*ny;
 }
 
+
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <math.h>
+#include <cuComplex.h>
+
 // return numspins * {<x>, <y>, <z>, <M>, <x^2>, <y^2>, <z^2>, <M^2>}
 void SpinSystem::getNetMag(double* v8)
 {
-	sync_spins_dh();
+
+#if 1
+	v8[0] = ss_reduce3DArray_sum(d_x, d_ws1, h_ws1, nx, ny, nz);
+	v8[1] = ss_reduce3DArray_sum(d_y, d_ws1, h_ws1, nx, ny, nz);
+	v8[2] = ss_reduce3DArray_sum(d_z, d_ws1, h_ws1, nx, ny, nz);
+
+	v8[3] = sqrt(v8[0]*v8[0] + v8[1]*v8[1] + v8[2]*v8[2]);
+
+	v8[4] = v8[0];
+	v8[5] = v8[1];
+	v8[6] = v8[2];
+	v8[7] = v8[3];
 	
+	return;
+#else
+	sync_spins_dh();
+
 	for(int i=0; i<8; i++)
 		v8[i] = 0;
 	
@@ -758,18 +702,22 @@ void SpinSystem::getNetMag(double* v8)
 	{
 		v8[0] += h_x[i];
 		v8[4] += h_x[i]*h_x[i];
+	}
+	for(int i=0; i<nxyz; i++)
+	{
 		v8[1] += h_y[i];
 		v8[5] += h_y[i]*h_y[i];
+	}
+	for(int i=0; i<nxyz; i++)
+	{
 		v8[2] += h_z[i];
 		v8[6] += h_z[i]*h_z[i];
 	}
 
 	v8[3] = sqrt(v8[0]*v8[0] + v8[1]*v8[1] + v8[2]*v8[2]);
 	v8[7] = sqrt(v8[4]*v8[4] + v8[5]*v8[5] + v8[6]*v8[6]);
+#endif
 }
-
-
-
 
 
 
@@ -785,6 +733,13 @@ void SpinSystem::getNetMag(double* v8)
 
 SpinSystem* checkSpinSystem(lua_State* L, int idx)
 {
+// 	lua_getmetatable(L, idx);
+// 	luaL_getmetatable(L, "MERCER.spinsystem");
+// 	int eq = lua_equal(L, -2, -1);
+// 	lua_pop(L, 2);
+// 	if(!eq)
+// 		return 0;
+	
 	SpinSystem** pp = (SpinSystem**)luaL_checkudata(L, idx, "MERCER.spinsystem");
     luaL_argcheck(L, pp != NULL, 1, "`SpinSystem' expected");
     return *pp;
@@ -1440,13 +1395,13 @@ static int l_ss_help(lua_State* L)
 		return 3;
 	}
 	
-// 	if(func == l_ss_netmag)
-// 	{
-// 		lua_pushstring(L, "Calculate and return net magnetization of a spin system");
-// 		lua_pushstring(L, "1 Optional Number: The return values will be multiplied by this number, default 1.");
-// 		lua_pushstring(L, "8 numbers: mean(x), mean(y), mean(z), mean(M), mean(xx), mean(yy), mean(zz), mean(MM)");
-// 		return 3;
-// 	}
+	if(func == l_ss_netmag)
+	{
+		lua_pushstring(L, "Calculate and return net magnetization of a spin system");
+		lua_pushstring(L, "1 Optional Number: The return values will be multiplied by this number, default 1.");
+		lua_pushstring(L, "8 numbers: mean(x), mean(y), mean(z), mean(M), mean(xx), mean(yy), mean(zz), mean(MM)");
+		return 3;
+	}
 	
 	if(func == l_ss_netfield)
 	{
@@ -1683,7 +1638,7 @@ void registerSpinSystem(lua_State* L)
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_ss_gc},
 		{"__tostring",   l_ss_tostring},
-// 		{"netMoment",    l_ss_netmag},
+		{"netMoment",    l_ss_netmag},
 		{"netField",     l_ss_netfield},
 		{"setSpin",      l_ss_setspin},
 		{"spin"   ,      l_ss_getspin},

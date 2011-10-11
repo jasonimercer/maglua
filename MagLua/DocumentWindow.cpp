@@ -13,6 +13,7 @@ extern "C" {
 #include <lauxlib.h>
 }
 
+
 DocumentWindow::DocumentWindow(QWidget *parent) :
 		QMainWindow(parent),
 		ui(new Ui::DocumentWindow)
@@ -67,9 +68,9 @@ DocumentWindow::DocumentWindow(QWidget *parent) :
 	ss << height() * 0.7 << height() * 0.3;
 	ui->splitter->setSizes(ss);
 
-	connect(&thread, SIGNAL(printOutput(QString)), this, SLOT(printOutput(QString)));
-	connect(&thread, SIGNAL(printError(QString)), this, SLOT(printError(QString)));
-	connect(&thread, SIGNAL(currentLineChange(int,QString)), this, SLOT(currentLineChange(int,QString)));
+//	connect(&thread, SIGNAL(printOutput(QString)), this, SLOT(printOutput(QString)));
+//	connect(&thread, SIGNAL(printError(QString)), this, SLOT(printError(QString)));
+//	connect(&thread, SIGNAL(currentLineChange(int,QString)), this, SLOT(currentLineChange(int,QString)));
 	connect(ui->cmdCloseFind, SIGNAL(pressed()), this, SLOT(hidefind()));
 
 	ui->txtError->setReadOnly(true);
@@ -250,39 +251,11 @@ void DocumentWindow::cut()
 
 
 
-static 	int pushtraceback(lua_State* L)
-{
-	lua_getglobal(L, "debug");
-	if (!lua_istable(L, -1)) {
-		lua_pop(L, 1);
-		return 1;
-	}
-	lua_getfield(L, -1, "traceback");
-	if (!lua_isfunction(L, -1)) {
-		lua_pop(L, 2);
-		return 1;
-	}
-	lua_remove(L, 1); //remove debug table
-	return 0;
-}
 
-static int l_info(lua_State* L)
-{
-	QString msg = "MagLua by Jason Mercer (c) 2011";
-	QString pre = "";
-	if(lua_isstring(L, 1))
-	{
-		pre = lua_tostring(L, 1);
-	}
-
-	pre.append(msg);
-
-	lua_pushstring(L, pre.toStdString().c_str());
-	return 1;
-}
 
 void DocumentWindow::run()
 {
+#if 0
 	if(thread.running())
 		return;
 
@@ -344,11 +317,10 @@ void DocumentWindow::run()
 
 	ui->tabWidget->setCurrentWidget(ui->tabOutput);
 
-	bool ok = true;
-
+	int load = 0;
 	if(isUntitled)
 	{
-		ok = luaL_loadstring(L, ui->edit->document()->toPlainText().toStdString().c_str());
+		load = luaL_loadstring(L, ui->edit->document()->toPlainText().toStdString().c_str());
 	}
 	else
 	{
@@ -358,16 +330,23 @@ void DocumentWindow::run()
 			return;
 		}
 
-		ok = luaL_loadfile(L, curFile.toStdString().c_str());
+		load = luaL_loadfile(L, curFile.toStdString().c_str());
 	}
 
+	if(load)
+	{
+		printError(lua_tostring(L, -1));
+		lua_close(L);
+		return;
+	}
 
 	thread.execute(L);
+#endif
 }
 
 void DocumentWindow::stop()
 {
-	thread.stop();
+//	thread.stop();
 }
 
 QTextCursor DocumentWindow::textCursor () const

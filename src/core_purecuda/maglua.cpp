@@ -26,11 +26,11 @@ int lib_deps(lua_State* L);
 #include "spinoperation.h"
 #include "llg.h"
 #include "llgquat.h"
-// #include "spinoperationexchange.h"
-// #include "spinoperationappliedfield.h"
+#include "spinoperationexchange.h"
+#include "spinoperationappliedfield.h"
 #include "spinoperationanisotropy.h"
 #include "mersennetwister.h"
-// #include "spinoperationthermal.h"
+#include "spinoperationthermal.h"
 #include "interpolatingfunction.h"
 #include "interpolatingfunction2d.h"
 	
@@ -38,11 +38,11 @@ int lib_register(lua_State* L)
 {
 	registerSpinSystem(L);
 	registerLLG(L);
-// 	registerExchange(L);
-// 	registerAppliedField(L);
+	registerExchange(L);
+	registerAppliedField(L);
 	registerAnisotropy(L);
 	registerRandom(L);
-// 	registerThermal(L);
+	registerThermal(L);
 	registerInterpolatingFunction(L);
 	registerInterpolatingFunction2D(L);
 

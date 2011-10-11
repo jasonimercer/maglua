@@ -14,11 +14,11 @@
 
 #
 CXX=g++
-NVCC=/usr/bin/nvcc
-
+NVCC=/usr/bin/nvcc 
+NVFLAGS=-O2 --ptxas-options="-v" -Xcompiler -fPIC  -arch=sm_21
 CFLAGS=-ansi -O2
 PKG=lua5.1
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) `
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
 LIBS=`pkg-config --libs $(PKG)` -lpthread -lcudart -lcuda
 MODDIR=$(shell maglua --module_path)
 
@@ -27,11 +27,14 @@ OBJECTS=spinsystem.o spinoperation.o  luacommon.o \
 	random.o isaac.o crand.o interpolatingfunction2d.o \
 	 luamigrate.o encodable.o maglua.o jthread.o \
 	 llg.o llgquat.o  spinoperationanisotropy.o \
+	spinoperationthermal.o spinoperationexchange.o \
+	spinoperationappliedfield.o \
 	\
-	spinsystem.cuo llgquat.cuo  spinoperationanisotropy.cuo
+	spinsystem.cuo llgquat.cuo  spinoperationanisotropy.cuo \
+	hybridtaus.cuo spinoperationthermal.cuo \
+	spinoperationexchange.cuo
 
-TODO=spinoperationexchange.o spinoperationappliedfield.o \
-     spinoperationthermal.o   llgcartesian.o llgfake.o llgalign.o
+TODO= llgcartesian.o llgfake.o llgalign.o
  
 LIBNAME=PureCUDACore
 
@@ -44,8 +47,7 @@ $(LIBNAME).so : $(OBJECTS)
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 %.cuo : %.cu
-	$(NVCC)  --ptxas-options="-v" -Xcompiler -fPIC $(INCLUDEPATH) -arch=sm_21 -c $*.cu -o $*.cuo
-# 	$(NVCC)  -Xcompiler -fPIC $(INCLUDEPATH) -arch=sm_21 -c $*.cu -o $*.cuo
+	$(NVCC) $(NVFLAGS)  $(INCLUDEPATH) -c $*.cu -o $*.cuo
 
 install: all
 	mkdir -p $(MODDIR)

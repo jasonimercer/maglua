@@ -72,7 +72,7 @@ private:
 	QAction* actReplaceNext;
 	QAction* actReplacePrev;
 
-	LuaThread thread;
+	//LuaThread thread;
 
 private:
     Ui::DocumentWindow *ui;

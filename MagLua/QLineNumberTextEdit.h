@@ -3,8 +3,14 @@
 
 #include <QtGui>
 #include "QLuaHilighter.h"
+#include "QLuaWidget.h"
 
 class QLineNumberArea;
+
+
+#include <QTabWidget>
+#include "QLuaWidget.h"
+
 
 class QLineNumberTextEdit : public QFrame
 {
@@ -15,7 +21,12 @@ public:
 	QTextEdit* textEdit() const { return view; }
 	QTextDocument* document() {return view->document();}
 
+	void setShowLineNumber(bool b);
+	void setHighlight(bool b);
+	bool saveFile(const QString &fileName);
+
 	void setBoldLine(unsigned int line);
+
 protected:
 //	void resizeEvent(QResizeEvent *event);
 
@@ -81,4 +92,28 @@ private:
 
 
 
+class QLuaLineNumberTextEdit : public QLuaWidget
+{
+Q_OBJECT
+public:
+	QLuaLineNumberTextEdit(lua_State* L, QLineNumberTextEdit* w);
+	~QLuaLineNumberTextEdit();
+	void setStateChangeFunc(int ref);
+	int stateChangeFunc;
+
+public slots:
+	void textChanged();
+};
+
+
 #endif // QLINENUMBERTEXTEDIT_H
+
+int lua_istextedit(lua_State* L, int idx);
+void lua_pushtextedit(lua_State* L, QLineNumberTextEdit* c);
+void lua_pushluatextedit(lua_State* L, QLuaLineNumberTextEdit* c);
+void lua_registertextedit(lua_State* L);
+
+QLuaLineNumberTextEdit* lua_toluatextedit(lua_State* L, int idx);
+QLineNumberTextEdit* lua_totextedit(lua_State* L, int idx);
+
+

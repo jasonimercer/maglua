@@ -18,82 +18,147 @@
 #include <math.h>
 #include <stdio.h>
 
+#include "spinsystem.hpp"
+#include "spinoperationthermal.hpp"
+
 Thermal::Thermal(int nx, int ny, int nz)
 	: SpinOperation("Thermal", THERMAL_SLOT, nx, ny, nz, ENCODE_THERMAL)
 {
-	scale = new double[nxyz];
-	for(int i=0; i<nxyz; i++)
-		scale[i] = 1.0;
+	d_scale = 0;
 	temperature = 0;
+ 
+	init();
 }
+
+void Thermal::sync_dh(bool force)
+{
+	if(new_device || force)
+	{
+		ss_copyDeviceToHost(h_scale, d_scale, nxyz);
+		
+		new_host = false;
+		new_device = false;
+	}	
+}
+
+void Thermal::sync_hd(bool force)
+{
+	if(new_host || force)
+	{
+		ss_copyHostToDevice(d_scale, h_scale, nxyz);
+
+		new_host = false;
+		new_device = false;
+	}	
+}
+
 
 void Thermal::encode(buffer* b) const
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
-	
-	encodeDouble(temperature, b);
-	
-	for(int i=0; i<nxyz; i++)
-		encodeDouble(scale[i], b);
+// 	encodeInteger(nx, b);
+// 	encodeInteger(ny, b);
+// 	encodeInteger(nz, b);
+// 	
+// 	encodeDouble(temperature, b);
+// 	
+// 	for(int i=0; i<nxyz; i++)
+// 		encodeDouble(scale[i], b);
 }
 
 int  Thermal::decode(buffer* b)
 {
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	nxyz = nx * ny * nz;
-
-	temperature = decodeDouble(b);
-	
-	if(scale)
-		delete [] scale;
-	
-	scale = new double[nxyz];
-	
-	for(int i=0; i<nxyz; i++)
-		scale[i] = decodeDouble(b);
-	return 0;
+// 	nx = decodeInteger(b);
+// 	ny = decodeInteger(b);
+// 	nz = decodeInteger(b);
+// 	nxyz = nx * ny * nz;
+// 
+// 	temperature = decodeDouble(b);
+// 	
+// 	if(scale)
+// 		delete [] scale;
+// 	
+// 	scale = new double[nxyz];
+// 	
+// 	for(int i=0; i<nxyz; i++)
+// 		scale[i] = decodeDouble(b);
+// 	return 0;
 }
 
+void Thermal::init()
+{
+	if(d_scale != 0)
+		deinit();
+
+	ss_d_make3DArray(&d_scale, nx, ny, nz);
+	ss_h_make3DArray(&h_scale, nx, ny, nz);
+	
+	for(int i=0; i<nx*ny*nz; i++)
+	{
+		h_scale[i] = 1;
+	}
+	new_host = true;
+	sync_hd();
+	
+	twiddle = 1;
+	HybridTausAllocState(&d_state, nx, ny, nz);
+	HybridTausAllocRNG(&d_rngs, nx, ny, nz);
+	
+ 	HybridTausSeed(d_state, nx, ny, nz, 123456);
+}
+
+void Thermal::deinit()
+{
+	if(d_scale == 0)
+		return;
+
+	ss_d_free3DArray(d_scale);
+	ss_h_free3DArray(h_scale);
+	
+	HybridTausFreeState(d_state);
+	HybridTausFreeRNG(d_rngs);
+	
+	d_scale = 0;
+
+}
+	
 Thermal::~Thermal()
 {
-	delete [] scale;
+	deinit();
+	
 }
 
-bool Thermal::apply(RNG* rand, SpinSystem* ss)
+bool Thermal::apply(RNG* , SpinSystem* ss)
 {
+	sync_hd();
+	ss->sync_spins_hd();
+
+	if(twiddle)
+	{
+		HybridTaus_get6Normals(d_state, d_rngs, nx, ny, nz);
+		twiddle = 0;
+	}
+	else
+		twiddle = 1;
+	
 	markSlotUsed(ss);
 
 	const double alpha = ss->alpha;
 	const double dt    = ss->dt;
 	const double gamma = ss->gamma;
-
-	double* hx = ss->hx[slot];
-	double* hy = ss->hy[slot];
-	double* hz = ss->hz[slot];
 	
-	for(int i=0; i<ss->nxyz; i++)
-	{
-		const double ms = ss->ms[i];
-		if(ms != 0 && temperature != 0)
-		{
-// 			double stddev = sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma * (1+alpha*alpha)));
-			const double stddev = sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma));
-			
-			hx[i] = stddev * rand->randNorm(0, 1);
-			hy[i] = stddev * rand->randNorm(0, 1);
-			hz[i] = stddev * rand->randNorm(0, 1);
-		}
-		else
-		{
-			hx[i] = 0;
-			hy[i] = 0;
-			hz[i] = 0;
-		}
-	}
+	double* d_hx = ss->d_hx[slot];
+	double* d_hy = ss->d_hy[slot];
+	double* d_hz = ss->d_hz[slot];
+
+	cuda_thermal(d_rngs, twiddle, 
+		alpha, gamma, dt, temperature,
+		d_hx, d_hy, d_hz, ss->d_ms,
+		d_scale,
+		nx, ny, nz);
+
+	
+	ss->new_device_fields[slot] = true;
+
 	return true;
 }
 
@@ -101,8 +166,10 @@ void Thermal::scaleSite(int px, int py, int pz, double strength)
 {
 	if(member(px, py, pz))
 	{
+		sync_dh();
 		int idx = getidx(px, py, pz);
-		scale[idx] = strength;
+		h_scale[idx] = strength;
+		new_host = true;
 	}
 }
 
@@ -151,19 +218,20 @@ int l_thermal_apply(lua_State* L)
 {
 	Thermal*    th = checkThermal(L, 1);
 	//LLG*       llg = checkLLG(L, 2);
-	RNG*       rng = checkRandom(L, 3-1);
+// 	RNG*       rng = checkRandom(L, 3-1);
 	SpinSystem* ss = checkSpinSystem(L, 4-1);
+// 	SpinSystem* ss = checkSpinSystem(L, 2);
 
-	if(!th)
-		return luaL_error(L, "Thermal object required");
+// 	if(!th)
+// 		return luaL_error(L, "Thermal object required");
 
 // 	if(!rng || !ss || !llg)
 // 		return luaL_error(L, "Thermal.apply requires llg, rng, spinsystem");
 	
-	if(!rng || !ss)
-		return luaL_error(L, "Thermal.apply requires rng, spinsystem");
+// 	if(!rng || !ss)
+// 		return luaL_error(L, "Thermal.apply requires rng, spinsystem");
 	
-	if(!th->apply(rng,ss))
+	if(!th->apply(0,ss))
 		return luaL_error(L, th->errormsg.c_str());
 	
 	return 0;
