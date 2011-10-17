@@ -15,7 +15,9 @@
 #include "spinoperation.h"
 #include <iostream>
 #include <math.h>
+#ifndef WIN32
 #include <strings.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
@@ -355,7 +357,7 @@ void SpinSystem::encode(buffer* b) const
 
 int  SpinSystem::decode(buffer* b)
 {
-	double r, i;
+//	double r, i;
 	
 	deinit();
 	nx = decodeInteger(b);
@@ -814,7 +816,7 @@ int l_ss_setspin(lua_State* L)
 	if(r2 < 0)
 		return luaL_error(L, "invalid spin");
 	
-	bool n = lua_isnumber(L, 2+r1+r2);
+	int n = lua_isnumber(L, 2+r1+r2);
 	
 	
 	int px = site[0] - 1;

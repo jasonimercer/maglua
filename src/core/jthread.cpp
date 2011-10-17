@@ -1,3 +1,4 @@
+#ifndef WIN32
 #include "jthread.h"
 
 static void* thread_call_wrapper(void* arg)
@@ -40,3 +41,5 @@ int JThread::join()
 {
 	pthread_join(thread, 0);
 }
+
+#endif

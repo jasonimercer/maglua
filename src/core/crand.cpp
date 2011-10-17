@@ -12,6 +12,11 @@
 
 #include "crand.h"
 
+#include <stdlib.h>
+
+
+static int (*globalRand)() = rand;
+
 CRand::CRand()
 	: RNG("CRandom")
 {
@@ -21,11 +26,18 @@ CRand::CRand()
 void CRand::seed( const uint32 oneSeed )
 {
 	_seed = oneSeed;
+#ifndef WIN32
+	srand(_seed);
+#endif
 }
 
 uint32 CRand::randInt()
 {
+#ifndef WIN32
 	uint32 t = 0xFFFFFFFF & (rand_r(&_seed) ^ (rand_r(&_seed) << 16));
+#else
+	uint32 t = 0xFFFFFFFF & (globalRand() ^ (globalRand() << 16));
+#endif
 	return t;
 }
 
@@ -33,6 +45,7 @@ uint32 CRand::randInt()
 void CRand::seed()
 {
 	// First try getting an array from /dev/urandom
+#ifndef WIN32
 	FILE* urandom = fopen( "/dev/urandom", "rb" );
 	if( urandom )
 	{
@@ -43,6 +56,6 @@ void CRand::seed()
 		}
 		fclose(urandom);
 	}
-	
+#endif
 	seed( time(0) );
 }

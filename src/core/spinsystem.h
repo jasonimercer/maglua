@@ -19,6 +19,11 @@
 #include "encodable.h"
 #include "jthread.h"
 
+#ifdef WIN32
+#define strcasecmp(A,B) _stricmp(A,B)
+#define strncasecmp(A,B,C) _strnicmp(A,B,C)
+#endif
+
 using namespace std;
 
 class SpinSystem : public Encodable

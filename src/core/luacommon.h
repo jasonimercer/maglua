@@ -17,3 +17,9 @@ extern "C" {
         #include <lauxlib.h>
 }
 
+#ifdef WIN32
+#define strcasecmp(A,B) _stricmp(A,B)
+#define strncasecmp(A,B,C) _strnicmp(A,B,C)
+#endif
+
+

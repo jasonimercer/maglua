@@ -23,10 +23,25 @@ extern "C" {
 
 #include "info.h"
 
+#ifndef WIN32
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <dirent.h>
+#define HOME "HOME"
+#define SO_EXT "so"
+#define MAGLUA_SETUP_PATH "/.maglua.d/module_path.lua"
+typedef void* _handle
+#else
+ #include <windows.h>
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #define snprintf _snprintf
+ #define HOME "APPDATA"
+ #define SO_EXT "dll"
+ #define MAGLUA_SETUP_PATH "\\maglua\\module_path.lua"
+ #define _handle HINSTANCE
+#endif
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -226,8 +241,14 @@ int getmoddirs(vector<string>& mds, const int argc, char** argv)
 	lua_State *L = lua_open();
 	luaL_openlibs(L);
 	
-	char* home = getenv("HOME");
 	int home_len = 0;
+#ifndef WIN32
+	char* home = getenv(HOME);
+#else
+	char* home;
+	size_t foo;
+	_dupenv_s(&home, &foo, HOME);
+#endif
 	if(home)
 	{
 		home_len = strlen(home);
@@ -238,15 +259,27 @@ int getmoddirs(vector<string>& mds, const int argc, char** argv)
 	init_file[0] = 0;
 	if(home)
 	{
+#ifndef WIN32
 		strcpy(init_file, home);
+#else
+		strcpy_s(init_file, home_len+128, home);
+#endif
 	}
 	else
 	{
+#ifndef WIN32
 		strcpy(init_file, ".");
+#else
+		strcpy_s(init_file, home_len+128, ".");
+#endif
 	}
 	
-	strcat(init_file, "/.maglua.d/module_path.lua");
-	
+#ifndef WIN32
+	strcat(init_file, MAGLUA_SETUP_PATH);
+#else
+	strcat_s(init_file, home_len+128, MAGLUA_SETUP_PATH);
+#endif
+
 	if(!luaL_dofile(L, init_file))
 	{
 		lua_getglobal(L, "module_path");
@@ -278,8 +311,11 @@ int getmoddirs(vector<string>& mds, const int argc, char** argv)
 	delete [] init_file;
 
 	
-	
+#ifdef WIN32
+	free(home);
+#endif
 	lua_close(L);
+	return 0;
 }
 
 
@@ -369,7 +405,7 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 	string src_dir;
 	
 	
-	void* handle = 0;
+	_handle handle = 0;
 	for(unsigned int i=0; i<mod_dirs.size(); i++)
 	{
 		int len = mod_dirs[i].length() + name.length() + 10;
@@ -381,8 +417,10 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 			bufsize = len;
 		}
 		
-		snprintf(buf, bufsize, "%s/%s.so", mod_dirs[i].c_str(), name.c_str());
+
+		snprintf(buf, bufsize, "%s/%s.%s", mod_dirs[i].c_str(), name.c_str(), SO_EXT);
 		
+#ifndef WIN32
 		dlerror();
 		handle = dlopen(buf,  RTLD_NOW | RTLD_GLOBAL);
 		const char* dle = dlerror();
@@ -390,6 +428,16 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 		{
 			fprintf(stderr, "dlsym error: `%s'\n", dle);
 		}
+#else
+		WCHAR* str  = new WCHAR[bufsize];
+		MultiByteToWideChar(0, 0, buf, bufsize-1, str, bufsize);
+		handle = LoadLibrary(str);
+		if(!handle)
+		{
+			fprintf(stderr, "Library failed to load\n");
+		}
+		delete [] str;
+#endif
 
 		if(handle)
 		{
@@ -406,19 +454,30 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 	
 	typedef int (*lua_func)(lua_State*);
 
+#ifndef WIN32
 	lua_func lib_register = (lua_func) dlsym(handle, "lib_register");
 	const char* dle = dlerror();
 	if(dle)
 	{
 		fprintf(stderr, "dlsym error: `%s'\n", dle);
 	}
-	
-    if(!lib_register)
+	if(!lib_register)
 	{
 		// we'll report this later 
 		dlclose(handle);
 		return 1;
     }
+#else
+	lua_func lib_register = (lua_func)GetProcAddress(handle, "lib_register");
+
+	if(!lib_register)
+	{
+		// we'll report this later 
+		FreeLibrary(handle);
+		return 1;
+    }
+#endif	
+
     
 	lib_register(L); // call the register function from the library
 	
@@ -453,35 +512,77 @@ int registerLibs(int suppress, lua_State* L)
 	}
 	lua_pop(L, 1); //pop table
 	
+#ifndef WIN32
+	struct dirent *dp;
+#else
+
+	HANDLE hFind = INVALID_HANDLE_VALUE;
+#endif
+
 	// make a list of all the modules we want to load
 	for(unsigned int d=0; d<mod_dirs.size(); d++)
 	{
-		struct dirent *dp;
-
+#ifndef WIN32
 		DIR *dir = opendir(mod_dirs[d].c_str());
+#else
+
+		char nDir[MAX_PATH];
+		_snprintf(nDir, MAX_PATH,  "%s\\*.%s", mod_dirs[d].c_str(), SO_EXT);
+		
+		std::string ns(nDir); //narrow string
+		std::wstring ws(ns.length(), L' '); //wide string
+		
+		std::copy(ns.begin(), ns.end(), ws.begin());
+
+		WIN32_FIND_DATA dir;
+
+		hFind = FindFirstFile( ws.c_str(), &dir);
+#endif
+
+#ifndef WIN32
 		if(dir)
 		{
 			while( (dp=readdir(dir)) != NULL)
+#else
+		if(hFind != INVALID_HANDLE_VALUE)
+		{
+			do
+#endif
 			{
+#ifndef WIN32
 				const char* filename = dp->d_name;
+#else
+				char filename[4096];
+				wcstombs(filename, dir.cFileName, 4096);
+#endif
 
 				int len = strlen(filename);
-				if(strncasecmp(filename+len-3, ".so", 3) == 0) //then ends with .so
+				if(strncasecmp(filename+len-strlen(SO_EXT), SO_EXT, strlen(SO_EXT)) == 0) //then ends with so or dll 
 				{
-					char* n = new char[len+2];
-					strncpy(n, filename, len-3);
-					n[len-3] = 0;
+					const char ii = strlen(SO_EXT);
+					char* n = new char[len+ii];
+					strncpy(n, filename, len);
+					n[len-ii-1] = 0;
 					
 					unloaded[n]++; //mark this module to be loaded
 					
 					delete [] n;
 				}
 			}
+#ifdef WIN32
+			while(FindNextFile(hFind, &dir) != 0);
+			FindClose(hFind);
+#else
 			closedir(dir);
+#endif
 		}
 		else
 		{
+#ifndef WIN32
 			cerr << "Failed to read directory `" << mod_dirs[d] << "': " << strerror(errno) << endl;
+#else
+			cerr << "Failed to read directory `" << mod_dirs[d] << "': " << GetLastError() << endl;
+#endif
 		}
 		
 	}
@@ -525,6 +626,10 @@ int registerLibs(int suppress, lua_State* L)
 		cout << endl;
 	}
 	
+#ifdef WIN32
+#define dlerror() "dlerror"
+#endif
+
 	// we've either loaded all the modules or there are some left with errors
 	// check to see if and of the unloaded have finite value
 	int bad_fail = 0;

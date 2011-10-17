@@ -1,9 +1,8 @@
 #ifndef SETUP_CODE
 #define SETUP_CODE
 
-#ifndef WIN32
 static const char* setup_lua_code = 
-
+#ifndef WIN32
 "function setup(mod_path)\n"\
 "	print(\"Creating default startup files in $(HOME)/.maglua.d\")\n"\
 "	print(\"adding path `\" .. mod_path .. \"'\")\n"\
@@ -13,11 +12,17 @@ static const char* setup_lua_code =
 "	f:write(\"-- Modules in the following directories will be loaded\\n\")\n"\
 "	f:write(\"module_path = {\\\"\" .. mod_path .. \"\\\"}\\n\")\n"\
 "end\n";
-
 #else
-
-#error Need code for Windows setup
-
+"function setup(mod_path)\n"\
+"   mod_path = string.gsub(mod_path, \"\\\\\", \"\\\\\\\\\")\n"\
+"	print(\"Creating default startup files in $(APPDATA)\\\\maglua\")\n"\
+"	print(\"adding path `\" .. mod_path .. \"'\")\n"\
+"	local home = os.getenv(\"APPDATA\")\n"\
+"	os.execute(\"mkdir \\\"\" .. home .. \"\\\\maglua\")\n"\
+"	f = io.open(home .. \"\\\\maglua\\\\module_path.lua\", \"w\")\n"\
+"	f:write(\"-- Modules in the following directories will be loaded\\n\")\n"\
+"	f:write(\"module_path = {\\\"\" .. mod_path .. \"\\\"}\\n\")\n"\
+"end\n";
 #endif
 
 #endif //SETUP_CODE

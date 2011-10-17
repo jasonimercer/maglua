@@ -1,3 +1,5 @@
+#ifndef WIN32
+
 #ifndef JASONTHREAD
 #define JASONTHREAD
 
@@ -27,5 +29,7 @@ private:
 	
 	pthread_t thread;
 };
+
+#endif
 
 #endif

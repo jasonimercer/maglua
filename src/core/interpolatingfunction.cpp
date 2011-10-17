@@ -187,6 +187,7 @@ int  InterpolatingFunction::decode(buffer* b)
 		addData(x, y);
 	}
 	compile();
+	return 0;
 }
 
 

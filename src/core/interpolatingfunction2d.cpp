@@ -225,6 +225,7 @@ int  InterpolatingFunction2D::decode(buffer* b)
 		//cout << "decode (" << i << ", " << x << ", " << y << ", " << z << ")" << endl;
 		addData(x, y, z);
 	}
+	return 0;
 }
 
 

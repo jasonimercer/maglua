@@ -256,6 +256,7 @@ inline void MTRand::seed()
 	// Otherwise use a hash of time() and clock() values
 	
 	// First try getting an array from /dev/urandom
+#ifndef WIN32
 	FILE* urandom = fopen( "/dev/urandom", "rb" );
 	if( urandom )
 	{
@@ -268,7 +269,7 @@ inline void MTRand::seed()
 		fclose(urandom);
 		if( success ) { seed( bigSeed, N );  return; }
 	}
-	
+#endif
 	// Was not successful, so use time() and clock() instead
 	seed( hash( time(NULL), clock() ) );
 }
