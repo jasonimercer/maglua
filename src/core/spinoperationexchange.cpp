@@ -259,7 +259,7 @@ int l_ex_addpath(lua_State* L)
 	Exchange* ex = checkExchange(L, 1);
 	if(!ex) return 0;
 
-	bool PBC = true;
+	int PBC = 1;
 	if(lua_isboolean(L, -1))
 	{
 		PBC = lua_toboolean(L, -1);
@@ -340,6 +340,7 @@ static int l_ex_opt(lua_State* L)
 	if(!ex) return 0;
 	
 	ex->opt();
+	return 0;
 }
 
 static int l_ex_help(lua_State* L)

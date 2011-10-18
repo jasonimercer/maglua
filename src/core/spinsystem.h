@@ -20,13 +20,13 @@
 #include "jthread.h"
 
 #ifdef WIN32
-#define strcasecmp(A,B) _stricmp(A,B)
-#define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #define strcasecmp(A,B) _stricmp(A,B)
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
 #endif
 
 using namespace std;
 
-class SpinSystem : public Encodable
+class CORE_API SpinSystem : public Encodable
 {
 public:
 	SpinSystem(const int nx, const int ny, const int nz);
@@ -105,8 +105,8 @@ private:
 	
 };
 
-SpinSystem* checkSpinSystem(lua_State* L, int idx);
-void lua_pushSpinSystem(lua_State* L, SpinSystem* ss);
-void registerSpinSystem(lua_State* L);
+CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
+CORE_API void lua_pushSpinSystem(lua_State* L, SpinSystem* ss);
+CORE_API void registerSpinSystem(lua_State* L);
 
 #endif

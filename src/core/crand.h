@@ -16,7 +16,7 @@
 #ifndef CRANDOM_HPP
 #define CRANDOM_HPP
 
-class CRand : public RNG
+class CORE_API CRand : public RNG
 {
 public:
 	CRand();

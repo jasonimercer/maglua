@@ -18,7 +18,7 @@
 
 class SpinSystem;
 
-class LLG : public Encodable
+class CORE_API LLG : public Encodable
 {
 public:
 	LLG(const char* llgtype, int etype);
@@ -38,9 +38,9 @@ public:
 };
 
 
-void registerLLG(lua_State* L);
-LLG* checkLLG(lua_State* L, int idx);
-void lua_pushLLG(lua_State* L, LLG* llg);
-int  lua_isllg(lua_State* L, int idx);
+CORE_API void registerLLG(lua_State* L);
+CORE_API LLG* checkLLG(lua_State* L, int idx);
+CORE_API void lua_pushLLG(lua_State* L, LLG* llg);
+CORE_API int  lua_isllg(lua_State* L, int idx);
 
 #endif

@@ -19,7 +19,7 @@
 
 using namespace std;
 
-class InterpolatingFunction2D : public Encodable
+class CORE_API InterpolatingFunction2D : public Encodable
 {
 public:
 	InterpolatingFunction2D();
@@ -63,9 +63,9 @@ private:
 	vector < triple > rawdata;
 };
 
-InterpolatingFunction2D* checkInterpolatingFunction2D(lua_State* L, int idx);
-void registerInterpolatingFunction2D(lua_State* L);
-void lua_pushInterpolatingFunction2D(lua_State* L, InterpolatingFunction2D* if2D);
+CORE_API InterpolatingFunction2D* checkInterpolatingFunction2D(lua_State* L, int idx);
+CORE_API void registerInterpolatingFunction2D(lua_State* L);
+CORE_API void lua_pushInterpolatingFunction2D(lua_State* L, InterpolatingFunction2D* if2D);
 // 
 #endif
 

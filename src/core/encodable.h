@@ -12,6 +12,7 @@
 
 #ifndef ENCODABLE_H
 #define ENCODABLE_H
+#include "luacommon.h"
 
 typedef struct buffer
 {
@@ -39,7 +40,7 @@ typedef struct buffer
 
 // This is a base class for classes that 
 // can be encoded into and from a char stream,
-class Encodable
+class CORE_API Encodable
 {
 public:
 	Encodable(int t) : type(t) {};

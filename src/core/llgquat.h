@@ -17,7 +17,7 @@
 
 #include "llg.h"
 
-class LLGQuaternion : public LLG
+class CORE_API LLGQuaternion : public LLG
 {
 public:
 	LLGQuaternion();

@@ -23,8 +23,8 @@ all: $(LIBNAME).so
 $(LIBNAME).so : $(OBJECTS)
 	$(CXX) -rdynamic -fPIC -shared $(LIBS) $(OBJECTS) -o $(LIBNAME).so
 
-%.o : %.c  %.h
-	$(CXX) -fPIC $(INCLUDEPATH) -c $*.c -o $*.o 
+%.o : %.cpp  %.h
+	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 install: all
 	mkdir -p $(MODDIR)

@@ -15,7 +15,7 @@
 
 #include "spinoperation.h"
 
-class Exchange : public SpinOperation
+class CORE_API Exchange : public SpinOperation
 {
 public:
 	Exchange(int nx, int ny, int nz);
@@ -48,8 +48,8 @@ private:
 // 	double* strength;
 };
 
-Exchange* checkExchange(lua_State* L, int idx);
-void registerExchange(lua_State* L);
-void lua_pushExchange(lua_State* L, Exchange* ex);
+CORE_API Exchange* checkExchange(lua_State* L, int idx);
+CORE_API void registerExchange(lua_State* L);
+CORE_API void lua_pushExchange(lua_State* L, Exchange* ex);
 
 #endif

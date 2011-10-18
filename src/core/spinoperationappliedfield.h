@@ -15,7 +15,7 @@
 
 #include "spinoperation.h"
 
-class AppliedField : public SpinOperation
+class CORE_API AppliedField : public SpinOperation
 {
 public:
 	AppliedField(int nx, int ny, int nz);
@@ -29,9 +29,9 @@ public:
 	virtual int  decode(buffer* b);
 };
 
-void lua_pushAppliedField(lua_State* L, AppliedField* ap);
-AppliedField* checkAppliedField(lua_State* L, int idx);
-void registerAppliedField(lua_State* L);
+CORE_API void lua_pushAppliedField(lua_State* L, AppliedField* ap);
+CORE_API AppliedField* checkAppliedField(lua_State* L, int idx);
+CORE_API void registerAppliedField(lua_State* L);
 
 
 #endif

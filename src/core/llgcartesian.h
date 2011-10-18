@@ -19,7 +19,7 @@
 
 class SpinSystem;
 
-class LLGCartesian : public LLG
+class CORE_API LLGCartesian : public LLG
 {
 public:
 	LLGCartesian();

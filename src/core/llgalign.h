@@ -18,7 +18,7 @@
 #include "llg.h"
 
 //make spin align with field
-class LLGAlign : public LLG
+class CORE_API LLGAlign : public LLG
 {
 public:
 	LLGAlign();

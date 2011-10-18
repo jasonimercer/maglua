@@ -19,7 +19,7 @@
 
 class SpinSystem;
 
-class LLGFake : public LLG
+class CORE_API LLGFake : public LLG
 {
 public:
 	LLGFake();

@@ -15,6 +15,17 @@
 
 #include "spinoperation.h"
 
+#ifdef WIN32
+ #ifdef DIPOLE_EXPORTS
+  #define DIPOLE_API __declspec(dllexport)
+ #else
+  #define DIPOLE_API __declspec(dllimport)
+ #endif
+#else
+ #define DIPOLE_API 
+#endif
+
+
 #include <complex>
 #include <fftw3.h>
 
@@ -71,9 +82,9 @@ private:
 	fftw_plan backward;
 };
 
-void lua_pushDipole(lua_State* L, Dipole* d);
-Dipole* checkDipole(lua_State* L, int idx);
-void registerDipole(lua_State* L);
+DIPOLE_API void lua_pushDipole(lua_State* L, Dipole* d);
+DIPOLE_API Dipole* checkDipole(lua_State* L, int idx);
+DIPOLE_API void registerDipole(lua_State* L);
 
 
 #endif

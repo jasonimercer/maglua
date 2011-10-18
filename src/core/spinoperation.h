@@ -28,7 +28,7 @@
 
 class SpinSystem;
 
-class SpinOperation : public Encodable
+class CORE_API SpinOperation : public Encodable
 {
 public:
 	//encodetype will be phased out in favour of dynamic_cast<T>()
@@ -58,7 +58,7 @@ protected:
 	int slot;
 };
 
-int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);
-int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def);
-int lua_getnewargs(lua_State* L, int* vec3, int pos);
+CORE_API int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);
+CORE_API int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def);
+CORE_API int lua_getnewargs(lua_State* L, int* vec3, int pos);
 #endif

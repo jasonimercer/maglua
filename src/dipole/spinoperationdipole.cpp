@@ -385,7 +385,7 @@ int l_dip_setunitcell(lua_State* L)
 	
 	int r1 = lua_getNdouble(L, 3, A, 2, 0);
 	int r2 = lua_getNdouble(L, 3, B, 2+r1, 0);
-	int r3 = lua_getNdouble(L, 3, C, 2+r2+r3, 0);
+	int r3 = lua_getNdouble(L, 3, C, 2+r1+r2, 0);
 	
 	for(int i=0; i<3; i++)
 	{
@@ -581,17 +581,17 @@ void registerDipole(lua_State* L)
 
 extern "C"
 {
-int lib_register(lua_State* L);
-int lib_deps(lua_State* L);
+DIPOLE_API int lib_register(lua_State* L);
+DIPOLE_API int lib_deps(lua_State* L);
 }
 
-int lib_register(lua_State* L)
+DIPOLE_API int lib_register(lua_State* L)
 {
 	registerDipole(L);
 	return 0;
 }
 
-int lib_deps(lua_State* L)
+DIPOLE_API int lib_deps(lua_State* L)
 {
 	lua_pushstring(L, "Core");
 	return 1;

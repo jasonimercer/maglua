@@ -17,7 +17,7 @@
 
 class RNG;
 class LLG;
-class Thermal : public SpinOperation
+class CORE_API Thermal : public SpinOperation
 {
 public:
 	Thermal(int nx, int ny, int nz);
@@ -35,9 +35,9 @@ public:
 	virtual int  decode(buffer* b);
 };
 
-Thermal* checkThermal(lua_State* L, int idx);
-void registerThermal(lua_State* L);
-void lua_pushThermal(lua_State* L, Thermal* th);
+CORE_API Thermal* checkThermal(lua_State* L, int idx);
+CORE_API void registerThermal(lua_State* L);
+CORE_API void lua_pushThermal(lua_State* L, Thermal* th);
 
 
 #endif

@@ -15,7 +15,7 @@
 
 #include "spinoperation.h"
 
-class Anisotropy : public SpinOperation
+class CORE_API Anisotropy : public SpinOperation
 {
 public:
 	Anisotropy(int nx, int ny, int nz);
@@ -42,9 +42,9 @@ public:
 	void deinit();
 };
 
-void lua_pushAnisotropy(lua_State* L, Anisotropy* ani);
-Anisotropy* checkAnisotropy(lua_State* L, int idx);
-void registerAnisotropy(lua_State* L);
+CORE_API void lua_pushAnisotropy(lua_State* L, Anisotropy* ani);
+CORE_API Anisotropy* checkAnisotropy(lua_State* L, int idx);
+CORE_API void registerAnisotropy(lua_State* L);
 
 
 #endif

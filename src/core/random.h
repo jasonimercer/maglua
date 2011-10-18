@@ -13,6 +13,7 @@
 #ifndef RANDOMBASE_HPP
 #define RANDOMBASE_HPP
 
+#include "luacommon.h"
 #include <stdint.h>
 #include <ctype.h>
 #include <time.h>
@@ -37,7 +38,7 @@ typedef UINT64 ISAAC_INT;
 using namespace std;
 typedef unsigned long uint32;  // unsigned integer type, at least 32 bits
 
-class RNG
+class CORE_API RNG
 {
 public:
 	RNG(const char* name);
@@ -64,8 +65,8 @@ protected:
 };
 
 #include "luacommon.h"
-RNG* checkRandom(lua_State* L, int idx);
-void registerRandom(lua_State* L);
+CORE_API RNG* checkRandom(lua_State* L, int idx);
+CORE_API void registerRandom(lua_State* L);
 
 
 #endif

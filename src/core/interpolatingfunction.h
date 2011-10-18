@@ -19,7 +19,7 @@
 
 using namespace std;
 
-class InterpolatingFunction : public Encodable
+class CORE_API InterpolatingFunction : public Encodable
 {
 public:
 	InterpolatingFunction();
@@ -56,9 +56,9 @@ private:
 	_node* root;
 };
 
-InterpolatingFunction* checkInterpolatingFunction(lua_State* L, int idx);
-void registerInterpolatingFunction(lua_State* L);
-void lua_pushInterpolatingFunction(lua_State* L, InterpolatingFunction* if1D);
+CORE_API InterpolatingFunction* checkInterpolatingFunction(lua_State* L, int idx);
+CORE_API void registerInterpolatingFunction(lua_State* L);
+CORE_API void lua_pushInterpolatingFunction(lua_State* L, InterpolatingFunction* if1D);
 
 // 
 #endif

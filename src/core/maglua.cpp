@@ -10,13 +10,7 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifdef WIN32
-#define EXPORT __declspec(dllexport)
-#define CDECL  __cdecl
-#else
-#define EXPORT 
-#define CDECL 
-#endif
+#include "luacommon.h"
 
 extern "C"
 {
@@ -24,12 +18,11 @@ extern "C"
 #include <lualib.h>
 #include <lauxlib.h>
         
-EXPORT int CDECL lib_register(lua_State* L);
-EXPORT int CDECL lib_deps(lua_State* L);
+CORE_API int lib_register(lua_State* L);
+CORE_API int lib_deps(lua_State* L);
 }
 
 #include "spinsystem.h"
-#include "luacommon.h"
 #include "spinoperation.h"
 #include "llg.h"
 #include "llgquat.h"
@@ -41,7 +34,7 @@ EXPORT int CDECL lib_deps(lua_State* L);
 #include "interpolatingfunction.h"
 #include "interpolatingfunction2d.h"
 	
-EXPORT int CDECL lib_register(lua_State* L)
+CORE_API int lib_register(lua_State* L)
 {
 	registerSpinSystem(L);
 	registerLLG(L);
@@ -56,7 +49,7 @@ EXPORT int CDECL lib_register(lua_State* L)
 	return 0;
 }
 
-EXPORT int CDECL lib_deps(lua_State* L)
+CORE_API int lib_deps(lua_State* L)
 {
 	return 0;
 }

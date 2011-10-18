@@ -32,7 +32,7 @@ typedef struct randctx
   ub4 randc;
 } randctx;
 
-class Isaac : public RNG
+class CORE_API Isaac : public RNG
 {
 public:
 	Isaac();

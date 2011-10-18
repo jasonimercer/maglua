@@ -15,10 +15,11 @@ extern "C" {
 	#include <lualib.h>
 	#include <lauxlib.h>
 }
+#include "luacommon.h"
 
-char* exportLuaVariable(lua_State* L, int index,   int* chunksize);
-int   importLuaVariable(lua_State* L, char* chunk, int  chunksize);
+CORE_API char* exportLuaVariable(lua_State* L, int index,   int* chunksize);
+CORE_API int   importLuaVariable(lua_State* L, char* chunk, int  chunksize);
 
 #include "encodable.h"
-void _exportLuaVariable(lua_State* L, int index, buffer* b);
-int _importLuaVariable(lua_State* L, buffer* b);
+CORE_API void _exportLuaVariable(lua_State* L, int index, buffer* b);
+CORE_API int _importLuaVariable(lua_State* L, buffer* b);
