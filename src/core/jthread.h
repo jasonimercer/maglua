@@ -5,7 +5,7 @@
 
 #include <pthread.h>
 
-class CORE_API JThread
+class JThread
 {
 public:
 	JThread(void *(*start_routine)(void*), void* arg);
