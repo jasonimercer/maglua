@@ -79,7 +79,8 @@ int main(int argc, char** argv)
 #ifdef _MPI
 	MPI_Init(&argc, &argv);
 #endif
-	
+	printf("This evaluation version of MagLua is for private, non-commercial use only\n");
+
 	int suppress = 0;
 	int shutdown = 0;
 	for(int i=0; i<argc; i++)
@@ -680,7 +681,11 @@ void print_help()
 	cout << " -L mod_dir       Add module <mod_dir> to search path" << endl;
 	cout << " -q               Run quietly, omit some startup messages" << endl;
 	cout << " --module_path    Print primary module directory" << endl;
+#ifdef WIN32
+	cout << " --setup mod_dir  Setup startup files in $(APPDATA)\\maglua" << endl;
+#else
 	cout << " --setup mod_dir  Setup startup files in $(HOME)/.maglua.d" << endl;
+#endif
 	cout << "                   with <mod_dir> in the list of paths" << endl;
 	cout << " -h, --help       Show this help" << endl;
 	cout << endl;
