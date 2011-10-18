@@ -13,7 +13,8 @@
 # ./configure  --prefix=$(HOME) --with-pic --enable-shared
 
 #
-CXX=g++
+#CXX=g++
+CXX=mpic++ -D_MPI
 # CXX=mpic++ -D_MPI
 
 CFLAGS=-ansi -O2

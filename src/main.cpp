@@ -31,7 +31,7 @@ extern "C" {
 #define HOME "HOME"
 #define SO_EXT "so"
 #define MAGLUA_SETUP_PATH "/.maglua.d/module_path.lua"
-typedef void* _handle
+#define _handle void*
 #else
  #include <windows.h>
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
@@ -385,7 +385,7 @@ static int l_info(lua_State* L)
 // Load a library into the process
 //
 // *****************************************************************
-// all the folloing was broke. Idea was to load dependancies needed to
+// all the following was broke. Idea was to load dependancies needed to
 // load the library. Thing is you can't load the library to load the
 // dependancies until the deps are loaded. What a dumb mistake...
 // New method is to keep trying to load the libraries until they all
@@ -423,11 +423,12 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 #ifndef WIN32
 		dlerror();
 		handle = dlopen(buf,  RTLD_NOW | RTLD_GLOBAL);
-		const char* dle = dlerror();
-		if(dle)
-		{
-			fprintf(stderr, "dlsym error: `%s'\n", dle);
-		}
+		// should this be reported? We may be able to deal with it. Need to think this through
+// 		const char* dle = dlerror();
+// 		if(dle)
+// 		{
+// 			fprintf(stderr, "dlsym error: `%s'\n", dle);
+// 		}
 #else
 		WCHAR* str  = new WCHAR[bufsize];
 		MultiByteToWideChar(0, 0, buf, bufsize-1, str, bufsize);
@@ -456,11 +457,13 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 
 #ifndef WIN32
 	lua_func lib_register = (lua_func) dlsym(handle, "lib_register");
-	const char* dle = dlerror();
-	if(dle)
-	{
-		fprintf(stderr, "dlsym error: `%s'\n", dle);
-	}
+
+	// don't know if we should report this, it may be resolved later
+// 	const char* dle = dlerror();
+// 	if(dle)
+// 	{
+// 		fprintf(stderr, "dlsym error: `%s'\n", dle);
+// 	}
 	if(!lib_register)
 	{
 		// we'll report this later 
@@ -477,7 +480,6 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 		return 1;
     }
 #endif	
-
     
 	lib_register(L); // call the register function from the library
 	

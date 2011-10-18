@@ -174,3 +174,4 @@ int lib_register(lua_State* L)
 	registerCheckPoint(L);
 	return 0;
 }
+

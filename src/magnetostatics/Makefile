@@ -12,7 +12,7 @@ CXX=g++
 
 CFLAGS=-ansi -O2 -g
 PKG=lua5.1 fftw3
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core -I../dipole
 LIBS=`pkg-config --libs $(PKG) ` -lpthread
 OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o
 LIBNAME=Magnetostatics
