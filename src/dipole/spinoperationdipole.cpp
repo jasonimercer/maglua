@@ -13,6 +13,7 @@
 #include "spinoperationdipole.h"
 #include "spinsystem.h"
 #include "dipolesupport.h"
+#include "info.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -583,6 +584,7 @@ extern "C"
 {
 DIPOLE_API int lib_register(lua_State* L);
 DIPOLE_API int lib_deps(lua_State* L);
+DIPOLE_API int lib_version(lua_State* L);
 }
 
 DIPOLE_API int lib_register(lua_State* L)
@@ -595,6 +597,11 @@ DIPOLE_API int lib_deps(lua_State* L)
 {
 	lua_pushstring(L, "Core");
 	return 1;
+}
+
+DIPOLE_API int lib_version(lua_State* L)
+{
+	return __revi;
 }
 
 

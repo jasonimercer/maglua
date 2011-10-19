@@ -16,6 +16,7 @@ extern "C" {
         #include <lauxlib.h>
 }
 
+#include "info.h"
 #ifdef _MPI
 #include <mpi.h>
 #include <stdlib.h>
@@ -491,9 +492,25 @@ void registerMPI(lua_State* L)
 #endif
 
 
+#ifdef WIN32
+ #ifdef MPI_EXPORTS
+  #define MPI_API __declspec(dllexport)
+ #else
+  #define MPI_API __declspec(dllimport)
+ #endif
+#else
+ #define MPI_API 
+#endif
+
+
 extern "C"
 {
-int lib_register(lua_State* L)
+MPI_API int lib_register(lua_State* L);
+MPI_API int lib_version(lua_State* L);
+}
+
+
+MPI_API int lib_register(lua_State* L)
 {
 #ifdef _MPI
 	registerMPI(L);
@@ -501,8 +518,8 @@ int lib_register(lua_State* L)
 	return 0;
 }
 
-int lib_deps(lua_State* L)
+MPI_API int lib_version(lua_State* L)
 {
-	return 0;
+	return __revi;
 }
-}
+

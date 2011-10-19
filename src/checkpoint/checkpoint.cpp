@@ -24,6 +24,7 @@
 #include "checkpoint.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "info.h"
 
 static int sure_fwrite(const void* _data, int sizeelement, int numelement, FILE* f)
 {
@@ -174,4 +175,10 @@ int lib_register(lua_State* L)
 	registerCheckPoint(L);
 	return 0;
 }
+
+int lib_version(lua_State* L)
+{
+	return __revi;
+}
+
 

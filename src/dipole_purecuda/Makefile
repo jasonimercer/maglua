@@ -13,11 +13,11 @@ NVCC=/usr/bin/nvcc
 
 CFLAGS=-ansi -O2 -g
 PKG=lua5.1
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core_purecuda
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core_purecuda -I..
 LIBS=`pkg-config --libs $(PKG) ` -lpthread -lrt -lcudart -lcuda
 OBJECTS=spinoperationdipole.o dipolesupport.o kernel.cuo
 LIBNAME=PureCUDADipole
-MODDIR=$(shell maglua --module_path)
+MODDIR=$(shell maglua --module_path 2> /dev/null)
 
 all: $(LIBNAME).so
 

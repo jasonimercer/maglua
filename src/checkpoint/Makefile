@@ -12,7 +12,7 @@ CXX=g++
 
 CFLAGS=-ansi -O2
 PKG=lua5.1
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I../core
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I../core -I..
 LIBS=`pkg-config --libs $(PKG) ` -lpthread
 OBJECTS=checkpoint.o
 LIBNAME=CheckPoint

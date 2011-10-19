@@ -13,6 +13,7 @@
 #include "spinoperationmagnetostatics.h"
 #include "spinsystem.h"
 #include "magnetostaticssupport.h"
+#include "info.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -608,20 +609,40 @@ void registerMagnetostatic(lua_State* L)
 }
 
 
-extern "C" {
-int lib_register(lua_State* L);
-int lib_deps(lua_State* L);
+#ifdef WIN32
+ #ifdef MAGNETOSTATICS_EXPORTS
+  #define MAGNETOSTATICS_API __declspec(dllexport)
+ #else
+  #define MAGNETOSTATICS_API __declspec(dllimport)
+ #endif
+#else
+ #define MAGNETOSTATICS_API 
+#endif
+
+
+extern "C"
+{
+MAGNETOSTATICS_API int lib_register(lua_State* L);
+MAGNETOSTATICS_API int lib_deps(lua_State* L);
+MAGNETOSTATICS_API int lib_version(lua_State* L);
 }
 
-int lib_register(lua_State* L)
+MAGNETOSTATICS_API int lib_register(lua_State* L)
 {
 	registerMagnetostatic(L);
 	return 0;
 }
-int lib_deps(lua_State* L)
+
+MAGNETOSTATICS_API int lib_deps(lua_State* L)
 {
 	lua_pushstring(L, "Core");
 	lua_pushstring(L, "Dipole");
 	return 2;
 }
+
+MAGNETOSTATICS_API int lib_version(lua_State* L)
+{
+	return __revi;
+}
+
 

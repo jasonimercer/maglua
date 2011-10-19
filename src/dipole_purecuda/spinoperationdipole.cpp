@@ -13,6 +13,7 @@
 #include "spinoperationdipole.h"
 #include "spinsystem.h"
 #include "dipolesupport.h"
+#include "info.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -368,7 +369,7 @@ static int l_dip_help(lua_State* L)
 }
 
 
-void registerDipoleCuda(lua_State* L)
+void registerDipolePureCuda(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_dip_gc},
@@ -401,20 +402,41 @@ void registerDipoleCuda(lua_State* L)
 	lua_pop(L,1);	
 }
 
+
+
+#ifdef WIN32
+ #ifdef DIPOLEPURECUDA_EXPORTS
+  #define DIPOLEPURECUDA_API __declspec(dllexport)
+ #else
+  #define DIPOLEPURECUDA_API __declspec(dllimport)
+ #endif
+#else
+ #define DIPOLEPURECUDA_API 
+#endif
+
+
 extern "C"
 {
+DIPOLEPURECUDA_API int lib_register(lua_State* L);
+DIPOLEPURECUDA_API int lib_deps(lua_State* L);
+DIPOLEPURECUDA_API int lib_version(lua_State* L);
+}
 
-int lib_register(lua_State* L)
+DIPOLEPURECUDA_API int lib_register(lua_State* L)
 {
-	registerDipoleCuda(L);
+	registerDipolePureCuda(L);
 	return 0;
 }
 
-int lib_deps(lua_State* L)
+DIPOLEPURECUDA_API int lib_deps(lua_State* L)
 {
-	lua_pushstring(L, "PureCUDACore");
+	lua_pushstring(L, "Core");
 	return 1;
 }
 
+DIPOLEPURECUDA_API int lib_version(lua_State* L)
+{
+	return __revi;
 }
+
 

@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 #ifdef _MPI
 	MPI_Init(&argc, &argv);
 #endif
-	printf("This evaluation version of MagLua is for private, non-commercial use only\n");
+	fprintf(stderr, "This evaluation version of MagLua is for private, non-commercial use only\n");
 
 	int suppress = 0;
 	int shutdown = 0;
@@ -398,8 +398,9 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 {
 	char* buf = 0;
 	int bufsize = 0;
+	int module_version = 0;
 	
-	if(loaded[name] > 0)//then already loaded
+	if(loaded[name] != 0)//then already loaded
 	{
 		return 3;
 	}
@@ -458,6 +459,7 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 
 #ifndef WIN32
 	lua_func lib_register = (lua_func) dlsym(handle, "lib_register");
+	lua_func lib_version  = (lua_func) dlsym(handle, "lib_version");
 
 	// don't know if we should report this, it may be resolved later
 // 	const char* dle = dlerror();
@@ -473,7 +475,8 @@ static int load_lib(int suppress, lua_State* L, const string& name)
     }
 #else
 	lua_func lib_register = (lua_func)GetProcAddress(handle, "lib_register");
-
+	lua_func lib_version  = (lua_func)GetProcAddress(handle, "lib_version");
+	
 	if(!lib_register)
 	{
 		// we'll report this later 
@@ -493,8 +496,21 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 		//cout << "    from " << src_dir << endl;
 // 	}
 	
-	loaded[name]++;
-
+	if(!lib_version)
+	{
+		printf("WARNING: Failed to load `lib_version' from `%s' setting version to -100\n", name.c_str());
+		loaded[name] = -100;
+		
+	}
+	else
+	{
+		loaded[name] = lib_version(L);
+		if(loaded[name] == 0)
+		{
+			printf("WARNING: `lib_version' from `%s' returned 0. Changing version to -100\n", name.c_str());
+			loaded[name] = -100;
+		}
+	}
 	return 0;
 }
 
@@ -621,6 +637,7 @@ int registerLibs(int suppress, lua_State* L)
 		for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
 		{
 			cout << (*mit).first;
+			cout << "(r" << (*mit).second << ")";
 			mit++;
 			if( mit != loaded.end())
 				cout << ", ";

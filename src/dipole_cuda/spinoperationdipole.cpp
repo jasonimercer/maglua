@@ -13,6 +13,7 @@
 #include "spinoperationdipole.h"
 #include "spinsystem.h"
 #include "dipolesupport.h"
+#include "info.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -396,22 +397,40 @@ void registerDipoleCuda(lua_State* L)
 	lua_pop(L,1);	
 }
 
+
+#ifdef WIN32
+ #ifdef DIPOLECUDA_EXPORTS
+  #define DIPOLECUDA_API __declspec(dllexport)
+ #else
+  #define DIPOLECUDA_API __declspec(dllimport)
+ #endif
+#else
+ #define DIPOLECUDA_API 
+#endif
+
+
 extern "C"
 {
-int lib_register(lua_State* L);
-int lib_deps(lua_State* L);
+DIPOLECUDA_API int lib_register(lua_State* L);
+DIPOLECUDA_API int lib_deps(lua_State* L);
+DIPOLECUDA_API int lib_version(lua_State* L);
 }
 
-int lib_register(lua_State* L)
+DIPOLECUDA_API int lib_register(lua_State* L)
 {
 	registerDipoleCuda(L);
 	return 0;
 }
 
-int lib_deps(lua_State* L)
+DIPOLECUDA_API int lib_deps(lua_State* L)
 {
 	lua_pushstring(L, "Core");
 	return 1;
+}
+
+DIPOLECUDA_API int lib_version(lua_State* L)
+{
+	return __revi;
 }
 
 

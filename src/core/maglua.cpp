@@ -11,7 +11,7 @@
 ******************************************************************************/
 
 #include "luacommon.h"
-
+#include "info.h"
 extern "C"
 {
 #include <lua.h>
@@ -20,6 +20,7 @@ extern "C"
         
 CORE_API int lib_register(lua_State* L);
 CORE_API int lib_deps(lua_State* L);
+CORE_API int lib_version(lua_State* L);
 }
 
 #include "spinsystem.h"
@@ -52,4 +53,9 @@ CORE_API int lib_register(lua_State* L)
 CORE_API int lib_deps(lua_State* L)
 {
 	return 0;
+}
+
+CORE_API int lib_version(lua_State* L)
+{
+	return __revi;
 }

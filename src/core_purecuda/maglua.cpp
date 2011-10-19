@@ -10,19 +10,21 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
+#include "luacommon.h"
+
 extern "C"
 {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
         
-int lib_register(lua_State* L);
-int lib_deps(lua_State* L);
+COREPURECUDA_API int lib_register(lua_State* L);
+COREPURECUDA_API int lib_deps(lua_State* L);
+COREPURECUDA_API int lib_version(lua_State* L);
 }
 
-#warning need to add things back in here
+#include "info.h"
 #include "spinsystem.h"
-#include "luacommon.h"
 #include "spinoperation.h"
 #include "llg.h"
 #include "llgquat.h"
@@ -34,7 +36,7 @@ int lib_deps(lua_State* L);
 #include "interpolatingfunction.h"
 #include "interpolatingfunction2d.h"
 	
-int lib_register(lua_State* L)
+COREPURECUDA_API int lib_register(lua_State* L)
 {
 	registerSpinSystem(L);
 	registerLLG(L);
@@ -49,7 +51,12 @@ int lib_register(lua_State* L)
 	return 0;
 }
 
-int lib_deps(lua_State* L)
+COREPURECUDA_API int lib_deps(lua_State* L)
 {
 	return 0;
+}
+
+COREPURECUDA_API int lib_version(lua_State* L)
+{
+	return __revi;
 }

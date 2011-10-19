@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include "info.h"
 #include "mtimer.h"
 
 // in the Win32 version we'll store all the time in a single double: seconds
@@ -433,6 +434,7 @@ extern "C"
 {
 TIMER_API int lib_register(lua_State* L);
 TIMER_API int lib_deps(lua_State* L);
+TIMER_API int lib_version(lua_State* L);
 }
 
 TIMER_API int lib_register(lua_State* L)
@@ -444,6 +446,11 @@ TIMER_API int lib_register(lua_State* L)
 TIMER_API int lib_deps(lua_State* L)
 {
 	return 0;
+}
+
+TIMER_API int lib_version(lua_State* L)
+{
+	return __revi;
 }
 
 

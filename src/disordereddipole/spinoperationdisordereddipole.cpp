@@ -12,6 +12,7 @@
 
 #include "spinoperationdisordereddipole.h"
 #include "spinsystem.h"
+#include "info.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -360,21 +361,39 @@ void registerDisorderedDipole(lua_State* L)
 }
 
 
+
+#ifdef WIN32
+ #ifdef DISORDEREDDIPOLE_EXPORTS
+  #define DISORDEREDDIPOLE_API __declspec(dllexport)
+ #else
+  #define DISORDEREDDIPOLE_API __declspec(dllimport)
+ #endif
+#else
+ #define DISORDEREDDIPOLE_API 
+#endif
+
+
 extern "C"
 {
-int lib_register(lua_State* L);
-int lib_deps(lua_State* L);
+DISORDEREDDIPOLE_API int lib_register(lua_State* L);
+DISORDEREDDIPOLE_API int lib_deps(lua_State* L);
+DISORDEREDDIPOLE_API int lib_version(lua_State* L);
 }
 
-int lib_register(lua_State* L)
+DISORDEREDDIPOLE_API int lib_register(lua_State* L)
 {
 	registerDisorderedDipole(L);
 	return 0;
 }
 
-int lib_deps(lua_State* L)
+DISORDEREDDIPOLE_API int lib_deps(lua_State* L)
 {
 	lua_pushstring(L, "Core");
 	return 1;
+}
+
+DISORDEREDDIPOLE_API int lib_version(lua_State* L)
+{
+	return __revi;
 }
 

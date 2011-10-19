@@ -12,11 +12,11 @@ CXX=g++
 
 CFLAGS=-ansi -O2 -g
 PKG=lua5.1 fftw3
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core -I../dipole
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core -I../dipole -I..
 LIBS=`pkg-config --libs $(PKG) ` -lpthread
 OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o
 LIBNAME=Magnetostatics
-MODDIR=$(shell maglua --module_path)
+MODDIR=$(shell maglua --module_path 2> /dev/null)
 
 all: $(LIBNAME).so
 

@@ -18,7 +18,7 @@ NVCC=/usr/bin/nvcc
 NVFLAGS=-O2 --ptxas-options="-v" -Xcompiler -fPIC  -arch=sm_21
 CFLAGS=-ansi -O2
 PKG=lua5.1
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I..
 LIBS=`pkg-config --libs $(PKG)` -lpthread -lcudart -lcuda
 MODDIR=$(shell maglua --module_path)
 
