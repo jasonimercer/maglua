@@ -156,7 +156,7 @@ static void stop_timer(struct Timer* t)
 #endif
 
 #ifdef WIN32
-	t->seconds = (double)(t->t1 - t->t0) / CLOCKS_PER_SEC;
+	t->seconds += (double)(t->t1 - t->t0) / CLOCKS_PER_SEC;
 #else
 #ifndef MACOSX
 	t->seconds += (t->t1->tv_sec) - (t->t0->tv_sec);
