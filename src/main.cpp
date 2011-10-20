@@ -76,13 +76,15 @@ const char* reference();
 
 int main(int argc, char** argv)
 {
-#ifdef _MPI
-	MPI_Init(&argc, &argv);
-#endif
-	fprintf(stderr, "This evaluation version of MagLua is for private, non-commercial use only\n");
-
 	int suppress = 0;
 	int shutdown = 0;
+#ifdef _MPI
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &suppress); //only rank 0 will chatter
+#endif
+	if(!suppress) //prevent slaves from getting legal. 
+		fprintf(stderr, "This evaluation version of MagLua is for private, non-commercial use only\n");
+
 	for(int i=0; i<argc; i++)
 	{
 		if(strcmp("-q", argv[i]) == 0)

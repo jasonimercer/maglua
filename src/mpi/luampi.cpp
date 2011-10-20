@@ -71,7 +71,7 @@ static int l_mpi_next_rank(lua_State* L)
 {
 	int r;
 	if(lua_isnumber(L, 1))
-		r = lua_tonumber(L, 1);
+		r = lua_tointeger(L, 1);
 	else
 		r = mpi_rank();
 
@@ -85,7 +85,7 @@ static int l_mpi_prev_rank(lua_State* L)
 {
 	int r;
 	if(lua_isnumber(L, 1))
-		r = lua_tonumber(L, 1);
+		r = lua_tointeger(L, 1);
 	else
 		r = mpi_rank();
 
@@ -315,6 +315,111 @@ int l_mpi_irecv(lua_State* L)
 	return 0;
 }
 
+static int pos_val(lua_State* L, int neg)
+{
+	// -1 = n
+	// -2 = n-1
+	// -3 = n-2
+	return lua_gettop(L) + neg + 1;
+}
+
+static int merge_data(lua_State* L, int dest, int src)
+{
+	lua_pushnil(L);
+
+	while(lua_next(L, src))
+	{
+		if(lua_istable(L, -1))
+		{
+			lua_pushvalue(L, -2);
+			lua_gettable(L, dest); //get value at dest[key]
+
+			if(lua_isnil(L, -1))
+			{
+				lua_pop(L, 1);
+				lua_newtable(L);
+			}
+
+			merge_data(L, pos_val(L, -1), pos_val(L, -2));
+			lua_pushvalue(L, -3); //repush key
+			lua_insert(L, -2); //push key under dest_val
+			lua_settable(L, dest);
+		}
+		else
+		{
+			lua_pushvalue(L, -2); //copy key, value
+			lua_pushvalue(L, -2);
+			lua_settable(L, dest);
+		}
+		lua_pop(L, 1);
+	}
+}
+
+int l_mpi_all2all(lua_State* L)
+{
+	int r = mpi_rank();
+	int s = mpi_size();
+	int n = lua_gettop(L);
+
+	char* buf;
+	int size;
+
+	char** remote_bufs = new char* [s];
+	int* remote_sizes = new int [s];
+
+	buf = exportLuaVariable(L, 1, &size);
+
+
+	lua_pop(L, n); //clear stack
+	for(int i=0; i<s; i++)
+	{
+		if(i == r)
+		{
+			MPI_Bcast(&size, 1, MPI_INT, i, MPI_COMM_WORLD);
+			remote_sizes[r] = size;
+		}
+		else
+		{
+			MPI_Bcast(&(remote_sizes[i]), 1, MPI_INT, i, MPI_COMM_WORLD);
+		}
+	}
+
+	//now have the sizes of all the buffers
+	for(int i=0; i<s; i++)
+	{
+		if(i == r)
+		{
+			MPI_Bcast(buf, size, MPI_CHAR, i, MPI_COMM_WORLD);
+			remote_bufs[i] = buf;
+		}
+		else
+		{
+	 		remote_bufs[i] = new char[remote_sizes[i]];
+			MPI_Bcast(remote_bufs[i], size, MPI_CHAR, i, MPI_COMM_WORLD);
+		}
+	}
+	
+	// now we have all the individual data in remote_bufs[], need to union them
+	// lets start with an empty table
+	lua_newtable(L);
+	for(int i=0; i<s; i++)
+	{
+		importLuaVariable(L, remote_bufs[i], remote_sizes[i]);
+		
+		merge_data(L, 1, 2);
+		lua_pop(L, 1);
+	}
+
+	for(int i=0; i<s; i++)
+	{
+		delete remote_bufs[i];
+	}
+	delete [] remote_bufs;
+	delete [] remote_sizes;
+
+	return 1;
+}
+
 static int l_mpi_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -392,6 +497,13 @@ static int l_mpi_help(lua_State* L)
 		lua_pushstring(L, "Return the rank of the previous process with periodic bounds.");
 		lua_pushstring(L, ""); 
 		lua_pushstring(L, "1 Number: Previous rank");
+		return 3;
+	}
+	if(func == l_mpi_all2all)
+	{
+		lua_pushstring(L, "Return the rank of the previous process with periodic bounds.");
+		lua_pushstring(L, "1 Table: Local table to share"); 
+		lua_pushstring(L, "1 Table: Union of all other tables");
 		return 3;
 	}
 	
@@ -485,6 +597,7 @@ void registerMPI(lua_State* L)
 	add("metatable",          l_mpi_metatable         );
 	add("next_rank",          l_mpi_next_rank         );
 	add("prev_rank",          l_mpi_prev_rank         );
+	add("all2all",            l_mpi_all2all           );
 
 	lua_setglobal(L, "mpi");
 }
