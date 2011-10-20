@@ -179,7 +179,7 @@ int main(int argc, char** argv)
 
 	if(!suppress)
 	{
-		cout << "MagLua r-" << __rev << " by Jason Mercer (c) 2011" << endl;
+		cout << "MagLua r" << __revi << " by Jason Mercer (c) 2011" << endl;
 		cout << endl;
 		cout << reference() << endl;
 		cout << endl;
@@ -685,13 +685,13 @@ int registerLibs(int suppress, lua_State* L)
 const char* reference()
 {
 	return "Use the following reference when citing this code:\n" \
-		   "*** reference incomplete ***\n" \
+		   /* "*** reference incomplete ***\n" \ */
 	       "\"MagLua, a Micromagnetics Programming Environment\". Mercer, Jason I. (2011). Journal. Vol, pages";
 }
 
 void print_help()
 {
-	cout << "MagLua r-" << __rev << " by Jason Mercer (c) 2011" << endl;
+	cout << "MagLua r" << __revi << " by Jason Mercer (c) 2011" << endl;
 	cout << endl;
 	cout << " MagLua is a micromagnetics programming environment built" << endl;
 	cout << " on top of the Lua scripting language." << endl;

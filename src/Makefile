@@ -10,7 +10,7 @@
 #
 #
 # When configuring fftw3:
-# ./configure  --prefix=$(HOME) --with-pic --enable-shared
+# ./configure  --prefix=$HOME --with-pic --enable-shared
 
 #
 #CXX=g++
