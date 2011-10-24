@@ -29,15 +29,23 @@ using namespace std;
 
 #if 1
 #define BOUND_CHECKS 1
-#define CHECK \
+#define KCHECK \
 { \
 	const cudaError_t i = cudaGetLastError();\
 	if(i) \
 		printf("(%s:%i) %s\n",  __FILE__, __LINE__-1, cudaGetErrorString(i));\
 }
-#else
-#define CHECK ;
+#define CHECKCALL(expression) \
+{ \
+	const cudaError_t err = (expression); \
+	if(err != cudaSuccess) \
+		printf("(%s:%i) (%i)%s\n", __FILE__, __LINE__, err, cudaGetErrorString(err)); \
+	/* printf("(%s:%i) %s => %i\n", __FILE__, __LINE__, #expression, err); */ \
+}
 
+#else
+#define KCHECK ;
+#define CHECKERR(e) ;
 #endif
 
 
@@ -353,6 +361,8 @@ typedef struct JM_LONGRANGE_PLAN
 	CUCOMPLEX* d_B;
 }JM_LONGRANGE_PLAN;
 
+
+
 JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z, 
 	double* GammaXX, double* GammaXY, double* GammaXZ,
 	                 double* GammaYY, double* GammaYZ,
@@ -363,40 +373,49 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 	const int log2N_y = log2((double)N_y);
 	const int sRxy = sizeof(REAL) * N_x * N_y;
 	const int sCxy = sizeof(CUCOMPLEX) * N_x * N_y;
-	
+
 	JM_LONGRANGE_PLAN* p = new JM_LONGRANGE_PLAN;
 	p->N_x = N_x;
 	p->N_y = N_y;
 	p->N_z = N_z;
 	p->log2N_x = log2N_x;
 	p->log2N_y = log2N_y;
+	p->d_brp_x = 0;
+	p->d_brp_y = 0;
 	
 	// Building what is needed for future FFTs
 	int* h_brp_x;
 	int* h_brp_y;
-	cudaHostAlloc(&h_brp_x, sizeof(int) * N_x, cudaHostAllocWriteCombined); CHECK//host "write-only"
-	cudaHostAlloc(&h_brp_y, sizeof(int) * N_y, cudaHostAllocWriteCombined); CHECK//host "write-only"
-	cudaMalloc(&(p->d_brp_x), sizeof(int) * N_x);CHECK
-	cudaMalloc(&(p->d_brp_y), sizeof(int) * N_y);CHECK
+
+// 	{
+// 		int device;
+// 		cudaGetDevice(&device);;
+// 		printf("dev %i\n", device);
+// 	}
+	
+	CHECKCALL(cudaMallocHost(&h_brp_x, sizeof(int) * N_x));
+	CHECKCALL(cudaMallocHost(&h_brp_y, sizeof(int) * N_y));
+	CHECKCALL(cudaMalloc(&(p->d_brp_x), sizeof(int) * N_x));
+	CHECKCALL(cudaMalloc(&(p->d_brp_y), sizeof(int) * N_y));
 
 	for(int i=0; i<N_x; i++)
 		h_brp_x[i] = bit_rev_perm(i, log2N_x);
 	for(int i=0; i<N_y; i++)
 		h_brp_y[i] = bit_rev_perm(i, log2N_y);
 
-	cudaMemcpy(p->d_brp_x, h_brp_x, sizeof(int) * N_x, cudaMemcpyHostToDevice);	CHECK
-	cudaMemcpy(p->d_brp_y, h_brp_y, sizeof(int) * N_y, cudaMemcpyHostToDevice);	CHECK
-	cudaFreeHost(h_brp_x);	CHECK
-	cudaFreeHost(h_brp_y);	CHECK
+	CHECKCALL(cudaMemcpy(p->d_brp_x, h_brp_x, sizeof(int) * N_x, cudaMemcpyHostToDevice));
+	CHECKCALL(cudaMemcpy(p->d_brp_y, h_brp_y, sizeof(int) * N_y, cudaMemcpyHostToDevice));
+	CHECKCALL(cudaFreeHost(h_brp_x));
+	CHECKCALL(cudaFreeHost(h_brp_y));
 
-	CUCOMPLEX* h_exp2pi_x;
-	CUCOMPLEX* h_exp2pi_y; 
-	cudaHostAlloc(&h_exp2pi_x, sizeof(CUCOMPLEX) * N_x * log2N_x, cudaHostAllocWriteCombined);	CHECK //host "write-only"
-	cudaHostAlloc(&h_exp2pi_y, sizeof(CUCOMPLEX) * N_y * log2N_y, cudaHostAllocWriteCombined);	CHECK //host "write-only"
-	cudaMalloc(&(p->d_exp2pi_x_f), sizeof(CUCOMPLEX) * N_x * log2N_x);	CHECK
-	cudaMalloc(&(p->d_exp2pi_y_f), sizeof(CUCOMPLEX) * N_y * log2N_y);	CHECK
-	cudaMalloc(&(p->d_exp2pi_x_b), sizeof(CUCOMPLEX) * N_x * log2N_x);	CHECK
-	cudaMalloc(&(p->d_exp2pi_y_b), sizeof(CUCOMPLEX) * N_y * log2N_y);	CHECK
+	CUCOMPLEX* h_exp2pi_x = 0;
+	CUCOMPLEX* h_exp2pi_y = 0; 
+	CHECKCALL(cudaMallocHost(&h_exp2pi_x, sizeof(CUCOMPLEX) * N_x * log2N_x));
+	CHECKCALL(cudaMallocHost(&h_exp2pi_y, sizeof(CUCOMPLEX) * N_y * log2N_y));
+	CHECKCALL(cudaMalloc(&(p->d_exp2pi_x_f), sizeof(CUCOMPLEX) * N_x * log2N_x));
+	CHECKCALL(cudaMalloc(&(p->d_exp2pi_y_f), sizeof(CUCOMPLEX) * N_y * log2N_y));
+	CHECKCALL(cudaMalloc(&(p->d_exp2pi_x_b), sizeof(CUCOMPLEX) * N_x * log2N_x));
+	CHECKCALL(cudaMalloc(&(p->d_exp2pi_y_b), sizeof(CUCOMPLEX) * N_y * log2N_y));
 
 	for(int j=0; j<log2N_x; j++)
 	{
@@ -407,6 +426,7 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 			h_exp2pi_x[i + j*N_x] = MAKECOMPLEX(x.real(), x.imag());
 		}
 	}
+
 	for(int j=0; j<log2N_y; j++)
 	{
 		for(int i=0; i<N_y; i++)
@@ -416,8 +436,8 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 		}
 	}
 	
-	cudaMemcpy(p->d_exp2pi_x_f, h_exp2pi_x, sizeof(CUCOMPLEX) * N_x * log2N_x, cudaMemcpyHostToDevice);	CHECK
-	cudaMemcpy(p->d_exp2pi_y_f, h_exp2pi_y, sizeof(CUCOMPLEX) * N_y * log2N_y, cudaMemcpyHostToDevice);	CHECK
+	CHECKCALL(cudaMemcpy(p->d_exp2pi_x_f, h_exp2pi_x, sizeof(CUCOMPLEX) * N_x * log2N_x, cudaMemcpyHostToDevice));
+	CHECKCALL(cudaMemcpy(p->d_exp2pi_y_f, h_exp2pi_y, sizeof(CUCOMPLEX) * N_y * log2N_y, cudaMemcpyHostToDevice));
 
 	for(int j=0; j<log2N_x; j++)
 	{
@@ -436,15 +456,16 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 		}
 	}
 	
-	cudaMemcpy(p->d_exp2pi_x_b, h_exp2pi_x, sizeof(CUCOMPLEX) * N_x * log2N_x, cudaMemcpyHostToDevice);	CHECK
-	cudaMemcpy(p->d_exp2pi_y_b, h_exp2pi_y, sizeof(CUCOMPLEX) * N_y * log2N_y, cudaMemcpyHostToDevice);	CHECK
 	
-	cudaFreeHost(h_exp2pi_x);	CHECK
-	cudaFreeHost(h_exp2pi_y);	CHECK
+	CHECKCALL(cudaMemcpy(p->d_exp2pi_x_b, h_exp2pi_x, sizeof(CUCOMPLEX) * N_x * log2N_x, cudaMemcpyHostToDevice));
+	CHECKCALL(cudaMemcpy(p->d_exp2pi_y_b, h_exp2pi_y, sizeof(CUCOMPLEX) * N_y * log2N_y, cudaMemcpyHostToDevice));
+	
+	CHECKCALL(cudaFreeHost(h_exp2pi_x));
+	CHECKCALL(cudaFreeHost(h_exp2pi_y));
 	// DONE making parts needed for future FFTs
 	
-	cudaMalloc(&(p->d_A), sCxy);	CHECK
-	cudaMalloc(&(p->d_B), sCxy);	CHECK
+	CHECKCALL(cudaMalloc(&(p->d_A), sCxy));
+	CHECKCALL(cudaMalloc(&(p->d_B), sCxy));
 	
 
 	// 2D arrays, 1st dimmension is for layer
@@ -458,13 +479,13 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 
 	for(int i=0; i<nz; i++)
 	{
-		cudaMalloc(&(p->d_sx_q[i]), sCxy);		CHECK
-		cudaMalloc(&(p->d_sy_q[i]), sCxy);		CHECK
-		cudaMalloc(&(p->d_sz_q[i]), sCxy);		CHECK
+		CHECKCALL(cudaMalloc(&(p->d_sx_q[i]), sCxy));
+		CHECKCALL(cudaMalloc(&(p->d_sy_q[i]), sCxy));
+		CHECKCALL(cudaMalloc(&(p->d_sz_q[i]), sCxy));
 	
-		cudaMalloc(&(p->d_hx_q[i]), sCxy);		CHECK
-		cudaMalloc(&(p->d_hy_q[i]), sCxy);		CHECK
-		cudaMalloc(&(p->d_hz_q[i]), sCxy);		CHECK
+		CHECKCALL(cudaMalloc(&(p->d_hx_q[i]), sCxy));
+		CHECKCALL(cudaMalloc(&(p->d_hy_q[i]), sCxy));
+		CHECKCALL(cudaMalloc(&(p->d_hz_q[i]), sCxy));
 	}
 	
 	// make room for FT'd interaction matrices
@@ -479,22 +500,22 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 
 	for(int i=0; i<nz; i++)
 	{
-		cudaMalloc(&(p->d_GammaXX[i]), sCxy);		CHECK
-		cudaMalloc(&(p->d_GammaXY[i]), sCxy);		CHECK
-		cudaMalloc(&(p->d_GammaXZ[i]), sCxy);		CHECK
+		CHECKCALL(cudaMalloc(&(p->d_GammaXX[i]), sCxy));
+		CHECKCALL(cudaMalloc(&(p->d_GammaXY[i]), sCxy));
+		CHECKCALL(cudaMalloc(&(p->d_GammaXZ[i]), sCxy));
 	
-		cudaMalloc(&(p->d_GammaYY[i]), sCxy);		CHECK
-		cudaMalloc(&(p->d_GammaYZ[i]), sCxy);		CHECK
+		CHECKCALL(cudaMalloc(&(p->d_GammaYY[i]), sCxy));
+		CHECKCALL(cudaMalloc(&(p->d_GammaYZ[i]), sCxy));
 	
-		cudaMalloc(&(p->d_GammaZZ[i]), sCxy);		CHECK
+		CHECKCALL(cudaMalloc(&(p->d_GammaZZ[i]), sCxy));
 	}
 	
 	
-	cudaHostAlloc(&(p->h_input), sRxy, cudaHostAllocWriteCombined); CHECK // "write-only"
-	cudaHostAlloc(&(p->h_output),sRxy, 0);	CHECK
+	CHECKCALL(cudaHostAlloc(&(p->h_input), sRxy, 0));
+	CHECKCALL(cudaHostAlloc(&(p->h_output),sRxy, 0));
 
-	cudaMalloc(&(p->d_input), sRxy);	CHECK
-	cudaMalloc(&(p->d_output),sRxy);	CHECK
+	CHECKCALL(cudaMalloc(&(p->d_input), sRxy));
+	CHECKCALL(cudaMalloc(&(p->d_output),sRxy));
 	
 	// now we will work on loading all the interaction matrices
 	// onto the GPU and fourier transforming them
@@ -539,22 +560,21 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 			d_dest = p->d_B;
 			
 			memcpy(p->h_input, &(sd[k].h[j*N_x*N_y]), sRxy);
-			cudaMemcpy(p->d_input, p->h_input,sRxy, cudaMemcpyHostToDevice);
-			CHECK
+			CHECKCALL(cudaMemcpy(p->d_input, p->h_input,sRxy, cudaMemcpyHostToDevice));
 
 			// twiddle the data, next step will be to fft it. 
 			// twiddle2D<<<blocks, threads>>>(N_x, N_y, p->d_brp_x, p->d_brp_y, p->d_A, p->d_input);
 			// CHECK
 
 			twiddle1Dx_rc<<<blocksx, threadsxx>>>(N_x, N_y, p->d_brp_x, d_dest, p->d_input);
-			CHECK
+			KCHECK
 			twiddle1Dy_cc<<<blocksy, threadsyy>>>(N_x, N_y, p->d_brp_y, d_src, d_dest);
-			CHECK
+			KCHECK
 
 			for(int i=0; i<log2N_x; i++)
 			{
 				Fi_2D_x<<<blocksx, threadsxx>>>(N_x, N_y, i, d_dest, d_src, p->d_exp2pi_x_f);
-				CHECK
+				KCHECK
 			
 				d_tmp = d_src;
 				d_src = d_dest;
@@ -563,7 +583,7 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 			for(int i=0; i<log2N_y; i++)
 			{
 				Fi_2D_y<<<blocksy, threadsyy>>>(N_x, N_y, i, d_dest, d_src, p->d_exp2pi_y_f);
-				CHECK
+				KCHECK
 
 				d_tmp = d_src;
 				d_src = d_dest;
@@ -572,7 +592,7 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 			
 			// going to prescale the data into d_GammaAB:
 			scaleC<<<blocksx, threadsxx>>>(N_x, N_y, sd[k].d[j], d_src, 1.0/((double)(N_x * N_y)));
-			CHECK
+			KCHECK
 		}
 	}
 	
@@ -584,29 +604,29 @@ void free_JM_LONGRANGE_PLAN(JM_LONGRANGE_PLAN* p)
 	const int N_z = p->N_z;
 	const int nz = N_z * 2 - 1;
 	
-	cudaFree(p->d_brp_x); CHECK
-	cudaFree(p->d_brp_y); CHECK
+	CHECKCALL(cudaFree(p->d_brp_x));
+	CHECKCALL(cudaFree(p->d_brp_y));
 	
-	cudaFree(p->d_exp2pi_x_f); CHECK
-	cudaFree(p->d_exp2pi_y_f); CHECK
-	cudaFree(p->d_exp2pi_x_b); CHECK
-	cudaFree(p->d_exp2pi_y_b); CHECK
+	CHECKCALL(cudaFree(p->d_exp2pi_x_f));
+	CHECKCALL(cudaFree(p->d_exp2pi_y_f));
+	CHECKCALL(cudaFree(p->d_exp2pi_x_b));
+	CHECKCALL(cudaFree(p->d_exp2pi_y_b));
 
-	cudaFree(p->d_input); CHECK
-	cudaFree(p->d_output); CHECK
+	CHECKCALL(cudaFree(p->d_input));
+	CHECKCALL(cudaFree(p->d_output));
 	
-	cudaFreeHost(p->h_input); CHECK
-	cudaFreeHost(p->h_output); CHECK
+	CHECKCALL(cudaFreeHost(p->h_input));
+	CHECKCALL(cudaFreeHost(p->h_output));
 	
 	for(int z=0; z<N_z; z++)
 	{
-		cudaFree(p->d_sx_q[z]); CHECK
-		cudaFree(p->d_sy_q[z]); CHECK
-		cudaFree(p->d_sz_q[z]); CHECK
+		CHECKCALL(cudaFree(p->d_sx_q[z]));
+		CHECKCALL(cudaFree(p->d_sy_q[z]));
+		CHECKCALL(cudaFree(p->d_sz_q[z]));
 	
-		cudaFree(p->d_hx_q[z]); CHECK
-		cudaFree(p->d_hy_q[z]); CHECK
-		cudaFree(p->d_hz_q[z]); CHECK
+		CHECKCALL(cudaFree(p->d_hx_q[z]));
+		CHECKCALL(cudaFree(p->d_hy_q[z]));
+		CHECKCALL(cudaFree(p->d_hz_q[z]));
 	}
 	
 	delete [] p->d_sx_q;
@@ -619,14 +639,14 @@ void free_JM_LONGRANGE_PLAN(JM_LONGRANGE_PLAN* p)
 
 	for(int z=0; z<nz; z++)
 	{
-		cudaFree(p->d_GammaXX[z]); CHECK
-		cudaFree(p->d_GammaXY[z]); CHECK
-		cudaFree(p->d_GammaXZ[z]); CHECK
+		CHECKCALL(cudaFree(p->d_GammaXX[z]));
+		CHECKCALL(cudaFree(p->d_GammaXY[z]));
+		CHECKCALL(cudaFree(p->d_GammaXZ[z]));
 		
-		cudaFree(p->d_GammaYY[z]); CHECK
-		cudaFree(p->d_GammaYZ[z]); CHECK
+		CHECKCALL(cudaFree(p->d_GammaYY[z]));
+		CHECKCALL(cudaFree(p->d_GammaYZ[z]));
 		
-		cudaFree(p->d_GammaZZ[z]); CHECK
+		CHECKCALL(cudaFree(p->d_GammaZZ[z]));
 	}
 	
 	
@@ -639,8 +659,8 @@ void free_JM_LONGRANGE_PLAN(JM_LONGRANGE_PLAN* p)
 	
 	delete [] p->d_GammaZZ;
 	
-	cudaFree(p->d_A); CHECK
-	cudaFree(p->d_B); CHECK
+	CHECKCALL(cudaFree(p->d_A));
+	CHECKCALL(cudaFree(p->d_B));
 
 	delete p;
 }
@@ -750,22 +770,22 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 			
 			//grab a layer
 			getLayer<<<blocksx, threadsxx>>>(N_x, N_y, z, p->d_input, d_s_r);
-			CHECK
+			KCHECK
 
 			//twiddle to workspace
 			//twiddle2D<<<blocks, threads>>>(N_x, N_y, p->d_brp_x, p->d_brp_y, d_src, p->d_input);
 			//CHECK
 
 			twiddle1Dx_rc<<<blocksx, threadsxx>>>(N_x, N_y, p->d_brp_x, d_dest, p->d_input);
-			CHECK
+			KCHECK
 			twiddle1Dy_cc<<<blocksy, threadsyy>>>(N_x, N_y, p->d_brp_y, d_src, d_dest);
-			CHECK
+			KCHECK
 
 			// FT spins
 			for(int step=0; step<log2N_x; step++)
 			{
 				Fi_2D_x<<<blocksx, threadsxx>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_x_f);
-				CHECK
+				KCHECK
 
 				d_tmp = d_src;
 				d_src = d_dest;
@@ -774,7 +794,7 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 			for(int step=0; step<log2N_y-1; step++)
 			{
  				Fi_2D_y<<<blocksy, threadsyy>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_y_f);
- 				CHECK
+ 				KCHECK
 
 				d_tmp = d_src;
 				d_src = d_dest;
@@ -782,7 +802,7 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 			}
 			// last round for FT will land the spins in their proper destination (d_s_q)
 			Fi_2D_y<<<blocksy, threadsyy>>>(N_x, N_y, log2N_y-1, d_s_q, d_src, p->d_exp2pi_y_f);
-			CHECK 
+			KCHECK 
 		}
 	}
 
@@ -796,7 +816,7 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 		{
 			CUCOMPLEX* hhi = hh[z];
 			setC<<<blocksx, threadsxx>>>(N_x, N_y, hhi, 0, 0);
-			CHECK
+			KCHECK
 		}
 	}
 	
@@ -817,7 +837,7 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXZ[offset]);
 		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaYZ[offset]);
 		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaZZ[offset]);
-		CHECK
+		KCHECK
 	}
 
 	// h(q) now calculated, iFT them 
@@ -834,15 +854,15 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 			//CHECK
 
 			twiddle1Dx_cc<<<blocksx, threadsxx>>>(N_x, N_y, p->d_brp_x, d_dest, d_h[z]);
-			CHECK
+			KCHECK
 			twiddle1Dy_cc<<<blocksy, threadsyy>>>(N_x, N_y, p->d_brp_y, d_src, d_dest);
-			CHECK
+			KCHECK
 
 			//twiddled and waiting in d_src
 			for(int step=0; step<log2N_x; step++)
 			{
 				Fi_2D_x<<<blocksx, threadsxx>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_x_b);
-				CHECK
+				KCHECK
 
 				d_tmp = d_src;
 				d_src = d_dest;
@@ -851,7 +871,7 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 			for(int step=0; step<log2N_y; step++)
 			{
 				Fi_2D_y<<<blocksy, threadsyy>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_y_b);
-				CHECK
+				KCHECK
 
 				d_tmp = d_src;
 				d_src = d_dest;
@@ -860,10 +880,10 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 			
 			//real space of iFFT in d_src, need to chop off the (hopefully) zero imag part
 			getRPart<<<blocksx, threadsxx>>>(N_x, N_y, p->d_output, d_src);
-			CHECK
+			KCHECK
 			
 			setLayer<<<blocksx, threadsxx>>>(N_x, N_y, z, d_hxyz, p->d_output);
-			CHECK
+			KCHECK
 		}
 	}
 	//holy crap, we're done.

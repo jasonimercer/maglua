@@ -13,75 +13,79 @@
 	const int b = blockDim.y * blockIdx.y + threadIdx.y;
 
 
-#define CHECK \
+#define KCHECK \
 { \
 	const cudaError_t i = cudaGetLastError();\
 	if(i) \
 		printf("(%s:%i) %s\n",  __FILE__, __LINE__-1, cudaGetErrorString(i));\
 }
 
-
+#define CHECKERR(err) \
+{ \
+	if(err != cudaSuccess) \
+		printf("(%s:%i) (%i)%s\n", __FILE__, __LINE__, err, cudaGetErrorString(err)); \
+}
 
 
 
 void ex_d_makeStrengthArray(double** d_v, int nx, int ny, int nz, int max_neighbours)
 {
-	cudaMalloc(d_v, sizeof(double) * max_neighbours * nx * ny * nz);
-	CHECK
+	const cudaError_t err = cudaMalloc(d_v, sizeof(double) * max_neighbours * nx * ny * nz);
+	CHECKERR(err);
 }
 
 void ex_d_freeStrengthArray(double* d_v)
 {
-	cudaFree(d_v);
-	CHECK
+	const cudaError_t err = cudaFree(d_v);
+	CHECKERR(err);
 }
 
 void ex_d_makeNeighbourArray(int** d_v, int nx, int ny, int nz, int max_neighbours)
 {
-	cudaMalloc(d_v, sizeof(int) * max_neighbours * nx * ny * nz);
-	CHECK
+	const cudaError_t err = cudaMalloc(d_v, sizeof(int) * max_neighbours * nx * ny * nz);
+	CHECKERR(err);
 }
 
 void ex_d_freeNeighbourArray(int* d_v)
 {
-	cudaFree(d_v);
-	CHECK
+	const cudaError_t err = cudaFree(d_v);
+	CHECKERR(err);
 }
 
 void ex_h_makeStrengthArray(double** h_v, int nx, int ny, int nz, int max_neighbours)
 {
-	cudaHostAlloc(h_v, sizeof(double) * max_neighbours * nx * ny * nz, 0);
-	CHECK
+	const cudaError_t err = cudaHostAlloc(h_v, sizeof(double) * max_neighbours * nx * ny * nz, 0);
+	CHECKERR(err);
 }
 
 void ex_h_freeStrengthArray(double* h_v)
 {
-	cudaFreeHost(h_v);
-	CHECK
+	const cudaError_t err = cudaFreeHost(h_v);
+	CHECKERR(err);
 }
 
 void ex_h_makeNeighbourArray(int** h_v, int nx, int ny, int nz, int max_neighbours)
 {
-	cudaHostAlloc(h_v, sizeof(int) * max_neighbours * nx * ny * nz, 0);
-	CHECK
+	const cudaError_t err = cudaHostAlloc(h_v, sizeof(int) * max_neighbours * nx * ny * nz, 0);
+	CHECKERR(err);
 }
 
 void ex_h_freeNeighbourArray(int* h_v)
 {
-	cudaFreeHost(h_v);
-	CHECK
+	const cudaError_t err = cudaFreeHost(h_v);
+	CHECKERR(err);
 }
 
 void ex_hd_syncStrengthArray(double* d_v, double* h_v, int nx, int ny, int nz, int max_neighbours)
 {
-	cudaMemcpy(d_v, h_v, sizeof(double)* max_neighbours * nx * ny * nz, cudaMemcpyHostToDevice);
-	CHECK
+	const cudaError_t err = cudaMemcpy(d_v, h_v, sizeof(double)* max_neighbours * nx * ny * nz, cudaMemcpyHostToDevice);
+	CHECKERR(err);
 }
 
 void ex_hd_syncNeighbourArray(int* d_v, int* h_v, int nx, int ny, int nz, int max_neighbours)
 {
-	cudaMemcpy(d_v, h_v, sizeof(int) * max_neighbours * nx * ny * nz, cudaMemcpyHostToDevice);
-	CHECK
+	const cudaError_t err = cudaMemcpy(d_v, h_v, sizeof(int) * max_neighbours * nx * ny * nz, cudaMemcpyHostToDevice);
+	CHECKERR(err);
 }
 
 #define HARD_CODE(n) \
@@ -195,6 +199,7 @@ void cuda_exchange(
 				d_strength, d_neighbour, max_neighbours,
 				d_hx, d_hy, d_hz, 
 				nx, ny, offset);
+		KCHECK;
 	}
 }
 

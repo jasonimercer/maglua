@@ -106,6 +106,8 @@ private:
 };
 
 CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
+CORE_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
+CORE_API int lua_isSpinSystem(lua_State* L, int idx);
 CORE_API void lua_pushSpinSystem(lua_State* L, SpinSystem* ss);
 CORE_API void registerSpinSystem(lua_State* L);
 

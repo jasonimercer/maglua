@@ -663,7 +663,20 @@ void SpinSystem::getNetMag(double* v8)
 
 
 
+int lua_isSpinSystem(lua_State* L, int idx)
+{
+	lua_getmetatable(L, idx);
+	luaL_getmetatable(L, "MERCER.spinsystem");
+	int eq = lua_equal(L, -2, -1);
+	lua_pop(L, 2);
+	return eq;
+}
 
+
+SpinSystem* lua_toSpinSystem(lua_State* L, int idx)
+{
+	return checkSpinSystem(L, idx);
+}
 
 SpinSystem* checkSpinSystem(lua_State* L, int idx)
 {

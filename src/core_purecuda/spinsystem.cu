@@ -6,67 +6,68 @@
 #include "spinsystem.hpp"
 #include <stdio.h>
 
-#define CHECK \
+#define KCHECK \
 { \
 	const cudaError_t i = cudaGetLastError();\
 	if(i) \
 		printf("(%s:%i) %s\n",  __FILE__, __LINE__-1, cudaGetErrorString(i));\
 }
 
+#define KCHECK_FL(f,l) \
+{ \
+	const cudaError_t i = cudaGetLastError();\
+	if(i) \
+		printf("(%s:%i) %s\n",  f, l, cudaGetErrorString(i));\
+}
+
+
+#define SEGFAULT \
+{ \
+	long* i = 0; \
+	*i = 5; \
+}
+
+#define CHECKCALL_FL(expression, file, line) \
+{ \
+	const cudaError_t err = (expression); \
+	if(err != cudaSuccess) \
+	{ \
+		printf("(%s:%i) %s => (%i)%s\n", file, line, #expression, err, cudaGetErrorString(err)); \
+	} \
+}
+
+#define CHECKCALL(expression)  CHECKCALL_FL(expression, __FILE__, __LINE__)
+
+
 void ss_d_make3DArray(double** v, int nx, int ny, int nz)
 {
-	cudaMalloc(v, sizeof(double) * nx * ny * nz);
-	CHECK
+	CHECKCALL(cudaMalloc(v, sizeof(double) * nx * ny * nz));
 }
 
 void ss_d_free3DArray(double* v)
 {
-	cudaFree(v);
-	CHECK
-	if(cudaGetLastError())
-	{
-		long* t = 0;
-		*t = 5;
-	}
-	
+	CHECKCALL(cudaFree(v));
 }
 
 void ss_h_make3DArray(double** v, int nx, int ny, int nz)
 {
-	cudaHostAlloc(v, sizeof(double) * nx * ny * nz, 0);
-	CHECK
+	CHECKCALL(cudaMallocHost(v, sizeof(double) * nx * ny * nz));
 }
 
 void ss_h_free3DArray(double* v)
 {
-	cudaFreeHost(v);
-	CHECK
-	if(cudaGetLastError())
-	{
-		long* t = 0;
-		*t = 5;
-	}
+	CHECKCALL(cudaFreeHost(v));
 }
 
 void ss_copyDeviceToHost_(double* dest, double* src, int nxyz, const char* file, unsigned int line)
 {
-// 	printf("sync (%s:%i)\n", file, line);
-	cudaMemcpy(dest, src, sizeof(double)*nxyz, cudaMemcpyDeviceToHost);
-	if(cudaGetLastError())
-	{
-		printf("(%s:%i) copyDeviceToHost: %s [%p %p]\n",  file, line, cudaGetErrorString(cudaGetLastError()), dest, src);
-		{
-		long* t = 0;
-		*t = 5;
-		}
-	}
+	CHECKCALL_FL(cudaMemcpy(dest, src, sizeof(double)*nxyz, cudaMemcpyDeviceToHost), file, line);
 }
 
-void ss_copyHostToDevice(double* dest, double* src, int nxyz)
+void ss_copyHostToDevice_(double* dest, double* src, int nxyz, const char* file, unsigned int line)
 {
-// 	printf("sync hd\n");
-	cudaMemcpy(dest, src, sizeof(double)*nxyz, cudaMemcpyHostToDevice);
-	CHECK
+	printf("%p <- %p (%i)\n", dest, src, nxyz);
+	CHECKCALL_FL(cudaMemcpy(dest, src, sizeof(double)*nxyz, cudaMemcpyHostToDevice), file, line);
 }
 
 
@@ -79,16 +80,17 @@ __global__ void addValue(double* dest, const int n, double* s1, double* s2)
 	
 	if(idx >= n)
 		return;
-	
 	dest[idx] = s1[idx] + s2[idx];
 }
+
 void ss_d_add3DArray(double* d_dest, int nx, int ny, int nz, double* d_src1, double* d_src2)
 {
-	const int threads = 512;
+	const int threads = 256;
 	const int nxyz = nx*ny*nz;
 	const int blocks = nxyz / threads + 1;
 
 	addValue<<<blocks, threads>>>(d_dest, nxyz, d_src1, d_src2);
+	KCHECK
 }
 
 
@@ -103,13 +105,14 @@ __global__ void setArray(
 	dest[idx] = value;
 }
 
-void ss_d_set3DArray(double* d_v, int nx, int ny, int nz, double value)
+void ss_d_set3DArray_(double* d_v, int nx, int ny, int nz, double value, const char* file, const unsigned int line)
 {
-	const int threads = 512;
+	const int threads = 256;
 	const int nxyz = nx*ny*nz;
 	const int blocks = nxyz / threads + 1;
 	
 	setArray<<<blocks, threads>>>(d_v, nxyz, value);
+	KCHECK_FL(file, line)
 }
 
 
@@ -180,10 +183,10 @@ double ss_reduce3DArray_sum(double* d_v, double* d_ws1, double* h_ws1, int nx, i
 	unsigned int n = nx*ny*nz;
 	
 	reduce_sum_kernel<BS><<<blocks, BS>>>(d_ws1, d_v, n);
-	CHECK
+	KCHECK
 
-	cudaMemcpy(h_ws1, d_ws1, sizeof(double)*blocks, cudaMemcpyDeviceToHost);
-	CHECK
+	CHECKCALL(cudaMemcpy(h_ws1, d_ws1, sizeof(double)*blocks, cudaMemcpyDeviceToHost));
+	
 	
 	for(int i=1; i<blocks; i++)
 		h_ws1[0] += h_ws1[i];

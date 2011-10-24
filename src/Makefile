@@ -14,7 +14,7 @@
 
 #
 #CXX=g++
-CXX=mpic++ -D_MPI
+CXX=mpic++ -D_MPI -g
 # CXX=mpic++ -D_MPI
 
 CFLAGS=-ansi -O2

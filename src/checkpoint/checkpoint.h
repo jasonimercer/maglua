@@ -27,7 +27,7 @@ extern "C" {
   #define CHECKPOINT_API __declspec(dllimport)
  #endif
 #else
- #define CORE_API 
+ #define CHECKPOINT_API 
 #endif
 
 

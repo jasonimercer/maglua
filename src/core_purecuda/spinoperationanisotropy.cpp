@@ -20,6 +20,7 @@
 Anisotropy::Anisotropy(int nx, int ny, int nz)
 	: SpinOperation("Anisotropy", ANISOTROPY_SLOT, nx, ny, nz, ENCODE_ANISOTROPY)
 {
+	d_nx = 0;
 	init();
 }
 
@@ -53,6 +54,9 @@ void Anisotropy::sync_hd(bool force)
 
 void Anisotropy::init()
 {
+	if(d_nx)
+		deinit();
+	
 	ss_d_make3DArray(&d_nx, nx, ny, nz);
 	ss_d_make3DArray(&d_ny, nx, ny, nz);
 	ss_d_make3DArray(&d_nz, nx, ny, nz);
@@ -68,7 +72,7 @@ void Anisotropy::init()
 	
 	ss_d_set3DArray(d_nx, nx, ny, nz, 0);
 	ss_d_set3DArray(d_ny, nx, ny, nz, 0);
-	ss_d_set3DArray(d_nz, nx, ny, nz, 0);
+	ss_d_set3DArray(d_nz, nx, ny, nz, 1);
 	ss_d_set3DArray(d_k,  nx, ny, nz, 0);
 	
 	sync_dh();
@@ -76,15 +80,20 @@ void Anisotropy::init()
 
 void Anisotropy::deinit()
 {
-	ss_d_free3DArray(d_nx);
-	ss_d_free3DArray(d_ny);
-	ss_d_free3DArray(d_nz);
-	ss_d_free3DArray(d_k);
-	
-	delete [] h_nx;
-	delete [] h_ny;
-	delete [] h_nz;
-	delete [] h_k;
+	if(d_nx)
+	{
+		printf("%p\n", d_nx);
+		ss_d_free3DArray(d_nx);
+		ss_d_free3DArray(d_ny);
+		ss_d_free3DArray(d_nz);
+		ss_d_free3DArray(d_k);
+
+		delete [] h_nx;
+		delete [] h_ny;
+		delete [] h_nz;
+		delete [] h_k;
+	}
+	d_nx = 0;
 }
 
 void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double K)

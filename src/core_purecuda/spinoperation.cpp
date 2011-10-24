@@ -125,6 +125,15 @@ int lua_getnewargs(lua_State* L, int* vec, int pos)
 		}
 		return 1;
 	}
+	
+	if(lua_isSpinSystem(L, pos))
+	{
+		SpinSystem* ss = lua_toSpinSystem(L, pos);
+		vec[0] = ss->nx;
+		vec[1] = ss->ny;
+		vec[2] = ss->nz;
+		return 1;
+	}
 
 	vec[0] = 1;
 	vec[1] = 1;

@@ -124,6 +124,9 @@ private:
 	void deinit();
 };
 
+COREPURECUDA_API int         lua_isSpinSystem(lua_State* L, int idx);
+COREPURECUDA_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
+
 SpinSystem* checkSpinSystem(lua_State* L, int idx);
 void lua_pushSpinSystem(lua_State* L, SpinSystem* ss);
 void registerSpinSystem(lua_State* L);

@@ -31,6 +31,7 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 		nx(NX), ny(NY), nz(NZ), refcount(0),
 		nslots(NSLOTS), time(0)
 {
+	d_x = 0;
 	init();
 	L = 0;
 }
@@ -70,14 +71,21 @@ void SpinSystem::sync_spins_hd(bool force)
 {
 	if(new_host_spins || force)
 	{
+		printf("%p %p %p %p\n", d_x, d_y, d_z, d_ms);
+		printf("%p %p %p %p\n", h_x, h_y, h_z, h_ms);
+		printf("(%s:%i)\n", __FILE__, __LINE__);
 		ss_copyHostToDevice(d_x, h_x, nxyz);
+		printf("(%s:%i)\n", __FILE__, __LINE__);
 		ss_copyHostToDevice(d_y, h_y, nxyz);
+		printf("(%s:%i)\n", __FILE__, __LINE__);
 		ss_copyHostToDevice(d_z, h_z, nxyz);
+		printf("(%s:%i)\n", __FILE__, __LINE__);
 		ss_copyHostToDevice(d_ms,h_ms,nxyz);
+		printf("(%s:%i)\n", __FILE__, __LINE__);
 		
 		new_host_spins = false;
 		new_device_spins = false;
-	}	
+	}
 }
 
 void SpinSystem::sync_fields_hd(int field, bool force)
@@ -281,6 +289,8 @@ void SpinSystem::deinit()
 void SpinSystem::init()
 {
 	nxyz = nx * ny * nz;
+	if(d_x);
+		deinit();
 
 	new_host_spins = false;
 	new_device_spins = false;
@@ -301,10 +311,15 @@ void SpinSystem::init()
 	ss_d_make3DArray(&d_z,  nx, ny, nz);
 	ss_d_make3DArray(&d_ms, nx, ny, nz);
 
+	printf("made 3D arrays: %p\n", d_x);
+	
 	ss_h_make3DArray(&h_x,  nx, ny, nz);
 	ss_h_make3DArray(&h_y,  nx, ny, nz);
 	ss_h_make3DArray(&h_z,  nx, ny, nz);
 	ss_h_make3DArray(&h_ms, nx, ny, nz);
+
+	printf("made 3D arrays: %p\n", h_x);
+
 	
 	//set spins to (0,0,0)
 	// setting them on the device
@@ -729,6 +744,22 @@ void SpinSystem::getNetMag(double* v8)
 
 
 
+
+
+int lua_isSpinSystem(lua_State* L, int idx)
+{
+	lua_getmetatable(L, idx);
+	luaL_getmetatable(L, "MERCER.spinsystem");
+	int eq = lua_equal(L, -2, -1);
+	lua_pop(L, 2);
+	return eq;
+}
+
+
+SpinSystem* lua_toSpinSystem(lua_State* L, int idx)
+{
+	return checkSpinSystem(L, idx);
+}
 
 
 SpinSystem* checkSpinSystem(lua_State* L, int idx)

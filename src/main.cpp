@@ -384,7 +384,7 @@ static int l_info(lua_State* L)
 }
 
 
-
+#define LOAD_LIB_DEBUG
 // Load a library into the process
 //
 // *****************************************************************
@@ -401,6 +401,8 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 	char* buf = 0;
 	int bufsize = 0;
 	int module_version = 0;
+	
+	cerr << "Loading " << name << endl;
 	
 	if(loaded[name] != 0)//then already loaded
 	{
@@ -428,11 +430,11 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 		dlerror();
 		handle = dlopen(buf,  RTLD_NOW | RTLD_GLOBAL);
 		// should this be reported? We may be able to deal with it. Need to think this through
-// 		const char* dle = dlerror();
-// 		if(dle)
-// 		{
-// 			fprintf(stderr, "dlsym error: `%s'\n", dle);
-// 		}
+		const char* dle = dlerror();
+		if(dle)
+		{
+			fprintf(stderr, "dlsym error: `%s'\n", dle);
+		}
 #else
 		WCHAR* str  = new WCHAR[bufsize];
 		MultiByteToWideChar(0, 0, buf, bufsize-1, str, bufsize);
@@ -454,6 +456,9 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 	if(!handle)
 	{
 		// don't report error, we may be able to deal with it
+#ifdef LOAD_LIB_DEBUG
+		printf("(%s:%i) !handle\n", __FILE__, __LINE__);
+#endif
 		return 2;
 	}
 	
@@ -472,6 +477,9 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 	if(!lib_register)
 	{
 		// we'll report this later 
+#ifdef LOAD_LIB_DEBUG
+		printf("(%s:%i) !lib_register\n", __FILE__, __LINE__);
+#endif
 		dlclose(handle);
 		return 1;
     }
