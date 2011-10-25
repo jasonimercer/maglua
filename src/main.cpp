@@ -59,7 +59,7 @@ map<string,int> loaded;
 vector<string> mod_dirs;
 
 int getmoddirs(vector<string>& mds, const int argc, char** argv);
-int registerLibs(int suppress, lua_State* L);
+int registerLibs(int suppress, lua_State* L, int argc, char** argv);
 void lua_addargs(lua_State* L, int argc, char** argv);
 static int l_info(lua_State* L);
 void print_help();
@@ -185,7 +185,7 @@ int main(int argc, char** argv)
 		cout << endl;
 	}
 	
-	if(!registerLibs(suppress, L))
+	if(!registerLibs(suppress, L, argc, argv))
 	{
 		int script = 0;
 
@@ -396,7 +396,7 @@ static int l_info(lua_State* L)
 // is really broke and we'll fail (this is good - don't want to keep
 // retrying when there really is an error)
 // *****************************************************************
-static int load_lib(int suppress, lua_State* L, const string& name)
+static int load_lib(int suppress, lua_State* L, const string& name, string& true_name)
 {
 	char* buf = 0;
 	int bufsize = 0;
@@ -463,10 +463,15 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 	}
 	
 	typedef int (*lua_func)(lua_State*);
+	typedef const char* (*c_lua_func)(lua_State*);
+	typedef void (*lua_func_aa)(lua_State*, int, char**);
 
+	
 #ifndef WIN32
-	lua_func lib_register = (lua_func) dlsym(handle, "lib_register");
-	lua_func lib_version  = (lua_func) dlsym(handle, "lib_version");
+	  lua_func    lib_register =   (lua_func)    dlsym(handle, "lib_register");
+	  lua_func    lib_version  =   (lua_func)    dlsym(handle, "lib_version");
+	c_lua_func    lib_name     = (c_lua_func)    dlsym(handle, "lib_name");
+	  lua_func_aa lib_main     =   (lua_func_aa) dlsym(handle, "lib_main");
 
 	// don't know if we should report this, it may be resolved later
 // 	const char* dle = dlerror();
@@ -525,7 +530,7 @@ static int load_lib(int suppress, lua_State* L, const string& name)
 }
 
 
-int registerLibs(int suppress, lua_State* L)
+int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 {
 	loaded.clear();
 	mod_dirs.clear();

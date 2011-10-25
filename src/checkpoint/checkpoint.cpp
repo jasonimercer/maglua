@@ -181,4 +181,13 @@ int lib_version(lua_State* L)
 	return __revi;
 }
 
+const char* lib_name(lua_State* L)
+{
+	return "CheckPoint";
+}
+
+void lib_main(lua_State* L, int argc, char** argv)
+{
+}
+
 
