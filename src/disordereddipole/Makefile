@@ -7,40 +7,11 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
 
-CXX=g++
-
-CFLAGS=-ansi -O2 -g
-PKG=lua5.1 fftw3
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core -I..
-LIBS=`pkg-config --libs $(PKG) ` -lpthread
 OBJECTS=spinoperationdisordereddipole.o
 LIBNAME=DisorderedDipole
-MODDIR=$(shell maglua --module_path 2> /dev/null)
 
-all: $(LIBNAME).so
-
-$(LIBNAME).so : $(OBJECTS)
-	$(CXX) -rdynamic -fPIC -shared $(LIBS) $(OBJECTS) -o $(LIBNAME).so
-
-%.o : %.cpp  %.h
-	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
-
-install: all
-	mkdir -p $(MODDIR)
-	cp -f $(LIBNAME).so $(MODDIR)
-
-uninstall: distclean
-	rm -f $(MODDIR)/$(LIBNAME).so
-
-clena: clean
-
-clean:
-	rm -f *~
-	rm -f *.o
-
-distclean: clean
-	rm -f $(LIBNAME).so
-
-
+BASEDIR=..
+include $(BASEDIR)/makefile.common.cpu
 

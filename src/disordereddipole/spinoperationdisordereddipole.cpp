@@ -32,7 +32,7 @@ DisorderedDipole::DisorderedDipole(int nx, int ny, int nz)
 	}
 }
 
-void DisorderedDipole::encode(buffer* b) const
+void DisorderedDipole::encode(buffer* b)
 {
 	
 }

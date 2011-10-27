@@ -8,42 +8,10 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-#
-# When configuring fftw3:
-# ./configure  --prefix=$(HOME) --with-pic --enable-shared
-
-#
-CXX=g++
-
-CFLAGS=-ansi -O2
-PKG=lua5.1
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I.. -I../core
-LIBS=`pkg-config --libs $(PKG)` -lpthread
-MODDIR=$(shell maglua --module_path 2> /dev/null)
 
 OBJECTS=spinoperationappliedfield.o
 LIBNAME=AppliedField
 
-all: $(LIBNAME).so
+BASEDIR=..
+include $(BASEDIR)/makefile.common.cpu
 
-$(LIBNAME).so : $(OBJECTS)
-	$(CXX) $(LIBS) -fPIC -rdynamic -shared $(OBJECTS) $(LIBMIGRATE) -o $(LIBNAME).so
-
-%.o : %.cpp  %.h
-	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
-
-install: all
-	mkdir -p $(MODDIR)
-	cp -f $(LIBNAME).so $(MODDIR)
-
-uninstall: distclean
-	rm -f $(MODDIR)/$(LIBNAME).so
-
-clena: clean
-
-clean:
-	rm -f *~
-	rm -f *.o
-
-distclean: clean
-	rm -f $(LIBNAME).so

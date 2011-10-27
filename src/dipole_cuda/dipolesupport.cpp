@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (C) 2008-2010 Jason Mercer.  All rights reserved.
+* Copyright (C) 2008-2011 Jason Mercer.  All rights reserved.
 *
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -11,57 +11,59 @@
 ******************************************************************************/
 
 #include "luacommon.h"
-#include "magnetostaticssupport.h"
-#include "gamma_ab_v.h"
+#include "dipolesupport.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979
-#endif
-#define DipMagConversion (1.0 / (M_PI * 4.0))
 
-#include "../dipole/dipolesupport.h" //to compare for crossover
+#define ZERO_CHECK double r = sqrt(rx*rx+ry*ry+rz*rz); if(r < 1E-10)	return 0; double ir = 1.0 / r;
 
-typedef struct mag_dip_crossover
+double gamma_xx_dip(double rx, double ry, double rz)
 {
-	double r2;  //crossover at this distance (squared) (initially big)
-	double tol; //crossover at this tolerance (reset r)
-} mag_dip_crossover;
-
-bool equal_tol(double a, double b, double tolerance)
-{
-// 	if(a == b)
-// 		return true;
-	if(a == 0 && b == 0)
-		return true;
-	
-	if(b == 0 || a == 0)
-		return false;
-	
-	double t = fabs( (a-b)/b );
-// 	printf("%E, %e - %f, %f\n", a, b, t, tolerance);
-	return t < tolerance;
+	ZERO_CHECK
+	return - pow(ir,3) + 3.0 * rx * rx * pow(ir,5);
 }
 
-double min(double a, double b)
+double gamma_xy_dip(double rx, double ry, double rz)
 {
-	if(a<b)
-		return a;
-	return b;
+	ZERO_CHECK
+	return           + 3.0 * rx * ry * pow(ir,5);
 }
+
+double gamma_xz_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return           + 3.0 * rx * rz * pow(ir,5);
+}
+
+double gamma_yy_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return - pow(ir,3) + 3.0 * ry * ry * pow(ir,5);
+}
+
+double gamma_yz_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return           + 3.0 * ry * rz * pow(ir,5);
+}
+
+double gamma_zz_dip(double rx, double ry, double rz)
+{
+	ZERO_CHECK
+	return - pow(ir,3) + 3.0 * rz * rz * pow(ir,5);
+}
+
 
 ///periodic XY
-static void getGAB(
+void getWAB(
 	const double* ABC, 
-	const double* prism, /* 3 vector */
 	const int nA, const int nB, const int nC,  //width, depth, layers 
 	const int ix, const int iy, const int iz, 
 	const int gmax, 
 	double* XX, double* XY, double* XZ,
-	double* YY, double* YZ, double* ZZ,
-	mag_dip_crossover& crossover)
+	double* YY, double* YZ, double* ZZ)
 {
 	int smax;
 	int i, j, c;
@@ -75,18 +77,8 @@ static void getGAB(
 	else
 		iL = nB;
 
-	smax = gmax/iL;
+	smax = gmax/iL + 1;
 
-	double volume2 = pow(prism[0] * prism[1] * prism[2], 2);
-	
-	const double d1 = prism[0];
-	const double l1 = prism[1];
-	const double w1 = prism[2];
-	
-	const double d2 = prism[0];
-	const double l2 = prism[1];
-	const double w2 = prism[2];
-	
 	double* gXX = new double[smax*2+1];
 	double* gXY = new double[smax*2+1];
 	double* gXZ = new double[smax*2+1];
@@ -94,15 +86,6 @@ static void getGAB(
 	double* gYZ = new double[smax*2+1];
 	double* gZZ = new double[smax*2+1];
 
-	double magXX, magXY, magXZ;
-	double dipXX, dipXY, dipXZ;
-	
-	double magYY, magYZ;
-	double dipYY, dipYZ;
-	
-	double magZZ;
-	double dipZZ;
-	
 	for(c=0; c<smax*2+1; c++)
 	{
 		gXX[c] = 0;
@@ -113,111 +96,63 @@ static void getGAB(
 		gZZ[c] = 0;
 	}
 
-	/* sum over periodic lattices */
 	for(j=-smax; j<= smax; j++)
 		for(i=-smax, c=0; i<= smax; i++, c++)
 		{
-			rx = ((double)i*nA+ix)*ABC[0] + ((double)j*nB+iy)*ABC[3] + ((double)iz)*ABC[6];
-			ry = ((double)i*nA+ix)*ABC[1] + ((double)j*nB+iy)*ABC[4] + ((double)iz)*ABC[7];
-			rz = ((double)i*nA+ix)*ABC[2] + ((double)j*nB+iy)*ABC[5] + ((double)iz)*ABC[8];
-			r2 = rx*rx + ry*ry + rz*rz;
-			//if(r2 != 0)
+			const int xx = i*nA+ix;
+			const int yy = j*nB+iy;
+			const int zz = iz;
 			
-			if(r2 >= crossover.r2)
+			if(abs(xx) <= gmax && abs(yy) <= gmax && abs(zz) <= gmax)
 			{
-				
-				gXX[c] += DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
-				gXY[c] += DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
-				gXZ[c] += DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
-				
-				gYY[c] += DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
-				gYZ[c] += DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
-				gZZ[c] += DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
-			}
-			else
-			{
-				magXX = gamma_xx_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				magXY = gamma_xy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				magXZ = gamma_xz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				
-				magYY = gamma_yy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				magYZ = gamma_yz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				
-				magZZ = gamma_zz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				
-				dipXX = DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
-				dipXY = DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
-				dipXZ = DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
-				
-				dipYY = DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
-				dipYZ = DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
-				dipZZ = DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
-				
-// 				if( sqrt(rx*rx+ry*ry+rz+rz) > 40)
-// 					printf("md: %E, %E\n", magXX, dipXX);
-				
-				bool same = equal_tol(magXX, dipXX, crossover.tol) &&
-							equal_tol(magXY, dipXY, crossover.tol) &&
-							equal_tol(magXZ, dipXZ, crossover.tol) &&
-							equal_tol(magYY, dipYY, crossover.tol) &&
-							equal_tol(magYZ, dipYZ, crossover.tol) &&
-							equal_tol(magZZ, dipZZ, crossover.tol);
+				rx = ((double)i*nA+ix)*ABC[0] + ((double)j*nB+iy)*ABC[3] + ((double)iz)*ABC[6];
+				ry = ((double)i*nA+ix)*ABC[1] + ((double)j*nB+iy)*ABC[4] + ((double)iz)*ABC[7];
+				rz = ((double)i*nA+ix)*ABC[2] + ((double)j*nB+iy)*ABC[5] + ((double)iz)*ABC[8];
 
-				if(same && r2 > 0)
+				r2 = rx*rx + ry*ry + rz*rz;
+				if(r2 != 0)
 				{
-					crossover.r2 = min(crossover.r2, fabs(r2));
+					ir = 1.0/sqrt(r2);
+					ir3 = ir*ir*ir;
+					ir5 = ir3*ir*ir;
 					
-					//printf("crossover at: r = %f\n", sqrt(crossover.r2));
+					gXX[c] += ir3 - 3.0 * rx * rx * ir5;
+					gXY[c] +=     - 3.0 * rx * ry * ir5;
+					gXZ[c] +=     - 3.0 * rx * rz * ir5;
+
+					gYY[c] += ir3 - 3.0 * ry * ry * ir5;
+					gYZ[c] +=     - 3.0 * ry * rz * ir5;
+
+					gZZ[c] += ir3 - 3.0 * rz * rz * ir5;
 				}
-							
-				gXX[c] += magXX;
-				gXY[c] += magXY;
-				gXZ[c] += magXZ;
-				
-				gYY[c] += magYY;
-				gYZ[c] += magYZ;
-				gZZ[c] += magZZ;	
-			}
-
-#warning This is a hack to fix self terms. Eventually this will be in the numerical code.
-			if(r2 < 1E-10)
-			{
-			  gXX[c] *= 0.5;
-			  gXY[c] *= 0.5;
-			  gXZ[c] *= 0.5;
-
-			  gYY[c] *= 0.5;
-			  gYZ[c] *= 0.5;
-
-			  gZZ[c] *= 0.5;
 			}
 		}
 	
 	*XX = 0;
 	for(c=0; c<smax*2+1; c++)
-		*XX += gXX[c];
+		*XX -= gXX[c];
 
 	*XY = 0;
 	for(c=0; c<smax*2+1; c++)
-		*XY += gXY[c];
+		*XY -= gXY[c];
 
 	*XZ = 0;
 	for(c=0; c<smax*2+1; c++)
-		*XZ += gXZ[c];
+		*XZ -= gXZ[c];
 
 	*YY = 0;
 	for(c=0; c<smax*2+1; c++)
-		*YY += gYY[c];
+		*YY -= gYY[c];
 
 	*YZ = 0;
 	for(c=0; c<smax*2+1; c++)
-		*YZ += gYZ[c];
+		*YZ -= gYZ[c];
 
 	*ZZ = 0;
 	for(c=0; c<smax*2+1; c++)
-		*ZZ += gZZ[c];
+		*ZZ -= gZZ[c];
 
-	
+
 	delete [] gXX;
 	delete [] gXY;
 	delete [] gXZ;
@@ -240,7 +175,7 @@ static void _writemat(FILE* f, const char* name, int zoffset, const double* M, i
 		fprintf(f, "    {");
 		for(int i=0; i<nx; i++)
 		{
-			fprintf(f, "%-12g%s", M[i+j*nx], i==(nx-1)?"}":", ");
+			fprintf(f, "%-12e%s", M[i+j*nx], i==(nx-1)?"}":", ");
 		}
 		fprintf(f, "%c\n", j==(ny-1)?' ':',');
 	}
@@ -248,9 +183,8 @@ static void _writemat(FILE* f, const char* name, int zoffset, const double* M, i
 	fprintf(f, "\n");
 }
 
-static bool magnetostatics_write_matrix(const char* filename,
+bool dipole_write_matrix(const char* filename,
 	const double* ABC,
-	const double* prism,
 	const int nx, const int ny, const int nz,  //width, depth, layers 
 	const int gmax, 
 	const double* XX, const double* XY, const double* XZ,
@@ -260,11 +194,10 @@ static bool magnetostatics_write_matrix(const char* filename,
 	if(!f)
 		return false;
 	
-	fprintf(f, "-- This file contains magnetostatic interaction matrices\n");
+	fprintf(f, "-- This file contains dipole interaction matrices\n");
 	fprintf(f, "\n");
 	fprintf(f, "gmax = %i\n", gmax);
 	fprintf(f, "nx, ny, nz = %i, %i, %i\n", nx, ny, nz);
-	fprintf(f, "cellDimensions = {%g, %g, %g}\n", prism[0], prism[1], prism[2]);
 	fprintf(f, "ABC = {{%g, %g, %g}, --unit cell\n       {%g, %g, %g},\n       {%g, %g, %g}}\n\n", 
 		ABC[0], ABC[1], ABC[2],
 		ABC[3], ABC[4], ABC[5],
@@ -290,17 +223,17 @@ static bool magnetostatics_write_matrix(const char* filename,
 	return true;
 }
 
-static void next_magnetostaticsfilename(const char* current, char* next, int len, const int nx, const int ny)
+static void next_dipolefilename(const char* current, char* next, int len, const int nx, const int ny)
 {
 	if(current && current[0])
 	{
 		int x, y, v;
-		sscanf(current, "GAB_%ix%i.%i.lua", &x, &y, &v);
-		snprintf(next, len, "GAB_%ix%i.%i.lua", x, y, v+1);
+		sscanf(current, "WAB_%ix%i.%i.lua", &x, &y, &v);
+		snprintf(next, len, "WAB_%ix%i.%i.lua", x, y, v+1);
 	}
 	else
 	{
-		snprintf(next, len, "GAB_%ix%i.%i.lua", nx, ny, 1);
+		snprintf(next, len, "WAB_%ix%i.%i.lua", nx, ny, 1);
 	}
 }
 
@@ -348,17 +281,17 @@ static bool checkTable(lua_State* L, const double* v3)
 	return true;
 }
 
-static bool magnetostaticsParamsMatch(
+static bool dipoleParamsMatch(
 	const char* filename,
 	const int nx, const int ny, const int nz,
-	const int gmax, const double* ABC, const double* prism)
+	const int gmax, double* ABC)
 {
 	lua_State *L = lua_open();
 	luaL_openlibs(L);
 	
 	if(luaL_dofile(L, filename))
 	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		fprintf(stderr, "param match problem: `%s'\n", lua_tostring(L, -1));
 		lua_close(L);
 		return false;
 	}
@@ -375,13 +308,6 @@ static bool magnetostaticsParamsMatch(
 			lua_close(L);
 			return false;
 		}
-	}
-	
-	lua_getglobal(L, "cellDimensions");
-	if(!checkTable(L, prism))
-	{
-		lua_close(L);
-		return false;
 	}
 	
 	//see if unit cell matches
@@ -427,7 +353,7 @@ static void loadXYZ(
 	
 	if(luaL_dofile(L, filename))
 	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		fprintf(stderr, "Long range load problem: `%s'\n", lua_tostring(L, -1));
 		lua_close(L);
 		return;
 	}
@@ -450,7 +376,7 @@ static void loadXYZ(
 				{
 					lua_pushinteger(L, i+1); // XX XX[0] XX[0,1] 2
 					lua_gettable(L, -2);     // XX XX[0] XX[0,1] XX[0,1,2]
-					arrs[a][c*nx*ny + i + j*nx] = lua_tonumber(L, -1);
+					arrs[a][c*nx*ny + j*nx + i] = lua_tonumber(L, -1);
 					lua_pop(L, 1); // XX XX[0] XX[0,1]
 				}
 				lua_pop(L, 1); // XX XX[0]
@@ -464,27 +390,21 @@ static void loadXYZ(
 	lua_close(L);
 }
 
-void magnetostaticsLoad(
+
+void dipoleLoad(
 	const int nx, const int ny, const int nz,
-	const int gmax, const double* ABC,
-	const double* prism, /* 3 vector */
+	const int gmax, double* ABC,
 	double* XX, double* XY, double* XZ,
-	double* YY, double* YZ, double* ZZ,
-	double tol)
+	double* YY, double* YZ, double* ZZ)
 {
 	char fn[64] = "";
 	
-	mag_dip_crossover crossover;
-	crossover.r2  = 1E10;
-	crossover.tol = tol;
-	
-	
 	while(true)
 	{
-		next_magnetostaticsfilename(fn, fn, 64, nx, ny);
+		next_dipolefilename(fn, fn, 64, nx, ny);
 		if(file_exists(fn))
 		{
-			if(magnetostaticsParamsMatch(fn, nx, ny, nz, gmax, ABC, prism))
+			if(dipoleParamsMatch(fn, nx, ny, nz, gmax, ABC))
 			{
 				loadXYZ(fn, 
 						nx, ny, nz,
@@ -502,21 +422,19 @@ void magnetostaticsLoad(
 				{
 					for(int i=0; i<nx; i++)
 					{
-						getGAB(ABC,
-							prism,
+						getWAB(ABC,
 							nx, ny, nz,
 							i, j, k,
 							gmax,
 							XX+c, XY+c, XZ+c,
-							YY+c, YZ+c, ZZ+c, 
-							crossover);
+							YY+c, YZ+c, ZZ+c);
 						c++;
 					}
 				}
 			}
 
-			magnetostatics_write_matrix(fn,
-				ABC, prism,
+			dipole_write_matrix(fn,
+				ABC,
 				nx, ny, nz,
 				gmax,
 				XX, XY, XZ,

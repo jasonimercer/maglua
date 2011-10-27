@@ -10,36 +10,54 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifndef SPINOPERATIONDIPOLEDISORDERED
-#define SPINOPERATIONDIPOLEDISORDERED
+#ifndef SPINOPERATIONDIPOLECUDA
+#define SPINOPERATIONDIPOLECUDA
 
 #include "spinoperation.h"
+#include "kernel.hpp"
+
+
+#ifdef WIN32
+ #define strcasecmp(A,B) _stricmp(A,B)
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #pragma warning(disable: 4251)
+
+ #ifdef DIPOLECUDA_EXPORTS
+  #define DIPOLECUDA_API __declspec(dllexport)
+ #else
+  #define DIPOLECUDA_API __declspec(dllimport)
+ #endif
+#else
+ #define DIPOLECUDA_API 
+#endif
 
 using namespace std;
 
-class DisorderedDipole : public SpinOperation
+class DipoleCuda : public SpinOperation
 {
 public:
-	DisorderedDipole(int nx, int ny, int nz);
-	virtual ~DisorderedDipole();
+	DipoleCuda(int nx, int ny, int nz);
+	virtual ~DipoleCuda();
 	
 	bool apply(SpinSystem* ss);
 	
 	double g;
 
-	void setPosition(int site, double px, double py, double pz);
+	double ABC[9];
+	int gmax;
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 
-//private:
-	double* posx;
-	double* posy;
-	double* posz;
+private:
+	void getPlan();
+
+	JM_LONGRANGE_PLAN* plan;
 };
 
-void lua_pushDisorderedDipole(lua_State* L, DisorderedDipole* d);
-DisorderedDipole* checkDisorderedDipole(lua_State* L, int idx);
-void registerDisorderedDipole(lua_State* L);
+DIPOLECUDA_API void lua_pushDipoleCuda(lua_State* L, DipoleCuda* d);
+DIPOLECUDA_API DipoleCuda* checkDipoleCuda(lua_State* L, int idx);
+DIPOLECUDA_API void registerDipoleCuda(lua_State* L);
+
 
 #endif

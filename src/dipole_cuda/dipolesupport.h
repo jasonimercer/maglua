@@ -10,36 +10,17 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifndef SPINOPERATIONDIPOLEDISORDERED
-#define SPINOPERATIONDIPOLEDISORDERED
+void dipoleLoad(
+	const int nx, const int ny, const int nz,
+	const int gmax, double* ABC,
+	double* XX, double* XY, double* XZ,
+	double* YY, double* YZ, double* ZZ);
 
-#include "spinoperation.h"
+double gamma_xx_dip(double rx, double ry, double rz);
+double gamma_xy_dip(double rx, double ry, double rz);
+double gamma_xz_dip(double rx, double ry, double rz);
+double gamma_yy_dip(double rx, double ry, double rz);
+double gamma_yz_dip(double rx, double ry, double rz);
+double gamma_zz_dip(double rx, double ry, double rz);
 
-using namespace std;
-
-class DisorderedDipole : public SpinOperation
-{
-public:
-	DisorderedDipole(int nx, int ny, int nz);
-	virtual ~DisorderedDipole();
 	
-	bool apply(SpinSystem* ss);
-	
-	double g;
-
-	void setPosition(int site, double px, double py, double pz);
-	
-	virtual void encode(buffer* b);
-	virtual int  decode(buffer* b);
-
-//private:
-	double* posx;
-	double* posy;
-	double* posz;
-};
-
-void lua_pushDisorderedDipole(lua_State* L, DisorderedDipole* d);
-DisorderedDipole* checkDisorderedDipole(lua_State* L, int idx);
-void registerDisorderedDipole(lua_State* L);
-
-#endif

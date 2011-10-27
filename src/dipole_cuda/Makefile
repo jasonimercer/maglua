@@ -9,8 +9,9 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperation.o luacommon.o maglua.o spinsystem.o
-LIBNAME=Core
+OBJECTS=spinoperationdipole.o dipolesupport.o kernel.cuo
+LIBNAME=DipoleCuda
 
 BASEDIR=..
 include $(BASEDIR)/makefile.common.cpu
+include $(BASEDIR)/makefile.common.gpu

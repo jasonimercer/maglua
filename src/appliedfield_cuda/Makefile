@@ -9,8 +9,10 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperation.o luacommon.o maglua.o spinsystem.o
-LIBNAME=Core
+OBJECTS=spinoperationappliedfield.o spinoperationappliedfield.cuo
+LIBNAME=AppliedFieldCuda
 
 BASEDIR=..
 include $(BASEDIR)/makefile.common.cpu
+include $(BASEDIR)/makefile.common.gpu
+

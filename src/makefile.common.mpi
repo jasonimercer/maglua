@@ -9,8 +9,4 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperation.o luacommon.o maglua.o spinsystem.o
-LIBNAME=Core
-
-BASEDIR=..
-include $(BASEDIR)/makefile.common.cpu
+CXX=mpic++ -D_MPI

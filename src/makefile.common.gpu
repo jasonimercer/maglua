@@ -9,8 +9,9 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperation.o luacommon.o maglua.o spinsystem.o
-LIBNAME=Core
+NVCC=/usr/bin/nvcc 
+NVFLAGS=-O2 --ptxas-options="-v" -Xcompiler -fPIC  -arch=sm_21
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I$(BASEDIR) -I$(BASEDIR)/encode -I$(BASEDIR)/core_cuda
 
-BASEDIR=..
-include $(BASEDIR)/makefile.common.cpu
+%.cuo : %.cu
+	$(NVCC) $(NVFLAGS)  $(INCLUDEPATH) -c $*.cu -o $*.cuo
