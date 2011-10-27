@@ -29,7 +29,7 @@ info.h:
 	./premake.sh $(CXX) $(CFLAGS)
 
 
-install: all
+install: $(BIN)
 	mkdir -p $(HOME)/bin
 	cp -f maglua $(HOME)/bin 2> /dev/null || true
 
