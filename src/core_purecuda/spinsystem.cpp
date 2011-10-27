@@ -71,17 +71,10 @@ void SpinSystem::sync_spins_hd(bool force)
 {
 	if(new_host_spins || force)
 	{
-		printf("%p %p %p %p\n", d_x, d_y, d_z, d_ms);
-		printf("%p %p %p %p\n", h_x, h_y, h_z, h_ms);
-		printf("(%s:%i)\n", __FILE__, __LINE__);
 		ss_copyHostToDevice(d_x, h_x, nxyz);
-		printf("(%s:%i)\n", __FILE__, __LINE__);
 		ss_copyHostToDevice(d_y, h_y, nxyz);
-		printf("(%s:%i)\n", __FILE__, __LINE__);
 		ss_copyHostToDevice(d_z, h_z, nxyz);
-		printf("(%s:%i)\n", __FILE__, __LINE__);
 		ss_copyHostToDevice(d_ms,h_ms,nxyz);
-		printf("(%s:%i)\n", __FILE__, __LINE__);
 		
 		new_host_spins = false;
 		new_device_spins = false;
@@ -108,32 +101,45 @@ SpinSystem::~SpinSystem()
 	deinit();
 }
 
-// SpinSystem* SpinSystem::copy(lua_State* L)
-// {
-// 	SpinSystem* c = new SpinSystem(nx, ny, nz);
-// 	
-// 	c->copyFrom(L, this);
-// 	
-// 	return c;
-// }
+SpinSystem* SpinSystem::copy(lua_State* L)
+{
+	SpinSystem* c = new SpinSystem(nx, ny, nz);
+	
+	c->copyFrom(L, this);
+	
+	return c;
+}
 
-// void SpinSystem::diff(SpinSystem* other, double* v4)
-// {
-// 	if(	nx != other->nx ||
-// 		ny != other->ny ||
-// 		nz != other->nz)
-// 	{
-// 		v4[0] = 1e8;
-// 		v4[1] = 1e8;
-// 		v4[2] = 1e8;
-// 		v4[3] = 1e8;
-// 		return;
-// 	}
-// 	
-// 	v4[0] = 0;
-// 	v4[1] = 0;
-// 	v4[2] = 0;
-// 	
+void SpinSystem::diff(SpinSystem* other, double* v4)
+{
+	if(	nx != other->nx ||
+		ny != other->ny ||
+		nz != other->nz)
+	{
+		v4[0] = 1e8;
+		v4[1] = 1e8;
+		v4[2] = 1e8;
+		v4[3] = 1e8;
+		return;
+	}
+	
+	v4[0] = 0;
+	v4[1] = 0;
+	v4[2] = 0;
+	
+	//ensure spins are on the device
+	sync_spins_hd();
+	other->sync_spins_hd();
+	
+	ss_d_absDiffArrays(d_ws1, d_x, other->d_x, nxyz);
+	ss_d_absDiffArrays(d_ws2, d_y, other->d_y, nxyz);
+	ss_d_absDiffArrays(d_ws3, d_z, other->d_z, nxyz);
+	
+	v4[0] = ss_reduce3DArray_sum(d_ws1, d_ws4, h_ws1, nx, ny, nz);
+	v4[1] = ss_reduce3DArray_sum(d_ws2, d_ws4, h_ws1, nx, ny, nz);
+	v4[2] = ss_reduce3DArray_sum(d_ws3, d_ws4, h_ws1, nx, ny, nz);
+
+	
 // 	const double* txyz[3] = {x,y,z};
 // 	const double* oxyz[3] = {other->x,other->y,other->z};
 // 	
@@ -145,83 +151,92 @@ SpinSystem::~SpinSystem()
 // 			v4[j] += fabs(txyz[j][i] - oxyz[j][i]);
 // 		}
 // 	}
-// 	
-// 	v4[3] = sqrt(v4[0]*v4[0] + v4[1]*v4[1] + v4[2]*v4[2]);
-// }
-// 
-// 
-// bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
-// {
-// 	if(nx != src->nx) return false;
-// 	if(ny != src->ny) return false;
-// 	if(nz != src->nz) return false;
-// 	
-// 	memcpy(hx[SUM_SLOT], src->hx[SUM_SLOT], nxyz * sizeof(double));
-// 	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
-// 	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
-// 	
+	
+	v4[3] = sqrt(v4[0]*v4[0] + v4[1]*v4[1] + v4[2]*v4[2]);
+}
+
+
+bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
+{
+	if(nx != src->nx) return false;
+	if(ny != src->ny) return false;
+	if(nz != src->nz) return false;
+	
+	copySpinsFrom(L, src);
+	copyFieldsFrom(L, src);
+	
+	alpha = src->alpha;
+	gamma = src->gamma;
+	dt = src->dt;
+	
+// 	fft_time = time - 1.0;
+		
+	// unref data - if exists
+	for(int i=0; i<nxyz; i++)
+	{
+		if(extra_data[i] != LUA_REFNIL)
+			luaL_unref(L, LUA_REGISTRYINDEX, extra_data[i]);
+		extra_data[i] = LUA_REFNIL;
+	}
+	
+	// make copies of references
+	for(int i=0; i<nxyz; i++)
+	{
+		if(src->extra_data[i] != LUA_REFNIL)
+		{
+			lua_rawgeti(L, LUA_REGISTRYINDEX, src->extra_data[i]);
+			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
+		}
+	}
+	
+	return true;
+}
+
+bool SpinSystem::copySpinsFrom(lua_State* L, SpinSystem* src)
+{
+	if(nx != src->nx) return false;
+	if(ny != src->ny) return false;
+	if(nz != src->nz) return false;
+	
+	sync_spins_hd();
+	src->sync_spins_hd();
+	
+	ss_d_copyArray(d_x,  src->d_x,  nxyz);
+	ss_d_copyArray(d_y,  src->d_y,  nxyz);
+	ss_d_copyArray(d_z,  src->d_z,  nxyz);
+	ss_d_copyArray(d_ms, src->d_ms, nxyz);
+	
 // 	memcpy( x, src->x,  nxyz * sizeof(double));
 // 	memcpy( y, src->y,  nxyz * sizeof(double));
 // 	memcpy( z, src->z,  nxyz * sizeof(double));
 // 	memcpy(ms, src->ms, nxyz * sizeof(double));
-// 	
-// 	alpha = src->alpha;
-// 	gamma = src->gamma;
-// 	dt = src->dt;
-// 	
+	
 // 	fft_time = time - 1.0;
-// 		
-// 	// unref data - if exists
-// 	for(int i=0; i<nxyz; i++)
-// 	{
-// 		if(extra_data[i] != LUA_REFNIL)
-// 			luaL_unref(L, LUA_REGISTRYINDEX, extra_data[i]);
-// 		extra_data[i] = LUA_REFNIL;
-// 	}
-// 	
-// 	// make copies of references
-// 	for(int i=0; i<nxyz; i++)
-// 	{
-// 		if(src->extra_data[i] != LUA_REFNIL)
-// 		{
-// 			lua_rawgeti(L, LUA_REGISTRYINDEX, src->extra_data[i]);
-// 			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
-// 		}
-// 	}
-// 	
-// 	return true;
-// }
-// 
-// bool SpinSystem::copySpinsFrom(lua_State* L, SpinSystem* src)
-// {
-// 	if(nx != src->nx) return false;
-// 	if(ny != src->ny) return false;
-// 	if(nz != src->nz) return false;
-// 	
-// 	memcpy( x, src->x,  nxyz * sizeof(double));
-// 	memcpy( y, src->y,  nxyz * sizeof(double));
-// 	memcpy( z, src->z,  nxyz * sizeof(double));
-// 	memcpy(ms, src->ms, nxyz * sizeof(double));
-// 	
-// 	fft_time = time - 1.0;
-// 	
-// 	return true;
-// }
-// 
-// bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
-// {
-// 	if(nx != src->nx) return false;
-// 	if(ny != src->ny) return false;
-// 	if(nz != src->nz) return false;
-// 	
+	
+	return true;
+}
+
+bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
+{
+	if(nx != src->nx) return false;
+	if(ny != src->ny) return false;
+	if(nz != src->nz) return false;
+
+	sync_fields_hd(SUM_SLOT);
+	src->sync_fields_hd(SUM_SLOT);
+	
+	ss_d_copyArray(d_hx[SUM_SLOT], src->d_hx[SUM_SLOT], nxyz);
+	ss_d_copyArray(d_hy[SUM_SLOT], src->d_hy[SUM_SLOT], nxyz);
+	ss_d_copyArray(d_hz[SUM_SLOT], src->d_hz[SUM_SLOT], nxyz);
+	
 // 	memcpy(hx[SUM_SLOT], src->hx[SUM_SLOT], nxyz * sizeof(double));
 // 	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
 // 	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
-// 	
+	
 // 	fft_time = time - 1.0;
-// 	
-// 	return true;
-// }
+	
+	return true;
+}
 
 
 void SpinSystem::deinit()
@@ -311,16 +326,19 @@ void SpinSystem::init()
 	ss_d_make3DArray(&d_z,  nx, ny, nz);
 	ss_d_make3DArray(&d_ms, nx, ny, nz);
 
-	printf("made 3D arrays: %p\n", d_x);
-	
 	ss_h_make3DArray(&h_x,  nx, ny, nz);
 	ss_h_make3DArray(&h_y,  nx, ny, nz);
 	ss_h_make3DArray(&h_z,  nx, ny, nz);
 	ss_h_make3DArray(&h_ms, nx, ny, nz);
-
-	printf("made 3D arrays: %p\n", h_x);
-
 	
+	for(int i=0; i<nx*ny*nz; i++)
+	{
+		h_x[i] = 0;
+		h_y[i] = 0;
+		h_z[i] = 0;
+		h_ms[i] = 0;
+	}
+
 	//set spins to (0,0,0)
 	// setting them on the device
 	ss_d_set3DArray(d_x, nx, ny, nz, 0);
@@ -397,12 +415,7 @@ void SpinSystem::init()
 // 	
 // }
 
-#warning encode/decode are empty
-void SpinSystem::encode(buffer* b) const {}
-int  SpinSystem::decode(buffer* b) {}
-
-#if 0
-void SpinSystem::encode(buffer* b) const
+void SpinSystem::encode(buffer* b)
 {
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
@@ -414,11 +427,12 @@ void SpinSystem::encode(buffer* b) const
 
 	encodeDouble(time, b);
 	
+	sync_spins_dh();
 	for(int i=0; i<nxyz; i++)
 	{
-		encodeDouble(x[i], b);
-		encodeDouble(y[i], b);
-		encodeDouble(z[i], b);
+		encodeDouble(h_x[i], b);
+		encodeDouble(h_y[i], b);
+		encodeDouble(h_z[i], b);
 	}
 	
 	
@@ -482,12 +496,13 @@ int  SpinSystem::decode(buffer* b)
 
 	for(int j=0; j<nxyz; j++)
 	{
-		x[j] = decodeDouble(b);
-		y[j] = decodeDouble(b);
-		z[j] = decodeDouble(b);
-		ms[j] = sqrt(x[j]*x[j]+y[j]*y[j]+z[j]*z[j]);
+		h_x[j] = decodeDouble(b);
+		h_y[j] = decodeDouble(b);
+		h_z[j] = decodeDouble(b);
+		h_ms[j] = sqrt(h_x[j]*h_x[j]+h_y[j]*h_y[j]+h_z[j]*h_z[j]);
 	}
-	
+	new_host_spins = true;
+	new_device_spins = false;
 
 
 	int numPartialData = decodeInteger(b);
@@ -511,7 +526,6 @@ int  SpinSystem::decode(buffer* b)
 
 	return 0;
 }
-#endif
 
 
 

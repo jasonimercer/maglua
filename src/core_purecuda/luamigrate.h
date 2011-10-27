@@ -16,9 +16,11 @@ extern "C" {
 	#include <lauxlib.h>
 }
 
-char* exportLuaVariable(lua_State* L, int index,   int* chunksize);
-int   importLuaVariable(lua_State* L, char* chunk, int  chunksize);
+#include "luacommon.h"
+
+COREPURECUDA_API char* exportLuaVariable(lua_State* L, int index,   int* chunksize);
+COREPURECUDA_API int   importLuaVariable(lua_State* L, char* chunk, int  chunksize);
 
 #include "encodable.h"
-void _exportLuaVariable(lua_State* L, int index, buffer* b);
-int _importLuaVariable(lua_State* L, buffer* b);
+COREPURECUDA_API void _exportLuaVariable(lua_State* L, int index, buffer* b);
+COREPURECUDA_API int _importLuaVariable(lua_State* L, buffer* b);

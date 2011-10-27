@@ -66,7 +66,7 @@ Dipole::Dipole(int nx, int ny, int nz)
 	hasMatrices = false;
 }
 
-void Dipole::encode(buffer* b) const
+void Dipole::encode(buffer* b)
 {
 	
 }
@@ -302,8 +302,10 @@ Dipole* checkDipole(lua_State* L, int idx)
     return *pp;
 }
 
-void lua_pushDipole(lua_State* L, Dipole* dip)
+void lua_pushDipole(lua_State* L, Encodable* _dip)
 {
+	Dipole* dip = dynamic_cast<Dipole*>(_dip);
+	if(!dip) return;
 	dip->refcount++;
 	Dipole** pp = (Dipole**)lua_newuserdata(L, sizeof(Dipole**));
 	
@@ -545,6 +547,10 @@ static int l_dip_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new Dipole;
+}
 
 void registerDipole(lua_State* L)
 {
@@ -577,14 +583,18 @@ void registerDipole(lua_State* L)
 	};
 		
 	luaL_register(L, "Dipole", functions);
-	lua_pop(L,1);	
+	lua_pop(L,1);
+
+	Factory.registerItem(ENCODE_DIPOLE, newThing, lua_pushDipole, "Dipole");
+	
 }
 
 extern "C"
 {
 DIPOLE_API int lib_register(lua_State* L);
-DIPOLE_API int lib_deps(lua_State* L);
 DIPOLE_API int lib_version(lua_State* L);
+DIPOLE_API const char* lib_name(lua_State* L);
+DIPOLE_API void lib_main(lua_State* L, int argc, char** argv);
 }
 
 DIPOLE_API int lib_register(lua_State* L)
@@ -593,15 +603,19 @@ DIPOLE_API int lib_register(lua_State* L)
 	return 0;
 }
 
-DIPOLE_API int lib_deps(lua_State* L)
-{
-	lua_pushstring(L, "Core");
-	return 1;
-}
-
 DIPOLE_API int lib_version(lua_State* L)
 {
 	return __revi;
+}
+
+
+DIPOLE_API const char* lib_name(lua_State* L)
+{
+	return "Dipole";
+}
+
+DIPOLE_API void lib_main(lua_State* L, int argc, char** argv)
+{
 }
 
 

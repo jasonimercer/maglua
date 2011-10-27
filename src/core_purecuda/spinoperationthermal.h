@@ -42,7 +42,7 @@ public:
 	void sync_dh(bool force=false);
 	void sync_hd(bool force=false);
 	
-	virtual void encode(buffer* b) const;
+	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
 	bool new_device;

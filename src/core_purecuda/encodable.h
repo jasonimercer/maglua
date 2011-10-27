@@ -12,6 +12,8 @@
 
 #ifndef ENCODABLE_H
 #define ENCODABLE_H
+#include "luacommon.h"
+#include "factory.h"
 
 typedef struct buffer
 {
@@ -45,10 +47,11 @@ public:
 	Encodable(int t) : type(t) {};
 	virtual ~Encodable() {};
 	
-	virtual void encode(buffer* b) const = 0;
+	virtual void encode(buffer* b) = 0;
 	virtual int  decode(buffer* b) = 0;
 	
 	int type;
+	lua_State* L;
 };
 
   void encodeBuffer(const void* s, const int len, buffer* b);

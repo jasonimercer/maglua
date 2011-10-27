@@ -24,7 +24,7 @@ AppliedField::AppliedField(int nx, int ny, int nz)
 	B[2] = 0;
 }
 
-void AppliedField::encode(buffer* b) const
+void AppliedField::encode(buffer* b)
 {
 	encodeDouble(B[0], b);
 	encodeDouble(B[1], b);

@@ -28,7 +28,7 @@ OBJECTS=spinsystem.o spinoperation.o  luacommon.o \
 	 luamigrate.o encodable.o maglua.o jthread.o \
 	 llg.o llgquat.o  spinoperationanisotropy.o \
 	spinoperationthermal.o spinoperationexchange.o \
-	spinoperationappliedfield.o \
+	spinoperationappliedfield.o factory.o \
 	\
 	spinsystem.cuo llgquat.cuo  spinoperationanisotropy.cuo \
 	hybridtaus.cuo spinoperationthermal.cuo \

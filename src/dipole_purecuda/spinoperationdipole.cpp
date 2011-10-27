@@ -31,7 +31,7 @@ DipoleCuda::DipoleCuda(int nx, int ny, int nz)
 	plan = 0;
 }
 
-void DipoleCuda::encode(buffer* b) const
+void DipoleCuda::encode(buffer* b)
 {
 	
 }
@@ -369,7 +369,7 @@ static int l_dip_help(lua_State* L)
 }
 
 
-void registerDipolePureCuda(lua_State* L)
+void registerDipoleCuda(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_dip_gc},
@@ -404,39 +404,34 @@ void registerDipolePureCuda(lua_State* L)
 
 
 
-#ifdef WIN32
- #ifdef DIPOLEPURECUDA_EXPORTS
-  #define DIPOLEPURECUDA_API __declspec(dllexport)
- #else
-  #define DIPOLEPURECUDA_API __declspec(dllimport)
- #endif
-#else
- #define DIPOLEPURECUDA_API 
-#endif
-
-
 extern "C"
 {
-DIPOLEPURECUDA_API int lib_register(lua_State* L);
-DIPOLEPURECUDA_API int lib_deps(lua_State* L);
-DIPOLEPURECUDA_API int lib_version(lua_State* L);
+DIPOLECUDA_API int lib_register(lua_State* L);
+DIPOLECUDA_API int lib_version(lua_State* L);
+DIPOLECUDA_API const char* lib_name(lua_State* L);
+DIPOLECUDA_API void lib_main(lua_State* L, int argc, char** argv);
 }
 
-DIPOLEPURECUDA_API int lib_register(lua_State* L)
+DIPOLECUDA_API int lib_register(lua_State* L)
 {
-	registerDipolePureCuda(L);
+	registerDipoleCuda(L);
 	return 0;
 }
 
-DIPOLEPURECUDA_API int lib_deps(lua_State* L)
-{
-	lua_pushstring(L, "Core");
-	return 1;
-}
 
-DIPOLEPURECUDA_API int lib_version(lua_State* L)
+DIPOLECUDA_API int lib_version(lua_State* L)
 {
 	return __revi;
+}
+
+
+DIPOLECUDA_API const char* lib_name(lua_State* L)
+{
+	return "Dipole-Cuda";
+}
+
+DIPOLECUDA_API void lib_main(lua_State* L, int argc, char** argv)
+{
 }
 
 

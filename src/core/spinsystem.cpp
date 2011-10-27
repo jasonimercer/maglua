@@ -11,7 +11,6 @@
 ******************************************************************************/
 
 #include "spinsystem.h"
-#include "jthread.h"
 #include "spinoperation.h"
 #include <iostream>
 #include <math.h>
@@ -293,7 +292,7 @@ void SpinSystem::init()
 // 	
 // }
 
-void SpinSystem::encode(buffer* b) const
+void SpinSystem::encode(buffer* b)
 {
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
@@ -685,8 +684,10 @@ SpinSystem* checkSpinSystem(lua_State* L, int idx)
     return *pp;
 }
 
-void lua_pushSpinSystem(lua_State* L, SpinSystem* ss)
+void lua_pushSpinSystem(lua_State* L, Encodable* _ss)
 {
+	SpinSystem* ss = dynamic_cast<SpinSystem*>(_ss);
+	if(!ss) return;
 	ss->refcount++;
 	ss->L = L;
 	

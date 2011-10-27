@@ -24,7 +24,7 @@ LLG::LLG(const char* llgtype, int etype)
 	
 }
 
-void LLG::encode(buffer* b) const
+void LLG::encode(buffer* b)
 {
 	int len = type.length()+1;
 	encodeInteger( len, b);

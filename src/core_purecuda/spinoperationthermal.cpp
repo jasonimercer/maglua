@@ -53,35 +53,38 @@ void Thermal::sync_hd(bool force)
 }
 
 
-void Thermal::encode(buffer* b) const
+void Thermal::encode(buffer* b)
 {
-// 	encodeInteger(nx, b);
-// 	encodeInteger(ny, b);
-// 	encodeInteger(nz, b);
-// 	
-// 	encodeDouble(temperature, b);
-// 	
-// 	for(int i=0; i<nxyz; i++)
-// 		encodeDouble(scale[i], b);
+	sync_dh();
+ 	encodeInteger(nx, b);
+ 	encodeInteger(ny, b);
+ 	encodeInteger(nz, b);
+ 	
+ 	encodeDouble(temperature, b);
+ 	
+ 	for(int i=0; i<nxyz; i++)
+ 		encodeDouble(h_scale[i], b);
 }
 
 int  Thermal::decode(buffer* b)
 {
-// 	nx = decodeInteger(b);
-// 	ny = decodeInteger(b);
-// 	nz = decodeInteger(b);
-// 	nxyz = nx * ny * nz;
-// 
-// 	temperature = decodeDouble(b);
-// 	
-// 	if(scale)
-// 		delete [] scale;
-// 	
-// 	scale = new double[nxyz];
-// 	
-// 	for(int i=0; i<nxyz; i++)
-// 		scale[i] = decodeDouble(b);
-// 	return 0;
+	deinit();
+	
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
+	nxyz = nx * ny * nz;
+
+	init();
+	
+	temperature = decodeDouble(b);
+	
+	for(int i=0; i<nxyz; i++)
+		h_scale[i] = decodeDouble(b);
+	
+	new_host = true;
+	new_device = false;
+	return 0;
 }
 
 void Thermal::init()

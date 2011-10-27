@@ -40,7 +40,7 @@ class Magnetostatic : public SpinOperation
 		double ABC[9];
 		int gmax;
 		
-		virtual void encode(buffer* b) const;
+		virtual void encode(buffer* b);
 		virtual int  decode(buffer* b);
 		
 		double volumeDimensions[3];

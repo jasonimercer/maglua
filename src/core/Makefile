@@ -17,15 +17,11 @@ CXX=g++
 
 CFLAGS=-ansi -O2
 PKG=lua5.1 fftw3
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I..
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I.. -I../encode
 LIBS=`pkg-config --libs $(PKG)` -lpthread
 MODDIR=$(shell maglua --module_path 2> /dev/null)
 
-OBJECTS=spinsystem.o spinoperation.o spinoperationexchange.o luacommon.o \
-	llg.o spinoperationappliedfield.o spinoperationanisotropy.o spinoperationthermal.o \
-	mersennetwister.o llgquat.o interpolatingfunction.o \
-	random.o isaac.o llgcartesian.o crand.o interpolatingfunction2d.o \
-	llgfake.o llgalign.o luamigrate.o encodable.o maglua.o jthread.o
+OBJECTS=spinoperation.o luacommon.o maglua.o spinsystem.o
 
 LIBNAME=Core
 

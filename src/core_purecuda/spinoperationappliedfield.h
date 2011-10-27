@@ -25,7 +25,7 @@ public:
 
 	double B[3];
 
-	virtual void encode(buffer* b) const;
+	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 };
 

@@ -162,7 +162,7 @@ bool InterpolatingFunction::getValue(double in, double* out)
 	return true;
 }
 
-void InterpolatingFunction::encode(buffer* b) const
+void InterpolatingFunction::encode(buffer* b)
 {
 	encodeInteger( rawdata.size(), b);
 	for(unsigned int i=0; i<rawdata.size(); i++)
@@ -187,6 +187,7 @@ int  InterpolatingFunction::decode(buffer* b)
 		addData(x, y);
 	}
 	compile();
+	return 0;
 }
 
 
@@ -207,8 +208,10 @@ InterpolatingFunction* checkInterpolatingFunction(lua_State* L, int idx)
     return *pp;
 }
 
-void lua_pushInterpolatingFunction(lua_State* L, InterpolatingFunction* if1D)
+void lua_pushInterpolatingFunction(lua_State* L, Encodable* _if1D)
 {
+	InterpolatingFunction* if1D = dynamic_cast<InterpolatingFunction*>(_if1D);
+	if(!if1D) return;
 	if1D->refcount++;
 	
 	InterpolatingFunction** pp = (InterpolatingFunction**)lua_newuserdata(L, sizeof(InterpolatingFunction**));
@@ -316,6 +319,11 @@ static int l_if_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new InterpolatingFunction;
+}
+
 void registerInterpolatingFunction(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -341,4 +349,7 @@ void registerInterpolatingFunction(lua_State* L)
 		
 	luaL_register(L, "Interpolate", functions);
 	lua_pop(L,1);	
+	
+	Factory.registerItem(ENCODE_INTERP1D, newThing, lua_pushInterpolatingFunction, "Interpolate");
+
 }

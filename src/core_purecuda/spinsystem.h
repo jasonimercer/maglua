@@ -25,10 +25,10 @@ public:
 	SpinSystem(const int nx, const int ny, const int nz);
 	~SpinSystem();
 
-// 	SpinSystem* copy(lua_State* L);
-// 	bool copyFrom(lua_State* L, SpinSystem* src);
-// 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
-// 	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
+	SpinSystem* copy(lua_State* L);
+	bool copyFrom(lua_State* L, SpinSystem* src);
+	bool copySpinsFrom(lua_State* L, SpinSystem* src);
+	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
 	
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);
@@ -38,14 +38,14 @@ public:
 	
 	void zeroFields();
 	void zeroField(int slot);
-// 	bool addFields(double mult, SpinSystem* addThis);
+	bool addFields(double mult, SpinSystem* addThis);
 	
 	int getSlot(const char* name);
 	static const char* slotName(int index);
 	
 	void getNetMag(double* v4);
 	
-// 	void diff(SpinSystem* other, double* v4);
+	void diff(SpinSystem* other, double* v4);
 	
 	/* d_ = device (GPU) 
 	 * h_ = host (CPU)
@@ -102,7 +102,7 @@ public:
 
 	double time;
 	
-	void encode(buffer* b) const;
+	void encode(buffer* b);
 	int  decode(buffer* b);
 
 	lua_State* L;

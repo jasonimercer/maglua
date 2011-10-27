@@ -34,7 +34,7 @@ using namespace std;
 class Dipole : public SpinOperation
 {
 public:
-	Dipole(int nx, int ny, int nz);
+	Dipole(int nx=32, int ny=32, int nz=1);
 	virtual ~Dipole();
 	
 	bool apply(SpinSystem* ss);
@@ -47,7 +47,7 @@ public:
 	double ABC[9];
 	int gmax;
 	
-	virtual void encode(buffer* b) const;
+	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 
 private:
@@ -82,7 +82,7 @@ private:
 	fftw_plan backward;
 };
 
-DIPOLE_API void lua_pushDipole(lua_State* L, Dipole* d);
+DIPOLE_API void lua_pushDipole(lua_State* L, Encodable* d);
 DIPOLE_API Dipole* checkDipole(lua_State* L, int idx);
 DIPOLE_API void registerDipole(lua_State* L);
 

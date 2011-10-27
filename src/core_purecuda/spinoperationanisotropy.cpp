@@ -56,6 +56,7 @@ void Anisotropy::init()
 {
 	if(d_nx)
 		deinit();
+	nxyz = nx*ny*nz;
 	
 	ss_d_make3DArray(&d_nx, nx, ny, nz);
 	ss_d_make3DArray(&d_ny, nx, ny, nz);
@@ -82,7 +83,6 @@ void Anisotropy::deinit()
 {
 	if(d_nx)
 	{
-		printf("%p\n", d_nx);
 		ss_d_free3DArray(d_nx);
 		ss_d_free3DArray(d_ny);
 		ss_d_free3DArray(d_nz);
@@ -116,14 +116,43 @@ void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double
 	}
 }
 
-void Anisotropy::encode(buffer* b) const
+void Anisotropy::encode(buffer* b)
 {
-#warning need to encode Anisotropy
+	sync_dh();
+	encodeInteger(nx, b);
+	encodeInteger(ny, b);
+	encodeInteger(nz, b);
+	for(int i=0; i<nxyz; i++)
+	{
+		encodeDouble(h_nx[i], b);
+		encodeDouble(h_ny[i], b);
+		encodeDouble(h_nz[i], b);
+		encodeDouble(h_k[i],  b);
+	}
 }
 
 int Anisotropy::decode(buffer* b)
 {
-#warning need to dencode Anisotropy
+	deinit();
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
+	init();
+	
+	new_device = false;
+	
+	for(int i=0; i<nxyz; i++)
+	{
+		const double nx = decodeDouble(b);
+		const double ny = decodeDouble(b);
+		const double nz = decodeDouble(b);
+		const double  K = decodeDouble(b);
+				
+		addAnisotropy(i, nx, ny, nz, K);
+	}
+	
+	//addAnisotropy marks new host
+	return 0;
 }
 
 Anisotropy::~Anisotropy()

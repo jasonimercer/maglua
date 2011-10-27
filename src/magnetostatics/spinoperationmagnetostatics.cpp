@@ -72,7 +72,7 @@ Magnetostatic::Magnetostatic(int nx, int ny, int nz)
 	crossover_tolerance = 0.0001;
 }
 
-void Magnetostatic::encode(buffer* b) const
+void Magnetostatic::encode(buffer* b)
 {
 	
 }
@@ -623,8 +623,10 @@ void registerMagnetostatic(lua_State* L)
 extern "C"
 {
 MAGNETOSTATICS_API int lib_register(lua_State* L);
-MAGNETOSTATICS_API int lib_deps(lua_State* L);
 MAGNETOSTATICS_API int lib_version(lua_State* L);
+MAGNETOSTATICS_API const char* lib_name(lua_State* L);
+MAGNETOSTATICS_API void lib_main(lua_State* L, int argc, char** argv);
+	
 }
 
 MAGNETOSTATICS_API int lib_register(lua_State* L)
@@ -633,16 +635,20 @@ MAGNETOSTATICS_API int lib_register(lua_State* L)
 	return 0;
 }
 
-MAGNETOSTATICS_API int lib_deps(lua_State* L)
-{
-	lua_pushstring(L, "Core");
-	lua_pushstring(L, "Dipole");
-	return 2;
-}
-
 MAGNETOSTATICS_API int lib_version(lua_State* L)
 {
 	return __revi;
 }
+
+MAGNETOSTATICS_API const char* lib_name(lua_State* L)
+{
+	return "Magnetostatics";
+}
+
+MAGNETOSTATICS_API void lib_main(lua_State* L, int argc, char** argv)
+{
+}
+
+
 
 

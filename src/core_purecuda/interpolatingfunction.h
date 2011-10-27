@@ -29,7 +29,7 @@ public:
 	bool getValue(double in, double* out);
 	int refcount;	
 
-	void encode(buffer* b) const;
+	void encode(buffer* b);
 	int  decode(buffer* b);
 	
 private:
@@ -56,9 +56,9 @@ private:
 	_node* root;
 };
 
-InterpolatingFunction* checkInterpolatingFunction(lua_State* L, int idx);
-void registerInterpolatingFunction(lua_State* L);
-void lua_pushInterpolatingFunction(lua_State* L, InterpolatingFunction* if1D);
+COREPURECUDA_API InterpolatingFunction* checkInterpolatingFunction(lua_State* L, int idx);
+COREPURECUDA_API void registerInterpolatingFunction(lua_State* L);
+COREPURECUDA_API void lua_pushInterpolatingFunction(lua_State* L, Encodable* if1D);
 
 // 
 #endif

@@ -48,7 +48,7 @@ public:
 
 	std::string errormsg;
 	
-	virtual void encode(buffer* b) const = 0;
+	virtual void encode(buffer* b) = 0;
 	virtual int  decode(buffer* b) = 0;
 
 protected:

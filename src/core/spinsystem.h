@@ -17,7 +17,6 @@
 #include <fftw3.h>
 #include "luacommon.h"
 #include "encodable.h"
-#include "jthread.h"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -89,10 +88,8 @@ public:
 	void fft();
 	
 	
-	virtual void encode(buffer* b) const;
+	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
-
-	lua_State* L;
 
 private:
 	void init();
@@ -108,7 +105,7 @@ private:
 CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
 CORE_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
 CORE_API int lua_isSpinSystem(lua_State* L, int idx);
-CORE_API void lua_pushSpinSystem(lua_State* L, SpinSystem* ss);
+CORE_API void lua_pushSpinSystem(lua_State* L, Encodable* ss);
 CORE_API void registerSpinSystem(lua_State* L);
 
 #endif

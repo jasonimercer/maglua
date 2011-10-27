@@ -33,7 +33,7 @@ public:
 
 	bool disablePrecession;
 
-	void encode(buffer* b) const;
+	void encode(buffer* b);
 	int  decode(buffer* b);
 };
 

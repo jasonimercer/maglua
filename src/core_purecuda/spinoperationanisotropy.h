@@ -34,7 +34,7 @@ public:
 	double* h_nz;
 	double* h_k;
 	
-	virtual void encode(buffer* b) const;
+	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
 	void sync_dh(bool force=false);

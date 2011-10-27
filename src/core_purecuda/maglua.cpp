@@ -21,6 +21,8 @@ extern "C"
 COREPURECUDA_API int lib_register(lua_State* L);
 COREPURECUDA_API int lib_deps(lua_State* L);
 COREPURECUDA_API int lib_version(lua_State* L);
+COREPURECUDA_API const char* lib_name(lua_State* L);
+COREPURECUDA_API void lib_main(lua_State* L, int argc, char** argv);
 }
 
 #include "info.h"
@@ -51,12 +53,16 @@ COREPURECUDA_API int lib_register(lua_State* L)
 	return 0;
 }
 
-COREPURECUDA_API int lib_deps(lua_State* L)
-{
-	return 0;
-}
-
 COREPURECUDA_API int lib_version(lua_State* L)
 {
 	return __revi;
+}
+
+COREPURECUDA_API const char* lib_name(lua_State* L)
+{
+	return "Core-PureCuda";
+}
+
+COREPURECUDA_API void lib_main(lua_State* L, int argc, char** argv)
+{
 }

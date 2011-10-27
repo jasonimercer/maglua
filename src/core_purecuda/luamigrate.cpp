@@ -22,10 +22,10 @@
 #include "llgquat.h"
 // #include "llgfake.h"
 // #include "llgalign.h"
-// #include "spinoperationexchange.h"
-// #include "spinoperationthermal.h"
-// #include "spinoperationappliedfield.h"
-// #include "spinoperationanisotropy.h"
+#include "spinoperationexchange.h"
+#include "spinoperationthermal.h"
+#include "spinoperationappliedfield.h"
+#include "spinoperationanisotropy.h"
 #include "interpolatingfunction2d.h"
 #include "interpolatingfunction.h"
 
@@ -112,10 +112,13 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 		case LUA_TUSERDATA:
 		{
 			//luaL_error(L, "Cannot export USERDATA");
-			const Encodable** pe = (const Encodable**)lua_topointer(L, index);
-			const Encodable* e = *pe;
-			encodeInteger(e->type, b);
-			e->encode(b);
+			Encodable** pe = (Encodable**)lua_topointer(L, index);
+			Encodable* e = dynamic_cast<Encodable*>(*pe);
+			if(e)
+			{
+				encodeInteger(e->type, b);
+				e->encode(b);
+			}
 		}
 		break;
 		case LUA_TTHREAD:
@@ -208,15 +211,15 @@ int _importLuaVariable(lua_State* L, buffer* b)
 // 					lua_pushLLG(L, llg);
 // 				}
 // 				break;
-// 								
-// 				case ENCODE_LLGQUAT:
-// 				{
-// 					LLGQuaternion* llg = new LLGQuaternion();
-// 					llg->decode(b);
-// 					lua_pushLLG(L, llg);
-// 				}
-// 				break;
-// 								
+								
+				case ENCODE_LLGQUAT:
+				{
+					LLGQuaternion* llg = new LLGQuaternion();
+					llg->decode(b);
+					lua_pushLLG(L, llg);
+				}
+				break;
+								
 // 				case ENCODE_LLGFAKE:
 // 				{
 // 					LLGFake* llg = new LLGFake();
@@ -232,46 +235,46 @@ int _importLuaVariable(lua_State* L, buffer* b)
 // 					lua_pushLLG(L, llg);
 // 				}
 // 				break;
-// 				
-// 				case ENCODE_ANISOTROPY:
-// 				{
-// 					Anisotropy* ani = new Anisotropy(2,2,2);
-// 					ani->decode(b);
-// 					lua_pushAnisotropy(L, ani);
-// 				}
-// 				break;
-// 
-// 				case ENCODE_APPLIEDFIELD:
-// 				{
-// 					AppliedField* ap = new AppliedField(2,2,2);
-// 					ap->decode(b);
-// 					lua_pushAppliedField(L, ap);
-// 				}
-// 				break;
+				
+				case ENCODE_ANISOTROPY:
+				{
+					Anisotropy* ani = new Anisotropy(2,2,2);
+					ani->decode(b);
+					lua_pushAnisotropy(L, ani);
+				}
+				break;
 
-// 				case ENCODE_DIPOLE:
-// 				{
+				case ENCODE_APPLIEDFIELD:
+				{
+					AppliedField* ap = new AppliedField(2,2,2);
+					ap->decode(b);
+					lua_pushAppliedField(L, ap);
+				}
+				break;
+
+				case ENCODE_DIPOLE:
+				{
 // 					LLGFake* llg = new LLGFake();
 // 					llg->decode(b);
 // 					lua_pushLLG(L, llg);
-// 				}
-// 				break;
+				}
+				break;
 
-// 				case ENCODE_EXCHANGE:
-// 				{
-// 					Exchange* ex = new Exchange(2,2,2);
-// 					ex->decode(b);
-// 					lua_pushExchange(L, ex);
-// 				}
-// 				break;
-// 				
-// 				case ENCODE_THERMAL:
-// 				{
-// 					Thermal* th = new Thermal(2,2,2);
-// 					th->decode(b);
-// 					lua_pushThermal(L, th);
-// 				}
-// 				break;
+				case ENCODE_EXCHANGE:
+				{
+					Exchange* ex = new Exchange(2,2,2);
+					ex->decode(b);
+					lua_pushExchange(L, ex);
+				}
+				break;
+				
+				case ENCODE_THERMAL:
+				{
+					Thermal* th = new Thermal(2,2,2);
+					th->decode(b);
+					lua_pushThermal(L, th);
+				}
+				break;
 				
 				case ENCODE_INTERP2D:
 				{

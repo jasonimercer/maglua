@@ -13,7 +13,7 @@ NVCC=/usr/bin/nvcc
 
 CFLAGS=-ansi -O2 -g
 PKG=lua5.1
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core_purecuda -I..
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)` -I../core_cuda -I.. -I../encode
 LIBS=`pkg-config --libs $(PKG) ` -lpthread -lrt -lcudart -lcuda
 OBJECTS=spinoperationdipole.o dipolesupport.o kernel.cuo
 LIBNAME=PureCUDADipole

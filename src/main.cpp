@@ -32,6 +32,8 @@ extern "C" {
 #define SO_EXT "so"
 #define MAGLUA_SETUP_PATH "/.maglua.d/module_path.lua"
 #define _handle void*
+#define LIB_LOAD(a,b) dlsym(a,b)
+#define LIB_CLOSE(a) dlclose(a)
 #else
  #include <windows.h>
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
@@ -40,6 +42,10 @@ extern "C" {
  #define SO_EXT "dll"
  #define MAGLUA_SETUP_PATH "\\maglua\\module_path.lua"
  #define _handle HINSTANCE
+
+ #define LIB_LOAD(a,b) GetProcAddress(a,b)
+ #define LIB_CLOSE(a,b) FreeLibrary(a,b)
+
 #endif
 
 #include <iostream>
@@ -54,8 +60,9 @@ extern "C" {
 
 using namespace std;
 
+typedef map<string, pair<int, string> > datamap;
 
-map<string,int> loaded;
+datamap loaded;
 vector<string> mod_dirs;
 
 int getmoddirs(vector<string>& mds, const int argc, char** argv);
@@ -368,10 +375,10 @@ static int l_info(lua_State* L)
 
 	result.append("\nModules: ");
 
-	map<string,int>::iterator mit;
+	datamap::iterator mit;
 	for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
 	{
-		result.append((*mit).first);
+		result.append((*mit).second.second);
 		mit++;
 		if(mit != loaded.end())
 			result.append(", ");
@@ -384,7 +391,7 @@ static int l_info(lua_State* L)
 }
 
 
-#define LOAD_LIB_DEBUG
+// #define LOAD_LIB_DEBUG
 // Load a library into the process
 //
 // *****************************************************************
@@ -396,15 +403,15 @@ static int l_info(lua_State* L)
 // is really broke and we'll fail (this is good - don't want to keep
 // retrying when there really is an error)
 // *****************************************************************
-static int load_lib(int suppress, lua_State* L, const string& name, string& true_name)
+static int load_lib(int suppress, lua_State* L, int argc, char** argv, const string& name, string& true_name)
 {
 	char* buf = 0;
 	int bufsize = 0;
 	int module_version = 0;
 	
-	cerr << "Loading " << name << endl;
+	//cerr << "Loading " << name << endl;
 	
-	if(loaded[name] != 0)//then already loaded
+	if(loaded[name].first != 0)//then already loaded
 	{
 		return 3;
 	}
@@ -430,11 +437,13 @@ static int load_lib(int suppress, lua_State* L, const string& name, string& true
 		dlerror();
 		handle = dlopen(buf,  RTLD_NOW | RTLD_GLOBAL);
 		// should this be reported? We may be able to deal with it. Need to think this through
+#ifdef LOAD_LIB_DEBUG
 		const char* dle = dlerror();
 		if(dle)
 		{
 			fprintf(stderr, "dlsym error: `%s'\n", dle);
 		}
+#endif
 #else
 		WCHAR* str  = new WCHAR[bufsize];
 		MultiByteToWideChar(0, 0, buf, bufsize-1, str, bufsize);
@@ -467,12 +476,11 @@ static int load_lib(int suppress, lua_State* L, const string& name, string& true
 	typedef void (*lua_func_aa)(lua_State*, int, char**);
 
 	
-#ifndef WIN32
-	  lua_func    lib_register =   (lua_func)    dlsym(handle, "lib_register");
-	  lua_func    lib_version  =   (lua_func)    dlsym(handle, "lib_version");
-	c_lua_func    lib_name     = (c_lua_func)    dlsym(handle, "lib_name");
-	  lua_func_aa lib_main     =   (lua_func_aa) dlsym(handle, "lib_main");
-
+	  lua_func    lib_register =   (lua_func)    LIB_LOAD(handle, "lib_register");
+	  lua_func    lib_version  =   (lua_func)    LIB_LOAD(handle, "lib_version");
+	c_lua_func    lib_name     = (c_lua_func)    LIB_LOAD(handle, "lib_name");
+	  lua_func_aa lib_main     =   (lua_func_aa) LIB_LOAD(handle, "lib_main");
+	  
 	// don't know if we should report this, it may be resolved later
 // 	const char* dle = dlerror();
 // 	if(dle)
@@ -485,21 +493,12 @@ static int load_lib(int suppress, lua_State* L, const string& name, string& true
 #ifdef LOAD_LIB_DEBUG
 		printf("(%s:%i) !lib_register\n", __FILE__, __LINE__);
 #endif
-		dlclose(handle);
+
+		LIB_CLOSE(handle);
+
 		return 1;
     }
-#else
-	lua_func lib_register = (lua_func)GetProcAddress(handle, "lib_register");
-	lua_func lib_version  = (lua_func)GetProcAddress(handle, "lib_version");
 	
-	if(!lib_register)
-	{
-		// we'll report this later 
-		FreeLibrary(handle);
-		return 1;
-    }
-#endif	
-    
 	lib_register(L); // call the register function from the library
 	
 	if(buf)
@@ -514,18 +513,34 @@ static int load_lib(int suppress, lua_State* L, const string& name, string& true
 	if(!lib_version)
 	{
 		printf("WARNING: Failed to load `lib_version' from `%s' setting version to -100\n", name.c_str());
-		loaded[name] = -100;
+		loaded[name].first = -100;
 		
 	}
 	else
 	{
-		loaded[name] = lib_version(L);
-		if(loaded[name] == 0)
+		loaded[name].first = lib_version(L);
+		if(loaded[name].first == 0)
 		{
 			printf("WARNING: `lib_version' from `%s' returned 0. Changing version to -100\n", name.c_str());
-			loaded[name] = -100;
+			loaded[name].first = -100;
 		}
 	}
+	
+	if(!lib_name)
+	{
+		true_name = name;
+	}
+	else
+	{
+		true_name = lib_name(L);
+	}
+	loaded[name].second = true_name;
+	
+	//yuck! This loaded/unloaded/true_name is a bit of a mess. Should be rethought and recoded but for now it works well.
+	
+	if(lib_main)
+		lib_main(L, argc, argv);
+
 	return 0;
 }
 
@@ -534,8 +549,9 @@ int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 {
 	loaded.clear();
 	mod_dirs.clear();
-
-	map<string,int> unloaded;
+	string true_name;
+	
+	datamap unloaded;
 
 	lua_getglobal(L, "module_path");
 	lua_pushnil(L);
@@ -598,7 +614,7 @@ int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 					strncpy(n, filename, len);
 					n[len-ii-1] = 0;
 					
-					unloaded[n]++; //mark this module to be loaded
+					unloaded[n].first++; //mark this module to be loaded
 					
 					delete [] n;
 				}
@@ -622,7 +638,7 @@ int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 	}
 	
 	
-	map<string,int>::iterator mit;
+	datamap::iterator mit;
 	int num_loaded_this_round;
 	
 	do
@@ -631,13 +647,15 @@ int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 		
 		for(mit=unloaded.begin(); mit!=unloaded.end(); ++mit)
 		{
-			if( (*mit).second > 0 )
+			if( (*mit).second.first > 0 )
 			{
 				string name = (*mit).first;
 				
-				if(!load_lib(suppress, L, name))
+				true_name = "";
+				if(!load_lib(suppress, L, argc, argv, name, true_name))
 				{
-					(*mit).second = 0;
+					(*mit).second.first = 0;
+					(*mit).second.second = true_name;
 					num_loaded_this_round++;
 				}
 
@@ -651,8 +669,8 @@ int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 		cout << "Modules: ";
 		for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
 		{
-			cout << (*mit).first;
-			cout << "(r" << (*mit).second << ")";
+			cout << (*mit).second.second;
+			cout << "(r" << (*mit).second.first << ")";
 			mit++;
 			if( mit != loaded.end())
 				cout << ", ";
@@ -670,10 +688,10 @@ int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 	int bad_fail = 0;
 	for(mit=unloaded.begin(); mit!=unloaded.end(); ++mit)
 	{
-		if( (*mit).second > 0)
+		if( (*mit).second.first > 0)
 		{
 			// try to load it one more time(it will fail), we'll report any errors here
-			int load_err = load_lib(suppress, L, (*mit).first);
+			int load_err = load_lib(suppress, L, argc, argv, (*mit).first, true_name);
 
 			switch(load_err)
 			{

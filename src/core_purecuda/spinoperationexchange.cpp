@@ -40,7 +40,7 @@ Exchange::Exchange(int nx, int ny, int nz)
 // 	strength = (double*)malloc(sizeof(double) * size);
 }
 
-void Exchange::encode(buffer* b) const
+void Exchange::encode(buffer* b)
 {
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);

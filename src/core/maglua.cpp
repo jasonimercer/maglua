@@ -12,6 +12,7 @@
 
 #include "luacommon.h"
 #include "info.h"
+#include "spinsystem.h"
 extern "C"
 {
 #include <lua.h>
@@ -19,41 +20,14 @@ extern "C"
 #include <lauxlib.h>
         
 CORE_API int lib_register(lua_State* L);
-CORE_API int lib_deps(lua_State* L);
 CORE_API int lib_version(lua_State* L);
 CORE_API const char* lib_name(lua_State* L);
 CORE_API void lib_main(lua_State* L, int argc, char** argv);
 }
 
-#include "spinsystem.h"
-#include "spinoperation.h"
-#include "llg.h"
-#include "llgquat.h"
-#include "spinoperationexchange.h"
-#include "spinoperationappliedfield.h"
-#include "spinoperationanisotropy.h"
-#include "mersennetwister.h"
-#include "spinoperationthermal.h"
-#include "interpolatingfunction.h"
-#include "interpolatingfunction2d.h"
-	
 CORE_API int lib_register(lua_State* L)
 {
 	registerSpinSystem(L);
-	registerLLG(L);
-	registerExchange(L);
-	registerAppliedField(L);
-	registerAnisotropy(L);
-	registerRandom(L);
-	registerThermal(L);
-	registerInterpolatingFunction(L);
-	registerInterpolatingFunction2D(L);
-
-	return 0;
-}
-
-CORE_API int lib_deps(lua_State* L)
-{
 	return 0;
 }
 

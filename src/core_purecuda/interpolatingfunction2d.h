@@ -39,7 +39,7 @@ public:
 	bool hasInvalidValue;
 	double invalidValue;
 	
-	void encode(buffer* b) const;
+	void encode(buffer* b);
 	int  decode(buffer* b);
 	
 private:
@@ -63,9 +63,9 @@ private:
 	vector < triple > rawdata;
 };
 
-InterpolatingFunction2D* checkInterpolatingFunction2D(lua_State* L, int idx);
-void registerInterpolatingFunction2D(lua_State* L);
-void lua_pushInterpolatingFunction2D(lua_State* L, InterpolatingFunction2D* if2D);
+COREPURECUDA_API InterpolatingFunction2D* checkInterpolatingFunction2D(lua_State* L, int idx);
+COREPURECUDA_API void registerInterpolatingFunction2D(lua_State* L);
+COREPURECUDA_API void lua_pushInterpolatingFunction2D(lua_State* L, Encodable* if2D);
 // 
 #endif
 
