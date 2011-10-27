@@ -13,6 +13,6 @@ OBJECTS=spinsystem.o spinoperation.o luacommon.o maglua.o spinsystem.cuo
 LIBNAME=CoreCUDA
 
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu

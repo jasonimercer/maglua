@@ -9,11 +9,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-EXTRA_INCLUDE=-I../random
+EXTRA_INCLUDE=-I../../common/random
 
 OBJECTS=spinoperationthermal.o
 LIBNAME=Thermal
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

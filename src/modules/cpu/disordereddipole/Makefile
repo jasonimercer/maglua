@@ -12,6 +12,6 @@
 OBJECTS=spinoperationdisordereddipole.o
 LIBNAME=DisorderedDipole
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

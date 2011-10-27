@@ -43,21 +43,9 @@ clean:
 	rm -f *.o
 
 distclean: clean
-	make -C anisotropy distclean
-	make -C appliedfield distclean
-	make -C checkpoint distclean
-	make -C core distclean
-	make -C core_purecuda distclean
-	make -C dipole distclean
-	make -C dipole_cuda distclean
-	make -C disordereddipole distclean
-	make -C exchange distclean
-	make -C interpolate distclean
-	make -C llg distclean
-	make -C magnetostatics distclean
-	make -C random distclean
-	make -C thermal distclean
-	make -C timer distclean
+	make -C modules/cuda distclean
+	make -C modules/cpu distclean
+	make -C modules/common distclean
 	rm -f $(BIN)
 	rm -f info.h
 

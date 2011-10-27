@@ -12,8 +12,12 @@
 CXX=g++
 CFLAGS=-ansi -O2
 PKG=lua5.1 fftw3
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I$(BASEDIR) -I$(BASEDIR)/encode -I$(BASEDIR)/core $(EXTRA_INCLUDE)
-LIBS=`pkg-config --libs $(PKG)` -lpthread
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
+		-I$(BASEDIR) \
+		-I$(BASEDIR)/modules/common/encode \
+		-I$(BASEDIR)/modules/cpu/core $(EXTRA_INCLUDE)
+
+LIBS=`pkg-config --libs $(PKG)` -lpthread $(EXTRALIBS)
 MODDIR=$(shell maglua --module_path 2> /dev/null)
 
 

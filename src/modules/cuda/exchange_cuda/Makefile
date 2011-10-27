@@ -12,7 +12,7 @@
 OBJECTS=spinoperationexchange.o spinoperationexchange.cuo
 LIBNAME=ExchangeCuda
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
 

@@ -12,7 +12,7 @@
 OBJECTS=spinoperationexchange.o
 LIBNAME=Exchange
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 
 

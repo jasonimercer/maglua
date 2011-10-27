@@ -12,6 +12,6 @@
 OBJECTS=spinoperationappliedfield.o
 LIBNAME=AppliedField
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

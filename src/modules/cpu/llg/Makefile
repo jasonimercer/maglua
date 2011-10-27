@@ -12,6 +12,6 @@
 OBJECTS=llg.o llgquat.o llgfake.o llgalign.o llgcartesian.o
 LIBNAME=LLG
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

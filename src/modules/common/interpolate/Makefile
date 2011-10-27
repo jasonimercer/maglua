@@ -12,5 +12,5 @@
 OBJECTS=interpolatingfunction.o interpolatingfunction2d.o
 LIBNAME=Interpolate
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

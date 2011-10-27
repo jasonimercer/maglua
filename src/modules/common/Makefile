@@ -9,10 +9,19 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-TODO= llgcartesian.o llgfake.o llgalign.o
-OBJECTS=llg.o llgquat.o llgquat.cuo
-LIBNAME=LLGCuda
+DIRS=checkpoint encode interpolate mpi random timer
 
-BASEDIR=../../..
-include $(BASEDIR)/makefile.common.cpu
-include $(BASEDIR)/makefile.common.gpu
+all:
+	@for d in $(DIRS); do (make -C $$d); done
+
+install:
+	@for d in $(DIRS); do (make -C $$d install); done
+
+clean:
+	@for d in $(DIRS); do (make -C $$d clean); done
+	rm -f *~
+
+distclean:
+	@for d in $(DIRS); do (make -C $$d distclean); done
+	rm -f *~
+

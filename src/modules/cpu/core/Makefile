@@ -12,5 +12,5 @@
 OBJECTS=spinoperation.o luacommon.o maglua.o spinsystem.o
 LIBNAME=Core
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

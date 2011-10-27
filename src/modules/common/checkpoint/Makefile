@@ -12,5 +12,5 @@
 OBJECTS=checkpoint.o
 LIBNAME=CheckPoint
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

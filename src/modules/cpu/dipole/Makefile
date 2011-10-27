@@ -12,5 +12,5 @@
 OBJECTS=spinoperationdipole.o dipolesupport.o
 LIBNAME=Dipole
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

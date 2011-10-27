@@ -12,6 +12,6 @@
 OBJECTS=luamigrate.o encodable.o factory.o
 LIBNAME=Encode
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

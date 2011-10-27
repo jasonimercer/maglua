@@ -12,7 +12,7 @@
 OBJECTS=spinoperationthermal.o spinoperationthermal.cuo  hybridtaus.cuo
 LIBNAME=ThermalCuda
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
 

@@ -12,6 +12,6 @@
 OBJECTS=spinoperationanisotropy.o  
 LIBNAME=Anisotropy
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

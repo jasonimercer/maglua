@@ -12,7 +12,7 @@
 OBJECTS=spinoperationappliedfield.o spinoperationappliedfield.cuo
 LIBNAME=AppliedFieldCuda
 
-BASEDIR=..
+BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
 
