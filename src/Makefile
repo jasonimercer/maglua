@@ -22,7 +22,7 @@ BIN=maglua
 $(BIN): main.o
 	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group $(LIBS) main.o  -Wl,--end-group
 
-main.o : main.cpp  info.h setup_code.h Makefile
+main.o : main.cpp info.h setup_code.h Makefile
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
 info.h:
