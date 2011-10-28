@@ -32,7 +32,7 @@
 class ANISOTROPYCUDA_API Anisotropy : public SpinOperation
 {
 public:
-	Anisotropy(int nx, int ny, int nz);
+	Anisotropy(int nx=32, int ny=32, int nz=1);
 	virtual ~Anisotropy();
 	
 	bool apply(SpinSystem* ss);
@@ -61,7 +61,7 @@ public:
 	void deinit();
 };
 
-ANISOTROPYCUDA_API void lua_pushAnisotropy(lua_State* L, Anisotropy* ani);
+ANISOTROPYCUDA_API void lua_pushAnisotropy(lua_State* L, Encodable* _ani);
 ANISOTROPYCUDA_API Anisotropy* checkAnisotropy(lua_State* L, int idx);
 ANISOTROPYCUDA_API void registerAnisotropy(lua_State* L);
 

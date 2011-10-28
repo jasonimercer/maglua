@@ -182,8 +182,11 @@ Thermal* checkThermal(lua_State* L, int idx)
     return *pp;
 }
 
-void lua_pushThermal(lua_State* L, Thermal* th)
+void lua_pushThermal(lua_State* L, Encodable* _th)
 {
+	Thermal* th = dynamic_cast<Thermal*>(_th);
+	if(!th) return;
+	
 	th->refcount++;
 	
 	Thermal** pp = (Thermal**)lua_newuserdata(L, sizeof(Thermal**));
@@ -385,6 +388,10 @@ static int l_thermal_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new Thermal;
+}
 
 void registerThermal(lua_State* L)
 {
@@ -416,7 +423,8 @@ void registerThermal(lua_State* L)
 	};
 		
 	luaL_register(L, "Thermal", functions);
-	lua_pop(L,1);	
+	lua_pop(L,1);
+	Factory.registerItem(ENCODE_THERMAL, newThing, lua_pushThermal, "Thermal");
 }
 
 #include "info.h"

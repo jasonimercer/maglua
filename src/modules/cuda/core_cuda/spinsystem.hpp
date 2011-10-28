@@ -22,6 +22,8 @@ void ss_d_set3DArray_(double* d_v, int nx, int ny, int nz, double value, const c
 void ss_d_add3DArray(double* d_dest, int nx, int ny, int nz, double* d_src1, double* d_src2);
 
 
+void ss_d_scaleadd3DArray(double* d_dest, int n, double s1, double* d_src1, double s2, double* d_src2);
+
 double ss_reduce3DArray_sum(double* d_v, double* d_ws1, double* h_ws1, int nx, int ny, int nz);
 
 void ss_d_absDiffArrays_(double* d_dest, double* d_src1, double* d_src2, int nxyz, const char* file, const unsigned int line);

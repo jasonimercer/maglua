@@ -74,14 +74,24 @@ void ss_copyHostToDevice_(double* dest, double* src, int nxyz, const char* file,
 
 
 
-__global__ void addValue(double* dest, const int n, double* s1, double* s2)
+// __global__ void addValue(double* dest, const int n, double* s1, double* s2)
+// {
+// 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+// 	
+// 	if(idx >= n)
+// 		return;
+// 	dest[idx] = s1[idx] + s2[idx];
+// }
+
+__global__ void scaleaddValue(double* dest, const int n, double m1, double* s1, double m2, double* s2)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	
 	if(idx >= n)
 		return;
-	dest[idx] = s1[idx] + s2[idx];
+	dest[idx] = m1 * s1[idx] + m2 * s2[idx];
 }
+
 
 void ss_d_add3DArray(double* d_dest, int nx, int ny, int nz, double* d_src1, double* d_src2)
 {
@@ -89,9 +99,20 @@ void ss_d_add3DArray(double* d_dest, int nx, int ny, int nz, double* d_src1, dou
 	const int nxyz = nx*ny*nz;
 	const int blocks = nxyz / threads + 1;
 
-	addValue<<<blocks, threads>>>(d_dest, nxyz, d_src1, d_src2);
+	scaleaddValue<<<blocks, threads>>>(d_dest, nxyz, 1.0, d_src1, 1.0, d_src2);
 	KCHECK
 }
+
+
+void ss_d_scaleadd3DArray(double* d_dest, int nxyz, double s1, double* d_src1, double s2, double* d_src2)
+{
+	const int threads = 256;
+	const int blocks = nxyz / threads + 1;
+
+	scaleaddValue<<<blocks, threads>>>(d_dest, nxyz, s1, d_src1, s2, d_src2);
+	KCHECK	
+}
+
 
 
 __global__ void setArray(

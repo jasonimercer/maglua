@@ -531,6 +531,7 @@ int  SpinSystem::decode(buffer* b)
 
 void SpinSystem::sumFields()
 {
+	sync_fields_hd(SUM_SLOT);
 	ss_d_set3DArray(d_hx[SUM_SLOT], nx, ny, nz, 0);
 	ss_d_set3DArray(d_hy[SUM_SLOT], nx, ny, nz, 0);
 	ss_d_set3DArray(d_hz[SUM_SLOT], nx, ny, nz, 0);
@@ -548,22 +549,30 @@ void SpinSystem::sumFields()
 	
 	new_device_fields[SUM_SLOT] = true;
 }
-/*
+
 bool SpinSystem::addFields(double mult, SpinSystem* addThis)
 {
 	if(nx != addThis->nx) return false;
 	if(ny != addThis->ny) return false;
 	if(nz != addThis->nz) return false;
 	
-	for(int j=0; j<nxyz; j++)
-	{
-		hx[SUM_SLOT][j] += mult * addThis->hx[SUM_SLOT][j];
-		hy[SUM_SLOT][j] += mult * addThis->hy[SUM_SLOT][j];
-		hz[SUM_SLOT][j] += mult * addThis->hz[SUM_SLOT][j];
-	}
+	sync_fields_hd(SUM_SLOT);
+	addThis->sync_fields_hd(SUM_SLOT);
+
+	ss_d_scaleadd3DArray(d_hx[SUM_SLOT], nxyz, 1.0, d_hx[SUM_SLOT], mult, addThis->d_hx[SUM_SLOT]);
+	ss_d_scaleadd3DArray(d_hy[SUM_SLOT], nxyz, 1.0, d_hy[SUM_SLOT], mult, addThis->d_hy[SUM_SLOT]);
+	ss_d_scaleadd3DArray(d_hz[SUM_SLOT], nxyz, 1.0, d_hz[SUM_SLOT], mult, addThis->d_hz[SUM_SLOT]);
+
+	
+// 	for(int j=0; j<nxyz; j++)
+// 	{
+// 		hx[SUM_SLOT][j] += mult * addThis->hx[SUM_SLOT][j];
+// 		hy[SUM_SLOT][j] += mult * addThis->hy[SUM_SLOT][j];
+// 		hz[SUM_SLOT][j] += mult * addThis->hz[SUM_SLOT][j];
+// 	}
 	return true;
 }
-*/
+
 const char* SpinSystem::slotName(int index)
 {
 	if(index == EXCHANGE_SLOT)
@@ -790,8 +799,11 @@ SpinSystem* checkSpinSystem(lua_State* L, int idx)
     return *pp;
 }
 
-void lua_pushSpinSystem(lua_State* L, SpinSystem* ss)
+void lua_pushSpinSystem(lua_State* L, Encodable* _ss)
 {
+	SpinSystem* ss = dynamic_cast<SpinSystem*>(_ss);
+	if(!ss) return;
+	
 	ss->refcount++;
 	ss->L = L;
 	
@@ -1193,82 +1205,82 @@ int l_ss_getfield(lua_State* L)
 	return 3;
 }
 
-// int l_ss_addfields(lua_State* L)
-// {
-// 	SpinSystem* dest = checkSpinSystem(L, 1);
-// 	if(!dest) return 0;
-// 	
-// 	SpinSystem* src = 0;
-// 	double mult;
-// 	
-// 	if(lua_isnumber(L, 2))
-// 	{
-// 		mult = lua_tonumber(L, 2);
-// 		src  = checkSpinSystem(L, 3);
-// 	}
-// 	else
-// 	{
-// 		mult = 1.0;
-// 		src  = checkSpinSystem(L, 2);
-// 	}
-// 	if(!src) return 0;
-// 	
-// 	if(!dest->addFields(mult, src))
-// 		return luaL_error(L, "Failed to sum fields");
-// 	
-// 	return 0;
-// }
+int l_ss_addfields(lua_State* L)
+{
+	SpinSystem* dest = checkSpinSystem(L, 1);
+	if(!dest) return 0;
+	
+	SpinSystem* src = 0;
+	double mult;
+	
+	if(lua_isnumber(L, 2))
+	{
+		mult = lua_tonumber(L, 2);
+		src  = checkSpinSystem(L, 3);
+	}
+	else
+	{
+		mult = 1.0;
+		src  = checkSpinSystem(L, 2);
+	}
+	if(!src) return 0;
+	
+	if(!dest->addFields(mult, src))
+		return luaL_error(L, "Failed to sum fields");
+	
+	return 0;
+}
 
-// int l_ss_copy(lua_State* L)
-// {
-// 	SpinSystem* src = checkSpinSystem(L, 1);
-// 	if(!src) return 0;
-// 	
-// 	lua_pushSpinSystem(L, src->copy(L));
-// 	return 1;
-// }
+int l_ss_copy(lua_State* L)
+{
+	SpinSystem* src = checkSpinSystem(L, 1);
+	if(!src) return 0;
+	
+	lua_pushSpinSystem(L, src->copy(L));
+	return 1;
+}
 
-// int l_ss_copyto(lua_State* L)
-// {
-// 	SpinSystem* src = checkSpinSystem(L, 1);
-// 	if(!src) return 0;
-// 	
-// 	SpinSystem* dest = checkSpinSystem(L, 2);
-// 	if(!dest) return 0;
-// 
-// 	if(!dest->copyFrom(L, src))
-// 		return luaL_error(L, "Failed to copyTo");
-// 	
-// 	return 0;
-// }
+int l_ss_copyto(lua_State* L)
+{
+	SpinSystem* src = checkSpinSystem(L, 1);
+	if(!src) return 0;
+	
+	SpinSystem* dest = checkSpinSystem(L, 2);
+	if(!dest) return 0;
 
-// int l_ss_copyfieldsto(lua_State* L)
-// {
-// 	SpinSystem* src = checkSpinSystem(L, 1);
-// 	if(!src) return 0;
-// 	
-// 	SpinSystem* dest = checkSpinSystem(L, 2);
-// 	if(!dest) return 0;
-// 
-// 	if(!dest->copyFieldsFrom(L, src))
-// 		return luaL_error(L, "Failed to copyTo");
-// 	
-// 	return 0;
-// }
+	if(!dest->copyFrom(L, src))
+		return luaL_error(L, "Failed to copyTo");
+	
+	return 0;
+}
 
-// int l_ss_copyspinsto(lua_State* L)
-// {
-// 	SpinSystem* src = checkSpinSystem(L, 1);
-// 	if(!src) return 0;
-// 	
-// 	SpinSystem* dest = checkSpinSystem(L, 2);
-// 	if(!dest) return 0;
-// 
-// 	if(!dest->copySpinsFrom(L, src))
-// 		return luaL_error(L, "Failed to copyTo");
-// 	
-// 	return 0;
-// }
+int l_ss_copyfieldsto(lua_State* L)
+{
+	SpinSystem* src = checkSpinSystem(L, 1);
+	if(!src) return 0;
+	
+	SpinSystem* dest = checkSpinSystem(L, 2);
+	if(!dest) return 0;
+
+	if(!dest->copyFieldsFrom(L, src))
+		return luaL_error(L, "Failed to copyTo");
+	
+	return 0;
+}
+
+int l_ss_copyspinsto(lua_State* L)
+{
+	SpinSystem* src = checkSpinSystem(L, 1);
+	if(!src) return 0;
+	
+	SpinSystem* dest = checkSpinSystem(L, 2);
+	if(!dest) return 0;
+
+	if(!dest->copySpinsFrom(L, src))
+		return luaL_error(L, "Failed to copyTo");
+	
+	return 0;
+}
 
 static int l_ss_getextradata(lua_State* L)
 {
@@ -1372,24 +1384,24 @@ static int l_ss_setextradata(lua_State* L)
 // 	return 3;
 // }
 
-// static int l_ss_getdiff(lua_State* L)
-// {
-// 	SpinSystem* sa = checkSpinSystem(L, 1);
-// 	if(!sa) return 0;
-// 	
-// 	SpinSystem* sb = checkSpinSystem(L, 2);
-// 	if(!sb) return 0;
-// 	
-// 	double v4[4];
-// 	
-// 	sa->diff(sb, v4);
-// 	for(int i=0; i<4; i++)
-// 	{
-// 		lua_pushnumber(L, v4[i]);
-// 	}
-// 
-// 	return 4;
-// }
+static int l_ss_getdiff(lua_State* L)
+{
+	SpinSystem* sa = checkSpinSystem(L, 1);
+	if(!sa) return 0;
+	
+	SpinSystem* sb = checkSpinSystem(L, 2);
+	if(!sb) return 0;
+	
+	double v4[4];
+	
+	sa->diff(sb, v4);
+	for(int i=0; i<4; i++)
+	{
+		lua_pushnumber(L, v4[i]);
+	}
+
+	return 4;
+}
 
 static int l_ss_mt(lua_State* L)
 {
@@ -1554,50 +1566,50 @@ static int l_ss_help(lua_State* L)
 // 		return 3;
 // 	}
 		
-// 	if(func == l_ss_addfields)
-// 	{
-// 		lua_pushstring(L, "Add fields from one *SpinSystem* to the current one, optionally scaling the field.");
-// 		lua_pushstring(L, "1 Optional Number, 1 *SpinSystem*: The fields in the spin system are added to the calling spin system multiplied by the optional scaling value. This is useful when implementing higher order integrators.");
-// 		lua_pushstring(L, "");
-// 		return 3;
-// 	}
+	if(func == l_ss_addfields)
+	{
+		lua_pushstring(L, "Add fields from one *SpinSystem* to the current one, optionally scaling the field.");
+		lua_pushstring(L, "1 Optional Number, 1 *SpinSystem*: The fields in the spin system are added to the calling spin system multiplied by the optional scaling value. This is useful when implementing higher order integrators.");
+		lua_pushstring(L, "");
+		return 3;
+	}
 
-// 	if(func == l_ss_copy)
-// 	{
-// 		lua_pushstring(L, "Create a new copy of the spinsystem.");
+	if(func == l_ss_copy)
+	{
+		lua_pushstring(L, "Create a new copy of the spinsystem.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 *SpinSystem*");
+// 		lua_pushstring(L, "Copy all aspects of the given *SpinSystem* to the calling system.");
+// 		lua_pushstring(L, "1 *SpinSystem*: Source spin system.");
 // 		lua_pushstring(L, "");
-// 		lua_pushstring(L, "1 *SpinSystem*");
-// // 		lua_pushstring(L, "Copy all aspects of the given *SpinSystem* to the calling system.");
-// // 		lua_pushstring(L, "1 *SpinSystem*: Source spin system.");
-// // 		lua_pushstring(L, "");
-// 		return 3;
-// 	}
-// 	
-// 	if(func == l_ss_copyto)
-// 	{
-// 		lua_pushstring(L, "Copy all aspects of the calling *SpinSystem* to the given system.");
-// 		lua_pushstring(L, "1 *SpinSystem*: Destination spin system.");
-// 		lua_pushstring(L, "");
-// 		return 3;
-// 	}
-// 
-// 	
-// 	if(func == l_ss_copyspinsto)
-// 	{
-// 		lua_pushstring(L, "Copy spins of the calling *SpinSystem* to the given system.");
-// 		lua_pushstring(L, "1 *SpinSystem*: Destination spin system.");
-// 		lua_pushstring(L, "");
-// 		return 3;
-// 	}
-// 
-// 	
-// 	if(func == l_ss_copyfieldsto)
-// 	{
-// 		lua_pushstring(L, "Copy fields of the calling *SpinSystem* to the given system.");
-// 		lua_pushstring(L, "1 *SpinSystem*: Destination spin system.");
-// 		lua_pushstring(L, "");
-// 		return 3;
-// 	}
+		return 3;
+	}
+	
+	if(func == l_ss_copyto)
+	{
+		lua_pushstring(L, "Copy all aspects of the calling *SpinSystem* to the given system.");
+		lua_pushstring(L, "1 *SpinSystem*: Destination spin system.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	
+	if(func == l_ss_copyspinsto)
+	{
+		lua_pushstring(L, "Copy spins of the calling *SpinSystem* to the given system.");
+		lua_pushstring(L, "1 *SpinSystem*: Destination spin system.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	
+	if(func == l_ss_copyfieldsto)
+	{
+		lua_pushstring(L, "Copy fields of the calling *SpinSystem* to the given system.");
+		lua_pushstring(L, "1 *SpinSystem*: Destination spin system.");
+		lua_pushstring(L, "");
+		return 3;
+	}
 
 	if(func == l_ss_setalpha)
 	{
@@ -1663,13 +1675,13 @@ static int l_ss_help(lua_State* L)
 		return 3;
 	}
 
-// 	if(func == l_ss_getdiff)
-// 	{
-// 		lua_pushstring(L, "Compute the absolute difference between the current *SpinSystem* and a given *SpinSystem*. dx = Sum( |x[i] - other:x[i]|)");
-// 		lua_pushstring(L, "1 *SpinSystem*: to compare against.");
-// 		lua_pushstring(L, "4 Numbers: The differences in the x, y and z components and the length of the difference vector.");
-// 		return 3;
-// 	}
+	if(func == l_ss_getdiff)
+	{
+		lua_pushstring(L, "Compute the absolute difference between the current *SpinSystem* and a given *SpinSystem*. dx = Sum( |x[i] - other:x[i]|)");
+		lua_pushstring(L, "1 *SpinSystem*: to compare against.");
+		lua_pushstring(L, "4 Numbers: The differences in the x, y and z components and the length of the difference vector.");
+		return 3;
+	}
 
 
 
@@ -1677,6 +1689,10 @@ static int l_ss_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new SpinSystem;
+}
 
 void registerSpinSystem(lua_State* L)
 {
@@ -1697,13 +1713,13 @@ void registerSpinSystem(lua_State* L)
 		{"setTime",      l_ss_settime},
 		{"time",         l_ss_gettime},
 		{"field",        l_ss_getfield},
-//		{"getField",     l_ss_getfield},
+		{"getField",     l_ss_getfield},
 // 		{"inverseSpin",  l_ss_getinversespin},
-// 		{"addFields",    l_ss_addfields},
-// 		{"copy",         l_ss_copy},
-// 		{"copyTo",       l_ss_copyto},
-// 		{"copySpinsTo",  l_ss_copyspinsto},
-// 		{"copyFieldsTo", l_ss_copyfieldsto},
+		{"addFields",    l_ss_addfields},
+		{"copy",         l_ss_copy},
+		{"copyTo",       l_ss_copyto},
+		{"copySpinsTo",  l_ss_copyspinsto},
+		{"copyFieldsTo", l_ss_copyfieldsto},
 		{"setAlpha",     l_ss_setalpha},
 		{"alpha",        l_ss_getalpha},
 		{"setTimeStep",  l_ss_settimestep},
@@ -1712,7 +1728,7 @@ void registerSpinSystem(lua_State* L)
 		{"gamma",        l_ss_getgamma},
 		{"setExtraData", l_ss_setextradata},
 		{"extraData",    l_ss_getextradata},
-// 		{"diff",         l_ss_getdiff},
+		{"diff",         l_ss_getdiff},
 		{NULL, NULL}
 	};
 		
@@ -1732,4 +1748,6 @@ void registerSpinSystem(lua_State* L)
 		
 	luaL_register(L, "SpinSystem", functions);
 	lua_pop(L,1);
+	
+	Factory.registerItem(ENCODE_SPINSYSTEM, newThing, lua_pushSpinSystem, "SpinSystem");
 }

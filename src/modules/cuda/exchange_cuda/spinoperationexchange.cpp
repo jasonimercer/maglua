@@ -287,8 +287,10 @@ Exchange* checkExchange(lua_State* L, int idx)
     return *pp;
 }
 
-void lua_pushExchange(lua_State* L, Exchange* ex)
+void lua_pushExchange(lua_State* L, Encodable* _ex)
 {
+	Exchange* ex = dynamic_cast<Exchange*>(_ex);
+	if(!ex) return;
 	ex->refcount++;
 	
 	Exchange** pp = (Exchange**)lua_newuserdata(L, sizeof(Exchange**));
@@ -484,6 +486,11 @@ static int l_ex_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new Exchange;
+}
+
 void registerExchange(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
@@ -514,6 +521,7 @@ void registerExchange(lua_State* L)
 		
 	luaL_register(L, "Exchange", functions);
 	lua_pop(L,1);	
+	Factory.registerItem(ENCODE_EXCHANGE, newThing, lua_pushExchange, "Exchange");
 }
 
 #include "info.h"

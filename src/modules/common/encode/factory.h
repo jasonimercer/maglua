@@ -17,6 +17,8 @@ using namespace std;
 
 class Encodable;
 
+class Factory_;
+static Factory_* staticFactory = 0;
 
 typedef Encodable*(*newFunction)();
 typedef void (*pushFunction)(lua_State*, Encodable*);
@@ -36,8 +38,11 @@ class Factory_
 public:
 	static Factory_& Instance()
 	{
-		static Factory_ theFactory;
-		return theFactory;
+		if(!staticFactory)
+			staticFactory  = new Factory_;
+// 		static Factory_ theFactory;
+// 		return theFactory;
+		return *staticFactory;
 	}
 	
 	Encodable* newItem(int id);

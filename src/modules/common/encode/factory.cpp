@@ -3,6 +3,7 @@
 
 
 vector<FactoryItem*>* Factory_::items = 0;
+// Factory_* staticFactory = 0;
 
 FactoryItem::FactoryItem(int ID, newFunction Func, pushFunction Push, string Name)
 {
@@ -25,6 +26,7 @@ int Factory_::registerItem(int id, newFunction func, pushFunction push, string n
 	init();
 	
 // 	cout << "Registering " << name << endl;
+// 	cout << id << endl;
 	items->push_back(new FactoryItem(id, func, push, name));
 }
 

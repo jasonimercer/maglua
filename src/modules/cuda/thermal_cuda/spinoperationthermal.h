@@ -36,7 +36,7 @@ class LLG;
 class Thermal : public SpinOperation
 {
 public:
-	Thermal(int nx, int ny, int nz);
+	Thermal(int nx=32, int ny=32, int nz=1);
 	virtual ~Thermal();
 	
 	bool apply(RNG* rand, SpinSystem* ss);
@@ -70,7 +70,7 @@ private:
 
 Thermal* checkThermal(lua_State* L, int idx);
 void registerThermal(lua_State* L);
-void lua_pushThermal(lua_State* L, Thermal* th);
+void lua_pushThermal(lua_State* L, Encodable* th);
 
 
 #endif

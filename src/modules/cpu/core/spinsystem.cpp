@@ -1571,6 +1571,11 @@ static int l_ss_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new SpinSystem;
+}
+
 
 void registerSpinSystem(lua_State* L)
 {
@@ -1626,4 +1631,6 @@ void registerSpinSystem(lua_State* L)
 		
 	luaL_register(L, "SpinSystem", functions);
 	lua_pop(L,1);
+	
+	Factory.registerItem(ENCODE_SPINSYSTEM, newThing, lua_pushSpinSystem, "SpinSystem");
 }

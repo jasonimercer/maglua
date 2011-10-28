@@ -32,7 +32,7 @@
 class APPLIEDFIELDCUDA_API AppliedField : public SpinOperation
 {
 public:
-	AppliedField(int nx, int ny, int nz);
+	AppliedField(int nx=32, int ny=32, int nz=1);
 	virtual ~AppliedField();
 	
 	bool apply(SpinSystem* ss);

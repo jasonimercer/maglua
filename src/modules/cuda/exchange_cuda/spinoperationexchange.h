@@ -32,7 +32,7 @@
 class EXCHANGECUDA_API Exchange : public SpinOperation
 {
 public:
-	Exchange(int nx, int ny, int nz);
+	Exchange(int nx=32, int ny=32, int nz=1);
 	virtual ~Exchange();
 	
 	bool apply(SpinSystem* ss);
@@ -74,6 +74,6 @@ private:
 
 Exchange* checkExchange(lua_State* L, int idx);
 void registerExchange(lua_State* L);
-void lua_pushExchange(lua_State* L, Exchange* ex);
+void lua_pushExchange(lua_State* L, Encodable* _ex);
 
 #endif

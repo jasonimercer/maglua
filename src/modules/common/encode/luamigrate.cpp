@@ -179,7 +179,7 @@ int _importLuaVariable(lua_State* L, buffer* b)
 		case LUA_TUSERDATA:
 		{
 			int type = decodeInteger(b);
-			
+// 			printf(">>> %i, %i\n", lua_gettop(L), type);
 			Encodable* e = Factory.newItem(type);
 			if(e)
 			{
@@ -187,6 +187,11 @@ int _importLuaVariable(lua_State* L, buffer* b)
 				e->decode(b);
 				Factory.lua_pushItem(L, e, type);
 			}
+			else
+			{
+				luaL_error(L, "Failed to create new type from factory\n");
+			}
+// 			printf(">>> %i\n", lua_gettop(L));
 		}
 
 		break;

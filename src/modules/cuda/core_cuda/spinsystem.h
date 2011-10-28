@@ -21,7 +21,7 @@ using namespace std;
 class SpinSystem : public Encodable
 {
 public:
-	SpinSystem(const int nx, const int ny, const int nz);
+	SpinSystem(const int nx=32, const int ny=32, const int nz=1);
 	~SpinSystem();
 
 	SpinSystem* copy(lua_State* L);
@@ -127,7 +127,7 @@ CORECUDA_API int         lua_isSpinSystem(lua_State* L, int idx);
 CORECUDA_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
 
 SpinSystem* checkSpinSystem(lua_State* L, int idx);
-void lua_pushSpinSystem(lua_State* L, SpinSystem* ss);
+void lua_pushSpinSystem(lua_State* L, Encodable* ss);
 void registerSpinSystem(lua_State* L);
 
 #endif

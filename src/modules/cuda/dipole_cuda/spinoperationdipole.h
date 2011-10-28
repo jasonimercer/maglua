@@ -36,7 +36,7 @@ using namespace std;
 class DipoleCuda : public SpinOperation
 {
 public:
-	DipoleCuda(int nx, int ny, int nz);
+	DipoleCuda(int nx=32, int ny=32, int nz=1);
 	virtual ~DipoleCuda();
 	
 	bool apply(SpinSystem* ss);
@@ -57,7 +57,7 @@ private:
 	JM_LONGRANGE_PLAN* plan;
 };
 
-DIPOLECUDA_API void lua_pushDipoleCuda(lua_State* L, DipoleCuda* d);
+DIPOLECUDA_API void lua_pushDipoleCuda(lua_State* L, Encodable* d);
 DIPOLECUDA_API DipoleCuda* checkDipoleCuda(lua_State* L, int idx);
 DIPOLECUDA_API void registerDipoleCuda(lua_State* L);
 

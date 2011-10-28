@@ -128,6 +128,8 @@ static int l_checkpoint_load(lua_State* L)
 	{
 		return luaL_error(L, "failed to open `%s' for reading", fn);
 	}
+	lua_pop(L, lua_gettop(L));
+	
 	
 	char header[128];
 	int n;

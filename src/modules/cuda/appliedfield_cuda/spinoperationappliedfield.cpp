@@ -387,6 +387,10 @@ static int l_ap_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new AppliedField;
+}
 
 void registerAppliedField(lua_State* L)
 {
@@ -423,6 +427,7 @@ void registerAppliedField(lua_State* L)
 		
 	luaL_register(L, "AppliedField", functions);
 	lua_pop(L,1);	
+	Factory.registerItem(ENCODE_APPLIEDFIELD, newThing, lua_pushAppliedField, "AppliedField");
 }
 
 

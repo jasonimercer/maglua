@@ -28,7 +28,7 @@ using namespace std;
 class CORE_API SpinSystem : public Encodable
 {
 public:
-	SpinSystem(const int nx, const int ny, const int nz);
+	SpinSystem(const int nx=32, const int ny=32, const int nz=32);
 	~SpinSystem();
 
 	SpinSystem* copy(lua_State* L);

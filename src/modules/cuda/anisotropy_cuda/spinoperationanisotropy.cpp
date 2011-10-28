@@ -200,8 +200,9 @@ Anisotropy* checkAnisotropy(lua_State* L, int idx)
     return *pp;
 }
 
-void lua_pushAnisotropy(lua_State* L, Anisotropy* ani)
+void lua_pushAnisotropy(lua_State* L, Encodable* _ani)
 {
+	Anisotropy* ani = dynamic_cast<Anisotropy*>(_ani);
 	ani->refcount++;
 	
 	Anisotropy** pp = (Anisotropy**)lua_newuserdata(L, sizeof(Anisotropy**));
@@ -396,6 +397,10 @@ static int l_ani_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new Anisotropy;
+}
 
 void registerAnisotropy(lua_State* L)
 {
@@ -425,6 +430,7 @@ void registerAnisotropy(lua_State* L)
 		
 	luaL_register(L, "Anisotropy", functions);
 	lua_pop(L,1);	
+	Factory.registerItem(ENCODE_ANISOTROPY, newThing, lua_pushAnisotropy, "Anisotropy");
 }
 
 

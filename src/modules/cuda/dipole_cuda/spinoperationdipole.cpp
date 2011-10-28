@@ -157,8 +157,11 @@ DipoleCuda* checkDipoleCuda(lua_State* L, int idx)
     return *pp;
 }
 
-void lua_pushDipoleCuda(lua_State* L, DipoleCuda* dip)
+void lua_pushDipoleCuda(lua_State* L, Encodable* _dip)
 {
+	DipoleCuda* dip = dynamic_cast<DipoleCuda*>(_dip);
+	if(!dip) return;
+	
 	dip->refcount++;
 	DipoleCuda** pp = (DipoleCuda**)lua_newuserdata(L, sizeof(DipoleCuda**));
 	
@@ -396,6 +399,10 @@ static int l_dip_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new DipoleCuda;
+}
 
 void registerDipoleCuda(lua_State* L)
 {
@@ -428,6 +435,7 @@ void registerDipoleCuda(lua_State* L)
 		
 	luaL_register(L, "Dipole", functions);
 	lua_pop(L,1);	
+	Factory.registerItem(ENCODE_DIPOLE, newThing, lua_pushDipoleCuda, "Dipole");
 }
 
 
