@@ -13,5 +13,6 @@ OBJECTS=spinoperationdipole.o dipolesupport.o kernel.cuo
 LIBNAME=DipoleCuda
 
 BASEDIR=../../..
+EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu

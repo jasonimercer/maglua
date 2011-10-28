@@ -28,6 +28,8 @@ Dipole::Dipole(int nx, int ny, int nz)
 	ABC[0] = 1; ABC[1] = 0; ABC[2] = 0;
 	ABC[3] = 0; ABC[4] = 1; ABC[5] = 0;
 	ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
+
+	hasMatrices = false;
 }
 
 void Dipole::init()
@@ -52,7 +54,7 @@ void Dipole::init()
 	qYZ = new complex<double>[s];
 	qZZ = new complex<double>[s];
 	
-		fftw_iodim dims[2];
+	fftw_iodim dims[2];
 	dims[0].n = nx;
 	dims[0].is= 1;
 	dims[0].os= 1;
@@ -138,6 +140,8 @@ Dipole::~Dipole()
 
 void Dipole::getMatrices()
 {
+	init();
+	
 	int s = nx*ny * (nz*2-1);
 	double* XX = new double[s];
 	double* XY = new double[s];

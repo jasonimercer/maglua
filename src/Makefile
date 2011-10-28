@@ -8,7 +8,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-# When configuring fftw3:
+# When configuring fftw3: 
 # ./configure  --prefix=$HOME --with-pic --enable-shared
 
 CXX=mpic++ -D_MPI
@@ -25,8 +25,8 @@ $(BIN): main.o
 main.o : main.cpp info.h setup_code.h Makefile
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
 
-info.h:
-	./premake.sh $(CXX) $(CFLAGS)
+info.h:					#dev version
+	./premake.sh $(CXX) $(CFLAGS)	#dev version
 
 
 install: $(BIN)
@@ -42,10 +42,13 @@ clean:
 	rm -f *~
 	rm -f *.o
 
+pack:			#dev version
+	./pack.sh	#dev version
+
 distclean: clean
 	make -C modules/cuda distclean
 	make -C modules/cpu distclean
 	make -C modules/common distclean
 	rm -f $(BIN)
-	rm -f info.h
+	rm -f info.h	#dev version
 

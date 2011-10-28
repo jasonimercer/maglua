@@ -13,6 +13,7 @@ OBJECTS=spinoperationanisotropy.o spinoperationanisotropy.cuo
 LIBNAME=AnisotropyCuda
 
 BASEDIR=../../..
+EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
 

@@ -158,7 +158,7 @@ local i = 0
 for w in string.gfind(info(), "(.-)\n") do
 	local a, b, c, d = string.find(w, "(.-)%s*%:(.*)")
 	if a then
-		f:write("<tr><td>" .. c .. ":<td>" .. d .. "\n")
+		f:write("<tr><td width=15%>" .. c .. ":<td>" .. d .. "\n")
 	end
 end
 f:write("</table>\n<hr>")

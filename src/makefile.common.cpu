@@ -33,7 +33,7 @@ install: all
 	mkdir -p $(MODDIR)
 	cp -f $(LIBNAME).so $(MODDIR)
 
-uninstall: distclean
+uninstall:
 	rm -f $(MODDIR)/$(LIBNAME).so
 
 clena: clean

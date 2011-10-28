@@ -14,5 +14,6 @@ OBJECTS=llg.o llgquat.o llgquat.cuo
 LIBNAME=LLGCuda
 
 BASEDIR=../../..
+EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu

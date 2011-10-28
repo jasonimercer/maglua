@@ -17,6 +17,9 @@ all:
 install:
 	@for d in $(DIRS); do (make -C $$d install); done
 
+uninstall:
+	@for d in $(DIRS); do (make -C $$d uninstall); done
+
 clean:
 	@for d in $(DIRS); do (make -C $$d clean); done
 	rm -f *~

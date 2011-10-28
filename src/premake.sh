@@ -29,7 +29,6 @@ MagLua $REVISION\\n\\
 $AUTHOR\\n\\
 $DATE\\n\\
 Compiler:            $COMPILER\\n\\
-Compile Line:        $COMPILELINE\\n\\
 ";
 const char* __rev  = "$REVNUMBER";
 const int   __revi =  $REVNUMBER;

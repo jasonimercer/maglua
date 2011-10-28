@@ -49,6 +49,7 @@ extern "C" {
 #endif
 
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <map>
@@ -100,6 +101,12 @@ int main(int argc, char** argv)
 		if(strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
 		{
 			print_help();
+			shutdown = 1;
+		}
+		
+		if(strcmp("-v", argv[i]) == 0 || strcmp("--version", argv[i]) == 0)
+		{
+			printf("MagLua-r%i\n", __revi);
 			shutdown = 1;
 		}
 		
@@ -379,8 +386,17 @@ static int l_info(lua_State* L)
 	for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
 	{
 		result.append((*mit).second.second);
+		result.append("(r");
+		
+		std::ostringstream os;
+		os << (*mit).second.first;
+		std::string r_str = os.str(); //retrieve as a string
+
+		
+		result.append(r_str);
+		result.append(")");
 		mit++;
-		if(mit != loaded.end())
+		if( mit != loaded.end())
 			result.append(", ");
 		mit--;
 	}
@@ -737,6 +753,7 @@ void print_help()
 	cout << " --setup mod_dir  Setup startup files in $(HOME)/.maglua.d" << endl;
 #endif
 	cout << "                   with <mod_dir> in the list of paths" << endl;
+		cout << " -v, --version    Print version" << endl;
 	cout << " -h, --help       Show this help" << endl;
 	cout << endl;
 	cout << reference() << endl;

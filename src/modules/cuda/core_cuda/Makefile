@@ -14,5 +14,6 @@ LIBNAME=CoreCUDA
 
 
 BASEDIR=../../..
+EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu

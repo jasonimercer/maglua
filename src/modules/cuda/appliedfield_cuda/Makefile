@@ -13,6 +13,7 @@ OBJECTS=spinoperationappliedfield.o spinoperationappliedfield.cuo
 LIBNAME=AppliedFieldCuda
 
 BASEDIR=../../..
+EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
 
