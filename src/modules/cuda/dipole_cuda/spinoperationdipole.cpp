@@ -31,32 +31,60 @@ DipoleCuda::DipoleCuda(int nx, int ny, int nz)
 	plan = 0;
 }
 
+void DipoleCuda::init()
+{
+	getPlan();
+}
+
+void DipoleCuda::deinit()
+{
+	if(plan)
+	{
+		free_JM_LONGRANGE_PLAN(plan);
+		plan = 0;
+	}	
+}
+
 void DipoleCuda::encode(buffer* b)
 {
-	
+	encodeInteger(nx, b);
+	encodeInteger(ny, b);
+	encodeInteger(nz, b);
+	encodeInteger(gmax, b);
+
+	for(int i=0; i<9; i++)
+	{
+		encodeDouble(ABC[i], b);
+	}
 }
 
 int  DipoleCuda::decode(buffer* b)
 {
+	deinit();
+
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
+	gmax = decodeInteger(b);
+	nxyz = nx*ny*nz;
+
+	for(int i=0; i<9; i++)
+	{
+		ABC[i] = decodeDouble(b);
+	}
+
+
 	return 0;
 }
 
 DipoleCuda::~DipoleCuda()
 {
-	if(plan)
-	{
-		free_JM_LONGRANGE_PLAN(plan);
-		plan = 0;
-	}
+	deinit();
 }
 
 void DipoleCuda::getPlan()
 {
-	if(plan)
-	{
-		free_JM_LONGRANGE_PLAN(plan);
-		plan = 0;
-	}
+	deinit();
 	
 	int s = nx*ny * (nz*2-1);
 	double* XX = new double[s];

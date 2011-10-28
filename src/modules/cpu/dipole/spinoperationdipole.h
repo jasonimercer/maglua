@@ -50,6 +50,8 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 
+	void init();
+	void deinit();
 private:
 	void ifftAppliedForce(SpinSystem* ss);
 	void collectIForces(SpinSystem* ss);

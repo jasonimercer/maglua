@@ -73,7 +73,7 @@ void Anisotropy::init()
 	
 	ss_d_set3DArray(d_nx, nx, ny, nz, 0);
 	ss_d_set3DArray(d_ny, nx, ny, nz, 0);
-	ss_d_set3DArray(d_nz, nx, ny, nz, 1);
+	ss_d_set3DArray(d_nz, nx, ny, nz, 0);
 	ss_d_set3DArray(d_k,  nx, ny, nz, 0);
 	
 	sync_dh();
@@ -122,8 +122,10 @@ void Anisotropy::encode(buffer* b)
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
+	encodeInteger(nxyz, b);
 	for(int i=0; i<nxyz; i++)
 	{
+		encodeInteger(i, b);
 		encodeDouble(h_nx[i], b);
 		encodeDouble(h_ny[i], b);
 		encodeDouble(h_nz[i], b);
@@ -133,22 +135,27 @@ void Anisotropy::encode(buffer* b)
 
 int Anisotropy::decode(buffer* b)
 {
+	// some of the following seems like garbage. It's to
+	// ensure compatibility with CPU version
 	deinit();
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
+	int num = decodeInteger(b);
+	nxyz = nx*ny*nz;
 	init();
 	
 	new_device = false;
 	
-	for(int i=0; i<nxyz; i++)
+	for(int i=0; i<num; i++)
 	{
+		int j = decodeInteger(b);
 		const double nx = decodeDouble(b);
 		const double ny = decodeDouble(b);
 		const double nz = decodeDouble(b);
 		const double  K = decodeDouble(b);
 				
-		addAnisotropy(i, nx, ny, nz, K);
+		addAnisotropy(j, nx, ny, nz, K);
 	}
 	
 	//addAnisotropy marks new host

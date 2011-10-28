@@ -362,7 +362,8 @@ int  SpinSystem::decode(buffer* b)
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
-	
+	nxyz = nx*ny*nz;
+
 	alpha = decodeDouble(b);
 	dt = decodeDouble(b);
 	gamma = decodeDouble(b);

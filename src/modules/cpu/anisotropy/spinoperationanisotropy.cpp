@@ -25,14 +25,6 @@ Anisotropy::Anisotropy(int nx, int ny, int nz)
 
 void Anisotropy::init()
 {
-/*	typedef struct ani
-	{
-		int site;
-		double axis[3];
-		double strength;
-	} ani;
-	
-	ani* ops;*/
 	num = 0;
 	if(size < 0)
 		size = 1;
@@ -67,6 +59,9 @@ void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double
 
 void Anisotropy::encode(buffer* b)
 {
+	encodeInteger(nx, b);
+	encodeInteger(ny, b);
+	encodeInteger(nz, b);
 	encodeInteger(num, b);
 	for(int i=0; i<num; i++)
 	{
@@ -81,6 +76,9 @@ void Anisotropy::encode(buffer* b)
 int Anisotropy::decode(buffer* b)
 {
 	deinit();
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
 	num = decodeInteger(b);
 	size = num;
 	init();
