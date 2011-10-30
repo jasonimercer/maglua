@@ -8,7 +8,7 @@ rm -rf $version
 mkdir $version
 cp info.h $version
 grep -v '#dev version' Makefile > $version/Makefile
-cp COPYRIGHT main.cpp makefile.common.cpu makefile.common.gpu makefile.common.mpi README setup_code.h $version
+cp COPYRIGHT main.cpp makefile.common.cpu makefile.common.gpu makefile.common.mpi README main.h $version
 make distclean
 cp -r help $version
 cp -r modules $version
