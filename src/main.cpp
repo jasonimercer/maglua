@@ -15,11 +15,6 @@
 // with -L options
 
 
-extern "C" {
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-}
 
 #include "info.h"
 
@@ -57,7 +52,7 @@ extern "C" {
 #ifdef _MPI
  #include <mpi.h>
 #endif
-#include "setup_code.h"
+#include "main.h"
 
 using namespace std;
 
@@ -65,12 +60,14 @@ typedef map<string, pair<int, string> > datamap;
 
 datamap loaded;
 vector<string> mod_dirs;
+vector<string> initial_args;
 
-int getmoddirs(vector<string>& mds, const int argc, char** argv);
-int registerLibs(int suppress, lua_State* L, int argc, char** argv);
-void lua_addargs(lua_State* L, int argc, char** argv);
+int getmoddirs(vector<string>& mds);
+int registerLibs(int suppress, lua_State* L);
+void lua_addargs(lua_State* L); //add initial_args to state
 static int l_info(lua_State* L);
 void print_help();
+int suppress;
 const char* reference();
 // 
 // command line switches:
@@ -84,7 +81,11 @@ const char* reference();
 
 int main(int argc, char** argv)
 {
-	int suppress = 0;
+	//record initial arguments
+	for(int i=0; i<argc; i++)
+		initial_args.push_back(argv[i]);
+	
+	suppress = 0; //chatter
 	int shutdown = 0;
 #ifdef _MPI
 	MPI_Init(&argc, &argv);
@@ -113,7 +114,7 @@ int main(int argc, char** argv)
 		if(strcmp("--module_path", argv[i]) == 0)
 		{
 			vector<string> mp;
-			getmoddirs(mp, argc, argv);
+			getmoddirs(mp);
 			for(unsigned int i=0; i<mp.size() && i < 1; i++)
 			{
 				cout << mp[i] << endl;
@@ -171,26 +172,6 @@ int main(int argc, char** argv)
 	lua_State *L = lua_open();
 	luaL_openlibs(L);
 
-	int modbase = 1;
-	lua_newtable(L);
-	
-	
-	{
-		vector<string> m;
-		getmoddirs(m, argc, argv);
-		for(unsigned int i=0; i<m.size(); i++)
-		{
-			lua_pushinteger(L, modbase);
-			lua_pushstring(L, m[i].c_str());
-			lua_settable(L, -3);
-			modbase++;
-		}
-	
-
-	}
-
-	lua_setglobal(L, "module_path");
-
 	if(!suppress)
 	{
 		cout << "MagLua r" << __revi << " by Jason Mercer (c) 2011" << endl;
@@ -198,15 +179,11 @@ int main(int argc, char** argv)
 		cout << reference() << endl;
 		cout << endl;
 	}
-	
-	if(!registerLibs(suppress, L, argc, argv))
+
+
+	if(!registerMain(L)) //registerMain returns number of failures, suppress is true after this call
 	{
 		int script = 0;
-
-		lua_pushcfunction(L, l_info);
-		lua_setglobal(L, "info");
-
-		lua_addargs(L, argc, argv);
 		
 		// execute each lua script on the command line
 		for(int i=1; i<argc; i++)
@@ -243,17 +220,48 @@ int main(int argc, char** argv)
 }
 
 
-int getmoddirs(vector<string>& mds, const int argc, char** argv)
+MAGLUA_API int registerMain(lua_State* L)
 {
-	for(int i=0; i<argc-1; i++)
+	// add module path
+	int modbase = 1;
+	lua_newtable(L);
 	{
-		if(strcmp("-L", argv[i]) == 0)
+		vector<string> m;
+		getmoddirs(m);
+		for(unsigned int i=0; i<m.size(); i++)
 		{
-			mds.push_back(argv[i+1]);
+			lua_pushinteger(L, modbase);
+			lua_pushstring(L, m[i].c_str());
+			lua_settable(L, -3);
+			modbase++;
+		}
+	}
+	lua_setglobal(L, "module_path");
+	
+	// add info and arguments
+	lua_pushcfunction(L, l_info);
+	lua_setglobal(L, "info");
+
+	lua_addargs(L);
+	
+	int i = registerLibs(suppress, L);
+	suppress = 1; //boo, hack
+	return i;
+}
+
+
+int getmoddirs(vector<string>& mds)
+{
+	mds.clear();
+	for(unsigned int i=0; i<initial_args.size(); i++)
+	{
+		if(	strcmp("-L", initial_args[i].c_str()) == 0 	&&
+			i != initial_args.size()-2)
+		{
+			mds.push_back(initial_args[i+1]);
 			i++;
 		}
 	}
-
 
 	lua_State *L = lua_open();
 	luaL_openlibs(L);
@@ -338,8 +346,9 @@ int getmoddirs(vector<string>& mds, const int argc, char** argv)
 
 // add command line args to the lua state
 // adding argc, argv and a table arg
-void lua_addargs(lua_State* L, int argc, char** argv)
+void lua_addargs(lua_State* L)
 {
+	int argc = (int)initial_args.size();
 	lua_pushinteger(L, argc);
 	lua_setglobal(L, "argc");
 
@@ -347,7 +356,7 @@ void lua_addargs(lua_State* L, int argc, char** argv)
 	for(int i=0; i<argc; i++)
 	{
 		lua_pushinteger(L, i+1);
-		lua_pushstring(L, argv[i]);
+		lua_pushstring(L, initial_args[i].c_str());
 		lua_settable(L, -3);
 	}
 	lua_setglobal(L, "argv");
@@ -356,7 +365,7 @@ void lua_addargs(lua_State* L, int argc, char** argv)
 	for(int i=2; i<argc; i++)
 	{
 		lua_pushinteger(L, i-1);
-		lua_pushstring(L, argv[i]);
+		lua_pushstring(L, initial_args[i].c_str());
 		lua_settable(L, -3);
 	}
 	lua_setglobal(L, "arg");
@@ -561,7 +570,7 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 }
 
 
-int registerLibs(int suppress, lua_State* L, int argc, char** argv)
+int registerLibs(int suppress, lua_State* L)
 {
 	loaded.clear();
 	mod_dirs.clear();
@@ -657,6 +666,17 @@ int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 	datamap::iterator mit;
 	int num_loaded_this_round;
 	
+	// build local argc, argv from initial_args
+	char** argv = new char*[initial_args.size()];
+	int argc = initial_args.size();
+	for(unsigned int i=0; i<argc; i++)
+	{
+		const int ll = initial_args[i].length();
+		argv[i] = new char[ll + 1];
+		memcpy(argv[i], initial_args[i].c_str(), ll);
+		argv[i][ll] = 0;
+	}
+	
 	do
 	{
 		num_loaded_this_round = 0;
@@ -679,6 +699,11 @@ int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 		}
 	}while(num_loaded_this_round > 0);
 	
+	for(unsigned int i=0; i<initial_args.size(); i++)
+	{
+		delete [] argv[i];
+	}
+	delete [] argv;
 	
 	if(!suppress)
 	{
@@ -725,6 +750,7 @@ int registerLibs(int suppress, lua_State* L, int argc, char** argv)
 			bad_fail++;
 		}
 	}
+	
 	
 	return bad_fail;
 }
