@@ -11,7 +11,7 @@
 
 CXX=g++
 CFLAGS=-ansi -O2
-PKG=lua5.1 fftw3
+PKG=lua5.1 fftw3 $(EXTRA_PKG)
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
 		-I$(BASEDIR) \
 		-I$(BASEDIR)/modules/common/encode \

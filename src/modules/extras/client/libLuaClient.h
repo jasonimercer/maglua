@@ -27,7 +27,7 @@ extern "C" {
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
  #pragma warning(disable: 4251)
 
- #ifdef SERVER_EXPORTS
+ #ifdef CLIENT_EXPORTS
   #define CLIENT_API __declspec(dllexport)
  #else
   #define CLIENT_API __declspec(dllimport)
