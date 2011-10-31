@@ -13,7 +13,11 @@
 #ifndef INTERPOLATINGFUCTION_H
 #define INTERPOLATINGFUCTION_H
 
-#include "luacommon.h"
+extern "C" {
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+}
 #include <vector>
 #include "encodable.h"
 

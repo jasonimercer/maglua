@@ -21,5 +21,3 @@ extern "C" {
 ENCODE_API char* exportLuaVariable(lua_State* L, int index,   int* chunksize);
 ENCODE_API int   importLuaVariable(lua_State* L, char* chunk, int  chunksize);
 
-ENCODE_API void _exportLuaVariable(lua_State* L, int index, buffer* b);
-ENCODE_API int _importLuaVariable(lua_State* L, buffer* b);

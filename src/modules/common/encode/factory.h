@@ -5,6 +5,20 @@ extern "C"
 #include <lauxlib.h>
 }
 
+#ifdef WIN32
+ #define strcasecmp(A,B) _stricmp(A,B)
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #pragma warning(disable: 4251)
+
+ #ifdef ENCODE_EXPORTS
+  #define ENCODE_API __declspec(dllexport)
+ #else
+  #define ENCODE_API __declspec(dllimport)
+ #endif
+#else
+ #define ENCODE_API 
+#endif
+
 
 #ifndef MAGLUA_FACTORY_H
 #define MAGLUA_FACTORY_H
@@ -33,7 +47,7 @@ public:
 	string name;
 };
 
-class Factory_
+class ENCODE_API Factory_
 {
 public:
 	static Factory_& Instance()

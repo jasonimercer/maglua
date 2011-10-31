@@ -70,11 +70,11 @@ public:
 	lua_State* L;
 };
 
-  void encodeBuffer(const void* s, const int len, buffer* b);
-  void encodeDouble(const double d, buffer* b);
-  void encodeInteger(const int i, buffer* b);
-   int decodeInteger(buffer* b);
-double decodeDouble(buffer* b);
-  void decodeBuffer(void* dest, const int len, buffer* b);
+ENCODE_API   void encodeBuffer(const void* s, const int len, buffer* b);
+ENCODE_API   void encodeDouble(const double d, buffer* b);
+ENCODE_API   void encodeInteger(const int i, buffer* b);
+ENCODE_API    int decodeInteger(buffer* b);
+ENCODE_API double decodeDouble(buffer* b);
+ENCODE_API   void decodeBuffer(void* dest, const int len, buffer* b);
 
 #endif

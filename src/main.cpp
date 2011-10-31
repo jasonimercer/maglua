@@ -32,6 +32,8 @@
 #else
  #include <windows.h>
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #pragma warning(disable: 4251)
+ #pragma warning(disable: 4996)
  #define snprintf _snprintf
  #define HOME "APPDATA"
  #define SO_EXT "dll"
@@ -39,7 +41,7 @@
  #define _handle HINSTANCE
 
  #define LIB_LOAD(a,b) GetProcAddress(a,b)
- #define LIB_CLOSE(a,b) FreeLibrary(a,b)
+ #define LIB_CLOSE(a) FreeLibrary(a)
 
 #endif
 
@@ -523,18 +525,17 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 
 		return 1;
     }
-	
+
 	lib_register(L); // call the register function from the library
-	
+
 	if(buf)
 		delete [] buf;
 
 // 	if(!suppress)
 // 	{
 // 		cout << "  Loading Module: " << name << endl;
-		//cout << "    from " << src_dir << endl;
 // 	}
-	
+
 	if(!lib_version)
 	{
 		printf("WARNING: Failed to load `lib_version' from `%s' setting version to -100\n", name.c_str());
@@ -562,7 +563,6 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 	loaded[name].second = true_name;
 	
 	//yuck! This loaded/unloaded/true_name is a bit of a mess. Should be rethought and recoded but for now it works well.
-	
 	if(lib_main)
 		lib_main(L, argc, argv);
 
@@ -593,7 +593,6 @@ int registerLibs(int suppress, lua_State* L)
 
 	HANDLE hFind = INVALID_HANDLE_VALUE;
 #endif
-
 	// make a list of all the modules we want to load
 	for(unsigned int d=0; d<mod_dirs.size(); d++)
 	{
@@ -668,7 +667,7 @@ int registerLibs(int suppress, lua_State* L)
 	
 	// build local argc, argv from initial_args
 	char** argv = new char*[initial_args.size()];
-	int argc = initial_args.size();
+	unsigned int argc = initial_args.size();
 	for(unsigned int i=0; i<argc; i++)
 	{
 		const int ll = initial_args[i].length();

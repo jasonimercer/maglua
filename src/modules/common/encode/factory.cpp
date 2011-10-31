@@ -28,6 +28,7 @@ int Factory_::registerItem(int id, newFunction func, pushFunction push, string n
 // 	cout << "Registering " << name << endl;
 // 	cout << id << endl;
 	items->push_back(new FactoryItem(id, func, push, name));
+	return 0;
 }
 
 void Factory_::cleanup()

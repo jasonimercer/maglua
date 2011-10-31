@@ -13,7 +13,11 @@
 #ifndef RANDOMBASE_HPP
 #define RANDOMBASE_HPP
 
-#include "luacommon.h"
+extern "C" {
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+}
 #include <stdint.h>
 #include <ctype.h>
 #include <time.h>
@@ -78,7 +82,7 @@ protected:
 	unsigned char __gaussStep;
 };
 
-#include "luacommon.h"
+
 RANDOM_API RNG* checkRandom(lua_State* L, int idx);
 RANDOM_API void registerRandom(lua_State* L);
 
