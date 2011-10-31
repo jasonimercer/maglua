@@ -48,6 +48,45 @@ extern "C" {
 #include <lualib.h>
 #include <lauxlib.h>
 
-MAGLUA_API int registerMain(lua_State* L);
+// MAGLUA_API int registerMain(lua_State* L);
 }
 
+
+#ifdef WIN32
+#include <string>
+#include <windows.h>
+
+template <class T>
+inline T import_function(std::string path, std::string name)
+{
+	const int sz = path.length();
+	WCHAR* str  = new WCHAR[sz+1];
+	MultiByteToWideChar(0, 0, path.c_str(), sz, str, sz+1);
+	HINSTANCE handle = LoadLibrary(str);
+	delete [] str;
+
+	T func = 0;
+	if(handle)
+	{
+		func = (T) GetProcAddress(handle,name.c_str());
+		//FreeLibrary(handle);
+	}
+	return func;
+}
+#else
+#include <string>
+#include <dlfcn.h>
+template <class T>
+inline T import_function(std::string path, std::string name)
+{
+	void* handle = dlopen(path.c_stR(),  RTLD_NOW | RTLD_GLOBAL);
+	T func = 0;
+	if(handle)
+	{
+		func = (T) LIB_LOAD(handle, name.c_str());
+		dlclose(handle);
+	}
+	return func;
+}
+
+#endif

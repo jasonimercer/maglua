@@ -26,9 +26,7 @@
 #define HOME "HOME"
 #define SO_EXT "so"
 #define MAGLUA_SETUP_PATH "/.maglua.d/module_path.lua"
-#define _handle void*
-#define LIB_LOAD(a,b) dlsym(a,b)
-#define LIB_CLOSE(a) dlclose(a)
+#define PATH_SEP "/"
 #else
  #include <windows.h>
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
@@ -38,11 +36,7 @@
  #define HOME "APPDATA"
  #define SO_EXT "dll"
  #define MAGLUA_SETUP_PATH "\\maglua\\module_path.lua"
- #define _handle HINSTANCE
-
- #define LIB_LOAD(a,b) GetProcAddress(a,b)
- #define LIB_CLOSE(a) FreeLibrary(a)
-
+ #define PATH_SEP "\\"
 #endif
 
 #include <iostream>
@@ -58,7 +52,18 @@
 
 using namespace std;
 
-typedef map<string, pair<int, string> > datamap;
+typedef struct lib_info
+{
+	lib_info():version(0) {};
+	int version;
+	string name;
+	string truename;
+	string path;
+} libinfo;
+
+typedef map<string, lib_info> datamap;
+
+//typedef map<string, pair<int, string> > datamap;
 
 datamap loaded;
 vector<string> mod_dirs;
@@ -71,6 +76,8 @@ static int l_info(lua_State* L);
 void print_help();
 int suppress;
 const char* reference();
+MAGLUA_API int registerMain(lua_State* L);
+
 // 
 // command line switches:
 //  -L                  add moduel dir to search path
@@ -218,6 +225,7 @@ int main(int argc, char** argv)
 #endif
 	}
 	
+
 	return 0;
 }
 
@@ -337,7 +345,6 @@ int getmoddirs(vector<string>& mds)
 	
 	delete [] init_file;
 
-	
 #ifdef WIN32
 	free(home);
 #endif
@@ -396,11 +403,11 @@ static int l_info(lua_State* L)
 	datamap::iterator mit;
 	for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
 	{
-		result.append((*mit).second.second);
+		result.append((*mit).second.truename);
 		result.append("(r");
 		
 		std::ostringstream os;
-		os << (*mit).second.first;
+		os << (*mit).second.version;
 		std::string r_str = os.str(); //retrieve as a string
 
 		
@@ -432,20 +439,27 @@ static int l_info(lua_State* L)
 // *****************************************************************
 static int load_lib(int suppress, lua_State* L, int argc, char** argv, const string& name, string& true_name)
 {
+	if(!suppress)
+ 	{
+ 		cout << __LINE__ << "  Loading Module: " << name << endl;
+ 	}
+
+
 	char* buf = 0;
 	int bufsize = 0;
 	int module_version = 0;
 	
 	//cerr << "Loading " << name << endl;
 	
-	if(loaded[name].first != 0)//then already loaded
+	loaded[name].name = name;
+	if(loaded[name].version != 0)//then already loaded
 	{
 		return 3;
 	}
 	string src_dir;
 	
 	
-	_handle handle = 0;
+	// this gets repeated a bunch of times: not good.
 	for(unsigned int i=0; i<mod_dirs.size(); i++)
 	{
 		int len = mod_dirs[i].length() + name.length() + 10;
@@ -456,64 +470,22 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 			buf = new char[len];
 			bufsize = len;
 		}
-		
-
-		snprintf(buf, bufsize, "%s/%s.%s", mod_dirs[i].c_str(), name.c_str(), SO_EXT);
-		
-#ifndef WIN32
-		dlerror();
-		handle = dlopen(buf,  RTLD_NOW | RTLD_GLOBAL);
-		// should this be reported? We may be able to deal with it. Need to think this through
-#ifdef LOAD_LIB_DEBUG
-		const char* dle = dlerror();
-		if(dle)
-		{
-			fprintf(stderr, "dlsym error: `%s'\n", dle);
-		}
-#endif
-#else
-		WCHAR* str  = new WCHAR[bufsize];
-		MultiByteToWideChar(0, 0, buf, bufsize-1, str, bufsize);
-		handle = LoadLibrary(str);
-		if(!handle)
-		{
-			fprintf(stderr, "Library failed to load\n");
-		}
-		delete [] str;
-#endif
-
-		if(handle)
-		{
-			src_dir = mod_dirs[i];
-			break;
-		}
+	
+		snprintf(buf, bufsize, "%s%s%s.%s", mod_dirs[i].c_str(), PATH_SEP, name.c_str(), SO_EXT);
+		loaded[name].path = buf;
 	}
 
-	if(!handle)
-	{
-		// don't report error, we may be able to deal with it
-#ifdef LOAD_LIB_DEBUG
-		printf("(%s:%i) !handle\n", __FILE__, __LINE__);
-#endif
-		return 2;
-	}
+
 	
 	typedef int (*lua_func)(lua_State*);
 	typedef const char* (*c_lua_func)(lua_State*);
 	typedef void (*lua_func_aa)(lua_State*, int, char**);
 
-	
-	  lua_func    lib_register =   (lua_func)    LIB_LOAD(handle, "lib_register");
-	  lua_func    lib_version  =   (lua_func)    LIB_LOAD(handle, "lib_version");
-	c_lua_func    lib_name     = (c_lua_func)    LIB_LOAD(handle, "lib_name");
-	  lua_func_aa lib_main     =   (lua_func_aa) LIB_LOAD(handle, "lib_main");
+	  lua_func    lib_register = import_function<lua_func>   (loaded[name].path, "lib_register");
+	  lua_func    lib_version  = import_function<lua_func>   (loaded[name].path, "lib_version");
+  	c_lua_func    lib_name     = import_function<c_lua_func> (loaded[name].path, "lib_name");
+	  lua_func_aa lib_main     = import_function<lua_func_aa>(loaded[name].path, "lib_main");
 	  
-	// don't know if we should report this, it may be resolved later
-// 	const char* dle = dlerror();
-// 	if(dle)
-// 	{
-// 		fprintf(stderr, "dlsym error: `%s'\n", dle);
-// 	}
 	if(!lib_register)
 	{
 		// we'll report this later 
@@ -521,34 +493,38 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 		printf("(%s:%i) !lib_register\n", __FILE__, __LINE__);
 #endif
 
-		LIB_CLOSE(handle);
-
 		return 1;
     }
 
-	lib_register(L); // call the register function from the library
+	if(lib_register(L)) // call the register function from the library
+	{
+		// the windows version of the code has some hackish just-in-time dynamic linking
+		// when it fails (ie. Encode hasn't loaded yet), lib_register will return non-zero
+		printf("lib_register returned non-zero (%s:%i)\n", __FILE__, __LINE__);
+		return 2;
+	}
 
 	if(buf)
 		delete [] buf;
 
-// 	if(!suppress)
-// 	{
-// 		cout << "  Loading Module: " << name << endl;
-// 	}
+ 	if(!suppress)
+ 	{
+ 		cout << __LINE__ << "  Loading Module: " << name << endl;
+ 	}
 
 	if(!lib_version)
 	{
 		printf("WARNING: Failed to load `lib_version' from `%s' setting version to -100\n", name.c_str());
-		loaded[name].first = -100;
+		loaded[name].version = -100;
 		
 	}
 	else
 	{
-		loaded[name].first = lib_version(L);
-		if(loaded[name].first == 0)
+		loaded[name].version = lib_version(L);
+		if(loaded[name].version == 0)
 		{
 			printf("WARNING: `lib_version' from `%s' returned 0. Changing version to -100\n", name.c_str());
-			loaded[name].first = -100;
+			loaded[name].version = -100;
 		}
 	}
 	
@@ -560,7 +536,7 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 	{
 		true_name = lib_name(L);
 	}
-	loaded[name].second = true_name;
+	loaded[name].truename = true_name;
 	
 	//yuck! This loaded/unloaded/true_name is a bit of a mess. Should be rethought and recoded but for now it works well.
 	if(lib_main)
@@ -638,7 +614,7 @@ int registerLibs(int suppress, lua_State* L)
 					strncpy(n, filename, len);
 					n[len-ii-1] = 0;
 					
-					unloaded[n].first++; //mark this module to be loaded
+					unloaded[n].version++; //mark this module to be loaded
 					
 					delete [] n;
 				}
@@ -682,15 +658,15 @@ int registerLibs(int suppress, lua_State* L)
 		
 		for(mit=unloaded.begin(); mit!=unloaded.end(); ++mit)
 		{
-			if( (*mit).second.first > 0 )
+			if( (*mit).second.version > 0 )
 			{
 				string name = (*mit).first;
 				
 				true_name = "";
 				if(!load_lib(suppress, L, argc, argv, name, true_name))
 				{
-					(*mit).second.first = 0;
-					(*mit).second.second = true_name;
+					(*mit).second.version = 0;
+					(*mit).second.truename = true_name;
 					num_loaded_this_round++;
 				}
 
@@ -709,8 +685,8 @@ int registerLibs(int suppress, lua_State* L)
 		cout << "Modules: ";
 		for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
 		{
-			cout << (*mit).second.second;
-			cout << "(r" << (*mit).second.first << ")";
+			cout << (*mit).second.truename;
+			cout << "(r" << (*mit).second.version << ")";
 			mit++;
 			if( mit != loaded.end())
 				cout << ", ";
@@ -728,7 +704,7 @@ int registerLibs(int suppress, lua_State* L)
 	int bad_fail = 0;
 	for(mit=unloaded.begin(); mit!=unloaded.end(); ++mit)
 	{
-		if( (*mit).second.first > 0)
+		if( (*mit).second.version > 0)
 		{
 			// try to load it one more time(it will fail), we'll report any errors here
 			int load_err = load_lib(suppress, L, argc, argv, (*mit).first, true_name);
@@ -786,3 +762,33 @@ void print_help()
 	cout << endl;
 }
 
+
+int eq_casecmp(const std::string a, const std::string b)
+{
+	const char* p = a.c_str();
+	const char* q = a.c_str();
+		while(1)
+	{
+		if(!(*p) ^ !(*q))
+			return 0;
+		if(!(*p) & !(*q))
+			return 1;
+		if(strncasecmp(p, q, 1))
+			return 0;
+		p++;
+		q++;
+	}
+}
+
+MAGLUA_API string get_libpath(const string libname)
+{
+	datamap::iterator mit;
+	for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
+	{
+		if( eq_casecmp(libname, (*mit).second.name))
+		{
+			return (*mit).second.path;
+		}
+	}
+	return "";
+}

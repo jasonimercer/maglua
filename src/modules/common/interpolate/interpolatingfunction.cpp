@@ -324,7 +324,7 @@ static Encodable* newThing()
 	return new InterpolatingFunction;
 }
 
-void registerInterpolatingFunction(lua_State* L)
+int registerInterpolatingFunction(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_if_gc},
@@ -350,7 +350,7 @@ void registerInterpolatingFunction(lua_State* L)
 	luaL_register(L, "Interpolate", functions);
 	lua_pop(L,1);	
 	
-	Factory.registerItem(ENCODE_INTERP1D, newThing, lua_pushInterpolatingFunction, "Interpolate");
+	return Factory_registerItem(ENCODE_INTERP1D, newThing, lua_pushInterpolatingFunction, "Interpolate");
 }
 
 
@@ -372,9 +372,11 @@ INTERPOLATE_API void lib_main(lua_State* L, int argc, char** argv);
 
 INTERPOLATE_API int lib_register(lua_State* L)
 {
-	registerInterpolatingFunction(L);
-	registerInterpolatingFunction2D(L);
-	return 0;
+	printf("interp load\n");
+	const int a = registerInterpolatingFunction(L);
+	const int b = registerInterpolatingFunction2D(L);
+	printf("ab %i %i\n", a, b);
+	return a | b;
 }
 
 INTERPOLATE_API int lib_version(lua_State* L)

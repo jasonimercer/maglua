@@ -180,12 +180,12 @@ int _importLuaVariable(lua_State* L, buffer* b)
 		{
 			int type = decodeInteger(b);
 // 			printf(">>> %i, %i\n", lua_gettop(L), type);
-			Encodable* e = Factory.newItem(type);
+			Encodable* e = Factory_newItem(type);
 			if(e)
 			{
 				e->L = L;
 				e->decode(b);
-				Factory.lua_pushItem(L, e, type);
+				Factory_lua_pushItem(L, e, type);
 			}
 			else
 			{

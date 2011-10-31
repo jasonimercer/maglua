@@ -19,56 +19,97 @@ extern "C"
  #define ENCODE_API 
 #endif
 
-
-#ifndef MAGLUA_FACTORY_H
-#define MAGLUA_FACTORY_H
-
-#define Factory (Factory_::Instance())
-#include <vector>
-#include <string>
-
-using namespace std;
-
 class Encodable;
 
-class Factory_;
-static Factory_* staticFactory = 0;
-
-typedef Encodable*(*newFunction)();
+typedef Encodable*(*newFactoryFunction)();
 typedef void (*pushFunction)(lua_State*, Encodable*);
 
-class FactoryItem
-{
-public:
-	FactoryItem(int ID, newFunction Func, pushFunction Push, string Name);
-	int id;
-	newFunction func;
-	pushFunction push;
-	string name;
-};
 
-class ENCODE_API Factory_
+#include <string>
+#ifdef WIN32
+#ifdef ENCODE_EXPORTS
+ENCODE_API Encodable* Factory_newItem(int id);
+ENCODE_API void Factory_lua_pushItem(lua_State* L, Encodable* item, int id);
+ENCODE_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, std::string name);
+ENCODE_API void Factory_cleanup();
+#else
+#include <windows.h>
+inline Encodable* Factory_newItem(int id)
 {
-public:
-	static Factory_& Instance()
+	typedef Encodable* (*func)(int); 
+	static func thefunc = 0;
+	if(!thefunc)
 	{
-		if(!staticFactory)
-			staticFactory  = new Factory_;
-// 		static Factory_ theFactory;
-// 		return theFactory;
-		return *staticFactory;
+		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "Factory_newItem");
 	}
-	
-	Encodable* newItem(int id);
-	void lua_pushItem(lua_State* L, Encodable* item, int id);
-	int registerItem(int id, newFunction func, pushFunction Push, string name);
-	void cleanup();
-private:
-	void init();
-    Factory_() {};
-    Factory_(Factory_ const&) {};
 
-	static vector<FactoryItem*>* items;
-};
+	if(!thefunc)
+	{
+		printf("failed to load Factory_newItem\n");
+		return NULL;
+	}
+	return thefunc(id);
+}
 
+inline void Factory_lua_pushItem(lua_State* L, Encodable* item, int id)
+{
+	typedef void (*func)(lua_State*, Encodable*, int); 
+	static func thefunc = 0;
+	if(!thefunc)
+	{
+		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "Factory_lua_pushItem");
+	}
+
+	if(!thefunc)
+	{
+		printf("failed to load Factory_lua_pushItem\n");
+		return;
+	}
+	thefunc(L, item, id);
+}
+
+inline int Factory_registerItem(int id, newFactoryFunction f, pushFunction Push, std::string name)
+{
+	typedef int (*func)(int, newFactoryFunction, pushFunction, std::string); 
+	static func thefunc = 0;
+	if(!thefunc)
+	{
+		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "Factory_registerItem");
+	}
+
+	if(!thefunc)
+	{
+		// this may fail when encode.dll hasn't been loaded yet. 
+		// so we'll return non-zero to try to load the calling resource
+		// later
+		//printf("failed to load Factory_registerItem\n");
+		return -1;
+	}
+	return thefunc(id, f, Push, name);
+}
+
+inline void Factory_cleanup()
+{
+	typedef void (*func)(); 
+	static func thefunc = 0;
+	if(!thefunc)
+	{
+		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "Factory_cleanup");
+	}
+
+	if(!thefunc)
+	{
+		printf("failed to load Factory_cleanup\n");
+		return;
+	}
+	thefunc();
+}
 #endif
+#else
+ENCODE_API Encodable* Factory_newItem(int id);
+ENCODE_API void Factory_lua_pushItem(lua_State* L, Encodable* item, int id);
+ENCODE_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, std::string name);
+ENCODE_API void Factory_cleanup();
+#endif
+
+

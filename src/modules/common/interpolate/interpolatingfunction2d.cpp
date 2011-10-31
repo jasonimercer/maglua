@@ -424,7 +424,7 @@ static Encodable* newThing()
 	return new InterpolatingFunction2D;
 }
 
-void registerInterpolatingFunction2D(lua_State* L)
+int registerInterpolatingFunction2D(lua_State* L)
 {
 	static const struct luaL_reg methods [] = { //methods
 		{"__gc",         l_if_gc},
@@ -453,5 +453,5 @@ void registerInterpolatingFunction2D(lua_State* L)
 	luaL_register(L, "Interpolate2D", functions);
 	lua_pop(L,1);	
 	
-	Factory.registerItem(ENCODE_INTERP2D, newThing, lua_pushInterpolatingFunction2D, "Interpolate2D");
+	return Factory_registerItem(ENCODE_INTERP2D, newThing, lua_pushInterpolatingFunction2D, "Interpolate2D");
 }

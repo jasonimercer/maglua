@@ -37,7 +37,7 @@ extern "C" {
 
 using namespace std;
 
-class INTERPOLATE_API InterpolatingFunction : public Encodable
+class InterpolatingFunction : public Encodable
 {
 public:
 	InterpolatingFunction();
@@ -74,9 +74,9 @@ private:
 	_node* root;
 };
 
-INTERPOLATE_API InterpolatingFunction* checkInterpolatingFunction(lua_State* L, int idx);
-INTERPOLATE_API void registerInterpolatingFunction(lua_State* L);
-INTERPOLATE_API void lua_pushInterpolatingFunction(lua_State* L, Encodable* if1D);
+InterpolatingFunction* checkInterpolatingFunction(lua_State* L, int idx);
+int registerInterpolatingFunction(lua_State* L);
+void lua_pushInterpolatingFunction(lua_State* L, Encodable* if1D);
 
 // 
 #endif

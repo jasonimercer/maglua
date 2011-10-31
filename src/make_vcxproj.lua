@@ -287,6 +287,7 @@ sln:close()
 table.insert(outs, filename)
 print("wrote `"..filename.."'")
 
+if os.getenv("HOME") ~= nil then
 print("converting to DOS format: ")
 
 for k,v in pairs(outs) do
@@ -301,4 +302,4 @@ for k,v in pairs(outs) do
 	out:write(data)
     assert(out:close())
 end
-
+end

@@ -64,7 +64,6 @@ double decodeDouble(buffer* b)
 
 
 
-
 #include "info.h"
 extern "C"
 {

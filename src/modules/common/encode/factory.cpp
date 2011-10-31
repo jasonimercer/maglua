@@ -1,11 +1,40 @@
 #include "factory.h"
 #include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
 
 
-vector<FactoryItem*>* Factory_::items = 0;
-// Factory_* staticFactory = 0;
+class Encodable;
 
-FactoryItem::FactoryItem(int ID, newFunction Func, pushFunction Push, string Name)
+class FactoryItem
+{
+public:
+	FactoryItem(int ID, newFactoryFunction Func, pushFunction Push, string Name);
+	int id;
+	newFactoryFunction func;
+	pushFunction push;
+	string name;
+};
+
+class Factory
+{
+public:
+    Factory() {};
+
+	Encodable* newItem(int id);
+	void lua_pushItem(lua_State* L, Encodable* item, int id);
+	int registerItem(int id, newFactoryFunction func, pushFunction Push, string name);
+	void cleanup();
+private:
+	void init();
+	vector<FactoryItem*>* items;
+};
+
+static Factory theFactory;
+
+FactoryItem::FactoryItem(int ID, newFactoryFunction Func, pushFunction Push, string Name)
 {
 	id = ID;
 	func = Func;
@@ -13,15 +42,14 @@ FactoryItem::FactoryItem(int ID, newFunction Func, pushFunction Push, string Nam
 	push = Push;
 }
 
-
-void Factory_::init()
+void Factory::init()
 {
 	if(!items)
 		items = new vector<FactoryItem*>();
 }
 
 
-int Factory_::registerItem(int id, newFunction func, pushFunction push, string name)
+int Factory::registerItem(int id, newFactoryFunction func, pushFunction push, string name)
 {
 	init();
 	
@@ -31,7 +59,7 @@ int Factory_::registerItem(int id, newFunction func, pushFunction push, string n
 	return 0;
 }
 
-void Factory_::cleanup()
+void Factory::cleanup()
 {
 	if(items)
 	{
@@ -44,7 +72,7 @@ void Factory_::cleanup()
 	items = 0;
 }
 
-Encodable* Factory_::newItem(int id)
+Encodable* Factory::newItem(int id)
 {
 	init();
 	for(unsigned int i=0; i<items->size(); i++)
@@ -57,7 +85,7 @@ Encodable* Factory_::newItem(int id)
 	return 0;
 }
 
-void Factory_::lua_pushItem(lua_State* L, Encodable* item, int id)
+void Factory::lua_pushItem(lua_State* L, Encodable* item, int id)
 {
 	init();
 	for(unsigned int i=0; i<items->size(); i++)
@@ -75,3 +103,22 @@ void Factory_::lua_pushItem(lua_State* L, Encodable* item, int id)
 
 
 
+ENCODE_API Encodable* Factory_newItem(int id)
+{
+	return theFactory.newItem(id);
+}
+
+ENCODE_API void Factory_lua_pushItem(lua_State* L, Encodable* item, int id)
+{
+	theFactory.lua_pushItem(L, item, id);
+}
+
+ENCODE_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, std::string name)
+{
+	return theFactory.registerItem(id, func, Push, name);
+}
+
+ENCODE_API void Factory_cleanup()
+{
+	theFactory.cleanup();
+}

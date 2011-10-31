@@ -37,7 +37,7 @@ extern "C" {
 
 using namespace std;
 
-class INTERPOLATE_API InterpolatingFunction2D : public Encodable
+class InterpolatingFunction2D : public Encodable
 {
 public:
 	InterpolatingFunction2D();
@@ -81,9 +81,9 @@ private:
 	vector < triple > rawdata;
 };
 
-INTERPOLATE_API InterpolatingFunction2D* checkInterpolatingFunction2D(lua_State* L, int idx);
-INTERPOLATE_API void registerInterpolatingFunction2D(lua_State* L);
-INTERPOLATE_API void lua_pushInterpolatingFunction2D(lua_State* L, Encodable* if2D);
+InterpolatingFunction2D* checkInterpolatingFunction2D(lua_State* L, int idx);
+int registerInterpolatingFunction2D(lua_State* L);
+void lua_pushInterpolatingFunction2D(lua_State* L, Encodable* if2D);
 // 
 #endif
 
