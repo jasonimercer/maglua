@@ -48,7 +48,7 @@ extern "C" {
 #include <lualib.h>
 #include <lauxlib.h>
 
-// MAGLUA_API int registerMain(lua_State* L);
+MAGLUA_API int registerMain(lua_State* L);
 }
 
 

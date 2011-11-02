@@ -1,7 +1,12 @@
 #include <iostream>
+#ifndef WIN32
 #include <strings.h>
 #include <unistd.h>
 #include <error.h>
+#else
+#define close(a) closesocket(a)
+static int WSAStartupCalled = 0;
+#endif
 #include <errno.h>
 #include <string.h>
 #include "net_helpers.h"
@@ -26,6 +31,18 @@ static int num_name_cache = 0;
 
 LuaClient::LuaClient()
 {
+#ifdef WIN32
+	if(!WSAStartupCalled)
+	{
+		WSAStartupCalled = 1;
+		WORD wVersionRequested;
+		WSADATA wsaData;
+		wVersionRequested = MAKEWORD(1, 1);
+		int err = WSAStartup(wVersionRequested, &wsaData); 
+		if (err != 0)
+	        printf("(%s:%i) WSAStartup error: %i\n", __FILE__, __LINE__, err);
+	}
+#endif
 	_connected = false;
 	refcount = 0;
 }
@@ -202,6 +219,7 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 	sure_write(sockfd, &b, sizeof(int), &ok);
 
 	input.write(sockfd, ok);
+	input.clear();
 
 	if(!ok)
 	{

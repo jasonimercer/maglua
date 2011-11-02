@@ -118,8 +118,8 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 char* exportLuaVariable(lua_State* L, int index, int* chunksize)
 {
 	buffer b;
-	b.buf  = (char*)malloc(32);
-	b.size = 32;
+	b.buf  = 0;//(char*)malloc(32);
+	b.size = 0;
 	b.pos  = 0;
 	
 	_exportLuaVariable(L, index, &b);

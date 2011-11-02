@@ -20,7 +20,7 @@ void ensureSize(int add, buffer* b)
 	{
 		b->size *= 2;
 		if(b->pos + add >= b->size)
-			b->size += add;
+			b->size = b->pos + add + 1;
 
 		b->buf = (char*)realloc(b->buf, b->size);
 	}

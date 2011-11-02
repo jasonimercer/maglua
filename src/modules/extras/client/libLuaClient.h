@@ -7,13 +7,22 @@
 #include <vector>
 
 #include <sys/types.h>
+#ifndef WIN32
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <signal.h>
-
+#else
+ #pragma warning(disable: 4251)
+ #pragma warning(disable: 4996)
+#include <WinSock.h>
+#include <pthread.h>
+typedef int socklen_t;
+//#define write(a,b,c) send(a,(const char*)b,c,0)
+//#define read(a,b,c) recv(a,(char*)b,c,0)
+#endif
 #include <semaphore.h> 
 
 extern "C" {

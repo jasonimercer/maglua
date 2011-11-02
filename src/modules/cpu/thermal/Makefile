@@ -15,7 +15,7 @@ OBJECTS=spinoperationthermal.o
 LIBNAME=Thermal
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core random
+DEPEND=core random encode
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

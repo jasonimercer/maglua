@@ -1,10 +1,20 @@
 #include "net_helpers.h"
 #include "luamigrate.h"
 
+#ifndef WIN32
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#else
+ #pragma warning(disable: 4251)
+ #pragma warning(disable: 4996)
+#include <stdio.h>
+#include <WinSock.h>
+typedef int socklen_t;
+#define write(a,b,c) send(a,(const char*)b,c,0)
+#define read(a,b,c) recv(a,(char*)b,c,0)
+#endif
 #include <errno.h>
 #include <string.h>
 
@@ -15,7 +25,9 @@ static int sock_valid(int sockfd)
 {
 	socklen_t optlen = 0;
 	int rv = getsockopt(sockfd, SOL_SOCKET, SO_TYPE, NULL, &optlen);
-	
+#ifdef WIN32
+	return 1;
+#endif
 	return rv >= 0;
 	
 	//return errno != EBADF;	   
@@ -44,7 +56,11 @@ int sure_write_(int fd, void* data, int sz, bool* ok, const char* file, int line
 		b = write(fd, &((char*)data)[msz], sz-msz);
 		if(b == -1)
 		{
-			fprintf(stderr, "write(%i, %lX, %i) error: `%s' (%s:%i)\n", fd, (long)data, sz, strerror(errno), file, line);
+#ifdef WIN32
+			fprintf(stderr, "write(%i, %lX, %i) error: `%i' (%s:%i)\n", fd, (long)data, sz, WSAGetLastError(), file, line);
+#else
+			fprintf(stderr, "read(%i, %lX, %i) error: `%s' (%s:%i)\n", fd, (long)data, sz, strerror(errno), file, line);
+#endif
 			return msz;
 		}
 		msz += b; 
@@ -76,7 +92,11 @@ int sure_read_(int fd, void* data, int sz, bool* ok, const char* file, int line)
 		b = read(fd, &((char*)data)[msz], sz-msz);
 		if(b == -1)
 		{
+#ifdef WIN32
+			fprintf(stderr, "read(%i, %lX, %i) error: `%i' (%s:%i)\n", fd, (long)data, sz, WSAGetLastError(), file, line);
+#else
 			fprintf(stderr, "read(%i, %lX, %i) error: `%s' (%s:%i)\n", fd, (long)data, sz, strerror(errno), file, line);
+#endif
 			return msz;
 		}
 		msz += b; 
@@ -84,7 +104,8 @@ int sure_read_(int fd, void* data, int sz, bool* ok, const char* file, int line)
 	return msz;
 }
 
-
+#undef write
+#undef read
 
 
 
@@ -104,18 +125,22 @@ LuaVariableGroup::~LuaVariableGroup()
 	
 
 
-void LuaVariableGroup::add(char* data, int size)
-{
-	sizes.push_back(size);
-	variables.push_back(data);
-}
+//void LuaVariableGroup::add(char* data, int size)
+//{
+//	sizes.push_back(size);
+//	variables.push_back(data);
+//}
 
 void LuaVariableGroup::clear()
 {
 	while(variables.size())
 	{
-		delete [] variables.back();
+		printf("clear %i\n", variables.size());
+		printf("%p\n",  variables.back());
+		free( variables.back() );
+		printf("clear %i\n", variables.size());
 		variables.pop_back();
+		printf("clear %i\n", variables.size());
 	}
 	sizes.clear();
 }
@@ -127,14 +152,16 @@ void LuaVariableGroup::write(int fd, bool& ok)
 	sure_write(fd, &num, sizeof(unsigned int), &ok);
 	
 	if(!ok) return;
-	
-	sure_write(fd, &(sizes[0]), sizeof(int) * num, &ok);
-	if(!ok) return;
-	
-	for(unsigned int i=0; i<num; i++)
+	if(num)
 	{
-		sure_write(fd, variables[i], sizes[i], &ok);
+		sure_write(fd, &(sizes[0]), sizeof(int) * num, &ok);
 		if(!ok) return;
+	
+		for(unsigned int i=0; i<num; i++)
+		{
+			sure_write(fd, variables[i], sizes[i], &ok);
+			if(!ok) return;
+		}
 	}
 }
 
@@ -146,23 +173,30 @@ void LuaVariableGroup::read(int fd, bool& ok)
 	sure_read(fd, &num, sizeof(unsigned int), &ok);
 	
 	if(!ok) return;
+	if(num)
+	{
+		int* ss = new int[num];
+		sure_read(fd, ss, sizeof(int) * num, &ok);
 	
-	int* ss = new int[num];
-	sure_read(fd, ss, sizeof(int) * num, &ok);
+		for(unsigned int i=0; i<num; i++)
+			sizes.push_back(ss[i]);
 	
-	for(int i=0; i<num; i++)
-		sizes.push_back(ss[i]);
-	
-	delete [] ss;
-	if(!ok) return;
+		delete [] ss;
+		if(!ok) return;
 
 	
-	for(unsigned int i=0; i<num; i++)
-	{
-		char* b = new char[sizes[i]+1];
-		sure_read(fd, b, sizes[i], &ok);
-		variables.push_back(b);
-		if(!ok) return;
+		for(unsigned int i=0; i<num; i++)
+		{
+			char* b = (char*)malloc(sizes[i]+1); //can't mix new/malloc in WIN32, deeper things use malloc for buffer
+			sure_read(fd, b, sizes[i], &ok);
+			variables.push_back(b);
+			printf("pushed back %p at (%s:%i)\n", variables.back(), __FILE__, __LINE__);
+			if(!ok)
+			{
+				fprintf(stderr, "Failed to new_read (%s:%i)\n", __FILE__, __LINE__);
+				return;
+			}
+		}
 	}
 }
 
@@ -171,12 +205,15 @@ void LuaVariableGroup::readState(lua_State* L)
 	clear();
 
 	int n = lua_gettop(L);
+	printf("(%s:%i) lua_gettop(L) = %i\n", __FILE__, __LINE__, n);
 	if(n)
 	{
 		int sz;
 		for(int i=0; i<n; i++)
 		{
 			variables.push_back(exportLuaVariable(L, i+1, &sz));
+			printf("pushed back %p at (%s:%i)\n", variables.back(), __FILE__, __LINE__);
+
 			sizes.push_back(sz);
 		}
 	}

@@ -17,6 +17,14 @@
 #include <stdio.h>
 #include <math.h>
 
+#ifdef WIN32
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #pragma warning(disable: 4251)
+ #pragma warning(disable: 4996)
+ #define snprintf _snprintf
+#endif
+
+
 #ifndef M_PI
 #define M_PI 3.14159265358979
 #endif
@@ -178,8 +186,9 @@ static void getGAB(
 				gYZ[c] += magYZ;
 				gZZ[c] += magZZ;	
 			}
-
+#ifndef WIN32
 #warning This is a hack to fix self terms. Eventually this will be in the numerical code.
+#endif
 			if(r2 < 1E-10)
 			{
 			  gXX[c] *= 0.5;

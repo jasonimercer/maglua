@@ -21,6 +21,7 @@ objects = {}
 lines = {}
 outs = {}
 deps = {}
+extra_includes = {}
 
 function getList(line, suffix)
 	suffix = suffix or ""
@@ -100,12 +101,12 @@ end
 header = [[<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
-      <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
   </ItemGroup>
@@ -118,15 +119,15 @@ footer = [[  </ItemGroup>
     <RootNamespace>LOWERCASENAME</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>CONFIGURATIONTYPE</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>CONFIGURATIONTYPE</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>CONFIGURATIONTYPE</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -139,34 +140,14 @@ footer = [[  </ItemGroup>
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LinkIncremental>true</LinkIncremental>
-    <OutDir>OUTPUTDIRECTORY</OutDir>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>OUTPUTDIRECTORY</OutDir>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;UPPERCASENAME_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      INCLUDEDIRECTORIES
-	  ADDITIONALLIBRARYDIRECTORIES
-    </ClCompile>
-    <Link>
-      <SubSystem>SUBSYSTEM</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      ADDITIONALDEPENDANCIES
-	  ADDITIONALLIBRARYDIRECTORIES
-      <ModuleDefinitionFile>
-      </ModuleDefinitionFile>
-      <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
-    </Link>
-  </ItemDefinitionGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>OUTPUTDIRECTORY</OutDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -187,6 +168,26 @@ footer = [[  </ItemGroup>
       ADDITIONALDEPENDANCIES
       ADDITIONALLIBRARYDIRECTORIES
 	  </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;UPPERCASENAME_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      INCLUDEDIRECTORIES
+	  ADDITIONALLIBRARYDIRECTORIES
+    </ClCompile>
+    <Link>
+      <SubSystem>SUBSYSTEM</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      ADDITIONALDEPENDANCIES
+	  ADDITIONALLIBRARYDIRECTORIES
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
+    </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
@@ -327,3 +328,7 @@ for k,v in pairs(outs) do
     assert(out:close())
 end
 end
+
+print("\nThis project can be compiled with the following command:")
+print("msbuild /property:Configuration=Release")
+

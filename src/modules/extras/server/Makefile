@@ -12,5 +12,7 @@
 OBJECTS=libLuaServer.o net_helpers.o
 LIBNAME=Server
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=pthreadVC2 encode wsock32
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

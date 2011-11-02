@@ -13,6 +13,6 @@ OBJECTS=spinoperationdipole.o dipolesupport.o
 LIBNAME=Dipole
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core
+DEPEND=core encode
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

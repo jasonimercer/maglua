@@ -57,7 +57,7 @@ typedef struct buffer
 
 // This is a base class for classes that 
 // can be encoded into and from a char stream,
-class Encodable
+class ENCODE_API Encodable
 {
 public:
 	Encodable(int t) : type(t) {};
@@ -70,117 +70,13 @@ public:
 	lua_State* L;
 };
 
-
-
-
-
-
-#ifdef WIN32
-#ifdef ENCODE_EXPORTS
+extern "C"
+{
 ENCODE_API   void encodeBuffer(const void* s, const int len, buffer* b);
 ENCODE_API   void encodeDouble(const double d, buffer* b);
 ENCODE_API   void encodeInteger(const int i, buffer* b);
 ENCODE_API    int decodeInteger(buffer* b);
 ENCODE_API double decodeDouble(buffer* b);
 ENCODE_API   void decodeBuffer(void* dest, const int len, buffer* b);
-#else
-#include <windows.h>
-inline   void encodeBuffer(const void* s, const int len, buffer* b)
-{
-	typedef void (*func)(const void*, const int, buffer*); 
-	static func thefunc = 0;
-	if(!thefunc)
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "encodeBuffer");
-
-	if(!thefunc)
-	{
-		printf("failed to load encodeBuffer\n");
-		return;
-	}
-	thefunc(s,len,b);
 }
-
-inline void encodeDouble(const double d, buffer* b)
-{
-	typedef void (*func)(const double, buffer*); 
-	static func thefunc = 0;
-	if(!thefunc)
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "encodeDouble");
-
-	if(!thefunc)
-	{
-		printf("failed to load encodeDouble\n");
-		return;
-	}
-	thefunc(d,b);
-}
-
-inline  void encodeInteger(const int i, buffer* b)
-{
-	typedef void (*func)(const int, buffer*); 
-	static func thefunc = 0;
-	if(!thefunc)
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "encodeInteger");
-
-	if(!thefunc)
-	{
-		printf("failed to load encodeInteger\n");
-		return;
-	}
-	thefunc(i,b);
-}
-
-inline int decodeInteger(buffer* b)
-{
-	typedef int (*func)(buffer*);
-	static func thefunc = 0;
-	if(!thefunc)
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "decodeInteger");
-
-	if(!thefunc)
-	{
-		printf("failed to load decodeInteger\n");
-		return 0;
-	}
-	return thefunc(b);
-}
-
-inline double decodeDouble(buffer* b)
-{
-	typedef double (*func)(buffer*);
-	static func thefunc = 0;
-	if(!thefunc)
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "decodeDouble");
-
-	if(!thefunc)
-	{
-		printf("failed to load decodeDouble\n");
-		return 0;
-	}
-	return thefunc(b);
-}
-
-inline void decodeBuffer(void* dest, const int len, buffer* b)
-{
-	typedef void (*func)(void*, const int, buffer*); 
-	static func thefunc = 0;
-	if(!thefunc)
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "decodeBuffer");
-
-	if(!thefunc)
-	{
-		printf("failed to load decodeBuffer\n");
-		return;
-	}
-	thefunc(dest,len,b);
-}
-#endif
-#else
-ENCODE_API   void encodeBuffer(const void* s, const int len, buffer* b);
-ENCODE_API   void encodeDouble(const double d, buffer* b);
-ENCODE_API   void encodeInteger(const int i, buffer* b);
-ENCODE_API    int decodeInteger(buffer* b);
-ENCODE_API double decodeDouble(buffer* b);
-ENCODE_API   void decodeBuffer(void* dest, const int len, buffer* b);
-#endif
 #endif

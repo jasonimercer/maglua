@@ -14,15 +14,31 @@
 #include <vector>
 #include <setjmp.h>
 #include <errno.h>
-#include <unistd.h>
 #include <sys/types.h>
+#include <string.h>
+
+#ifndef WIN32
+#include <unistd.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-#include <string.h>
+#include <strings.h>
+#include <error.h>
+#else
+ #pragma warning(disable: 4251)
+ #pragma warning(disable: 4996)
+ #include <WinSock.h>
+ typedef int socklen_t;
+ static int WSAStartupCalled = 0;
+// #define write(a,b,c) send(a,(const char*)b,c,0)
+// #define read(a,b,c) recv(a,(char*)b,c,0)
+ #define close(a) closesocket(a)
 
+ //SD_BOTH = 2
+ #define SHUT_RDWR 2
+#endif
 
 #define SHUTDOWN        0
 #define UPLOADLUA       10
@@ -173,6 +189,7 @@ void* __threadCommMain(void* args)
 	d->status = 0;
 	
 	pthread_exit(0);
+	return 0;
 }
 
 void __main_kill(int)
@@ -185,6 +202,18 @@ void __main_kill(int)
 
 LuaServer::LuaServer(int default_port)
 {
+#ifdef WIN32
+	if(!WSAStartupCalled)
+	{
+		WSAStartupCalled = 1;
+		WORD wVersionRequested;
+		WSADATA wsaData;
+		wVersionRequested = MAKEWORD(1, 1);
+		int err = WSAStartup(wVersionRequested, &wsaData); 
+		if (err != 0)
+	        printf("(%s:%i) WSAStartup error: %i\n", __FILE__, __LINE__, err);
+	}
+#endif
 	sem_init(&addCommSem,   0, 1);
 	sem_init(&updateSem,    0, 1);
 	sem_init(&luaThreadSem, 0, 1);
@@ -313,15 +342,24 @@ int LuaServer::establish(unsigned short portnum)
 	strcpy(myname, "localhost"); //some computer's hostname don't resolve to 127.0.0.1
 	hp = gethostbyname(myname);
 	if (hp == NULL)
+	{
+#ifdef WIN32
+		int err = WSAGetLastError();
+		fprintf(stderr, "gethostbyname. Error = %i\n", err);
+#else
+		perror("gethostbyname");
+#endif
 		return(-1);
-
+	}
 	sa.sin_family= hp->h_addrtype; /* this is our host address */
 	sa.sin_port= htons(portnum); /* this is our port number */
 
 	//printf(">>>> %s:%i socket\n", __FILE__, __LINE__);
 	if((s= socket(AF_INET, SOCK_STREAM, 0)) < 0) /* create socket */
+	{
+		perror("socket");
 		return(-1);
-
+	}
 	//printf(">>>> %s:%i bind\n", __FILE__, __LINE__);
 	if(bind(s,(struct sockaddr *)&sa,sizeof(struct sockaddr_in)) < 0) 
 	{
@@ -354,8 +392,7 @@ int LuaServer::get_connection(int s, char* connectionName)
 
 	printf("new connection from %s:%i\n", inet_ntoa( cli_addr.sin_addr), cli_addr.sin_port);
 	sprintf(connectionName, "%s:%i", inet_ntoa( cli_addr.sin_addr), cli_addr.sin_port);
-
-
+	
 	return fd;
 }
 
@@ -402,7 +439,9 @@ int LuaServer::removeComm()
 
 void threadShutdown()
 {
+#ifndef WIN32
 #warning need to fix this
+#endif
 // 	sem_wait(&LuaServer.luaThreadSem);
 // 	vector<LuaThread*>::iterator it;
 // 
@@ -421,7 +460,9 @@ void threadShutdown()
 
 void __threadSignalHandler(int signo)
 {
+#ifndef WIN32
 #warning need to fix this
+#endif
 // 	if(signo == SIGUSR1)
 // 	{
 // 		if(!pthread_equal(LuaServer.rootThread, pthread_self()))
@@ -456,7 +497,9 @@ LuaThread* LuaServer::getThread(int pid)
 
 void* __threadLuaMain(void* args)
 {
+#ifndef WIN32
 	signal(SIGUSR1, __threadSignalHandler); //install sig handler
+#endif
 
 	LuaThread* thread = (LuaThread*)args;
 
@@ -497,6 +540,7 @@ void* __threadLuaMain(void* args)
 		}
 	}
 	sem_post(&sem);
+	return 0;
 }
 
 
@@ -537,6 +581,26 @@ int LuaServer::addLuaFunction(LuaComm* comm, LuaVariableGroup& group)
 }
 #endif
 
+// this is in maglua 
+int registerMagLuaMain(lua_State* L)
+{
+#ifndef WIN32
+	return registerMain(L);
+#else
+	typedef int (*func)(lua_State*);
+	func registerMain = import_function<func>("", "registerMain");
+	if(!registerMain)
+	{
+		fprintf(stderr, "Failed to find `registerMain'\n");
+	}
+	else
+	{
+		return registerMain(L);
+	}
+	return 0;
+#endif
+}
+
 void LuaServer::executeLuaFunction(LuaComm* comm, LuaVariableGroup& input, LuaVariableGroup& output)
 {
 	//limit the number of simultaneous lua states running
@@ -548,8 +612,8 @@ void LuaServer::executeLuaFunction(LuaComm* comm, LuaVariableGroup& input, LuaVa
 	L = lua_open();
 	luaL_openlibs(L);
 	
-	registerMain(L);
-	
+	registerMagLuaMain(L);
+
 // 	if(registerCallback)
 // 		registerCallback(L);
 
@@ -558,9 +622,7 @@ void LuaServer::executeLuaFunction(LuaComm* comm, LuaVariableGroup& input, LuaVa
 	int nargs = lua_gettop(L)-1;
 
 	if(lua_pcall(L, nargs, LUA_MULTRET, 0))
-	{void decode(lua_State* L);
-
-
+	{
 		string s = lua_tostring(L, -1);
 		cerr << s << endl;
 		addError(s, comm); //only error back to src client, not all clients
@@ -609,19 +671,22 @@ void LuaComm::addInfo (string e)
 
 void LuaComm::do_comm(int fd)
 {
-// 	cout << "DO COMM " << fd << endl;
+ 	//cout << "DO COMM " << fd << endl;
 	int loop = 1;
 	bool ok = true;
 	int cmd;
-
-	int yesno;
 
 	LuaVariableGroup input;
 	LuaVariableGroup output;
 	
 	while(loop && ok)
 	{
-		const int b = sure_read(fd, &cmd, sizeof(int), &ok); if(!ok) continue; //and exit loop
+		const int b = sure_read(fd, &cmd, sizeof(int), &ok); 
+		
+		if(!ok)
+		{
+			continue; //and exit loop
+		}
 
 		if(b < sizeof(int))
 			cmd = SHUTDOWN;
@@ -660,7 +725,9 @@ void LuaComm::do_comm(int fd)
 			{
 				input.read(fd, ok);
 				server->executeLuaFunction(this, input, output);
+				input.clear();
 				output.write(fd, ok);
+				output.clear();
 			}
 			break;
 		}

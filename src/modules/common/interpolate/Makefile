@@ -12,5 +12,7 @@
 OBJECTS=interpolatingfunction.o interpolatingfunction2d.o
 LIBNAME=Interpolate
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=encode
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

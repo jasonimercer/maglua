@@ -27,7 +27,7 @@ public:
 	std::vector<int> sizes;
 	std::vector<char*> variables;
 	
-	void add(char* data, int size);
+//	void add(char* data, int size);
 	void clear();
 	void write(int fd, bool& ok);
 	void read(int fd, bool& ok);

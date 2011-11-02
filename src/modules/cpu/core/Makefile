@@ -12,5 +12,7 @@
 OBJECTS=spinoperation.o luacommon.o maglua.o spinsystem.o
 LIBNAME=Core
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=encode
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
