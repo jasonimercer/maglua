@@ -16,11 +16,12 @@ CFLAGS=-ansi -O2
 PKG=lua5.1 fftw3
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I$(BASEDIR) -I$(BASEDIR)/encode -I$(BASEDIR)/core $(EXTRA_INCLUDE)
 LIBS=`pkg-config --libs $(PKG)` -lpthread
+OBJECTS=main.o
 
 BIN=maglua
 
-$(BIN): main.o
-	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group $(LIBS) main.o  -Wl,--end-group
+$(BIN): $(OBJECTS)
+	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group $(LIBS) $(OBJECTS)  -Wl,--end-group
 
 main.o : main.cpp info.h main.h Makefile
 	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 

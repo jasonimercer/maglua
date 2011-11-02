@@ -76,7 +76,11 @@ static int l_info(lua_State* L);
 void print_help();
 int suppress;
 const char* reference();
+
+extern "C"
+{
 MAGLUA_API int registerMain(lua_State* L);
+}
 
 // 
 // command line switches:
@@ -439,7 +443,7 @@ static int l_info(lua_State* L)
 }
 
 
-#define LOAD_LIB_DEBUG
+// #define LOAD_LIB_DEBUG
 // Load a library into the process
 //
 // *****************************************************************
@@ -457,7 +461,7 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 	int bufsize = 0;
 	int module_version = 0;
 	
-	//cerr << "Loading " << name << endl;
+// 	cerr << "Loading " << name << endl;
 	
 	loaded[name].name = name;
 	if(loaded[name].version != 0)//then already loaded
@@ -482,13 +486,15 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 		snprintf(buf, bufsize, "%s%s%s.%s", mod_dirs[i].c_str(), PATH_SEP, name.c_str(), SO_EXT);
 		loaded[name].path = buf;
 	}
-
-
-	
+	if(buf)
+		delete [] buf;
+		
 	typedef int (*lua_func)(lua_State*);
 	typedef const char* (*c_lua_func)(lua_State*);
 	typedef void (*lua_func_aa)(lua_State*, int, char**);
 
+// 	cout << "Path: " << loaded[name].path << endl;
+	
 	  lua_func    lib_register = import_function<  lua_func   >(loaded[name].path, "lib_register");
 	  lua_func    lib_version  = import_function<  lua_func   >(loaded[name].path, "lib_version");
   	c_lua_func    lib_name     = import_function<c_lua_func   >(loaded[name].path, "lib_name");
@@ -500,8 +506,16 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 #ifdef LOAD_LIB_DEBUG
 		printf("(%s:%i) !lib_register\n", __FILE__, __LINE__);
 #endif
+
 		return 1;
     }
+    else
+	{
+#ifdef LOAD_LIB_DEBUG
+		printf("(%s:%i) lib_register FOUND\n", __FILE__, __LINE__);
+#endif
+		
+	}
 
 	if(lib_register(L)) // call the register function from the library
 	{
@@ -511,8 +525,6 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 		return 2;
 	}
 
-	if(buf)
-		delete [] buf;
 
  	//if(!suppress)
  	//{

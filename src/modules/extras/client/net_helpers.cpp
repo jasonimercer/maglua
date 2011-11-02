@@ -6,15 +6,18 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 #else
  #pragma warning(disable: 4251)
  #pragma warning(disable: 4996)
-#include <stdio.h>
 #include <WinSock.h>
 typedef int socklen_t;
 #define write(a,b,c) send(a,(const char*)b,c,0)
 #define read(a,b,c) recv(a,(char*)b,c,0)
 #endif
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 

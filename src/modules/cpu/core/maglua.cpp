@@ -28,7 +28,6 @@ CORE_API void lib_main(lua_State* L, int argc, char** argv);
 #include <stdio.h>
 CORE_API int lib_register(lua_State* L)
 {
-	printf("(%s:%i)\n", __FILE__, __LINE__);
 	registerSpinSystem(L);
 	return 0;
 }

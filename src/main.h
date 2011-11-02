@@ -92,12 +92,20 @@ inline T import_function(std::string path, std::string name)
 template <class T>
 inline T import_function(std::string path, std::string name)
 {
-	void* handle = dlopen(path.c_stR(),  RTLD_NOW | RTLD_GLOBAL);
+	void* handle = dlopen(path.c_str(),  RTLD_NOW | RTLD_GLOBAL);
 	T func = 0;
 	if(handle)
 	{
-		func = (T) LIB_LOAD(handle, name.c_str());
-		dlclose(handle);
+		func = (T) dlsym(handle, name.c_str());
+		if(!func)
+		{
+			printf("dlsym() %s\n", dlerror());
+			dlclose(handle);
+		}
+	}
+	else
+	{
+// 		printf("dlopen() %s\n", dlerror());
 	}
 	return func;
 }
