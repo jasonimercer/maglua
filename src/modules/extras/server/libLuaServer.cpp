@@ -621,6 +621,12 @@ void LuaServer::executeLuaFunction(LuaComm* comm, LuaVariableGroup& input, LuaVa
 	
 	int nargs = lua_gettop(L)-1;
 
+	if(!lua_isfunction(L, 1))
+	{
+		if(lua_isstring(L, 1))
+			printf("Error: %s\n", lua_tostring(L, 1));
+	}
+	else
 	if(lua_pcall(L, nargs, LUA_MULTRET, 0))
 	{
 		string s = lua_tostring(L, -1);

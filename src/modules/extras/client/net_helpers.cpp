@@ -138,12 +138,12 @@ void LuaVariableGroup::clear()
 {
 	while(variables.size())
 	{
-		printf("clear %i\n", variables.size());
-		printf("%p\n",  variables.back());
+// 		printf("clear %i\n", variables.size());
+// 		printf("%p\n",  variables.back());
 		free( variables.back() );
-		printf("clear %i\n", variables.size());
+// 		printf("clear %i\n", variables.size());
 		variables.pop_back();
-		printf("clear %i\n", variables.size());
+// 		printf("clear %i\n", variables.size());
 	}
 	sizes.clear();
 }
@@ -193,7 +193,7 @@ void LuaVariableGroup::read(int fd, bool& ok)
 			char* b = (char*)malloc(sizes[i]+1); //can't mix new/malloc in WIN32, deeper things use malloc for buffer
 			sure_read(fd, b, sizes[i], &ok);
 			variables.push_back(b);
-			printf("pushed back %p at (%s:%i)\n", variables.back(), __FILE__, __LINE__);
+// 			printf("pushed back %p at (%s:%i)\n", variables.back(), __FILE__, __LINE__);
 			if(!ok)
 			{
 				fprintf(stderr, "Failed to new_read (%s:%i)\n", __FILE__, __LINE__);
@@ -208,14 +208,14 @@ void LuaVariableGroup::readState(lua_State* L)
 	clear();
 
 	int n = lua_gettop(L);
-	printf("(%s:%i) lua_gettop(L) = %i\n", __FILE__, __LINE__, n);
+// 	printf("(%s:%i) lua_gettop(L) = %i\n", __FILE__, __LINE__, n);
 	if(n)
 	{
 		int sz;
 		for(int i=0; i<n; i++)
 		{
 			variables.push_back(exportLuaVariable(L, i+1, &sz));
-			printf("pushed back %p at (%s:%i)\n", variables.back(), __FILE__, __LINE__);
+// 			printf("pushed back %p at (%s:%i)\n", variables.back(), __FILE__, __LINE__);
 
 			sizes.push_back(sz);
 		}
