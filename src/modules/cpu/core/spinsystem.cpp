@@ -1632,5 +1632,5 @@ void registerSpinSystem(lua_State* L)
 	luaL_register(L, "SpinSystem", functions);
 	lua_pop(L,1);
 	
-	Factory.registerItem(ENCODE_SPINSYSTEM, newThing, lua_pushSpinSystem, "SpinSystem");
+	Factory_registerItem(ENCODE_SPINSYSTEM, newThing, lua_pushSpinSystem, "SpinSystem");
 }

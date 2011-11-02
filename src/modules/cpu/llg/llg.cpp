@@ -291,10 +291,10 @@ void registerLLG(lua_State* L)
 	luaL_register(L, "LLG", functions);
 	lua_pop(L,1);
 	
-	Factory.registerItem(ENCODE_LLGALIGN, newLLGAlign, lua_pushLLG, "LLG Align");
-	Factory.registerItem(ENCODE_LLGCART, newLLGCart, lua_pushLLG, "LLG Cartesian");
-	Factory.registerItem(ENCODE_LLGQUAT, newLLGQuat, lua_pushLLG, "LLG Quaternion");
-	Factory.registerItem(ENCODE_LLGFAKE, newLLGFake, lua_pushLLG, "LLG Fake");
+	Factory_registerItem(ENCODE_LLGALIGN, newLLGAlign, lua_pushLLG, "LLG Align");
+	Factory_registerItem(ENCODE_LLGCART, newLLGCart, lua_pushLLG, "LLG Cartesian");
+	Factory_registerItem(ENCODE_LLGQUAT, newLLGQuat, lua_pushLLG, "LLG Quaternion");
+	Factory_registerItem(ENCODE_LLGFAKE, newLLGFake, lua_pushLLG, "LLG Fake");
 }
 
 

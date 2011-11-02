@@ -14,6 +14,8 @@ EXTRA_INCLUDE=-I../../common/random
 OBJECTS=spinoperationthermal.o
 LIBNAME=Thermal
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core random
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

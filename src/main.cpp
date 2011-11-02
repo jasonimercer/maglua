@@ -244,6 +244,20 @@ MAGLUA_API int registerMain(lua_State* L)
 			lua_pushstring(L, m[i].c_str());
 			lua_settable(L, -3);
 			modbase++;
+
+// need to locally add mod dirs to PATH so that it will automatically satisfy dll reqs. Hate Windows so much.
+#ifdef WIN32
+			{
+				char* p = getenv("PATH");
+				string sp = p;
+
+				sp.append(";");
+				sp.append(m[i]);
+				string patheq = "PATH=";
+				patheq.append(sp);
+				putenv(patheq.c_str());
+			}
+#endif
 		}
 	}
 	lua_setglobal(L, "module_path");
@@ -425,7 +439,7 @@ static int l_info(lua_State* L)
 }
 
 
-// #define LOAD_LIB_DEBUG
+#define LOAD_LIB_DEBUG
 // Load a library into the process
 //
 // *****************************************************************
@@ -439,12 +453,6 @@ static int l_info(lua_State* L)
 // *****************************************************************
 static int load_lib(int suppress, lua_State* L, int argc, char** argv, const string& name, string& true_name)
 {
-	if(!suppress)
- 	{
- 		cout << __LINE__ << "  Loading Module: " << name << endl;
- 	}
-
-
 	char* buf = 0;
 	int bufsize = 0;
 	int module_version = 0;
@@ -481,10 +489,10 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 	typedef const char* (*c_lua_func)(lua_State*);
 	typedef void (*lua_func_aa)(lua_State*, int, char**);
 
-	  lua_func    lib_register = import_function<lua_func>   (loaded[name].path, "lib_register");
-	  lua_func    lib_version  = import_function<lua_func>   (loaded[name].path, "lib_version");
-  	c_lua_func    lib_name     = import_function<c_lua_func> (loaded[name].path, "lib_name");
-	  lua_func_aa lib_main     = import_function<lua_func_aa>(loaded[name].path, "lib_main");
+	  lua_func    lib_register = import_function<  lua_func   >(loaded[name].path, "lib_register");
+	  lua_func    lib_version  = import_function<  lua_func   >(loaded[name].path, "lib_version");
+  	c_lua_func    lib_name     = import_function<c_lua_func   >(loaded[name].path, "lib_name");
+	  lua_func_aa lib_main     = import_function<  lua_func_aa>(loaded[name].path, "lib_main");
 	  
 	if(!lib_register)
 	{
@@ -492,7 +500,6 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 #ifdef LOAD_LIB_DEBUG
 		printf("(%s:%i) !lib_register\n", __FILE__, __LINE__);
 #endif
-
 		return 1;
     }
 
@@ -507,10 +514,10 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 	if(buf)
 		delete [] buf;
 
- 	if(!suppress)
- 	{
- 		cout << __LINE__ << "  Loading Module: " << name << endl;
- 	}
+ 	//if(!suppress)
+ 	//{
+ 	//	cout << __LINE__ << "  Loading Module: " << name << endl;
+ 	//}
 
 	if(!lib_version)
 	{
@@ -763,32 +770,15 @@ void print_help()
 }
 
 
-int eq_casecmp(const std::string a, const std::string b)
-{
-	const char* p = a.c_str();
-	const char* q = a.c_str();
-		while(1)
-	{
-		if(!(*p) ^ !(*q))
-			return 0;
-		if(!(*p) & !(*q))
-			return 1;
-		if(strncasecmp(p, q, 1))
-			return 0;
-		p++;
-		q++;
-	}
-}
-
-MAGLUA_API string get_libpath(const string libname)
+extern "C" MAGLUA_API const char* get_libpath(const char* libname)
 {
 	datamap::iterator mit;
 	for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
 	{
-		if( eq_casecmp(libname, (*mit).second.name))
+		if(strcasecmp(libname, (*mit).second.name.c_str()) == 0)
 		{
-			return (*mit).second.path;
+			return (*mit).second.path.c_str();
 		}
 	}
-	return "";
+	return 0;
 }

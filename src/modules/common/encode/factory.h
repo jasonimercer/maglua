@@ -26,21 +26,45 @@ typedef void (*pushFunction)(lua_State*, Encodable*);
 
 
 #include <string>
+#include "main.h" //to get dynamic load  function
 #ifdef WIN32
 #ifdef ENCODE_EXPORTS
+extern "C"
+{
 ENCODE_API Encodable* Factory_newItem(int id);
 ENCODE_API void Factory_lua_pushItem(lua_State* L, Encodable* item, int id);
-ENCODE_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, std::string name);
+ENCODE_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, const char* name);
 ENCODE_API void Factory_cleanup();
+}
 #else
 #include <windows.h>
-inline Encodable* Factory_newItem(int id)
+#include <iostream>
+#include <string>
+#include <stdio.h>
+
+static Encodable* Factory_newItem(int id)
 {
 	typedef Encodable* (*func)(int); 
 	static func thefunc = 0;
+
 	if(!thefunc)
 	{
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "Factory_newItem");
+		// first need to get function to get lib paths
+		typedef const char* (*sfuncs) (const char*);
+		sfuncs getPath = import_function<sfuncs>("", "get_libpath");
+
+		if(!getPath)
+		{
+			fprintf(stderr, "Failed to load `get_libpath'\n");
+			return 0;
+		}
+
+		const char* encPath = getPath("encode");
+
+		if(!encPath)
+			return 0;
+
+		thefunc = import_function<func>(encPath, "Factory_newItem");
 	}
 
 	if(!thefunc)
@@ -51,13 +75,29 @@ inline Encodable* Factory_newItem(int id)
 	return thefunc(id);
 }
 
-inline void Factory_lua_pushItem(lua_State* L, Encodable* item, int id)
+static void Factory_lua_pushItem(lua_State* L, Encodable* item, int id)
 {
 	typedef void (*func)(lua_State*, Encodable*, int); 
 	static func thefunc = 0;
+
 	if(!thefunc)
 	{
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "Factory_lua_pushItem");
+		// first need to get function to get lib paths
+		typedef const char* (*sfuncs) (const char*);
+		sfuncs getPath = import_function<sfuncs>("", "get_libpath");
+
+		if(!getPath)
+		{
+			fprintf(stderr, "Failed to load `get_libpath'\n");
+			return;
+		}
+
+		const char* encPath = getPath("encode");
+
+		if(!encPath)
+			return;
+
+		thefunc = import_function<func>(encPath, "Factory_newItem");
 	}
 
 	if(!thefunc)
@@ -68,13 +108,29 @@ inline void Factory_lua_pushItem(lua_State* L, Encodable* item, int id)
 	thefunc(L, item, id);
 }
 
-inline int Factory_registerItem(int id, newFactoryFunction f, pushFunction Push, std::string name)
+static int Factory_registerItem(int id, newFactoryFunction f, pushFunction Push, const char* name)
 {
-	typedef int (*func)(int, newFactoryFunction, pushFunction, std::string); 
+	typedef int (*func)(int, newFactoryFunction, pushFunction, const char*); 
 	static func thefunc = 0;
+
 	if(!thefunc)
 	{
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "Factory_registerItem");
+		// first need to get function to get lib paths
+		typedef const char* (*sfuncs) (const char*);
+		sfuncs getPath = import_function<sfuncs>("", "get_libpath");
+
+		if(!getPath)
+		{
+			fprintf(stderr, "Failed to load `get_libpath'\n");
+			return -1;
+		}
+
+		const char* encPath = getPath("encode");
+
+		if(!encPath)
+			return -1;
+
+		thefunc = import_function<func>(encPath, "Factory_registerItem");
 	}
 
 	if(!thefunc)
@@ -85,16 +141,32 @@ inline int Factory_registerItem(int id, newFactoryFunction f, pushFunction Push,
 		//printf("failed to load Factory_registerItem\n");
 		return -1;
 	}
+
 	return thefunc(id, f, Push, name);
 }
 
-inline void Factory_cleanup()
+static void Factory_cleanup()
 {
 	typedef void (*func)(); 
 	static func thefunc = 0;
 	if(!thefunc)
 	{
-		thefunc = (func) GetProcAddress(GetModuleHandle(NULL), "Factory_cleanup");
+		// first need to get function to get lib paths
+		typedef const char* (*sfuncs) (const char*);
+		sfuncs getPath = import_function<sfuncs>("", "get_libpath");
+
+		if(!getPath)
+		{
+			fprintf(stderr, "Failed to load `get_libpath'\n");
+			return;
+		}
+
+		const char* encPath = getPath("encode");
+
+		if(!encPath)
+			return;
+
+		thefunc = import_function<func>(encPath, "Factory_newItem");
 	}
 
 	if(!thefunc)
@@ -106,10 +178,13 @@ inline void Factory_cleanup()
 }
 #endif
 #else
+extern "C"
+{
 ENCODE_API Encodable* Factory_newItem(int id);
 ENCODE_API void Factory_lua_pushItem(lua_State* L, Encodable* item, int id);
-ENCODE_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, std::string name);
+ENCODE_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, const char* name);
 ENCODE_API void Factory_cleanup();
+}
 #endif
 
 

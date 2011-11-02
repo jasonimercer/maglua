@@ -29,7 +29,7 @@
  #define ANISOTROPY_API 
 #endif
 
-class ANISOTROPY_API Anisotropy : public SpinOperation
+class Anisotropy : public SpinOperation
 {
 public:
 	Anisotropy(int nx=32, int ny=32, int nz=1);
@@ -56,9 +56,9 @@ public:
 	void deinit();
 };
 
-ANISOTROPY_API void lua_pushAnisotropy(lua_State* L, Encodable* ani);
-ANISOTROPY_API Anisotropy* checkAnisotropy(lua_State* L, int idx);
-ANISOTROPY_API void registerAnisotropy(lua_State* L);
+void lua_pushAnisotropy(lua_State* L, Encodable* ani);
+Anisotropy* checkAnisotropy(lua_State* L, int idx);
+void registerAnisotropy(lua_State* L);
 
 
 #endif

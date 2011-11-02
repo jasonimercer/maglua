@@ -372,10 +372,8 @@ INTERPOLATE_API void lib_main(lua_State* L, int argc, char** argv);
 
 INTERPOLATE_API int lib_register(lua_State* L)
 {
-	printf("interp load\n");
 	const int a = registerInterpolatingFunction(L);
 	const int b = registerInterpolatingFunction2D(L);
-	printf("ab %i %i\n", a, b);
 	return a | b;
 }
 

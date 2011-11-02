@@ -52,24 +52,37 @@ extern "C" {
 }
 
 
+#ifndef INLINE_IMPORT
+#define INLINE_IMPORT
+
 #ifdef WIN32
 #include <string>
 #include <windows.h>
+#include <iostream>
+#include <stdio.h>
 
 template <class T>
 inline T import_function(std::string path, std::string name)
 {
-	const int sz = path.length();
-	WCHAR* str  = new WCHAR[sz+1];
-	MultiByteToWideChar(0, 0, path.c_str(), sz, str, sz+1);
-	HINSTANCE handle = LoadLibrary(str);
-	delete [] str;
-
 	T func = 0;
-	if(handle)
+	if(path.length())
 	{
-		func = (T) GetProcAddress(handle,name.c_str());
-		//FreeLibrary(handle);
+		HINSTANCE handle = LoadLibraryA(path.c_str());
+
+		if(!handle) //try to fetch it as if it were already loaded (it may be)
+		{
+			handle = GetModuleHandleA(path.c_str());
+		}
+
+		if(handle)
+		{
+			func = (T) GetProcAddress(handle,name.c_str());
+			//FreeLibrary(handle);
+		}
+	}
+	else
+	{
+		func = (T) GetProcAddress(GetModuleHandle(0), name.c_str()); //load from local space
 	}
 	return func;
 }
@@ -89,4 +102,5 @@ inline T import_function(std::string path, std::string name)
 	return func;
 }
 
+#endif
 #endif

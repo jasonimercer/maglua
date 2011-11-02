@@ -22,43 +22,156 @@ extern "C" {
 #ifdef ENCODE_EXPORTS
 ENCODE_API char* exportLuaVariable(lua_State* L, int index,   int* chunksize);
 ENCODE_API int   importLuaVariable(lua_State* L, char* chunk, int  chunksize);
+
+ENCODE_API void _exportLuaVariable(lua_State* L, int index, buffer* b);
+ENCODE_API int _importLuaVariable(lua_State* L, buffer* b);
 #else
 #include <windows.h>
-inline char* exportLuaVariable(lua_State* L, int index,   int* chunksize)
+static char* exportLuaVariable(lua_State* L, int index, int* chunksize)
 {
 	typedef char* (*func)(lua_State*, int, int*); 
-	static func exfunc = 0;
-	if(!exfunc)
+	static func thefunc = 0;
+
+	if(!thefunc)
 	{
-		exfunc = (func) GetProcAddress(GetModuleHandle(NULL), "exportLuaVariable");
+		// first need to get function to get lib paths
+		typedef const char* (*sfuncs) (const char*);
+		sfuncs getPath = import_function<sfuncs>("", "get_libpath");
+
+		if(!getPath)
+		{
+			fprintf(stderr, "Failed to load `get_libpath'\n");
+			return 0;
+		}
+
+		const char* encPath = getPath("encode");
+
+		if(!encPath)
+			return 0;
+
+		thefunc = import_function<func>(encPath, "exportLuaVariable");
 	}
 
-	if(!exfunc)
+	if(!thefunc)
 	{
 		printf("failed to load exportLuaVariable\n");
 		return NULL;
 	}
-	return exfunc(L, index, chunksize);
+	return thefunc(L, index, chunksize);
 }
-inline int  importLuaVariable(lua_State* L, char* chunk, int  chunksize)
+
+static int   importLuaVariable(lua_State* L, char* chunk, int  chunksize)
 {
-	typedef int(*func)(lua_State*, char*, int); 
-	static func imfunc = 0;
-	if(!imfunc)
+	typedef int (*func)(lua_State*, char*, int);
+	static func thefunc = 0;
+
+	if(!thefunc)
 	{
-		imfunc = (func) GetProcAddress(GetModuleHandle(NULL), "importLuaVariable");
+		// first need to get function to get lib paths
+		typedef const char* (*sfuncs) (const char*);
+		sfuncs getPath = import_function<sfuncs>("", "get_libpath");
+
+		if(!getPath)
+		{
+			fprintf(stderr, "Failed to load `get_libpath'\n");
+			return 0;
+		}
+
+		const char* encPath = getPath("encode");
+
+		if(!encPath)
+			return 0;
+
+		thefunc = import_function<func>(encPath, "importLuaVariable");
 	}
 
-	if(!imfunc)
+	if(!thefunc)
 	{
-		printf("failed to load importLuaVariable\n");
+		printf("failed to load Factory_newItem\n");
 		return NULL;
 	}
-	return imfunc(L, chunk, chunksize);
+	return thefunc(L, chunk, chunksize);
 }
+
+
+
+static void _exportLuaVariable(lua_State* L, int index, buffer* b)
+{
+	typedef void(*func)(lua_State*, buffer*); 
+	static func thefunc = 0;
+
+	if(!thefunc)
+	{
+		// first need to get function to get lib paths
+		typedef const char* (*sfuncs) (const char*);
+		sfuncs getPath = import_function<sfuncs>("", "get_libpath");
+
+		if(!getPath)
+		{
+			fprintf(stderr, "Failed to load `get_libpath'\n");
+			return;
+		}
+
+		const char* encPath = getPath("encode");
+
+		if(!encPath)
+			return;
+
+		thefunc = import_function<func>(encPath, "_exportLuaVariable");
+	}
+
+	if(!thefunc)
+	{
+		printf("failed to load _exportLuaVariable\n");
+		return;
+	}
+	thefunc(L, b);
+}
+
+
+static int _importLuaVariable(lua_State* L, buffer* b)
+{
+	typedef int (*func)(lua_State*, buffer*);
+	static func thefunc = 0;
+
+	if(!thefunc)
+	{
+		// first need to get function to get lib paths
+		typedef const char* (*sfuncs) (const char*);
+		sfuncs getPath = import_function<sfuncs>("", "get_libpath");
+
+		if(!getPath)
+		{
+			fprintf(stderr, "Failed to load `get_libpath'\n");
+			return 0;
+		}
+
+		const char* encPath = getPath("encode");
+
+		if(!encPath)
+			return 0;
+
+		thefunc = import_function<func>(encPath, "_importLuaVariable");
+	}
+
+	if(!thefunc)
+	{
+		printf("failed to load _importLuaVariable\n");
+		return NULL;
+	}
+	return thefunc(L, b);
+}
+
+
+
+
+
 
 #endif
 #else
 ENCODE_API char* exportLuaVariable(lua_State* L, int index,   int* chunksize);
 ENCODE_API int   importLuaVariable(lua_State* L, char* chunk, int  chunksize);
+
+ENCODE_API void _exportLuaVariable(lua_State* L, int index, buffer* b);
+ENCODE_API int _importLuaVariable(lua_State* L, buffer* b);
 #endif

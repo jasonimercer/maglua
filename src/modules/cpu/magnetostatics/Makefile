@@ -12,5 +12,7 @@
 OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o
 LIBNAME=Magnetostatics
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

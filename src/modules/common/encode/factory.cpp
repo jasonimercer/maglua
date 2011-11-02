@@ -103,22 +103,22 @@ void Factory::lua_pushItem(lua_State* L, Encodable* item, int id)
 
 
 
-ENCODE_API Encodable* Factory_newItem(int id)
+Encodable* Factory_newItem(int id)
 {
 	return theFactory.newItem(id);
 }
 
-ENCODE_API void Factory_lua_pushItem(lua_State* L, Encodable* item, int id)
+void Factory_lua_pushItem(lua_State* L, Encodable* item, int id)
 {
 	theFactory.lua_pushItem(L, item, id);
 }
 
-ENCODE_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, std::string name)
+int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, const char* name)
 {
 	return theFactory.registerItem(id, func, Push, name);
 }
 
-ENCODE_API void Factory_cleanup()
+void Factory_cleanup()
 {
 	theFactory.cleanup();
 }

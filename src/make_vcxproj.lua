@@ -7,6 +7,7 @@ basedir=[[C:\programming\c\maglua\src]]
 aid = basedir .. ";"
 aid = aid .. basedir .. [[\..\Common;]]
 aid = aid .. basedir .. [[\modules\common\encode;]]
+aid = aid .. basedir .. [[\modules\cpu\core;]]
 
 
 outputDirectory = basedir .. [[\..\Common\]]
@@ -19,12 +20,14 @@ m = io.open("Makefile", "r")
 objects = {}
 lines = {}
 outs = {}
+deps = {}
 
-function getObects(line)
+function getList(line, suffix)
+	suffix = suffix or ""
 	local oo = {}
 	while line do
-		local a, b, c, d = string.find(line, "(.-)%.o%s*(.*)")
-		if a then
+		local a, b, c, d = string.find(line, "%s*(%S+)" .. suffix .. "(.*)")
+		if c then
 			table.insert(oo, c)
 		end
 		line = d
@@ -34,9 +37,13 @@ end
 
 for line in m:lines() do
 	local a, b, c = string.find(line, "OBJECTS%s*=%s*(.*)")
-	
 	if a then
-		objects = getObects(c)
+		objects = getList(c, "%.o")
+	end
+	
+	local a, b, c = string.find(line, "EXTRA_INCLUDE%s*=%s*(.*)")
+	if a then
+		extra_includes = getList(c)
 	end
 	
 	local a, b, c = string.find(line, "LIBNAME%s*=%s*(.*)")
@@ -48,10 +55,27 @@ for line in m:lines() do
 	if a then
 		binname = c
 	end
+	
+	local a, b, c = string.find(line, "DEPEND%s*=%s*(.*)")
+	if a then
+		deps = getList(c)
+	end
 end
 
+for k,v in pairs(extra_includes) do
+	print(k,v)
+	local a, b, c = string.find(v, "%s*%-I(.*)%s*")
+	if a then
+		local win32 = "$(ProjectDir)"  .. [[\]] .. string.gsub(c, "/", [[\]]) .. ";"
+		print(win32)
+		additionalIncludeDirectories = additionalIncludeDirectories .. win32
+			
+	end
+end
 
-
+for k,v in pairs(deps) do
+	additionalDependencies = additionalDependencies .. v .. ".lib;"
+end
 
 if libname == nil and binname ~= nil then
 	libname = binname

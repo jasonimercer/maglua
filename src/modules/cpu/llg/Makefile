@@ -12,6 +12,8 @@
 OBJECTS=llg.o llgquat.o llgfake.o llgalign.o llgcartesian.o
 LIBNAME=LLG
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

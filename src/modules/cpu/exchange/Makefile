@@ -12,6 +12,8 @@
 OBJECTS=spinoperationexchange.o
 LIBNAME=Exchange
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

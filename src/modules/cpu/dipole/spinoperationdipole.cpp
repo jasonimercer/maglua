@@ -626,7 +626,7 @@ void registerDipole(lua_State* L)
 	luaL_register(L, "Dipole", functions);
 	lua_pop(L,1);
 
-	Factory.registerItem(ENCODE_DIPOLE, newThing, lua_pushDipole, "Dipole");
+	Factory_registerItem(ENCODE_DIPOLE, newThing, lua_pushDipole, "Dipole");
 	
 }
 
