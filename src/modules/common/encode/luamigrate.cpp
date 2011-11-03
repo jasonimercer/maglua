@@ -18,7 +18,12 @@
 #include "luamigrate.h"
 #include "encodable.h"
 
+#ifdef WIN32
+//using size64_t (defined in luaconf.h) to allow compat with x86_64 bit linux
+static int lexportwriter(lua_State *L, const void* chunk, size64_t size, void* data) 
+#else
 static int lexportwriter(lua_State *L, const void* chunk, size_t size, void* data) 
+#endif
 {
 	(void)L;
 	buffer* b = (buffer*)data;
@@ -79,23 +84,24 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 		break;
 		case LUA_TFUNCTION:
 		{
-			buffer b2;
-			b2.pos = 0;
-			b2.size = 0;
-			b2.buf = 0;
+			buffer* b2 = new buffer;
+			b2->pos = 0;
+			b2->size = 0;
+			b2->buf = 0;
 			
 			lua_pushvalue(L, index); //copy func to top
-			if(lua_dump(L, lexportwriter, &b2) != 0)
+			if(lua_dump(L, lexportwriter, b2) != 0)
 				luaL_error(L, "Unable to encode function");
 			
 			lua_pop(L, 1);
 			
-			if(b2.pos)
+			if(b2->pos)
 			{
-				encodeInteger(b2.pos, b);
-				encodeBuffer(b2.buf, b2.pos, b);
-				free(b2.buf);
+				encodeInteger(b2->pos, b);
+				encodeBuffer(b2->buf, b2->pos, b);
+				free(b2->buf);
 			}
+			delete b2;
 		}
 		break;
 		case LUA_TUSERDATA:

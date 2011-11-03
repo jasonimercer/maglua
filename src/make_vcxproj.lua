@@ -9,11 +9,15 @@ aid = aid .. basedir .. [[\..\Common;]]
 aid = aid .. basedir .. [[\modules\common\encode;]]
 aid = aid .. basedir .. [[\modules\cpu\core;]]
 
+local do_compile = false
+if arg[1] then
+	do_compile = true
+end
 
 outputDirectory = basedir .. [[\..\Common\]]
 additionalIncludeDirectories = aid
 additionalLibraryDirectories = basedir .. [[\..\Common;]]
-additionalDependencies = [[lua5.1.lib;libfftw3-3.lib;]]
+additionalDependencies = [[lua-5.1_x86_64_compat.lib;libfftw3-3.lib;]]
 
 m = io.open("Makefile", "r")
 
@@ -332,3 +336,13 @@ end
 print("\nThis project can be compiled with the following command:")
 print("msbuild /property:Configuration=Release")
 
+
+if do_compile then
+	if os.getenv("HOME") == nil then
+		os.execute("msbuild /property:Configuration=Release")
+		cmd = "copy " .. outputDirectory .. lowercase .. ".dll " .. outputDirectory .. "\MagLua"
+		os.execute(cmd)
+	else
+		error("can't compile on system with $HOME set (we thing we're on unix)")
+	end
+end

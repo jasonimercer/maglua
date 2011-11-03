@@ -211,8 +211,10 @@ int main(int argc, char** argv)
 					script++;
 					if(luaL_dofile(L, fn))
 					{
-						cerr << "Error:" << endl;
-						cerr << lua_tostring(L, -1) << endl;
+						//cerr << "Error:" << endl;
+						const char* errmsg = lua_tostring(L, -1);
+						fprintf(stderr, "Error:\n%s", errmsg);
+						//cerr << errmsg << endl;
 					}
 				}
 			}
