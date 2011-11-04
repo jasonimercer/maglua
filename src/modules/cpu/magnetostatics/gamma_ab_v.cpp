@@ -11,7 +11,8 @@
 void lnf(unsigned ndim, unsigned npts, const double *x, void *fdata, unsigned fdim, double *fval)
 {
   /*Integration function for ln(f±±±). Uses fdata(sigma) to know if it's x,y or z*/
-  double factor = 1.0/(4.0*M_PI);
+  /*double factor = 1.0/(4.0*M_PI);*/
+  double factor = 1.0;
   int sigma = *((int *) fdata);
   double sqrt_term = 0.0;
   unsigned i,j;
@@ -27,7 +28,8 @@ void lnf(unsigned ndim, unsigned npts, const double *x, void *fdata, unsigned fd
 void arctang(unsigned ndim, unsigned npts, const double *x, void *fdata, unsigned fdim, double *fval)
 {
   /*Integration function for arctan(f±±±). Uses fdata(sigma) to know if it's x,y or z*/
-  double factor = 1.0/(4.0*M_PI);
+  /*double factor = 1.0/(4.0*M_PI);*/
+  double factor = 1.0;
   int sigma = *((int *) fdata);
   int sigma_oa = (sigma+1)%3;
   int sigma_ob = (sigma+2)%3;
@@ -57,6 +59,7 @@ double gamma_v(const double x, const double y, const double z,
 			   const double d2, const double l2, const double w2, 
 			   int sigma, const int a_neq_b)
 {
+  double V;
   /*Function that calls the numerical integrator. Last two parameters dictate which function is used.
   sigma: 0 = x, 1 = y, 2 = z, passed to the integrand to choose x,y,z*/
   /*Integration limits*/
@@ -151,8 +154,52 @@ double gamma_v(const double x, const double y, const double z,
     value += val[i];
   for(i = 4; i < 8; ++i)
     value -= val[i];
-  return value;
+  V = d2*l2*w2;
+  return value/V;
 }
+
+double Gv_self(double a, double b, double c)
+{
+  double R = sqrt(a*a + b*b + c*c);
+  double R1 = sqrt(a*a + b*b);
+  double R2 = sqrt(b*b + c*c);
+  double R3 = sqrt(a*a + c*c);
+
+  double r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;
+  r1  = (b*b-c*c)/(2.0*b*c)*log((R-a)/(R+a));
+  r2  = (a*a-c*c)/(2.0*a*c)*log((R-b)/(R+b));
+  r3  = b/(2.0*c)*log((R1+a)/(R1-a));
+  r4  = a/(2.0*c)*log((R1+b)/(R1-b));
+  r5  = c/(2.0*a)*log((R2-b)/(R2+b));
+  r6  = c/(2.0*b)*log((R3-a)/(R3+a));
+  r7  = 2.0*atan2(a*b,c*R);
+  r8  = (pow(a,3.0)+pow(b,3.0)-2.0*pow(c,3.0))/(3.0*a*b*c);
+  r9  = R*(a*a+b*b-2*c*c)/(3.0*a*b*c);
+  r10 = (c/(a*b))*(R3+R2);
+  r11 = -(pow(R1,3.0)+pow(R2,3.0)+pow(R3,3.0))/(3.0*a*b*c);
+  double result = r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10 + r11;
+  result *= 4.0; //to make explicit the SI factor
+  return result;
+
+}
+
+double gamma_aa(double d, double l, double w, int sigma)
+{
+  double ds, ls, ws;
+  switch(sigma)
+  {
+    case 0: ws = d, ds = l, ls = w;
+       break;
+    case 1: ls = d, ws = l, ds = w;
+       break;
+    case 2: ds = d, ls = l, ws = w;
+       break;
+    default: ds = 0, ls = 0, ws = 0;
+       break;
+  }
+  return Gv_self(ds,ls,ws)/(4.0*M_PI); /*SI*/ /*A.A.*/
+}
+
 
 
 #undef _vM
@@ -239,4 +286,19 @@ double gamma_yz_v(double x, double y, double z, double d1, double l1, double w1,
 double gamma_zy_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2)
 {
   return gamma_v(x,y,z,d1,l1,w1,d2,l2,w2,0,1); /*Fx*/
+}
+
+double gamma_xx_sv(double d, double l, double w)
+{
+  return gamma_aa(d,l,w,0); /*like Gx*/
+}
+
+double gamma_yy_sv(double d, double l, double w)
+{
+  return gamma_aa(d,l,w,1); /*like Gy*/
+}
+
+double gamma_zz_sv(double d, double l, double w)
+{
+  return gamma_aa(d,l,w,2); /*like Gz*/
 }

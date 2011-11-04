@@ -24,11 +24,11 @@
  #define snprintf _snprintf
 #endif
 
-
 #ifndef M_PI
 #define M_PI 3.14159265358979
 #endif
-#define DipMagConversion (1.0 / (M_PI * 4.0))
+/*#define DipMagConversion (1.0 / (M_PI * 4.0))*/
+#define DipMagConversion (1.0)
 
 #include "../dipole/dipolesupport.h" //to compare for crossover
 
@@ -83,7 +83,7 @@ static void getGAB(
 	else
 		iL = nB;
 
-	smax = gmax/iL;
+	smax = gmax/iL + 1;
 
 	double volume2 = pow(prism[0] * prism[1] * prism[2], 2);
 	
@@ -125,80 +125,94 @@ static void getGAB(
 	for(j=-smax; j<= smax; j++)
 		for(i=-smax, c=0; i<= smax; i++, c++)
 		{
-			rx = ((double)i*nA+ix)*ABC[0] + ((double)j*nB+iy)*ABC[3] + ((double)iz)*ABC[6];
-			ry = ((double)i*nA+ix)*ABC[1] + ((double)j*nB+iy)*ABC[4] + ((double)iz)*ABC[7];
-			rz = ((double)i*nA+ix)*ABC[2] + ((double)j*nB+iy)*ABC[5] + ((double)iz)*ABC[8];
-			r2 = rx*rx + ry*ry + rz*rz;
-			//if(r2 != 0)
-			
-			if(r2 >= crossover.r2)
-			{
-				
-				gXX[c] += DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
-				gXY[c] += DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
-				gXZ[c] += DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
-				
-				gYY[c] += DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
-				gYZ[c] += DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
-				gZZ[c] += DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
-			}
-			else
-			{
-				magXX = gamma_xx_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				magXY = gamma_xy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				magXZ = gamma_xz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				
-				magYY = gamma_yy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				magYZ = gamma_yz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				
-				magZZ = gamma_zz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
-				
-				dipXX = DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
-				dipXY = DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
-				dipXZ = DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
-				
-				dipYY = DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
-				dipYZ = DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
-				dipZZ = DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
-				
-// 				if( sqrt(rx*rx+ry*ry+rz+rz) > 40)
-// 					printf("md: %E, %E\n", magXX, dipXX);
-				
-				bool same = equal_tol(magXX, dipXX, crossover.tol) &&
-							equal_tol(magXY, dipXY, crossover.tol) &&
-							equal_tol(magXZ, dipXZ, crossover.tol) &&
-							equal_tol(magYY, dipYY, crossover.tol) &&
-							equal_tol(magYZ, dipYZ, crossover.tol) &&
-							equal_tol(magZZ, dipZZ, crossover.tol);
+			const int xx = i*nA+ix;
+			const int yy = j*nB+iy;
+			const int zz = iz;
 
-				if(same && r2 > 0)
+			if(abs(xx) <= gmax && abs(yy) <= gmax && abs(zz) <= gmax)
+			{
+				rx = ((double)i*nA+ix)*ABC[0] + ((double)j*nB+iy)*ABC[3] + ((double)iz)*ABC[6];
+				ry = ((double)i*nA+ix)*ABC[1] + ((double)j*nB+iy)*ABC[4] + ((double)iz)*ABC[7];
+				rz = ((double)i*nA+ix)*ABC[2] + ((double)j*nB+iy)*ABC[5] + ((double)iz)*ABC[8];
+				r2 = rx*rx + ry*ry + rz*rz;
+				//if(r2 != 0)
+
+				if(r2 >= crossover.r2)
 				{
-					crossover.r2 = min(crossover.r2, fabs(r2));
-					
-					//printf("crossover at: r = %f\n", sqrt(crossover.r2));
+
+					gXX[c] += DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
+					gXY[c] += DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
+					gXZ[c] += DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
+
+					gYY[c] += DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
+					gYZ[c] += DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
+					gZZ[c] += DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
 				}
-							
-				gXX[c] += magXX;
-				gXY[c] += magXY;
-				gXZ[c] += magXZ;
-				
-				gYY[c] += magYY;
-				gYZ[c] += magYZ;
-				gZZ[c] += magZZ;	
-			}
-#ifndef WIN32
+				else
+				{
+					if(xx == 0 && yy == 0 && zz == 0)
+					{
+						magXX = gamma_xx_sv(d1, l1, w1)*2*M_PI * -4.0;
+						magYY = gamma_yy_sv(d1, l1, w1)*2*M_PI * -4.0;
+						magZZ = gamma_zz_sv(d1, l1, w1)*2*M_PI * -4.0;
+					}
+					else
+					{
+						magXX = gamma_xx_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+						magYY = gamma_yy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+						magZZ = gamma_zz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+					}
+
+					magXY = gamma_xy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+					magXZ = gamma_xz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+					magYZ = gamma_yz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+
+					dipXX = DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
+					dipXY = DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
+					dipXZ = DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
+
+					dipYY = DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
+					dipYZ = DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
+					dipZZ = DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
+
+					// 				if( sqrt(rx*rx+ry*ry+rz+rz) > 40)
+					// 					printf("md: %E, %E\n", magXX, dipXX);
+
+					bool same = equal_tol(magXX, dipXX, crossover.tol) &&
+						equal_tol(magXY, dipXY, crossover.tol) &&
+						equal_tol(magXZ, dipXZ, crossover.tol) &&
+						equal_tol(magYY, dipYY, crossover.tol) &&
+						equal_tol(magYZ, dipYZ, crossover.tol) &&
+						equal_tol(magZZ, dipZZ, crossover.tol);
+
+					if(same && r2 > 0)
+					{
+						crossover.r2 = min(crossover.r2, fabs(r2));
+
+						//printf("crossover at: r = %f\n", sqrt(crossover.r2));
+					}
+
+					gXX[c] += magXX;
+					gXY[c] += magXY;
+					gXZ[c] += magXZ;
+
+					gYY[c] += magYY;
+					gYZ[c] += magYZ;
+					gZZ[c] += magZZ;	
+				}
+
 #warning This is a hack to fix self terms. Eventually this will be in the numerical code.
-#endif
-			if(r2 < 1E-10)
-			{
-			  gXX[c] *= 0.5;
-			  gXY[c] *= 0.5;
-			  gXZ[c] *= 0.5;
+				if(xx == 0 && yy == 0 && zz == 0)
+				{
+					gXX[c] *= 0.5;
+					gXY[c] *= 0.5;
+					gXZ[c] *= 0.5;
 
-			  gYY[c] *= 0.5;
-			  gYZ[c] *= 0.5;
+					gYY[c] *= 0.5;
+					gYZ[c] *= 0.5;
 
-			  gZZ[c] *= 0.5;
+					gZZ[c] *= 0.5;
+				}
 			}
 		}
 	

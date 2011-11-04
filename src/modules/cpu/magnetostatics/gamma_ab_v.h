@@ -15,7 +15,9 @@ double gamma_xz_v(double x, double y, double z, double d1, double l1, double w1,
 double gamma_zx_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
 double gamma_yz_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
 double gamma_zy_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-
+double gamma_xx_sv(double d, double l, double w);
+double gamma_yy_sv(double d, double l, double w);
+double gamma_zz_sv(double d, double l, double w);
 #ifdef __cplusplus
 }
 #endif
