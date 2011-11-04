@@ -51,6 +51,7 @@ void DipoleCuda::encode(buffer* b)
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
 	encodeInteger(gmax, b);
+	encodeDouble(g, b);
 
 	for(int i=0; i<9; i++)
 	{
@@ -66,6 +67,7 @@ int  DipoleCuda::decode(buffer* b)
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
 	gmax = decodeInteger(b);
+	g = decodeDouble(b);
 	nxyz = nx*ny*nz;
 
 	for(int i=0; i<9; i++)
@@ -435,7 +437,7 @@ void registerDipoleCuda(lua_State* L)
 		
 	luaL_register(L, "Dipole", functions);
 	lua_pop(L,1);	
-	Factory.registerItem(ENCODE_DIPOLE, newThing, lua_pushDipoleCuda, "Dipole");
+	Factory_registerItem(ENCODE_DIPOLE, newThing, lua_pushDipoleCuda, "Dipole");
 }
 
 

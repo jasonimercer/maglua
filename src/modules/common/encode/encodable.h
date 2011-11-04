@@ -54,6 +54,7 @@ typedef struct buffer
 
 #define ENCODE_INTERP2D    11
 #define ENCODE_INTERP1D    12
+#define ENCODE_MAGNETOSTATIC 13
 
 // This is a base class for classes that 
 // can be encoded into and from a char stream,

@@ -427,7 +427,7 @@ void registerAppliedField(lua_State* L)
 		
 	luaL_register(L, "AppliedField", functions);
 	lua_pop(L,1);	
-	Factory.registerItem(ENCODE_APPLIEDFIELD, newThing, lua_pushAppliedField, "AppliedField");
+	Factory_registerItem(ENCODE_APPLIEDFIELD, newThing, lua_pushAppliedField, "AppliedField");
 }
 
 

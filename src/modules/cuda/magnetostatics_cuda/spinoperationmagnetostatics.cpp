@@ -18,24 +18,39 @@
 #include <stdlib.h>
 #include <math.h>
 
-Magnetostatic::Magnetostatic(int nx, int ny, int nz)
-	: SpinOperation("Magnetostatic",DIPOLE_SLOT, nx, ny, nz)
+MagnetostaticCuda::MagnetostaticCuda(int nx, int ny, int nz)
+	: SpinOperation("MagnetostaticPureCuda",DIPOLE_SLOT, nx, ny, nz,ENCODE_MAGNETOSTATIC)
 {
-	qXX = 0;
-
+	volumeDimensions[0] = 1;
+	volumeDimensions[1] = 1;
+	volumeDimensions[2] = 1;
+	
 	g = 1;
 	gmax = 2000;
 
 	ABC[0] = 1; ABC[1] = 0; ABC[2] = 0;
 	ABC[3] = 0; ABC[4] = 1; ABC[5] = 0;
 	ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
-	crossover_tolerance = 0.0001;
 
-	hasMatrices = false;
-	
+	plan = 0;
+	crossover_tolerance = 0.0001;
 }
 
-void Magnetostatic::encode(buffer* b)
+void MagnetostaticCuda::init()
+{
+	getPlan();
+}
+
+void MagnetostaticCuda::deinit()
+{
+	if(plan)
+	{
+		free_JM_LONGRANGE_PLAN(plan);
+		plan = 0;
+	}	
+}
+
+void MagnetostaticCuda::encode(buffer* b)
 {
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
@@ -49,10 +64,10 @@ void Magnetostatic::encode(buffer* b)
 	for(int i=0; i<9; i++)
 		encodeDouble(ABC[i], b);
 	
-	encodeDouble(crossover_tolerance, b);	
+	encodeDouble(crossover_tolerance, b);
 }
 
-int  Magnetostatic::decode(buffer* b)
+int  MagnetostaticCuda::decode(buffer* b)
 {
 	deinit();
 
@@ -75,84 +90,15 @@ int  Magnetostatic::decode(buffer* b)
 	return 0;
 }
 
-
-void Magnetostatic::init()
-{
-	if(qXX)
-		deinit();
-	
-	hqx = new complex<double> [nxyz];
-	hqy = new complex<double> [nxyz];
-	hqz = new complex<double> [nxyz];
-
-	hrx = new complex<double> [nxyz];
-	hry = new complex<double> [nxyz];
-	hrz = new complex<double> [nxyz];
-
-	int s = nx*ny * (nz*2-1);
-	qXX = new complex<double>[s];
-	qXY = new complex<double>[s];
-	qXZ = new complex<double>[s];
-
-	qYY = new complex<double>[s];
-	qYZ = new complex<double>[s];
-	qZZ = new complex<double>[s];
-	
-	fftw_iodim dims[2];
-	dims[0].n = nx;
-	dims[0].is= 1;
-	dims[0].os= 1;
-	dims[1].n = ny;
-	dims[1].is= nx;
-	dims[1].os= nx;
-
-	forward = fftw_plan_guru_dft(2, dims, 0, dims,
-								reinterpret_cast<fftw_complex*>(qXX),
-								reinterpret_cast<fftw_complex*>(qYY),
-								FFTW_FORWARD, FFTW_PATIENT);
-
-	backward= fftw_plan_guru_dft(2, dims, 0, dims,
-								reinterpret_cast<fftw_complex*>(qXX),
-								reinterpret_cast<fftw_complex*>(qYY),
-								FFTW_BACKWARD, FFTW_PATIENT);
-								
-	hasMatrices = false;
-}
-
-void Magnetostatic::deinit()
-{
-	if(!qXX)
-		return;
-	delete [] qXX;
-	delete [] qXY;
-	delete [] qXZ;
-	delete [] qYY;
-	delete [] qYZ;
-
-	delete [] qZZ;
-
-	delete [] hqx;
-	delete [] hqy;
-	delete [] hqz;
-
-	delete [] hrx;
-	delete [] hry;
-	delete [] hrz;
-
-	fftw_destroy_plan(forward);
-	fftw_destroy_plan(backward);
-	qXX = 0;
-}
-
-Magnetostatic::~Magnetostatic()
+MagnetostaticCuda::~MagnetostaticCuda()
 {
 	deinit();
 }
 
-void Magnetostatic::getMatrices()
+void MagnetostaticCuda::getPlan()
 {
-	init();
-
+	deinit();
+	
 	int s = nx*ny * (nz*2-1);
 	double* XX = new double[s];
 	double* XY = new double[s];
@@ -167,153 +113,45 @@ void Magnetostatic::getMatrices()
 		volumeDimensions,
 		XX, XY, XZ,
 		YY, YZ, ZZ, crossover_tolerance);
+	
+	plan = make_JM_LONGRANGE_PLAN(nx, ny, nz,
+								  XX, XY, XZ,
+									  YY, YZ,
+									      ZZ);
 
-	fftw_iodim dims[2];
-	dims[0].n = nx;
-	dims[0].is= 1;
-	dims[0].os= 1;
-	dims[1].n = ny;
-	dims[1].is= nx;
-	dims[1].os= nx;
-
-	complex<double>* r = new complex<double>[nx*ny];
-	complex<double>* q = new complex<double>[nx*ny];
-	
-	double* arrs[6];
-	arrs[0] = XX;
-	arrs[1] = XY;
-	arrs[2] = XZ;
-	arrs[3] = YY;
-	arrs[4] = YZ;
-	arrs[5] = ZZ;
-	
-	complex<double>* qarrs[6];
-	qarrs[0] = qXX;
-	qarrs[1] = qXY;
-	qarrs[2] = qXZ;
-	qarrs[3] = qYY;
-	qarrs[4] = qYZ;
-	qarrs[5] = qZZ;
-	
-	for(int a=0; a<6; a++)
-		for(int k=0; k<2*nz-1; k++)
-		{
-			for(int i=0; i<nx*ny; i++)
-				r[i] = complex<double>(arrs[a][k*nx*ny + i],0);
-		
-			fftw_execute_dft(forward, 
-					reinterpret_cast<fftw_complex*>(r),
-					reinterpret_cast<fftw_complex*>(q));
-
-			for(int i=0; i<nx*ny; i++)
-				qarrs[a][k*nx*ny + i] = q[i];
-		}
-	
-	
-	
-	delete [] q;
-	delete [] r;
-	
 	delete [] XX;
 	delete [] XY;
 	delete [] XZ;
 	delete [] YY;
 	delete [] YZ;
 	delete [] ZZ;
-	
-	hasMatrices = true;
-}
-
-void Magnetostatic::ifftAppliedForce(SpinSystem* ss)
-{
-	double d = g / (double)(nx*ny);
-// 	printf("%g\n", d);
-	double* hx = ss->hx[slot];
-	double* hy = ss->hy[slot];
-	double* hz = ss->hz[slot];
-	const int nxy = nx*ny;
-	
-	for(int i=0; i<nz; i++)
-	{
-		fftw_execute_dft(backward, 
-				reinterpret_cast<fftw_complex*>(&hqx[i*nxy]),
-				reinterpret_cast<fftw_complex*>(&hrx[i*nxy]));
-		fftw_execute_dft(backward, 
-				reinterpret_cast<fftw_complex*>(&hqy[i*nxy]),
-				reinterpret_cast<fftw_complex*>(&hry[i*nxy]));
-		fftw_execute_dft(backward, 
-				reinterpret_cast<fftw_complex*>(&hqz[i*nxy]),
-				reinterpret_cast<fftw_complex*>(&hrz[i*nxy]));
-	}
-
-	for(int i=0; i<nxyz; i++)
-		hx[i] = hrx[i].real() * d;
-
-	for(int i=0; i<nxyz; i++)
-		hy[i] = hry[i].real() * d;
-
-	for(int i=0; i<nxyz; i++)
-		hz[i] = hrz[i].real() * d;
 }
 
 
-void Magnetostatic::collectIForces(SpinSystem* ss)
-{
-	int c;
-	int sourceLayer, targetLayer;// !!Source layer, Target Layer
-	int sourceOffset;
-	int targetOffset;
-	int demagOffset;
-	const int nxy = nx*ny;
-	//int LL = nz*2-1;
-	
-	complex<double>* sqx = ss->qx;
-	complex<double>* sqy = ss->qy;
-	complex<double>* sqz = ss->qz;
-
-	if(!hasMatrices)
-		getMatrices();
-	
-	const complex<double> cz(0,0);
-	for(c=0; c<nxyz; c++) hqx[c] = cz;
-	for(c=0; c<nxyz; c++) hqy[c] = cz;
-	for(c=0; c<nxyz; c++) hqz[c] = cz;
-
-	
-# define cSo c+sourceOffset
-# define cDo c+ demagOffset
-# define cTo c+targetOffset
 
 
-	for(targetLayer=0; targetLayer<nz; targetLayer++)
-	for(sourceLayer=0; sourceLayer<nz; sourceLayer++)
-	{
-		targetOffset = targetLayer * nxy;
-		sourceOffset = sourceLayer * nxy;
-		demagOffset  = ( sourceLayer - targetLayer + nz - 1 ) * nxy;
-
-		//these are complex multiplies and adds
-		for(c=0; c<nxy; c++) hqx[cTo]+=qXX[cDo]*sqx[cSo];
-		for(c=0; c<nxy; c++) hqx[cTo]+=qXY[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) hqx[cTo]+=qXZ[cDo]*sqz[cSo];
-
-		for(c=0; c<nxy; c++) hqy[cTo]+=qXY[cDo]*sqx[cSo];
-		for(c=0; c<nxy; c++) hqy[cTo]+=qYY[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) hqy[cTo]+=qYZ[cDo]*sqz[cSo];
-
-		for(c=0; c<nxy; c++) hqz[cTo]+=qXZ[cDo]*sqx[cSo];
-		for(c=0; c<nxy; c++) hqz[cTo]+=qYZ[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) hqz[cTo]+=qZZ[cDo]*sqz[cSo];
-	}
-}
-
-bool Magnetostatic::apply(SpinSystem* ss)
+bool MagnetostaticCuda::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
 
-	ss->fft();
-	collectIForces(ss);
-	ifftAppliedForce(ss);
+	if(!plan)
+		getPlan();
+	
+	ss->sync_spins_hd();
+	
+	double* d_hx = ss->d_hx[slot];
+	double* d_hy = ss->d_hy[slot];
+	double* d_hz = ss->d_hz[slot];
+	
+	const double* d_sx = ss->d_x;
+	const double* d_sy = ss->d_y;
+	const double* d_sz = ss->d_z;
+	
+	JM_LONGRANGE(plan, 
+					d_sx, d_sy, d_sz, 
+					d_hx, d_hy, d_hz);
+
+	ss->new_device_fields[slot] = true;
 
 	return true;
 }
@@ -324,19 +162,20 @@ bool Magnetostatic::apply(SpinSystem* ss)
 
 
 
-Magnetostatic* checkMagnetostatic(lua_State* L, int idx)
+MagnetostaticCuda* checkMagnetostatic(lua_State* L, int idx)
 {
-	Magnetostatic** pp = (Magnetostatic**)luaL_checkudata(L, idx, "MERCER.magnetostatics");
+	MagnetostaticCuda** pp = (MagnetostaticCuda**)luaL_checkudata(L, idx, "MERCER.magnetostatics");
     luaL_argcheck(L, pp != NULL, 1, "`Magnetostatic' expected");
     return *pp;
 }
 
 void lua_pushMagnetostatic(lua_State* L, Encodable* _mag)
 {
-	Magnetostatic* mag = dynamic_cast<Magnetostatic*>(_mag);
+	MagnetostaticCuda* mag = dynamic_cast<MagnetostaticCuda*>(_mag);
 	if(!mag) return;
+	
 	mag->refcount++;
-	Magnetostatic** pp = (Magnetostatic**)lua_newuserdata(L, sizeof(Magnetostatic**));
+	MagnetostaticCuda** pp = (MagnetostaticCuda**)lua_newuserdata(L, sizeof(MagnetostaticCuda**));
 	
 	*pp = mag;
 	luaL_getmetatable(L, "MERCER.magnetostatics");
@@ -348,14 +187,14 @@ int l_mag_new(lua_State* L)
 	int n[3];
 	lua_getnewargs(L, n, 1);
 
-	lua_pushMagnetostatic(L, new Magnetostatic(n[0], n[1], n[2]));
+	lua_pushMagnetostatic(L, new MagnetostaticCuda(n[0], n[1], n[2]));
 	return 1;
 }
 
 
 int l_mag_setstrength(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
 	mag->g = lua_tonumber(L, 2);
@@ -364,7 +203,7 @@ int l_mag_setstrength(lua_State* L)
 
 int l_mag_gc(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
 	mag->refcount--;
@@ -376,7 +215,7 @@ int l_mag_gc(lua_State* L)
 
 int l_mag_apply(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 	SpinSystem* ss = checkSpinSystem(L, 2);
 	
@@ -388,7 +227,7 @@ int l_mag_apply(lua_State* L)
 
 int l_mag_getstrength(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
 	lua_pushnumber(L, mag->g);
@@ -397,7 +236,7 @@ int l_mag_getstrength(lua_State* L)
 }
 int l_mag_setunitcell(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
 	for(int i=0; i<9; i++)
@@ -407,7 +246,7 @@ int l_mag_setunitcell(lua_State* L)
 }
 int l_mag_getunitcell(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
 	for(int i=0; i<9; i++)
@@ -417,7 +256,7 @@ int l_mag_getunitcell(lua_State* L)
 }
 int l_mag_settrunc(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
 	mag->gmax = lua_tointeger(L, 2);
@@ -426,7 +265,7 @@ int l_mag_settrunc(lua_State* L)
 }
 int l_mag_gettrunc(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
 	lua_pushnumber(L, mag->gmax);
@@ -436,7 +275,7 @@ int l_mag_gettrunc(lua_State* L)
 
 static int l_mag_tostring(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 	
 	lua_pushfstring(L, "Magnetostatic (%dx%dx%d)", mag->nx, mag->ny, mag->nz);
@@ -446,7 +285,7 @@ static int l_mag_tostring(lua_State* L)
 
 static int l_mag_setcelldims(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
 	if(lua_getNdouble(L, 3, mag->volumeDimensions, 2, 1) < 0)
@@ -457,7 +296,7 @@ static int l_mag_setcelldims(lua_State* L)
 
 static int l_mag_getcelldims(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 	
 	for(int i=0; i<3; i++)
@@ -468,7 +307,7 @@ static int l_mag_getcelldims(lua_State* L)
 
 static int l_mag_setcrossover(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 	
 	mag->crossover_tolerance = lua_tonumber(L, 2);
@@ -477,7 +316,7 @@ static int l_mag_setcrossover(lua_State* L)
 
 static int l_mag_getcrossover(lua_State* L)
 {
-	Magnetostatic* mag = checkMagnetostatic(L, 1);
+	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 	
 	lua_pushnumber(L, mag->crossover_tolerance);
@@ -616,9 +455,8 @@ static int l_mag_help(lua_State* L)
 
 static Encodable* newThing()
 {
-	return new Magnetostatic;
+	return new MagnetostaticCuda;
 }
-
 
 void registerMagnetostatic(lua_State* L)
 {
@@ -659,7 +497,7 @@ void registerMagnetostatic(lua_State* L)
 		
 	luaL_register(L, "Magnetostatic", functions);
 	lua_pop(L,1);	
-
+	
 	Factory_registerItem(ENCODE_MAGNETOSTATIC, newThing, lua_pushMagnetostatic, "Magnetostatic");
 
 }

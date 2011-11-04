@@ -21,10 +21,9 @@
 Dipole::Dipole(int nx, int ny, int nz)
 	: SpinOperation("Dipole", DIPOLE_SLOT, nx, ny, nz, ENCODE_DIPOLE)
 {
-
 	g = 1;
 	gmax = 2000;
-	hqx = 0;
+	qXX = 0;
 	ABC[0] = 1; ABC[1] = 0; ABC[2] = 0;
 	ABC[3] = 0; ABC[4] = 1; ABC[5] = 0;
 	ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
@@ -34,7 +33,7 @@ Dipole::Dipole(int nx, int ny, int nz)
 
 void Dipole::init()
 {
-	if(hqx)
+	if(qXX)
 		deinit();
 	
 	hqx = new complex<double> [nxyz];
@@ -98,6 +97,7 @@ void Dipole::deinit()
 
 	fftw_destroy_plan(forward);
 	fftw_destroy_plan(backward);
+	qXX = 0;
 }
 
 void Dipole::encode(buffer* b)
@@ -106,6 +106,7 @@ void Dipole::encode(buffer* b)
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
 	encodeInteger(gmax, b);
+	encodeDouble(g, b);
 
 	for(int i=0; i<9; i++)
 	{
@@ -121,6 +122,7 @@ int  Dipole::decode(buffer* b)
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
 	gmax = decodeInteger(b);
+	g = decodeDouble(b);
 	nxyz = nx*ny*nz;
 
 	for(int i=0; i<9; i++)

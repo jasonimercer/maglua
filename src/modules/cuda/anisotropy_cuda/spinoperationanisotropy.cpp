@@ -430,7 +430,7 @@ void registerAnisotropy(lua_State* L)
 		
 	luaL_register(L, "Anisotropy", functions);
 	lua_pop(L,1);	
-	Factory.registerItem(ENCODE_ANISOTROPY, newThing, lua_pushAnisotropy, "Anisotropy");
+	Factory_registerItem(ENCODE_ANISOTROPY, newThing, lua_pushAnisotropy, "Anisotropy");
 }
 
 

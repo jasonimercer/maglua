@@ -16,21 +16,34 @@ extern "C" {
 	#include <lauxlib.h>
 }
 
-#ifndef SPINOPERATIONMAGNETOSTATICS
-#define SPINOPERATIONMAGNETOSTATICS
+#ifndef SPINOPERATIONMAGNETOSTATICSCUDA
+#define SPINOPERATIONMAGNETOSTATICSCUDA
 
 #include "spinoperation.h"
+#include "kernel.hpp"
 
-#include <complex>
-#include <fftw3.h>
+
+#ifdef WIN32
+ #define strcasecmp(A,B) _stricmp(A,B)
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #pragma warning(disable: 4251)
+
+ #ifdef DIPOLECUDA_EXPORTS
+  #define DIPOLECUDA_API __declspec(dllexport)
+ #else
+  #define DIPOLECUDA_API __declspec(dllimport)
+ #endif
+#else
+ #define DIPOLECUDA_API 
+#endif
 
 using namespace std;
 
-class Magnetostatic : public SpinOperation
+class MagnetostaticCuda : public SpinOperation
 {
 public:
-	Magnetostatic(int nx=32, int ny=32, int nz=1);
-	virtual ~Magnetostatic();
+	MagnetostaticCuda(int nx=32, int ny=32, int nz=1);
+	virtual ~MagnetostaticCuda();
 	
 	bool apply(SpinSystem* ss);
 	void getMatrices();
@@ -45,44 +58,19 @@ public:
 	
 	double volumeDimensions[3];
 	double crossover_tolerance; //calculations crossover from magnetostatics to dipole
+
 private:
 	void init();
 	void deinit();
-	
-	void ifftAppliedForce(SpinSystem* ss);
-	void collectIForces(SpinSystem* ss);
-	
-	bool hasMatrices;
-	
-	complex<double>* srx;
-	complex<double>* sry;
-	complex<double>* srz;
-	
-	complex<double>* hqx;
-	complex<double>* hqy;
-	complex<double>* hqz;
-	
-	complex<double>* hrx;
-	complex<double>* hry;
-	complex<double>* hrz;
-	
-	
-	complex<double>* qXX;
-	complex<double>* qXY;
-	complex<double>* qXZ;
-	
-	complex<double>* qYY;
-	complex<double>* qYZ;
-	complex<double>* qZZ;
-	
-	
-	fftw_plan forward;
-	fftw_plan backward;
+
+	void getPlan();
+
+	JM_LONGRANGE_PLAN* plan;
 };
 
-void lua_pushMagnetostatic(lua_State* L, Encodable* d);
-Magnetostatic* checkMagnetostatic(lua_State* L, int idx);
-void registerMagnetostatic(lua_State* L);
+void lua_pushMagnetostaticCuda(lua_State* L, Encodable* d);
+MagnetostaticCuda* checkMagnetostaticCuda(lua_State* L, int idx);
+void registerMagnetostaticCuda(lua_State* L);
 
 
 #endif

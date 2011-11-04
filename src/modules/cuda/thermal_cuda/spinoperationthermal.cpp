@@ -424,7 +424,7 @@ void registerThermal(lua_State* L)
 		
 	luaL_register(L, "Thermal", functions);
 	lua_pop(L,1);
-	Factory.registerItem(ENCODE_THERMAL, newThing, lua_pushThermal, "Thermal");
+	Factory_registerItem(ENCODE_THERMAL, newThing, lua_pushThermal, "Thermal");
 }
 
 #include "info.h"
