@@ -521,7 +521,7 @@ void registerExchange(lua_State* L)
 		
 	luaL_register(L, "Exchange", functions);
 	lua_pop(L,1);	
-	Factory.registerItem(ENCODE_EXCHANGE, newThing, lua_pushExchange, "Exchange");
+	Factory_registerItem(ENCODE_EXCHANGE, newThing, lua_pushExchange, "Exchange");
 }
 
 #include "info.h"

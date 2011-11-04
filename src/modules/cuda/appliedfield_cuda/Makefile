@@ -12,6 +12,8 @@
 OBJECTS=spinoperationappliedfield.o spinoperationappliedfield.cuo
 LIBNAME=AppliedFieldCuda
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=encode corecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

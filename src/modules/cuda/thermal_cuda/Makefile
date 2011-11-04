@@ -12,6 +12,8 @@
 OBJECTS=spinoperationthermal.o spinoperationthermal.cuo  hybridtaus.cuo
 LIBNAME=ThermalCuda
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=encode corecuda dipolecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

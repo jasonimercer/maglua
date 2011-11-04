@@ -200,8 +200,10 @@ static void getGAB(
 					gYZ[c] += magYZ;
 					gZZ[c] += magZZ;	
 				}
-
+#ifndef WIN32
 #warning This is a hack to fix self terms. Eventually this will be in the numerical code.
+#endif
+
 				if(xx == 0 && yy == 0 && zz == 0)
 				{
 					gXX[c] *= 0.5;

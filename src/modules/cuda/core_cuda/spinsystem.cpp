@@ -14,7 +14,9 @@
 #include "spinoperation.h"
 #include <iostream>
 #include <math.h>
+#ifndef WIN32
 #include <strings.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <vector>

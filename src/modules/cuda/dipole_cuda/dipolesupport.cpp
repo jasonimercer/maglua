@@ -16,6 +16,11 @@
 #include <stdio.h>
 #include <math.h>
 
+#ifdef WIN32
+ #include <windows.h>
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #define snprintf _snprintf
+#endif
 
 #define ZERO_CHECK double r = sqrt(rx*rx+ry*ry+rz*rz); if(r < 1E-10)	return 0; double ir = 1.0 / r;
 

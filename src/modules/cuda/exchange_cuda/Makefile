@@ -12,6 +12,8 @@
 OBJECTS=spinoperationexchange.o spinoperationexchange.cuo
 LIBNAME=ExchangeCuda
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=encode corecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

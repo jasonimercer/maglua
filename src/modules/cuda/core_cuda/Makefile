@@ -12,7 +12,8 @@
 OBJECTS=spinsystem.o spinoperation.o luacommon.o maglua.o spinsystem.cuo 
 LIBNAME=CoreCUDA
 
-
+#DEPEND is parsed to make the vs2010 project
+DEPEND=encode
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

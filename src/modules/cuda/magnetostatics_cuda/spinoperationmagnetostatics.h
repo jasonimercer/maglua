@@ -28,18 +28,18 @@ extern "C" {
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
  #pragma warning(disable: 4251)
 
- #ifdef DIPOLECUDA_EXPORTS
-  #define DIPOLECUDA_API __declspec(dllexport)
+ #ifdef MAGNETOSTATICSCUDA_EXPORTS
+  #define MAGNETOSTATICSCUDA_API __declspec(dllexport)
  #else
-  #define DIPOLECUDA_API __declspec(dllimport)
+  #define MAGNETOSTATICSCUDA_API __declspec(dllimport)
  #endif
 #else
- #define DIPOLECUDA_API 
+ #define MAGNETOSTATICSCUDA_API 
 #endif
 
 using namespace std;
 
-class MagnetostaticCuda : public SpinOperation
+class MAGNETOSTATICSCUDA_API MagnetostaticCuda : public SpinOperation
 {
 public:
 	MagnetostaticCuda(int nx=32, int ny=32, int nz=1);
@@ -68,9 +68,9 @@ private:
 	JM_LONGRANGE_PLAN* plan;
 };
 
-void lua_pushMagnetostaticCuda(lua_State* L, Encodable* d);
-MagnetostaticCuda* checkMagnetostaticCuda(lua_State* L, int idx);
-void registerMagnetostaticCuda(lua_State* L);
+MAGNETOSTATICSCUDA_API void lua_pushMagnetostaticCuda(lua_State* L, Encodable* d);
+MAGNETOSTATICSCUDA_API MagnetostaticCuda* checkMagnetostaticCuda(lua_State* L, int idx);
+MAGNETOSTATICSCUDA_API void registerMagnetostaticCuda(lua_State* L);
 
 
 #endif

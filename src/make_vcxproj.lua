@@ -7,7 +7,7 @@ basedir=[[C:\programming\c\maglua\src]]
 aid = basedir .. ";"
 aid = aid .. basedir .. [[\..\Common;]]
 aid = aid .. basedir .. [[\modules\common\encode;]]
-aid = aid .. basedir .. [[\modules\cpu\core;]]
+
 
 local do_compile = false
 if arg[1] then
@@ -26,12 +26,13 @@ lines = {}
 outs = {}
 deps = {}
 extra_includes = {}
+cuda = false
 
 function getList(line, suffix)
 	suffix = suffix or ""
 	local oo = {}
 	while line do
-		local a, b, c, d = string.find(line, "%s*(%S+)" .. suffix .. "(.*)")
+		local a, b, c, d = string.find(line, "%s*(%S+" .. suffix .. ")(.*)")
 		if c then
 			table.insert(oo, c)
 		end
@@ -43,7 +44,7 @@ end
 for line in m:lines() do
 	local a, b, c = string.find(line, "OBJECTS%s*=%s*(.*)")
 	if a then
-		objects = getList(c, "%.o")
+		objects = getList(c, "%.c?u?o")
 	end
 	
 	local a, b, c = string.find(line, "EXTRA_INCLUDE%s*=%s*(.*)")
@@ -65,7 +66,21 @@ for line in m:lines() do
 	if a then
 		deps = getList(c)
 	end
+	
+	local a, b = string.find(line, "makefile.common.gpu")
+	if a then
+		cuda = true
+	end
 end
+
+if cuda then
+	additionalDependencies = additionalDependencies .. "cudart.lib;"
+	
+	additionalIncludeDirectories = additionalIncludeDirectories .. basedir .. [[\modules\cuda\core_cuda;]]
+else
+	additionalIncludeDirectories = additionalIncludeDirectories .. basedir .. [[\modules\cpu\core;]]
+end
+	
 
 for k,v in pairs(extra_includes) do
 	print(k,v)
@@ -137,6 +152,7 @@ footer = [[  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
+  CUDAIG
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -172,6 +188,7 @@ footer = [[  </ItemGroup>
       ADDITIONALDEPENDANCIES
       ADDITIONALLIBRARYDIRECTORIES
 	  </Link>
+CUDACOMPILE
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -192,9 +209,11 @@ footer = [[  </ItemGroup>
       </ModuleDefinitionFile>
       <DelayLoadDLLs>%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
+CUDACOMPILE
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+ CUDABUILDCUST
   </ImportGroup>
 </Project>
 ]]
@@ -215,6 +234,24 @@ footer = string.gsub(footer, "OUTPUTDIRECTORY", outputDirectory)
 footer = string.gsub(footer, "CONFIGURATIONTYPE", configurationType)
 footer = string.gsub(footer, "SUBSYSTEM", subsystem)
 
+
+if cuda then
+	footer = string.gsub(footer, "CUDAIG", [[  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 4.0.props" />
+  </ImportGroup>
+]])
+	footer = string.gsub(footer, "CUDACOMPILE", [[    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+	  <Include>]] .. additionalIncludeDirectories .. [[%%(Include)</Include>
+		<Defines>]] .. uppercase .. [[_EXPORTS; WIN32</Defines>
+    </CudaCompile>]])
+	footer = string.gsub(footer, "CUDABUILDCUST", [[    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 4.0.targets" />]])
+else
+	footer = string.gsub(footer, "CUDAIG", "")
+	footer = string.gsub(footer, "CUDACOMPILE", "")
+	footer = string.gsub(footer, "CUDABUILDCUST", "")
+end
+
 filename = lowercase .. ".vcxproj"
 
 vcxproj = io.open(filename, "w")
@@ -222,13 +259,46 @@ vcxproj = io.open(filename, "w")
 vcxproj:write(header .. "\n")
 
 for k,v in pairs(objects) do
-	vcxproj:write([[    <ClInclude Include="]] .. v .. [[.h" />]] .. "\n")
+	local a, b, n, e = string.find(v, "(.*)%.(c?u?o)")
+	if a == nil then
+		error("Failed to parse object `" .. v .. "'")
+	end
+		
+	if e == "o" then
+		vcxproj:write([[    <ClInclude Include="]] .. n .. [[.h" />]] .. "\n")
+	else
+		if e == "cuo" then
+			vcxproj:write([[    <ClInclude Include="]] .. n .. [[.hpp" />]] .. "\n")
+		else
+			error("don't know how to deal with object extension `" .. e .. "'")
+		end
+	end
 end
 
 vcxproj:write("  </ItemGroup>\n  <ItemGroup>\n")
 for k,v in pairs(objects) do
-	vcxproj:write([[    <ClCompile Include="]] .. v .. [[.cpp" />]] .. "\n")
+	local a, b, n, e = string.find(v, "(.*)%.(c?u?o)")
+	if a == nil then
+		error("Failed to parse object `" .. v .. "'")
+	end
+		
+	if e == "o" then
+		vcxproj:write([[    <ClCompile Include="]] .. n .. [[.cpp" />]] .. "\n")
+	end
 end
+
+vcxproj:write("  </ItemGroup>\n  <ItemGroup>\n")
+for k,v in pairs(objects) do
+	local a, b, n, e = string.find(v, "(.*)%.(c?u?o)")
+	if a == nil then
+		error("Failed to parse object `" .. v .. "'")
+	end
+		
+	if e == "cuo" then
+		vcxproj:write([[    <CudaCompile Include="]] .. n .. [[.cu" />]] .. "\n")
+	end
+end
+
 
 vcxproj:write(footer .. "\n")
 

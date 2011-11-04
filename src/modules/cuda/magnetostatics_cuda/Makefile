@@ -11,8 +11,10 @@
 
 OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o kernel.cuo
 
-LIBNAME=MagnetostaticCuda
+LIBNAME=MagnetostaticsCuda
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=encode corecuda dipolecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

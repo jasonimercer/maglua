@@ -18,7 +18,7 @@
 
 using namespace std;
 
-class SpinSystem : public Encodable
+class CORECUDA_API SpinSystem : public Encodable
 {
 public:
 	SpinSystem(const int nx=32, const int ny=32, const int nz=1);
@@ -126,8 +126,8 @@ private:
 CORECUDA_API int         lua_isSpinSystem(lua_State* L, int idx);
 CORECUDA_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
 
-SpinSystem* checkSpinSystem(lua_State* L, int idx);
-void lua_pushSpinSystem(lua_State* L, Encodable* ss);
-void registerSpinSystem(lua_State* L);
+CORECUDA_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
+CORECUDA_API void lua_pushSpinSystem(lua_State* L, Encodable* ss);
+CORECUDA_API void registerSpinSystem(lua_State* L);
 
 #endif

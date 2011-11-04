@@ -49,7 +49,7 @@ CORECUDA_API const char* lib_name(lua_State* L)
 	return "Core-Cuda";
 }
 
-
+#ifndef WIN32
 #if CUDART_VERSION >= 2000
 static int ConvertSMVer2Cores(int major, int minor)
 {
@@ -95,10 +95,11 @@ inline void getCudaAttribute(T *attribute, CUdevice_attribute device_attribute, 
         exit(-1);
     }
 }
-
+#endif
 
 CORECUDA_API void lib_main(lua_State* L, int argc, char** argv)
 {
+#if 0
 	cudaSetDevice(1);
 
 	
@@ -172,4 +173,5 @@ CORECUDA_API void lib_main(lua_State* L, int argc, char** argv)
 			return;
 		}
 	}
+#endif
 }

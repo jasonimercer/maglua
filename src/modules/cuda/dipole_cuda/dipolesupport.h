@@ -10,17 +10,32 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-void dipoleLoad(
+#ifdef WIN32
+ #define strcasecmp(A,B) _stricmp(A,B)
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #pragma warning(disable: 4251)
+
+ #ifdef DIPOLECUDA_EXPORTS
+  #define DIPOLECUDA_API __declspec(dllexport)
+ #else
+  #define DIPOLECUDA_API __declspec(dllimport)
+ #endif
+#else
+ #define DIPOLECUDA_API 
+#endif
+
+
+DIPOLECUDA_API void dipoleLoad(
 	const int nx, const int ny, const int nz,
 	const int gmax, double* ABC,
 	double* XX, double* XY, double* XZ,
 	double* YY, double* YZ, double* ZZ);
 
-double gamma_xx_dip(double rx, double ry, double rz);
-double gamma_xy_dip(double rx, double ry, double rz);
-double gamma_xz_dip(double rx, double ry, double rz);
-double gamma_yy_dip(double rx, double ry, double rz);
-double gamma_yz_dip(double rx, double ry, double rz);
-double gamma_zz_dip(double rx, double ry, double rz);
+DIPOLECUDA_API double gamma_xx_dip(double rx, double ry, double rz);
+DIPOLECUDA_API double gamma_xy_dip(double rx, double ry, double rz);
+DIPOLECUDA_API double gamma_xz_dip(double rx, double ry, double rz);
+DIPOLECUDA_API double gamma_yy_dip(double rx, double ry, double rz);
+DIPOLECUDA_API double gamma_yz_dip(double rx, double ry, double rz);
+DIPOLECUDA_API double gamma_zz_dip(double rx, double ry, double rz);
 
 	

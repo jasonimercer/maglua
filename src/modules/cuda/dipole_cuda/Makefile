@@ -12,6 +12,8 @@
 OBJECTS=spinoperationdipole.o dipolesupport.o kernel.cuo
 LIBNAME=DipoleCuda
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=encode corecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

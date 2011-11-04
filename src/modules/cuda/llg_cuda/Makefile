@@ -13,6 +13,8 @@ TODO= llgcartesian.o llgfake.o llgalign.o
 OBJECTS=llg.o llgquat.o llgquat.cuo
 LIBNAME=LLGCuda
 
+#DEPEND is parsed to make the vs2010 project
+DEPEND=encode corecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

@@ -13,6 +13,6 @@ OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_a
 LIBNAME=Magnetostatics
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core dipole
+DEPEND=core dipole encode
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

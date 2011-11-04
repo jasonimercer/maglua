@@ -1,6 +1,8 @@
 #include "hybridtaus.hpp"
 
 #include <stdio.h>
+#include <stdlib.h>
+static int (*globalRand)() = rand;
 
 #define CHECK \
 { \
@@ -120,19 +122,26 @@ void HybridTausSeed(state_t* d_state, int nx, int ny, int nz, const int i)
 	cudaError_t err = cudaHostAlloc(&h_state, sz, 0);
 	CHECK
 
-	char randstate[4096];
+	#ifndef _WIN32
+	static char randstate[4096];
 	struct random_data buf;
 	initstate_r(i, randstate, 256, &buf);
-	
+	#else
+	srand( i );
+	#endif
+
 	for(int i=0; i<4*nx*ny*nz; i++)
 	{
-		int32_t a;//, b;
-		random_r(&buf, &a);
-		// restriction on tausworth init state: > 128
-		while(a < 128)
+		int32_t a;
+		do
 		{
+			#ifndef _WIN32
 			random_r(&buf, &a);
-		}
+			#else
+			a = 0xFFFFFFFF & (globalRand() ^ (globalRand() << 16));
+			#endif
+		}while(a < 128); // restriction on tausworth init state: > 128
+
 		h_state[i] = a;
 	}
 	

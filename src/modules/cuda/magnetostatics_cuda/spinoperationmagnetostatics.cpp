@@ -503,45 +503,29 @@ void registerMagnetostatic(lua_State* L)
 }
 
 
-#ifdef WIN32
- #ifdef MAGNETOSTATICS_EXPORTS
-  #define MAGNETOSTATICS_API __declspec(dllexport)
- #else
-  #define MAGNETOSTATICS_API __declspec(dllimport)
- #endif
-#else
- #define MAGNETOSTATICS_API 
-#endif
-
-
 extern "C"
 {
-MAGNETOSTATICS_API int lib_register(lua_State* L);
-MAGNETOSTATICS_API int lib_version(lua_State* L);
-MAGNETOSTATICS_API const char* lib_name(lua_State* L);
-MAGNETOSTATICS_API void lib_main(lua_State* L, int argc, char** argv);
-	
-}
-
-MAGNETOSTATICS_API int lib_register(lua_State* L)
+MAGNETOSTATICSCUDA_API int lib_register(lua_State* L)
 {
 	registerMagnetostatic(L);
 	return 0;
 }
 
-MAGNETOSTATICS_API int lib_version(lua_State* L)
+MAGNETOSTATICSCUDA_API int lib_version(lua_State* L)
 {
 	return __revi;
 }
 
-MAGNETOSTATICS_API const char* lib_name(lua_State* L)
+MAGNETOSTATICSCUDA_API const char* lib_name(lua_State* L)
 {
 	return "Magnetostatics";
 }
 
-MAGNETOSTATICS_API void lib_main(lua_State* L, int argc, char** argv)
+MAGNETOSTATICSCUDA_API void lib_main(lua_State* L, int argc, char** argv)
 {
 }
+}
+
 
 
 
