@@ -70,7 +70,7 @@ extern "C"
 ENCODE_API int lib_register(lua_State* L);
 ENCODE_API int lib_version(lua_State* L);
 ENCODE_API const char* lib_name(lua_State* L);
-ENCODE_API void lib_main(lua_State* L, int argc, char** argv);
+ENCODE_API int lib_main(lua_State* L, int argc, char** argv);
 }
 
 ENCODE_API int lib_register(lua_State* L)
@@ -88,7 +88,8 @@ const char* lib_name(lua_State* L)
 	return "Encode";
 }
 
-void lib_main(lua_State* L, int argc, char** argv)
+int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }
 

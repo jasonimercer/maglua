@@ -437,7 +437,7 @@ extern "C"
 APPLIEDFIELDCUDA_API int lib_register(lua_State* L);
 APPLIEDFIELDCUDA_API int lib_version(lua_State* L);
 APPLIEDFIELDCUDA_API const char* lib_name(lua_State* L);
-APPLIEDFIELDCUDA_API void lib_main(lua_State* L, int argc, char** argv);
+APPLIEDFIELDCUDA_API int lib_main(lua_State* L, int argc, char** argv);
 }
 
 APPLIEDFIELDCUDA_API int lib_register(lua_State* L)
@@ -456,7 +456,8 @@ APPLIEDFIELDCUDA_API const char* lib_name(lua_State* L)
 	return "AppliedField-Cuda";
 }
 
-APPLIEDFIELDCUDA_API void lib_main(lua_State* L, int argc, char** argv)
+APPLIEDFIELDCUDA_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }
 

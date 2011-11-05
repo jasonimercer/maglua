@@ -50,6 +50,8 @@
 #endif
 #include "main.h"
 
+#define MAGLUA_MAIN_FAIL -127
+
 using namespace std;
 
 typedef struct lib_info
@@ -493,7 +495,7 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 		
 	typedef int (*lua_func)(lua_State*);
 	typedef const char* (*c_lua_func)(lua_State*);
-	typedef void (*lua_func_aa)(lua_State*, int, char**);
+	typedef int (*lua_func_aa)(lua_State*, int, char**);
 
 // 	cout << "Path: " << loaded[name].path << endl;
 	
@@ -561,7 +563,10 @@ static int load_lib(int suppress, lua_State* L, int argc, char** argv, const str
 	
 	//yuck! This loaded/unloaded/true_name is a bit of a mess. Should be rethought and recoded but for now it works well.
 	if(lib_main)
-		lib_main(L, argc, argv);
+	{
+		if(lib_main(L, argc, argv))
+			return MAGLUA_MAIN_FAIL;
+	}
 
 	return 0;
 }
@@ -739,6 +744,12 @@ int registerLibs(int suppress, lua_State* L)
 				case 2:
 					cerr << "Cannot load `" << (*mit).first << "': " << dlerror() << endl;
 					break;
+					
+				case MAGLUA_MAIN_FAIL:
+				{
+					cerr << "Main failed in `" << true_name << "'" << endl;
+					return MAGLUA_MAIN_FAIL;
+				}
 				
 				default:
 					cerr << "Failed to load `" << (*mit).first << "'" << endl;

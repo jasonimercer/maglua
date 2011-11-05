@@ -637,7 +637,7 @@ extern "C"
 DIPOLE_API int lib_register(lua_State* L);
 DIPOLE_API int lib_version(lua_State* L);
 DIPOLE_API const char* lib_name(lua_State* L);
-DIPOLE_API void lib_main(lua_State* L, int argc, char** argv);
+DIPOLE_API int lib_main(lua_State* L, int argc, char** argv);
 }
 
 DIPOLE_API int lib_register(lua_State* L)
@@ -657,8 +657,9 @@ DIPOLE_API const char* lib_name(lua_State* L)
 	return "Dipole";
 }
 
-DIPOLE_API void lib_main(lua_State* L, int argc, char** argv)
+DIPOLE_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }
 
 

@@ -530,7 +530,7 @@ extern "C"
 EXCHANGECUDA_API int lib_register(lua_State* L);
 EXCHANGECUDA_API int lib_version(lua_State* L);
 EXCHANGECUDA_API const char* lib_name(lua_State* L);
-EXCHANGECUDA_API void lib_main(lua_State* L, int argc, char** argv);
+EXCHANGECUDA_API int lib_main(lua_State* L, int argc, char** argv);
 }
 
 EXCHANGECUDA_API int lib_register(lua_State* L)
@@ -549,8 +549,9 @@ EXCHANGECUDA_API const char* lib_name(lua_State* L)
 	return "Exchange-Cuda";
 }
 
-EXCHANGECUDA_API void lib_main(lua_State* L, int argc, char** argv)
+EXCHANGECUDA_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }
 
 

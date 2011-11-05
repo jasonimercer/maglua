@@ -458,7 +458,7 @@ extern "C"
 EXCHANGE_API int lib_register(lua_State* L);
 EXCHANGE_API int lib_version(lua_State* L);
 EXCHANGE_API const char* lib_name(lua_State* L);
-EXCHANGE_API void lib_main(lua_State* L, int argc, char** argv);
+EXCHANGE_API int lib_main(lua_State* L, int argc, char** argv);
 }
 
 EXCHANGE_API int lib_register(lua_State* L)
@@ -477,8 +477,9 @@ EXCHANGE_API const char* lib_name(lua_State* L)
 	return "Exchange";
 }
 
-EXCHANGE_API void lib_main(lua_State* L, int argc, char** argv)
+EXCHANGE_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }
 
 

@@ -30,16 +30,3 @@ extern "C" {
 #else
  #define CHECKPOINT_API 
 #endif
-
-
-extern "C"
-{
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-
-CHECKPOINT_API int lib_register(lua_State* L);
-CHECKPOINT_API int lib_version(lua_State* L);
-CHECKPOINT_API const char* lib_name(lua_State* L);
-CHECKPOINT_API void lib_main(lua_State* L, int argc, char** argv);
-}

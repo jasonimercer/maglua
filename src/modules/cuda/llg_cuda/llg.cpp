@@ -279,7 +279,7 @@ extern "C"
 LLGCUDA_API int lib_register(lua_State* L);
 LLGCUDA_API int lib_version(lua_State* L);
 LLGCUDA_API const char* lib_name(lua_State* L);
-LLGCUDA_API void lib_main(lua_State* L, int argc, char** argv);
+LLGCUDA_API int lib_main(lua_State* L, int argc, char** argv);
 }
 
 LLGCUDA_API int lib_register(lua_State* L)
@@ -298,8 +298,9 @@ LLGCUDA_API const char* lib_name(lua_State* L)
 	return "LLG-Cuda";
 }
 
-LLGCUDA_API void lib_main(lua_State* L, int argc, char** argv)
+LLGCUDA_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }
 
 

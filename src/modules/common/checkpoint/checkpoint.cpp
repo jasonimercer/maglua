@@ -172,24 +172,32 @@ void registerCheckPoint(lua_State* L)
 	lua_setglobal(L, "checkpointLoad");
 }
 
-int lib_register(lua_State* L)
+extern "C"
+{
+CHECKPOINT_API int lib_register(lua_State* L);
+CHECKPOINT_API int lib_version(lua_State* L);
+CHECKPOINT_API const char* lib_name(lua_State* L);
+CHECKPOINT_API int lib_main(lua_State* L, int argc, char** argv);
+}
+
+CHECKPOINT_API int lib_register(lua_State* L)
 {
 	registerCheckPoint(L);
 	return 0;
 }
 
-int lib_version(lua_State* L)
+CHECKPOINT_API int lib_version(lua_State* L)
 {
 	return __revi;
 }
 
-const char* lib_name(lua_State* L)
+CHECKPOINT_API const char* lib_name(lua_State* L)
 {
 	return "CheckPoint";
 }
 
-void lib_main(lua_State* L, int argc, char** argv)
+CHECKPOINT_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }
-
 

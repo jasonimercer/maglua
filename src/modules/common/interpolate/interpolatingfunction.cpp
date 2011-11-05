@@ -367,7 +367,7 @@ extern "C"
 INTERPOLATE_API int lib_register(lua_State* L);
 INTERPOLATE_API int lib_version(lua_State* L);
 INTERPOLATE_API const char* lib_name(lua_State* L);
-INTERPOLATE_API void lib_main(lua_State* L, int argc, char** argv);
+INTERPOLATE_API int lib_main(lua_State* L, int argc, char** argv);
 }
 
 INTERPOLATE_API int lib_register(lua_State* L)
@@ -387,6 +387,7 @@ INTERPOLATE_API const char* lib_name(lua_State* L)
 	return "Interpolate";
 }
 
-INTERPOLATE_API void lib_main(lua_State* L, int argc, char** argv)
+INTERPOLATE_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }

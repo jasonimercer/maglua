@@ -24,7 +24,7 @@ CORECUDA_API int lib_register(lua_State* L);
 CORECUDA_API int lib_deps(lua_State* L);
 CORECUDA_API int lib_version(lua_State* L);
 CORECUDA_API const char* lib_name(lua_State* L);
-CORECUDA_API void lib_main(lua_State* L, int argc, char** argv);
+CORECUDA_API int lib_main(lua_State* L, int argc, char** argv);
 }
 
 #include "info.h"
@@ -97,8 +97,31 @@ inline void getCudaAttribute(T *attribute, CUdevice_attribute device_attribute, 
 }
 #endif
 
-CORECUDA_API void lib_main(lua_State* L, int argc, char** argv)
+CORECUDA_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	int gpu = 0;
+	int got_gpu = 0;
+	for(int i=0; i<argc-1; i++)
+	{
+		if(strcmp(argv[i], "-gpu") == 0)
+		{
+			gpu = atoi(argv[i+1]);
+			got_gpu = 1;
+		}
+	}
+	
+	int deviceCount;
+	cudaGetDeviceCount(&deviceCount);
+
+	if((!got_gpu && deviceCount > 1) || gpu >= deviceCount)
+	{
+		cudaSetDevice(0);
+		fprintf(stderr, "WARNING: Using default GPU 0. Select a GPU with -gpu N\n");
+		fprintf(stderr, "         N = [0,%i]\n", deviceCount-1);
+		return 0;
+	}
+	cudaSetDevice(gpu);
+	return 0;
 #if 0
 	cudaSetDevice(1);
 

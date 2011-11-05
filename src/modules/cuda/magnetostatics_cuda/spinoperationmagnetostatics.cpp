@@ -521,8 +521,9 @@ MAGNETOSTATICSCUDA_API const char* lib_name(lua_State* L)
 	return "Magnetostatics";
 }
 
-MAGNETOSTATICSCUDA_API void lib_main(lua_State* L, int argc, char** argv)
+MAGNETOSTATICSCUDA_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }
 }
 

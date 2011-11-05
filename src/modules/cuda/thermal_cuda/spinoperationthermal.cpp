@@ -433,7 +433,7 @@ extern "C"
 THERMALCUDA_API int lib_register(lua_State* L);
 THERMALCUDA_API int lib_version(lua_State* L);
 THERMALCUDA_API const char* lib_name(lua_State* L);
-THERMALCUDA_API void lib_main(lua_State* L, int argc, char** argv);
+THERMALCUDA_API int lib_main(lua_State* L, int argc, char** argv);
 }
 
 THERMALCUDA_API int lib_register(lua_State* L)
@@ -452,8 +452,9 @@ THERMALCUDA_API const char* lib_name(lua_State* L)
 	return "Thermal-Cuda";
 }
 
-THERMALCUDA_API void lib_main(lua_State* L, int argc, char** argv)
+THERMALCUDA_API int lib_main(lua_State* L, int argc, char** argv)
 {
+	return 0;
 }
 
 
