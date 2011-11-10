@@ -266,7 +266,7 @@ MAGLUA_API int registerMain(lua_State* L)
 				char* p = getenv("PATH");
 				string sp = p;
 
-				if( sp.find(m[i]) == string:npos ) //then PATH doesn't have path yet
+				if( sp.find(m[i]) == string::npos ) //then PATH doesn't have path yet
 				{
 					sp.append(";");
 					sp.append(m[i]);
@@ -380,7 +380,7 @@ static int l_info(lua_State* L)
 
 	result.append("\nModules: ");
 
-	for(int i=0; i<theModules.size(); i++)
+	for(unsigned int i=0; i<theModules.size(); i++)
 	{
 		result.append(theModules[i].truename);
 		result.append("(r");

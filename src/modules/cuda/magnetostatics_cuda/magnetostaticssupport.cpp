@@ -54,13 +54,6 @@ bool equal_tol(double a, double b, double tolerance)
 	return t < tolerance;
 }
 
-double min(double a, double b)
-{
-	if(a<b)
-		return a;
-	return b;
-}
-
 ///periodic XY
 static void getGAB(
 	const double* ABC, 
@@ -188,8 +181,14 @@ static void getGAB(
 
 					if(same && r2 > 0)
 					{
-						crossover.r2 = min(crossover.r2, fabs(r2));
-
+						const double a = fabs(r2);
+						const double b = crossover.r2;
+						
+						if(a < b)
+							crossover.r2 = a;
+						else
+							crossover.r2 = b;
+						
 						//printf("crossover at: r = %f\n", sqrt(crossover.r2));
 					}
 
