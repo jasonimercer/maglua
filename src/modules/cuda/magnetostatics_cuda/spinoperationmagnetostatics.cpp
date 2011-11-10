@@ -12,6 +12,7 @@
 // spinoperationmagnetostatics
 #include "spinoperationmagnetostatics.h"
 #include "spinsystem.h"
+#include "spinsystem.hpp"
 #include "magnetostaticssupport.h"
 #include "info.h"
 
@@ -151,6 +152,11 @@ bool MagnetostaticCuda::apply(SpinSystem* ss)
 					d_sx, d_sy, d_sz, 
 					d_hx, d_hy, d_hz);
 
+	ss_d_scale3DArray(d_hx, nxyz, g);
+	ss_d_scale3DArray(d_hy, nxyz, g);
+	ss_d_scale3DArray(d_hz, nxyz, g);
+
+	
 	ss->new_device_fields[slot] = true;
 
 	return true;
@@ -239,8 +245,20 @@ int l_mag_setunitcell(lua_State* L)
 	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
-	for(int i=0; i<9; i++)
-		mag->ABC[i] = lua_tonumber(L, i+2);
+	double A[3];
+	double B[3];
+	double C[3];
+	
+	int r1 = lua_getNdouble(L, 3, A, 2, 0);
+	int r2 = lua_getNdouble(L, 3, B, 2+r1, 0);
+	int r3 = lua_getNdouble(L, 3, C, 2+r1+r2, 0);
+	
+	for(int i=0; i<3; i++)
+	{
+		mag->ABC[i+0] = A[i];
+		mag->ABC[i+3] = B[i];
+		mag->ABC[i+6] = C[i];
+	}
 
 	return 0;
 }

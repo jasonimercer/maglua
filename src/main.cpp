@@ -14,30 +14,7 @@
 // modules in the default directory and any others specified
 // with -L options
 
-
-
 #include "info.h"
-
-#ifndef WIN32
-#include <stdlib.h>
-#include <string.h>
-#include <dlfcn.h>
-#include <dirent.h>
-#define HOME "HOME"
-#define SO_EXT "so"
-#define MAGLUA_SETUP_PATH "/.maglua.d/module_path.lua"
-#define PATH_SEP "/"
-#else
- #include <windows.h>
- #define strncasecmp(A,B,C) _strnicmp(A,B,C)
- #pragma warning(disable: 4251)
- #pragma warning(disable: 4996)
- #define snprintf _snprintf
- #define HOME "APPDATA"
- #define SO_EXT "dll"
- #define MAGLUA_SETUP_PATH "\\maglua\\module_path.lua"
- #define PATH_SEP "\\"
-#endif
 
 #include <iostream>
 #include <sstream>
@@ -49,40 +26,21 @@
  #include <mpi.h>
 #endif
 #include "main.h"
-
-#define MAGLUA_MAIN_FAIL -127
+#include "loader.h"
+#include "import.h"
+#include "modules.h"
 
 using namespace std;
 
-typedef struct lib_info
-{
-	lib_info():version(0) {};
-	int version;
-	string name;
-	string truename;
-	string path;
-} libinfo;
-
-typedef map<string, lib_info> datamap;
-
-//typedef map<string, pair<int, string> > datamap;
-
-datamap loaded;
-vector<string> mod_dirs;
+vector<loader_item> theModules;
 vector<string> initial_args;
 
-int getmoddirs(vector<string>& mds);
 int registerLibs(int suppress, lua_State* L);
 void lua_addargs(lua_State* L); //add initial_args to state
 static int l_info(lua_State* L);
 void print_help();
 int suppress;
 const char* reference();
-
-extern "C"
-{
-MAGLUA_API int registerMain(lua_State* L);
-}
 
 // 
 // command line switches:
@@ -96,16 +54,16 @@ MAGLUA_API int registerMain(lua_State* L);
 
 int main(int argc, char** argv)
 {
-	//record initial arguments
-	for(int i=0; i<argc; i++)
-		initial_args.push_back(argv[i]);
-	
 	suppress = 0; //chatter
 	int shutdown = 0;
 #ifdef _MPI
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &suppress); //only rank 0 will chatter
 #endif
+	//record initial arguments (after MPI has had it's way with them)
+	for(int i=0; i<argc; i++)
+		initial_args.push_back(argv[i]);
+
 	if(!suppress) //prevent slaves from getting legal. 
 		fprintf(stderr, "This evaluation version of MagLua is for private, non-commercial use only\n");
 
@@ -129,7 +87,7 @@ int main(int argc, char** argv)
 		if(strcmp("--module_path", argv[i]) == 0)
 		{
 			vector<string> mp;
-			getmoddirs(mp);
+			getModuleDirectories(mp, initial_args);
 			for(unsigned int i=0; i<mp.size() && i < 1; i++)
 			{
 				cout << mp[i] << endl;
@@ -149,7 +107,7 @@ int main(int argc, char** argv)
 					fprintf(stderr, "%s\n", lua_tostring(L, -1));
 				}
 				
-				printf("\n\n%s\n\n", setup_lua_code);
+				//printf("\n\n%s\n\n", setup_lua_code);
 				
 				lua_getglobal(L, "setup");
 				lua_pushstring(L, argv[i+1]);
@@ -196,11 +154,29 @@ int main(int argc, char** argv)
 	}
 
 
-	if(!registerMain(L)) //registerMain returns number of failures, suppress is true after this call
+	if(!registerMain(L))
 	{
+	  if(!suppress)
+	    {
+		const char* printModules = 
+			"print(\"Modules:\") \n"\
+			"local m = {}\n"\
+			"for k,v in pairs(getModules()) do\n"\
+			"	table.insert(m, v.name .. \"(r\" .. v.version .. \")\")\n"\
+			"end\n"\
+			"table.sort(m)\n"\
+			"print(table.concat(m, \", \"))";
+
+		if(luaL_dostring(L, printModules))
+		{
+			fprintf(stderr, "%s\n", lua_tostring(L, -1));
+			return -1;
+		}
+	    }	
 		int script = 0;
-		
+
 		// execute each lua script on the command line
+		// TODO: convert the following to Lua code
 		for(int i=1; i<argc; i++)
 		{
 			const char* fn = argv[i];
@@ -213,10 +189,8 @@ int main(int argc, char** argv)
 					script++;
 					if(luaL_dofile(L, fn))
 					{
-						//cerr << "Error:" << endl;
 						const char* errmsg = lua_tostring(L, -1);
 						fprintf(stderr, "Error:\n%s", errmsg);
-						//cerr << errmsg << endl;
 					}
 				}
 			}
@@ -237,15 +211,47 @@ int main(int argc, char** argv)
 	return 0;
 }
 
+// return info about the loaded modules
+static int l_modules(lua_State* L)
+{
+	lua_newtable(L);
+	
+	for(unsigned int i=0; i<theModules.size(); i++)
+	{
+		lua_pushinteger(L, i+1);
+		lua_newtable(L);
+		
+		lua_pushstring(L, "filename");
+		lua_pushstring(L, theModules[i].filename.c_str());
+		lua_settable(L, -3);
+		
+		lua_pushstring(L, "fullpath");
+		lua_pushstring(L, theModules[i].fullpath.c_str());
+		lua_settable(L, -3);
+		
+		lua_pushstring(L, "name");
+		lua_pushstring(L, theModules[i].truename.c_str());
+		lua_settable(L, -3);
+		
+		lua_pushstring(L, "version");
+		lua_pushinteger(L, theModules[i].version);
+		lua_settable(L, -3);
+
+		lua_settable(L, -3);
+	}
+	
+	return 1;
+}
 
 MAGLUA_API int registerMain(lua_State* L)
 {
 	// add module path
 	int modbase = 1;
+	
 	lua_newtable(L);
 	{
 		vector<string> m;
-		getmoddirs(m);
+		getModuleDirectories(m, initial_args);
 		for(unsigned int i=0; i<m.size(); i++)
 		{
 			lua_pushinteger(L, modbase);
@@ -253,17 +259,21 @@ MAGLUA_API int registerMain(lua_State* L)
 			lua_settable(L, -3);
 			modbase++;
 
-// need to locally add mod dirs to PATH so that it will automatically satisfy dll reqs. Hate Windows so much.
 #ifdef WIN32
+			// need to locally add mod dirs to PATH so that it will 
+			// automatically satisfy dll reqs. Hate Windows
 			{
 				char* p = getenv("PATH");
 				string sp = p;
 
-				sp.append(";");
-				sp.append(m[i]);
-				string patheq = "PATH=";
-				patheq.append(sp);
-				putenv(patheq.c_str());
+				if( sp.find(m[i]) == string:npos ) //then PATH doesn't have path yet
+				{
+					sp.append(";");
+					sp.append(m[i]);
+					string patheq = "PATH=";
+					patheq.append(sp);
+					putenv(patheq.c_str());
+				}
 			}
 #endif
 		}
@@ -274,112 +284,59 @@ MAGLUA_API int registerMain(lua_State* L)
 	lua_pushcfunction(L, l_info);
 	lua_setglobal(L, "info");
 
+	lua_pushcfunction(L, l_modules);
+	lua_setglobal(L, "getModules");
+	
 	lua_addargs(L);
+
+	// get the path to each shared library
+	vector<string> module_paths;
+	getModulePaths(L, module_paths);
+
 	
-	int i = registerLibs(suppress, L);
-	suppress = 1; //boo, hack
-	return i;
+	// build/initialize "theModules", this will hold all info about the libraries
+	theModules.clear();
+	
+	for(vector<string>::iterator it=module_paths.begin(); it != module_paths.end(); ++it)
+	{
+		theModules.push_back(loader_item( *it ));
+	}
+	
+	// build argc, argv to look like main args
+	// should probably build from argc/argv in L
+	int argc = initial_args.size();
+	char** argv = (char**)malloc(sizeof(char**) * argc);
+	for(int i=0; i<argc; i++)
+	{
+		argv[i] = (char*) malloc( initial_args[i].size() + 1);
+		strcpy(argv[i], initial_args[i].c_str());
+	}
+	
+	// load the modules
+	int i = load_items(L, theModules, argc, argv, suppress);
+
+	for(int i=0; i<argc; i++)
+		free(argv[i]);
+	free(argv);
+	
+	int failures = 0;
+	for(unsigned int i=0; i<theModules.size(); i++)
+	{
+		if(!theModules[i].registered)
+			failures++;
+	}
+	
+	return failures;
 }
 
 
-int getmoddirs(vector<string>& mds)
-{
-	mds.clear();
-	for(unsigned int i=0; i<initial_args.size(); i++)
-	{
-		if(	strcmp("-L", initial_args[i].c_str()) == 0 	&&
-			i != initial_args.size()-2)
-		{
-			mds.push_back(initial_args[i+1]);
-			i++;
-		}
-	}
-
-	lua_State *L = lua_open();
-	luaL_openlibs(L);
-	
-	int home_len = 0;
-#ifndef WIN32
-	char* home = getenv(HOME);
-#else
-	char* home;
-	size_t foo;
-	_dupenv_s(&home, &foo, HOME);
-#endif
-	if(home)
-	{
-		home_len = strlen(home);
-	}
-	
-	char* init_file = new char[home_len + 128];
-	
-	init_file[0] = 0;
-	if(home)
-	{
-#ifndef WIN32
-		strcpy(init_file, home);
-#else
-		strcpy_s(init_file, home_len+128, home);
-#endif
-	}
-	else
-	{
-#ifndef WIN32
-		strcpy(init_file, ".");
-#else
-		strcpy_s(init_file, home_len+128, ".");
-#endif
-	}
-	
-#ifndef WIN32
-	strcat(init_file, MAGLUA_SETUP_PATH);
-#else
-	strcat_s(init_file, home_len+128, MAGLUA_SETUP_PATH);
-#endif
-
-	if(!luaL_dofile(L, init_file))
-	{
-		lua_getglobal(L, "module_path");
-		if(lua_istable(L, -1))
-		{
-			lua_pushnil(L);
-			while(lua_next(L, -2))
-			{
-				if(lua_isstring(L, -1))
-				{
-					mds.push_back(lua_tostring(L, -1));
-				}
-				lua_pop(L, 1);
-			}
-		}
-		else
-		{
-			if(lua_isstring(L, -1))
-			{
-				mds.push_back(lua_tostring(L, -1));
-			}
-		}
-	}
-	else
-	{
-		printf("%s\n", lua_tostring(L, -1));
-	}
-	
-	delete [] init_file;
-
-#ifdef WIN32
-	free(home);
-#endif
-	lua_close(L);
-	return 0;
-}
 
 
 // add command line args to the lua state
 // adding argc, argv and a table arg
 void lua_addargs(lua_State* L)
 {
-	int argc = (int)initial_args.size();
+	const int argc = initial_args.size();
 	lua_pushinteger(L, argc);
 	lua_setglobal(L, "argc");
 
@@ -402,6 +359,7 @@ void lua_addargs(lua_State* L)
 	lua_setglobal(L, "arg");
 }
 
+
 // get info about the build
 static int l_info(lua_State* L)
 {
@@ -422,345 +380,28 @@ static int l_info(lua_State* L)
 
 	result.append("\nModules: ");
 
-	datamap::iterator mit;
-	for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
+	for(int i=0; i<theModules.size(); i++)
 	{
-		result.append((*mit).second.truename);
+		result.append(theModules[i].truename);
 		result.append("(r");
 		
 		std::ostringstream os;
-		os << (*mit).second.version;
+		os << theModules[i].version;
 		std::string r_str = os.str(); //retrieve as a string
-
 		
 		result.append(r_str);
 		result.append(")");
-		mit++;
-		if( mit != loaded.end())
-			result.append(", ");
-		mit--;
-	}
-	result.append("\n");
 
+		if( i+1 < theModules.size() )
+			result.append(", ");
+		
+	}
+	
 	lua_pushstring(L, result.c_str());
 	return 1;
 }
 
 
-// #define LOAD_LIB_DEBUG
-// Load a library into the process
-//
-// *****************************************************************
-// all the following was broke. Idea was to load dependancies needed to
-// load the library. Thing is you can't load the library to load the
-// dependancies until the deps are loaded. What a dumb mistake...
-// New method is to keep trying to load the libraries until they all
-// loaded. If a round of loads doesn't produce any loads then something
-// is really broke and we'll fail (this is good - don't want to keep
-// retrying when there really is an error)
-// *****************************************************************
-static int load_lib(int suppress, lua_State* L, int argc, char** argv, const string& name, string& true_name)
-{
-	char* buf = 0;
-	int bufsize = 0;
-	int module_version = 0;
-	
-// 	cerr << "Loading " << name << endl;
-	
-	loaded[name].name = name;
-	if(loaded[name].version != 0)//then already loaded
-	{
-		return 3;
-	}
-	string src_dir;
-	
-	
-	// this gets repeated a bunch of times: not good.
-	for(unsigned int i=0; i<mod_dirs.size(); i++)
-	{
-		int len = mod_dirs[i].length() + name.length() + 10;
-		if(len > bufsize)
-		{
-			if(buf)
-				delete [] buf;
-			buf = new char[len];
-			bufsize = len;
-		}
-	
-		snprintf(buf, bufsize, "%s%s%s.%s", mod_dirs[i].c_str(), PATH_SEP, name.c_str(), SO_EXT);
-		loaded[name].path = buf;
-	}
-	if(buf)
-		delete [] buf;
-		
-	typedef int (*lua_func)(lua_State*);
-	typedef const char* (*c_lua_func)(lua_State*);
-	typedef int (*lua_func_aa)(lua_State*, int, char**);
-
-// 	cout << "Path: " << loaded[name].path << endl;
-	
-	  lua_func    lib_register = import_function<  lua_func   >(loaded[name].path, "lib_register");
-	  lua_func    lib_version  = import_function<  lua_func   >(loaded[name].path, "lib_version");
-  	c_lua_func    lib_name     = import_function<c_lua_func   >(loaded[name].path, "lib_name");
-	  lua_func_aa lib_main     = import_function<  lua_func_aa>(loaded[name].path, "lib_main");
-	  
-	if(!lib_register)
-	{
-		// we'll report this later 
-#ifdef LOAD_LIB_DEBUG
-		printf("(%s:%i) !lib_register\n", __FILE__, __LINE__);
-#endif
-
-		return 1;
-    }
-    else
-	{
-#ifdef LOAD_LIB_DEBUG
-		printf("(%s:%i) lib_register FOUND\n", __FILE__, __LINE__);
-#endif
-		
-	}
-
-	if(lib_register(L)) // call the register function from the library
-	{
-		// the windows version of the code has some hackish just-in-time dynamic linking
-		// when it fails (ie. Encode hasn't loaded yet), lib_register will return non-zero
-		printf("lib_register returned non-zero (%s:%i)\n", __FILE__, __LINE__);
-		return 2;
-	}
-
-
- 	//if(!suppress)
- 	//{
- 	//	cout << __LINE__ << "  Loading Module: " << name << endl;
- 	//}
-
-	if(!lib_version)
-	{
-		printf("WARNING: Failed to load `lib_version' from `%s' setting version to -100\n", name.c_str());
-		loaded[name].version = -100;
-		
-	}
-	else
-	{
-		loaded[name].version = lib_version(L);
-		if(loaded[name].version == 0)
-		{
-			printf("WARNING: `lib_version' from `%s' returned 0. Changing version to -100\n", name.c_str());
-			loaded[name].version = -100;
-		}
-	}
-	
-	if(!lib_name)
-	{
-		true_name = name;
-	}
-	else
-	{
-		true_name = lib_name(L);
-	}
-	loaded[name].truename = true_name;
-	
-	//yuck! This loaded/unloaded/true_name is a bit of a mess. Should be rethought and recoded but for now it works well.
-	if(lib_main)
-	{
-		if(lib_main(L, argc, argv))
-			return MAGLUA_MAIN_FAIL;
-	}
-
-	return 0;
-}
-
-
-int registerLibs(int suppress, lua_State* L)
-{
-	loaded.clear();
-	mod_dirs.clear();
-	string true_name;
-	
-	datamap unloaded;
-
-	lua_getglobal(L, "module_path");
-	lua_pushnil(L);
-	while(lua_next(L, -2) != 0)
-	{
-		mod_dirs.push_back(lua_tostring(L, -1));
-		lua_pop(L, 1);
-	}
-	lua_pop(L, 1); //pop table
-	
-#ifndef WIN32
-	struct dirent *dp;
-#else
-
-	HANDLE hFind = INVALID_HANDLE_VALUE;
-#endif
-	// make a list of all the modules we want to load
-	for(unsigned int d=0; d<mod_dirs.size(); d++)
-	{
-#ifndef WIN32
-		DIR *dir = opendir(mod_dirs[d].c_str());
-#else
-
-		char nDir[MAX_PATH];
-		_snprintf(nDir, MAX_PATH,  "%s\\*.%s", mod_dirs[d].c_str(), SO_EXT);
-		
-		std::string ns(nDir); //narrow string
-		std::wstring ws(ns.length(), L' '); //wide string
-		
-		std::copy(ns.begin(), ns.end(), ws.begin());
-
-		WIN32_FIND_DATA dir;
-
-		hFind = FindFirstFile( ws.c_str(), &dir);
-#endif
-
-#ifndef WIN32
-		if(dir)
-		{
-			while( (dp=readdir(dir)) != NULL)
-#else
-		if(hFind != INVALID_HANDLE_VALUE)
-		{
-			do
-#endif
-			{
-#ifndef WIN32
-				const char* filename = dp->d_name;
-#else
-				char filename[4096];
-				wcstombs(filename, dir.cFileName, 4096);
-#endif
-
-				int len = strlen(filename);
-				if(strncasecmp(filename+len-strlen(SO_EXT), SO_EXT, strlen(SO_EXT)) == 0) //then ends with so or dll 
-				{
-					const char ii = strlen(SO_EXT);
-					char* n = new char[len+ii];
-					strncpy(n, filename, len);
-					n[len-ii-1] = 0;
-					
-					unloaded[n].version++; //mark this module to be loaded
-					
-					delete [] n;
-				}
-			}
-#ifdef WIN32
-			while(FindNextFile(hFind, &dir) != 0);
-			FindClose(hFind);
-#else
-			closedir(dir);
-#endif
-		}
-		else
-		{
-#ifndef WIN32
-			cerr << "Failed to read directory `" << mod_dirs[d] << "': " << strerror(errno) << endl;
-#else
-			cerr << "Failed to read directory `" << mod_dirs[d] << "': " << GetLastError() << endl;
-#endif
-		}
-		
-	}
-	
-	
-	datamap::iterator mit;
-	int num_loaded_this_round;
-	
-	// build local argc, argv from initial_args
-	char** argv = new char*[initial_args.size()];
-	unsigned int argc = initial_args.size();
-	for(unsigned int i=0; i<argc; i++)
-	{
-		const int ll = initial_args[i].length();
-		argv[i] = new char[ll + 1];
-		memcpy(argv[i], initial_args[i].c_str(), ll);
-		argv[i][ll] = 0;
-	}
-	
-	do
-	{
-		num_loaded_this_round = 0;
-		
-		for(mit=unloaded.begin(); mit!=unloaded.end(); ++mit)
-		{
-			if( (*mit).second.version > 0 )
-			{
-				string name = (*mit).first;
-				
-				true_name = "";
-				if(!load_lib(suppress, L, argc, argv, name, true_name))
-				{
-					(*mit).second.version = 0;
-					(*mit).second.truename = true_name;
-					num_loaded_this_round++;
-				}
-
-			}
-		}
-	}while(num_loaded_this_round > 0);
-	
-	for(unsigned int i=0; i<initial_args.size(); i++)
-	{
-		delete [] argv[i];
-	}
-	delete [] argv;
-	
-	if(!suppress)
-	{
-		cout << "Modules: ";
-		for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
-		{
-			cout << (*mit).second.truename;
-			cout << "(r" << (*mit).second.version << ")";
-			mit++;
-			if( mit != loaded.end())
-				cout << ", ";
-			mit--;
-		}
-		cout << endl;
-	}
-	
-#ifdef WIN32
-#define dlerror() "dlerror"
-#endif
-
-	// we've either loaded all the modules or there are some left with errors
-	// check to see if and of the unloaded have finite value
-	int bad_fail = 0;
-	for(mit=unloaded.begin(); mit!=unloaded.end(); ++mit)
-	{
-		if( (*mit).second.version > 0)
-		{
-			// try to load it one more time(it will fail), we'll report any errors here
-			int load_err = load_lib(suppress, L, argc, argv, (*mit).first, true_name);
-
-			switch(load_err)
-			{
-				case 1:
-					cerr << "Cannot load symbol `lib_register' in `" << (*mit).first << "': " << dlerror() << endl;
-					break;
-
-				case 2:
-					cerr << "Cannot load `" << (*mit).first << "': " << dlerror() << endl;
-					break;
-					
-				case MAGLUA_MAIN_FAIL:
-				{
-					cerr << "Main failed in `" << true_name << "'" << endl;
-					return MAGLUA_MAIN_FAIL;
-				}
-				
-				default:
-					cerr << "Failed to load `" << (*mit).first << "'" << endl;
-			}
-			bad_fail++;
-		}
-	}
-	
-	
-	return bad_fail;
-}
 
 const char* reference()
 {
@@ -794,16 +435,3 @@ void print_help()
 	cout << endl;
 }
 
-
-extern "C" MAGLUA_API const char* get_libpath(const char* libname)
-{
-	datamap::iterator mit;
-	for(mit=loaded.begin(); mit!=loaded.end(); ++mit)
-	{
-		if(strcasecmp(libname, (*mit).second.name.c_str()) == 0)
-		{
-			return (*mit).second.path.c_str();
-		}
-	}
-	return 0;
-}

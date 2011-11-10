@@ -73,6 +73,23 @@ void ss_copyHostToDevice_(double* dest, double* src, int nxyz, const char* file,
 
 
 
+__global__ void scaleValue(double* dest, int n, double s)
+{
+	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(idx >= n)
+		return;
+	dest[idx] *= s;
+}
+
+void ss_d_scale3DArray(double* d_dest, int n, double s)
+{
+	const int threads = 256;
+	const int blocks = n / threads + 1;
+
+	scaleValue<<<blocks, threads>>>(d_dest, n, s);
+	KCHECK
+}
 
 // __global__ void addValue(double* dest, const int n, double* s1, double* s2)
 // {

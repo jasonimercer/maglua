@@ -12,19 +12,19 @@
 # ./configure  --prefix=$HOME --with-pic --enable-shared
 
 CXX=mpic++ -D_MPI
-CFLAGS=-ansi -O2
+CFLAGS=-ansi -O2 -g
 PKG=lua5.1 fftw3
-INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I$(BASEDIR) -I$(BASEDIR)/encode -I$(BASEDIR)/core $(EXTRA_INCLUDE)
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
 LIBS=`pkg-config --libs $(PKG)` -lpthread
-OBJECTS=main.o
+OBJECTS=main.o loader.o modules.o
 
 BIN=maglua
 
 $(BIN): $(OBJECTS)
 	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group $(LIBS) $(OBJECTS)  -Wl,--end-group
 
-main.o : main.cpp info.h main.h Makefile
-	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
+%.o : %.cpp  %.h info.h Makefile
+	$(CXX) -fPIC $(INCLUDEPATH) $(CFLAGS) -c $*.cpp -o $*.o 
 
 info.h:					#dev version
 	./premake.sh $(CXX) $(CFLAGS)	#dev version

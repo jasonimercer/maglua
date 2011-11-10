@@ -3,6 +3,7 @@
 #include "net_helpers.h"
 
 #include "main.h"
+#include "import.h"
 
 #include <stdio.h>
 #include <semaphore.h>

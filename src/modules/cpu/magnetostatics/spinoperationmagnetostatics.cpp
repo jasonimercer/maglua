@@ -89,7 +89,7 @@ void Magnetostatic::init()
 	hry = new complex<double> [nxyz];
 	hrz = new complex<double> [nxyz];
 
-	int s = nx*ny * (nz*2-1);
+	int s = nx*ny * nz;
 	qXX = new complex<double>[s];
 	qXY = new complex<double>[s];
 	qXZ = new complex<double>[s];
@@ -153,7 +153,7 @@ void Magnetostatic::getMatrices()
 {
 	init();
 
-	int s = nx*ny * (nz*2-1);
+	int s = nx*ny * nz;
 	double* XX = new double[s];
 	double* XY = new double[s];
 	double* XZ = new double[s];
@@ -196,7 +196,7 @@ void Magnetostatic::getMatrices()
 	qarrs[5] = qZZ;
 	
 	for(int a=0; a<6; a++)
-		for(int k=0; k<2*nz-1; k++)
+		for(int k=0; k<nz; k++)
 		{
 			for(int i=0; i<nx*ny; i++)
 				r[i] = complex<double>(arrs[a][k*nx*ny + i],0);
@@ -288,21 +288,28 @@ void Magnetostatic::collectIForces(SpinSystem* ss)
 	for(targetLayer=0; targetLayer<nz; targetLayer++)
 	for(sourceLayer=0; sourceLayer<nz; sourceLayer++)
 	{
+		int offset = sourceLayer - targetLayer;
+		double sign = 1.0;
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = -sign;
+		}
+	
 		targetOffset = targetLayer * nxy;
 		sourceOffset = sourceLayer * nxy;
-		demagOffset  = ( sourceLayer - targetLayer + nz - 1 ) * nxy;
-
+		demagOffset  = offset * nxy;
 		//these are complex multiplies and adds
 		for(c=0; c<nxy; c++) hqx[cTo]+=qXX[cDo]*sqx[cSo];
 		for(c=0; c<nxy; c++) hqx[cTo]+=qXY[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) hqx[cTo]+=qXZ[cDo]*sqz[cSo];
+		for(c=0; c<nxy; c++) hqx[cTo]+=qXZ[cDo]*sqz[cSo]*sign;
 
 		for(c=0; c<nxy; c++) hqy[cTo]+=qXY[cDo]*sqx[cSo];
 		for(c=0; c<nxy; c++) hqy[cTo]+=qYY[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) hqy[cTo]+=qYZ[cDo]*sqz[cSo];
+		for(c=0; c<nxy; c++) hqy[cTo]+=qYZ[cDo]*sqz[cSo]*sign;
 
-		for(c=0; c<nxy; c++) hqz[cTo]+=qXZ[cDo]*sqx[cSo];
-		for(c=0; c<nxy; c++) hqz[cTo]+=qYZ[cDo]*sqy[cSo];
+		for(c=0; c<nxy; c++) hqz[cTo]+=qXZ[cDo]*sqx[cSo]*sign;
+		for(c=0; c<nxy; c++) hqz[cTo]+=qYZ[cDo]*sqy[cSo]*sign;
 		for(c=0; c<nxy; c++) hqz[cTo]+=qZZ[cDo]*sqz[cSo];
 	}
 }
@@ -400,11 +407,24 @@ int l_mag_setunitcell(lua_State* L)
 	Magnetostatic* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
-	for(int i=0; i<9; i++)
-		mag->ABC[i] = lua_tonumber(L, i+2);
+	double A[3];
+	double B[3];
+	double C[3];
+	
+	int r1 = lua_getNdouble(L, 3, A, 2, 0);
+	int r2 = lua_getNdouble(L, 3, B, 2+r1, 0);
+	int r3 = lua_getNdouble(L, 3, C, 2+r1+r2, 0);
+	
+	for(int i=0; i<3; i++)
+	{
+		mag->ABC[i+0] = A[i];
+		mag->ABC[i+3] = B[i];
+		mag->ABC[i+6] = C[i];
+	}
 
 	return 0;
 }
+
 int l_mag_getunitcell(lua_State* L)
 {
 	Magnetostatic* mag = checkMagnetostatic(L, 1);

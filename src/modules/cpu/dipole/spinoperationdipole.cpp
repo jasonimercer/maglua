@@ -44,7 +44,7 @@ void Dipole::init()
 	hry = new complex<double> [nxyz];
 	hrz = new complex<double> [nxyz];
 
-	int s = nx*ny * (nz*2-1);
+	int s = nx*ny * nz;
 	qXX = new complex<double>[s];
 	qXY = new complex<double>[s];
 	qXZ = new complex<double>[s];
@@ -144,7 +144,7 @@ void Dipole::getMatrices()
 {
 	init();
 	
-	int s = nx*ny * (nz*2-1);
+	int s = nx*ny * nz;
 	double* XX = new double[s];
 	double* XY = new double[s];
 	double* XZ = new double[s];
@@ -186,7 +186,7 @@ void Dipole::getMatrices()
 	qarrs[5] = qZZ;
 	
 	for(int a=0; a<6; a++)
-		for(int k=0; k<2*nz-1; k++)
+		for(int k=0; k<nz; k++)
 		{
 			for(int i=0; i<nx*ny; i++)
 				r[i] = complex<double>(arrs[a][k*nx*ny + i],0);
@@ -278,20 +278,28 @@ void Dipole::collectIForces(SpinSystem* ss)
 	for(targetLayer=0; targetLayer<nz; targetLayer++)
 	for(sourceLayer=0; sourceLayer<nz; sourceLayer++)
 	{
+		int offset = sourceLayer - targetLayer;
+		double sign = 1.0;
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = -sign;
+		}
+	
 		targetOffset = targetLayer * nxy;
 		sourceOffset = sourceLayer * nxy;
-		demagOffset  = ( sourceLayer - targetLayer + nz - 1 ) * nxy;
+		demagOffset  = offset * nxy;
 		//these are complex multiplies and adds
 		for(c=0; c<nxy; c++) hqx[cTo]+=qXX[cDo]*sqx[cSo];
 		for(c=0; c<nxy; c++) hqx[cTo]+=qXY[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) hqx[cTo]+=qXZ[cDo]*sqz[cSo];
+		for(c=0; c<nxy; c++) hqx[cTo]+=qXZ[cDo]*sqz[cSo]*sign;
 
 		for(c=0; c<nxy; c++) hqy[cTo]+=qXY[cDo]*sqx[cSo];
 		for(c=0; c<nxy; c++) hqy[cTo]+=qYY[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) hqy[cTo]+=qYZ[cDo]*sqz[cSo];
+		for(c=0; c<nxy; c++) hqy[cTo]+=qYZ[cDo]*sqz[cSo]*sign;
 
-		for(c=0; c<nxy; c++) hqz[cTo]+=qXZ[cDo]*sqx[cSo];
-		for(c=0; c<nxy; c++) hqz[cTo]+=qYZ[cDo]*sqy[cSo];
+		for(c=0; c<nxy; c++) hqz[cTo]+=qXZ[cDo]*sqx[cSo]*sign;
+		for(c=0; c<nxy; c++) hqz[cTo]+=qYZ[cDo]*sqy[cSo]*sign;
 		for(c=0; c<nxy; c++) hqz[cTo]+=qZZ[cDo]*sqz[cSo];
 	}
 }

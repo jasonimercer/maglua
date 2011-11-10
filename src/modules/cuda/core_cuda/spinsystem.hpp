@@ -38,6 +38,9 @@ void CORECUDA_API ss_d_add3DArray(double* d_dest, int nx, int ny, int nz, double
 
 void CORECUDA_API ss_d_scaleadd3DArray(double* d_dest, int n, double s1, double* d_src1, double s2, double* d_src2);
 
+void CORECUDA_API ss_d_scale3DArray(double* d_dest, int n, double s1);
+
+
 double CORECUDA_API ss_reduce3DArray_sum(double* d_v, double* d_ws1, double* h_ws1, int nx, int ny, int nz);
 
 void CORECUDA_API ss_d_absDiffArrays_(double* d_dest, double* d_src1, double* d_src2, int nxyz, const char* file, const unsigned int line);

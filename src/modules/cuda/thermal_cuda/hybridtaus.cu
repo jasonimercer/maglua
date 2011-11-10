@@ -123,8 +123,8 @@ void HybridTausSeed(state_t* d_state, int nx, int ny, int nz, const int i)
 	CHECK
 
 	#ifndef _WIN32
-	static char randstate[4096];
-	struct random_data buf;
+	char randstate[4096];
+	random_data buf;
 	initstate_r(i, randstate, 256, &buf);
 	#else
 	srand( i );

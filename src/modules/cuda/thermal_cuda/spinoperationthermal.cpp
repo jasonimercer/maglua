@@ -15,6 +15,10 @@
 #include <math.h>
 #include <stdio.h>
 
+#ifndef WIN32
+#include <time.h>
+#endif
+
 #include "spinsystem.hpp"
 #include "spinoperationthermal.hpp"
 
@@ -103,7 +107,12 @@ void Thermal::init()
 	HybridTausAllocState(&d_state, nx, ny, nz);
 	HybridTausAllocRNG(&d_rngs, nx, ny, nz);
 	
- 	HybridTausSeed(d_state, nx, ny, nz, 123456);
+#ifndef WIN32
+#warning Random seed by time(). Need something more elegant
+	HybridTausSeed(d_state, nx, ny, nz, time(0));
+#else
+	HybridTausSeed(d_state, nx, ny, nz, 123456);
+#endif
 }
 
 void Thermal::deinit()

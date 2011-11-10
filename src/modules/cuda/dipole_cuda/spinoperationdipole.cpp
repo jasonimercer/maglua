@@ -12,6 +12,7 @@
 
 #include "spinoperationdipole.h"
 #include "spinsystem.h"
+#include "spinsystem.hpp"
 #include "dipolesupport.h"
 #include "info.h"
 
@@ -88,7 +89,7 @@ void DipoleCuda::getPlan()
 {
 	deinit();
 	
-	int s = nx*ny * (nz*2-1);
+	int s = nx*ny * (nz);// *2-1);
 	double* XX = new double[s];
 	double* XY = new double[s];
 	double* XZ = new double[s];
@@ -137,11 +138,18 @@ bool DipoleCuda::apply(SpinSystem* ss)
 					d_sx, d_sy, d_sz, 
 					d_hx, d_hy, d_hz);
 
-// 	ss->new_host_fields[slot] = false;
+	ss_d_scale3DArray(d_hx, nxyz, g);
+	ss_d_scale3DArray(d_hy, nxyz, g);
+	ss_d_scale3DArray(d_hz, nxyz, g);
+	
 	ss->new_device_fields[slot] = true;
 
-// 	ss->sync_fields_dh(slot);
-// 	printf("(%s:%i) %f %f %f\n", __FILE__, __LINE__, ss->h_hx[slot][1], ss->h_hy[slot][1], ss->h_hz[slot][1]);
+	//	ss->sync_spins_dh();
+	// 	printf("(%s:%i) %f %f %f\n", __FILE__, __LINE__, ss->h_x[1], ss->h_y[1], ss->h_z[1]);
+
+//  	ss->sync_fields_dh(slot);
+// 	const int i = 16*16;
+// 	printf("(%s:%i) %f %f %f\n", __FILE__, __LINE__, ss->h_hx[slot][i], ss->h_hy[slot][i], ss->h_hz[slot][i]);
 	
 	return true;
 }
@@ -242,7 +250,7 @@ int l_dip_setunitcell(lua_State* L)
 	
 	int r1 = lua_getNdouble(L, 3, A, 2, 0);
 	int r2 = lua_getNdouble(L, 3, B, 2+r1, 0);
-	int r3 = lua_getNdouble(L, 3, C, 2+r2+r3, 0);
+	         lua_getNdouble(L, 3, C, 2+r1+r2, 0);
 	
 	for(int i=0; i<3; i++)
 	{

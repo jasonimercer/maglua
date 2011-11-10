@@ -368,7 +368,7 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 	                 double* GammaYY, double* GammaYZ,
 	                                  double* GammaZZ)
 {
-	const int nz = N_z + N_z - 1;
+	const int nz = N_z;// + N_z - 1;
 	const int log2N_x = log2((double)N_x);
 	const int log2N_y = log2((double)N_y);
 	const int sRxy = sizeof(REAL) * N_x * N_y;
@@ -519,7 +519,7 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 	
 	// now we will work on loading all the interaction matrices
 	// onto the GPU and fourier transforming them
-	static const struct {
+	struct {
         double* h; //host memory
 		CUCOMPLEX** d; //device memory
     } sd[] = { //sd = static data
@@ -602,7 +602,7 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 void free_JM_LONGRANGE_PLAN(JM_LONGRANGE_PLAN* p)
 {
 	const int N_z = p->N_z;
-	const int nz = N_z * 2 - 1;
+	const int nz = N_z; // * 2 - 1;
 	
 	CHECKCALL(cudaFree(p->d_brp_x));
 	CHECKCALL(cudaFree(p->d_brp_y));
@@ -665,7 +665,7 @@ void free_JM_LONGRANGE_PLAN(JM_LONGRANGE_PLAN* p)
 	delete p;
 }
 
-__global__ void convolveSum(const int N_x, const int N_y, CUCOMPLEX* d_dest,  CUCOMPLEX* d_A,  CUCOMPLEX* d_B)
+__global__ void convolveSum(const int N_x, const int N_y, CUCOMPLEX* d_dest,  CUCOMPLEX* d_A,  CUCOMPLEX* d_B, double sign)
 {
 	IDX_PATT(i, y);
 	
@@ -678,7 +678,7 @@ __global__ void convolveSum(const int N_x, const int N_y, CUCOMPLEX* d_dest,  CU
 	if(idx >= N_x * N_y) return;
 #endif
 	
-	d_dest[idx] = cuCadd(d_dest[idx], cuCmul(d_A[idx], d_B[idx]));
+	d_dest[idx] = cuCadd(d_dest[idx], cuCmul(d_A[idx], cuCmul(MAKECOMPLEX(sign,0), d_B[idx])));
 }
 
 
@@ -703,10 +703,9 @@ __global__ void setLayer(const int N_x, const int N_y, const int layer, REAL* d_
 		return;
 
 
-	const int _a = i + y * N_x + layer * N_x * N_y;
 	const int _b = i + y * N_x;
+	const int _a = _b + layer * N_x * N_y;
 #ifdef BOUND_CHECKS
-	if(_a >= N_x * N_y) return;
 	if(_b >= N_x * N_y) return;
 #endif
 	
@@ -722,10 +721,7 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 	const int N_z = p->N_z;
 	const int log2N_x = p->log2N_x;
 	const int log2N_y = p->log2N_y;
-	const int sRxy = sizeof(REAL)*N_x*N_y;
 	
-	
-
 	#ifdef SMART_SCHEDULE
 	//different thread schedules for different access patterns
 	dim3 blocksx(N_y);
@@ -746,7 +742,7 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 	CUCOMPLEX* d_tmp = 0;
 	
 	// FT the spins
-	static const struct {
+	struct {
         const double*	d_s_r;
 		CUCOMPLEX** 	d_s_q;
 		CUCOMPLEX** 	d_h_q;
@@ -822,26 +818,35 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 	
 	
 
+	// Nov 9/2011. Negative offsets are the same as positive offsets except tensors with odd number
+	// of Zs are negated (XZ, YZ, not ZZ)
 	for(int targetLayer=0; targetLayer<N_z; targetLayer++)
 	for(int sourceLayer=0; sourceLayer<N_z; sourceLayer++)
 	{
-		const int offset = (sourceLayer - targetLayer + N_z - 1);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hx_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXX[offset]);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hx_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaXY[offset]);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hx_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaXZ[offset]);
+		//const int offset = (sourceLayer - targetLayer + N_z - 1);
+		int offset = sourceLayer - targetLayer;
+		double sign = 1;
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = -1;
+		}
+		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hx_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXX[offset],    1);
+		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hx_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaXY[offset],    1);
+		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hx_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaXZ[offset], sign);
 
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hy_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXY[offset]);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hy_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaYY[offset]);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hy_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaYZ[offset]);
+		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hy_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXY[offset],    1);
+		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hy_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaYY[offset],    1);
+		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hy_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaYZ[offset], sign);
 
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXZ[offset]);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaYZ[offset]);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaZZ[offset]);
+		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXZ[offset], sign);
+		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaYZ[offset], sign);
+		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaZZ[offset],    1);
 		KCHECK
 	}
 
 	// h(q) now calculated, iFT them 
-	for(int k=0; k<3; k++) //for each component
+	for(int k=0; k<3; k++) //for each component XYZ
 	{
 		CUCOMPLEX** d_h = sd[k].d_h_q;
 		double* d_hxyz = sd[k].d_h_r;

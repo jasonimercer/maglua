@@ -19,6 +19,8 @@
 #ifdef WIN32
  #include <windows.h>
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #pragma warning(disable: 4251)
+ #pragma warning(disable: 4996)
  #define snprintf _snprintf
 #endif
 
@@ -171,23 +173,102 @@ void getWAB(
 }//end function WAB
 
 
+static int _isZeroMat(const double* M, int nx, int ny)
+{
+	for(int j=0; j<ny; j++)
+	{
+		for(int i=0; i<nx; i++)
+		{
+			if(fabs(M[i+j*nx]) > 1E-16)
+				return 0;
+		}
+	}
+	return 1;
+}
 
 static void _writemat(FILE* f, const char* name, int zoffset, const double* M, int nx, int ny)
 {
 	fprintf(f, "\n");
-	fprintf(f, "%s[%i] = {\n", name, zoffset);
+	
+	if(_isZeroMat(M, nx, ny))
+	{
+		fprintf(f, "%s[%i] = 0\n", name, zoffset);
+		return;
+	}
+	
+	fprintf(f, "%s[%i] = [[\n", name, zoffset);
 
 	for(int j=0; j<ny; j++)
 	{
-		fprintf(f, "    {");
+// 		fprintf(f, "    {");
 		for(int i=0; i<nx; i++)
 		{
-			fprintf(f, "%-12e%s", M[i+j*nx], i==(nx-1)?"}":", ");
+// 			fprintf(f, "% 12e%s", M[i+j*nx], i==(nx-1)?"}":", ");
+			fprintf(f, "% 12e%s", M[i+j*nx], (i==(nx-1) && j==(ny-1))?"":",");
 		}
-		fprintf(f, "%c\n", j==(ny-1)?' ':',');
+		fprintf(f, "\n");
+// 		fprintf(f, "%c\n", j==(ny-1)?' ':',');
 	}
-	fprintf(f, "}\n");
+	fprintf(f, "]]\n");
 	fprintf(f, "\n");
+}
+
+static void _writeParser(FILE* f)
+{
+	const char* parse =
+		"\n"
+		"function tokenizeNumbers(line)\n"
+		"	local t = {}\n"
+		"	for w in string.gmatch(line, \"[^,]+\") do\n"
+		"		table.insert(t, tonumber(w))\n"
+		"	end\n"
+		"	return t\n"
+		"end\n"
+		"\n"
+		"function tokenizeLines(lines)\n"
+		"	-- strip empty lines\n"
+		"	lines = string.gsub(lines, \"^%s*\\n*\", \"\")\n"
+		"	lines = string.gsub(lines, \"\\n\\n+\", \"\\n\")\n"
+		"	\n"
+		"	local t = {}\n"
+		"	for w in string.gmatch(lines, \"(.-)\\n\" ) do\n"
+		"		table.insert(t, tokenizeNumbers(w))\n"
+		"	end\n"
+		"	\n"
+		"	return t\n"
+		"end\n"
+		"\n"
+		"function parseMatrix(M)\n"
+		"	if M == 0 then\n"
+		"		-- returns a 2D table that always returns zero\n"
+		"		local tz, ttz = {}, {}\n"
+		"		setmetatable(tz,  {__index = function() return  0 end})\n"
+		"		setmetatable(ttz, {__index = function() return tz end})\n"
+		"		return ttz\n"
+		"	end\n"
+		"	\n"
+		"	return tokenizeLines(M)\n"
+		"end\n"
+		"\n"
+		"function map(f, t)\n"
+		"	for k,v in pairs(t) do\n"
+		"		t[k] = f(v)\n"
+		"	end\n"
+		"	return t\n"
+		"end\n"
+		"\n"
+		"function parse()\n"
+		"	XX = map(parseMatrix, XX)\n"
+		"	XY = map(parseMatrix, XY)\n"
+		"	XZ = map(parseMatrix, XZ)\n"
+		"\n"
+		"	YY = map(parseMatrix, YY)\n"
+		"	YZ = map(parseMatrix, YZ)\n"
+		"\n"
+		"	ZZ = map(parseMatrix, ZZ)\n"
+		"end\n";
+
+	fprintf(f, "%s", parse);
 }
 
 bool dipole_write_matrix(const char* filename,
@@ -212,7 +293,7 @@ bool dipole_write_matrix(const char* filename,
 	fprintf(f, "XX={} XY={} XZ={} YY={} YZ={} ZZ={}\n");
 	
 	int c = 0;
-	for(int zoffset=-nz+1; zoffset<nz; zoffset++)
+	for(int zoffset=0; zoffset<nz; zoffset++)
 	{
 		_writemat(f, "XX", zoffset, &XX[c*nx*ny], nx, ny);
 		_writemat(f, "XY", zoffset, &XY[c*nx*ny], nx, ny);
@@ -225,6 +306,9 @@ bool dipole_write_matrix(const char* filename,
 		
 		c++;
 	}
+	
+	
+	_writeParser(f);
 	
 	fclose(f);
 	return true;
@@ -365,13 +449,24 @@ static void loadXYZ(
 		return;
 	}
 	
+	lua_getglobal(L, "parse");
+	if(lua_isfunction(L, -1))
+	{
+	  if(lua_pcall(L, 0, 0, 0))
+	    {
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		lua_close(L);
+		return;	      
+	    }
+	}
+
 	const int nxyz = nx*ny*nz;
 	for(int a=0; a<6; a++)
 	{
 		int c = 0;
 		//int p = 0;
 		lua_getglobal(L, vars[a]); //XX
-		for(int k=-nz+1; k<nz; k++)
+		for(int k=0; k<nz; k++)
 		{
 			lua_pushinteger(L, k); //XX 0
 			lua_gettable(L, -2);   //XX XX[0]
@@ -423,7 +518,7 @@ void dipoleLoad(
 		else
 		{
 			int c = 0;
-			for(int k=-nz+1; k<nz; k++)
+			for(int k=0; k<nz; k++)
 			{
 				for(int j=0; j<ny; j++)
 				{

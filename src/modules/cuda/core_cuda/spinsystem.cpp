@@ -41,6 +41,7 @@ void SpinSystem::sync_spins_dh(bool force)
 {
 	if(new_device_spins || force)
 	{
+// 	  printf("(%s:%i) sync_spins_dh\n", __FILE__, __LINE__);
 		if(new_host_spins)
 		{
 			printf("(%s:%i) overwriting new host spins\n", __FILE__, __LINE__);
@@ -59,6 +60,7 @@ void SpinSystem::sync_fields_dh(int field, bool force)
 {
 	if(new_device_fields[field] || force)
 	{
+// 	  printf("(%s:%i) sync_fields_dh(%i)\n", __FILE__, __LINE__, field);
 		ss_copyDeviceToHost(h_hx[field], d_hx[field], nxyz);
 		ss_copyDeviceToHost(h_hy[field], d_hy[field], nxyz);
 		ss_copyDeviceToHost(h_hz[field], d_hz[field], nxyz);
@@ -72,6 +74,7 @@ void SpinSystem::sync_spins_hd(bool force)
 {
 	if(new_host_spins || force)
 	{
+// 	  printf("(%s:%i) sync_spins_hd\n", __FILE__, __LINE__);
 		ss_copyHostToDevice(d_x, h_x, nxyz);
 		ss_copyHostToDevice(d_y, h_y, nxyz);
 		ss_copyHostToDevice(d_z, h_z, nxyz);
@@ -86,6 +89,7 @@ void SpinSystem::sync_fields_hd(int field, bool force)
 {
 	if(new_host_fields[field] || force)
 	{
+// 	  printf("(%s:%i) sync_fields_hd(%i)\n", __FILE__, __LINE__, field);
 		ss_copyHostToDevice(d_hx[field], h_hx[field], nxyz);
 		ss_copyHostToDevice(d_hy[field], h_hy[field], nxyz);
 		ss_copyHostToDevice(d_hz[field], h_hz[field], nxyz);
