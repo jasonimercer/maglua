@@ -264,10 +264,12 @@ void SpinSystem::deinit()
 		ss_d_free3DArray(d_z);
 		ss_d_free3DArray(d_ms);
 		
-		ss_d_free3DArray(d_ws1);
-		ss_d_free3DArray(d_ws2);
-		ss_d_free3DArray(d_ws3);
-		ss_d_free3DArray(d_ws4);
+		ss_d_free3DArray(d_wsAll);
+
+		//ss_d_free3DArray(d_ws1);
+		//ss_d_free3DArray(d_ws2);
+		//ss_d_free3DArray(d_ws3);
+		//ss_d_free3DArray(d_ws4);
 		
 		ss_h_free3DArray(h_ws1);
 			
@@ -354,10 +356,17 @@ void SpinSystem::init()
 	sync_spins_dh();
 	
 	
-	ss_d_make3DArray(&d_ws1, nx, ny, nz);
-	ss_d_make3DArray(&d_ws2, nx, ny, nz);
-	ss_d_make3DArray(&d_ws3, nx, ny, nz);
-	ss_d_make3DArray(&d_ws4, nx, ny, nz);
+	ss_d_make3DArray(&d_wsAll, nx, ny, nz*4);
+
+	d_ws1 = d_wsAll + nxyz * 0;
+	d_ws2 = d_wsAll + nxyz * 1;
+	d_ws3 = d_wsAll + nxyz * 2;
+	d_ws4 = d_wsAll + nxyz * 3;
+
+	//ss_d_make3DArray(&d_ws1, nx, ny, nz);
+	//ss_d_make3DArray(&d_ws2, nx, ny, nz);
+	//ss_d_make3DArray(&d_ws3, nx, ny, nz);
+	//s_d_make3DArray(&d_ws4, nx, ny, nz);
 	
 	const int min_size = (nx*ny*nz) / 64 + 1;
 	

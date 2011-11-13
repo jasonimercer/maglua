@@ -68,10 +68,14 @@ public:
 	// these are used when kernels need to
 	// split into multiple parts to
 	// keep register counts down.
-	double* d_ws1;
+	double* d_wsAll; //this is the real one. 
+
+	double* d_ws1; //these index into it
 	double* d_ws2;
 	double* d_ws3;
 	double* d_ws4;
+
+
 	
 	double* h_ws1;
 	

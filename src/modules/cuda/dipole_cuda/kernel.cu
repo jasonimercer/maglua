@@ -343,9 +343,9 @@ typedef struct JM_LONGRANGE_PLAN
 	CUCOMPLEX** d_sy_q;
 	CUCOMPLEX** d_sz_q;
 	
-	CUCOMPLEX** d_hx_q;
-	CUCOMPLEX** d_hy_q;
-	CUCOMPLEX** d_hz_q;
+	CUCOMPLEX*  d_hA_q;
+// 	CUCOMPLEX** d_hy_q;
+// 	CUCOMPLEX** d_hz_q;
 	
 	// 2D arrays, 1st dimmension is for interlayer offset
 	CUCOMPLEX** d_GammaXX;
@@ -473,20 +473,13 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 	p->d_sy_q = new CUCOMPLEX*[nz];
 	p->d_sz_q = new CUCOMPLEX*[nz];
 
-	p->d_hx_q = new CUCOMPLEX*[nz];
-	p->d_hy_q = new CUCOMPLEX*[nz];
-	p->d_hz_q = new CUCOMPLEX*[nz];
-
 	for(int i=0; i<nz; i++)
 	{
 		CHECKCALL(cudaMalloc(&(p->d_sx_q[i]), sCxy));
 		CHECKCALL(cudaMalloc(&(p->d_sy_q[i]), sCxy));
 		CHECKCALL(cudaMalloc(&(p->d_sz_q[i]), sCxy));
-	
-		CHECKCALL(cudaMalloc(&(p->d_hx_q[i]), sCxy));
-		CHECKCALL(cudaMalloc(&(p->d_hy_q[i]), sCxy));
-		CHECKCALL(cudaMalloc(&(p->d_hz_q[i]), sCxy));
 	}
+	CHECKCALL(cudaMalloc(&(p->d_hA_q), sCxy));
 	
 	// make room for FT'd interaction matrices
 	p->d_GammaXX = new CUCOMPLEX*[nz];
@@ -500,6 +493,7 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 
 	for(int i=0; i<nz; i++)
 	{
+	    printf("%i/%i\n", i, nz);
 		CHECKCALL(cudaMalloc(&(p->d_GammaXX[i]), sCxy));
 		CHECKCALL(cudaMalloc(&(p->d_GammaXY[i]), sCxy));
 		CHECKCALL(cudaMalloc(&(p->d_GammaXZ[i]), sCxy));
@@ -624,18 +618,18 @@ void free_JM_LONGRANGE_PLAN(JM_LONGRANGE_PLAN* p)
 		CHECKCALL(cudaFree(p->d_sy_q[z]));
 		CHECKCALL(cudaFree(p->d_sz_q[z]));
 	
-		CHECKCALL(cudaFree(p->d_hx_q[z]));
-		CHECKCALL(cudaFree(p->d_hy_q[z]));
-		CHECKCALL(cudaFree(p->d_hz_q[z]));
+// 		CHECKCALL(cudaFree(p->d_hy_q[z]));
+// 		CHECKCALL(cudaFree(p->d_hz_q[z]));
 	}
+	CHECKCALL(cudaFree(p->d_hA_q));
 	
 	delete [] p->d_sx_q;
 	delete [] p->d_sy_q;
 	delete [] p->d_sz_q;
 
-	delete [] p->d_hx_q;
-	delete [] p->d_hy_q;
-	delete [] p->d_hz_q;
+//	delete [] p->d_hA_q;
+// 	delete [] p->d_hy_q;
+// 	delete [] p->d_hz_q;
 
 	for(int z=0; z<nz; z++)
 	{
@@ -716,26 +710,26 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 				  const double* d_sx, const double* d_sy, const double* d_sz,
 				  double* d_hx, double* d_hy, double* d_hz)
 {
-	const int N_x = p->N_x;
-	const int N_y = p->N_y;
-	const int N_z = p->N_z;
-	const int log2N_x = p->log2N_x;
-	const int log2N_y = p->log2N_y;
-	
-	#ifdef SMART_SCHEDULE
-	//different thread schedules for different access patterns
-	dim3 blocksx(N_y);
-	dim3 blocksy(N_x);
-	dim3 threadsxx(N_x);
-	dim3 threadsyy(N_y);
-	#else
-	const int _blocksx = N_x / 32 + 1;
-	const int _blocksy = N_y / 32 + 1;
-	dim3 blocksx(_blocksx, _blocksy);
-	dim3 blocksy(_blocksx,_blocksy);
-	dim3 threadsxx(32,32);
-	dim3 threadsyy(32,32);
-	#endif
+    const int N_x = p->N_x;
+    const int N_y = p->N_y;
+    const int N_z = p->N_z;
+    const int log2N_x = p->log2N_x;
+    const int log2N_y = p->log2N_y;
+    
+#ifdef SMART_SCHEDULE
+    //different thread schedules for different access patterns
+    dim3 blocksx(N_y);
+    dim3 blocksy(N_x);
+    dim3 threadsxx(N_x);
+    dim3 threadsyy(N_y);
+#else
+    const int _blocksx = N_x / 32 + 1;
+    const int _blocksy = N_y / 32 + 1;
+    dim3 blocksx(_blocksx, _blocksy);
+    dim3 blocksy(_blocksx,_blocksy);
+    dim3 threadsxx(32,32);
+    dim3 threadsyy(32,32);
+#endif
 
 	CUCOMPLEX* d_src  = p->d_A; //local vars for swapping workspace
 	CUCOMPLEX* d_dest = p->d_B;
@@ -743,14 +737,13 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 	
 	// FT the spins
 	struct {
-        const double*	d_s_r;
-		CUCOMPLEX** 	d_s_q;
-		CUCOMPLEX** 	d_h_q;
-		double*     	d_h_r;
-    } sd[] = { //sd = static data
-        {d_sx, p->d_sx_q, p->d_hx_q, d_hx},
-        {d_sy, p->d_sy_q, p->d_hy_q, d_hy},
-        {d_sz, p->d_sz_q, p->d_hz_q, d_hz}
+	    const double*	d_s_r;
+	    CUCOMPLEX** 	d_s_q;
+	    double*     	d_h_r;
+	} sd[] = { //sd = static data
+	    {d_sx, p->d_sx_q, d_hx},
+	    {d_sy, p->d_sy_q, d_hy},
+	    {d_sz, p->d_sz_q, d_hz}
 	};
 
 	for(int k=0; k<3; k++) // x y z
@@ -766,22 +759,18 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 			
 			//grab a layer
 			getLayer<<<blocksx, threadsxx>>>(N_x, N_y, z, p->d_input, d_s_r);
-			KCHECK
-
-			//twiddle to workspace
-			//twiddle2D<<<blocks, threads>>>(N_x, N_y, p->d_brp_x, p->d_brp_y, d_src, p->d_input);
-			//CHECK
+			KCHECK;
 
 			twiddle1Dx_rc<<<blocksx, threadsxx>>>(N_x, N_y, p->d_brp_x, d_dest, p->d_input);
-			KCHECK
+			KCHECK;
 			twiddle1Dy_cc<<<blocksy, threadsyy>>>(N_x, N_y, p->d_brp_y, d_src, d_dest);
-			KCHECK
+			KCHECK;
 
 			// FT spins
 			for(int step=0; step<log2N_x; step++)
 			{
 				Fi_2D_x<<<blocksx, threadsxx>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_x_f);
-				KCHECK
+				KCHECK;
 
 				d_tmp = d_src;
 				d_src = d_dest;
@@ -790,7 +779,7 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 			for(int step=0; step<log2N_y-1; step++)
 			{
  				Fi_2D_y<<<blocksy, threadsyy>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_y_f);
- 				KCHECK
+ 				KCHECK;
 
 				d_tmp = d_src;
 				d_src = d_dest;
@@ -798,99 +787,94 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 			}
 			// last round for FT will land the spins in their proper destination (d_s_q)
 			Fi_2D_y<<<blocksy, threadsyy>>>(N_x, N_y, log2N_y-1, d_s_q, d_src, p->d_exp2pi_y_f);
-			KCHECK 
+			KCHECK;
 		}
 	}
 
 	// OK! Now we have all the spins FT'd and the interaction matrix ready.
 	// We will now convolve the signals into hq
-	// zero the fields
-	for(int k=0; k<3; k++) // x y z
-	{
-		CUCOMPLEX** hh = sd[k].d_h_q;
-		for(int z=0; z<N_z; z++)
-		{
-			CUCOMPLEX* hhi = hh[z];
-			setC<<<blocksx, threadsxx>>>(N_x, N_y, hhi, 0, 0);
-			KCHECK
-		}
-	}
-	
 	
 
 	// Nov 9/2011. Negative offsets are the same as positive offsets except tensors with odd number
 	// of Zs are negated (XZ, YZ, not ZZ)
 	for(int targetLayer=0; targetLayer<N_z; targetLayer++)
-	for(int sourceLayer=0; sourceLayer<N_z; sourceLayer++)
 	{
-		//const int offset = (sourceLayer - targetLayer + N_z - 1);
-		int offset = sourceLayer - targetLayer;
-		double sign = 1;
-		if(offset < 0)
+	    for(int c=0; c<3; c++) //c = 0,1,2: X,Y,Z
+	    {
+		setC<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, 0, 0);
+		KCHECK;
+		
+		for(int sourceLayer=0; sourceLayer<N_z; sourceLayer++)
 		{
+		    //const int offset = (sourceLayer - targetLayer + N_z - 1);
+		    int offset = sourceLayer - targetLayer;
+		    double sign = 1;
+		    if(offset < 0)
+		    {
 			offset = -offset;
 			sign = -1;
+		    }
+
+		    switch(c)
+		    {
+		    case 0:
+			convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, p->d_sx_q[sourceLayer], p->d_GammaXX[offset],    1);
+			convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, p->d_sy_q[sourceLayer], p->d_GammaXY[offset],    1);
+			convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, p->d_sz_q[sourceLayer], p->d_GammaXZ[offset], sign);
+			break;
+		    case 1:
+			convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, p->d_sx_q[sourceLayer], p->d_GammaXY[offset],    1);
+			convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, p->d_sy_q[sourceLayer], p->d_GammaYY[offset],    1);
+			convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, p->d_sz_q[sourceLayer], p->d_GammaYZ[offset], sign);
+			break;
+		    case 2:
+			convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, p->d_sx_q[sourceLayer], p->d_GammaXZ[offset], sign);
+			convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, p->d_sy_q[sourceLayer], p->d_GammaYZ[offset], sign);
+			convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hA_q, p->d_sz_q[sourceLayer], p->d_GammaZZ[offset],    1);
+		    }
+		    KCHECK
 		}
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hx_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXX[offset],    1);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hx_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaXY[offset],    1);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hx_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaXZ[offset], sign);
 
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hy_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXY[offset],    1);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hy_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaYY[offset],    1);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hy_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaYZ[offset], sign);
+		// h(q) now calculated, iFT it
+		double* d_hxyz = sd[c].d_h_r; // this is where the result will go
 
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sx_q[sourceLayer], p->d_GammaXZ[offset], sign);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sy_q[sourceLayer], p->d_GammaYZ[offset], sign);
-		convolveSum<<<blocksx, threadsxx>>>(N_x, N_y, p->d_hz_q[targetLayer], p->d_sz_q[sourceLayer], p->d_GammaZZ[offset],    1);
-		KCHECK
-	}
+		d_src = p->d_A;
+		d_dest = p->d_B;
 
-	// h(q) now calculated, iFT them 
-	for(int k=0; k<3; k++) //for each component XYZ
-	{
-		CUCOMPLEX** d_h = sd[k].d_h_q;
-		double* d_hxyz = sd[k].d_h_r;
-		for(int z=0; z<N_z; z++) //for each layer
+		twiddle1Dx_cc<<<blocksx, threadsxx>>>(N_x, N_y, p->d_brp_x, d_dest, p->d_hA_q);
+		KCHECK;
+		twiddle1Dy_cc<<<blocksy, threadsyy>>>(N_x, N_y, p->d_brp_y, d_src, d_dest);
+		KCHECK;
+
+		//twiddled and waiting in d_src
+		for(int step=0; step<log2N_x; step++)
 		{
-			d_src = p->d_A;
-			d_dest = p->d_B;
-			// twiddle the fields
-			//twiddle2DCC<<<blocks, threads>>>(N_x, N_y, p->d_brp_x, p->d_brp_y, d_src, d_h[z]);
-			//CHECK
+		    Fi_2D_x<<<blocksx, threadsxx>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_x_b);
+		    KCHECK;
 
-			twiddle1Dx_cc<<<blocksx, threadsxx>>>(N_x, N_y, p->d_brp_x, d_dest, d_h[z]);
-			KCHECK
-			twiddle1Dy_cc<<<blocksy, threadsyy>>>(N_x, N_y, p->d_brp_y, d_src, d_dest);
-			KCHECK
-
-			//twiddled and waiting in d_src
-			for(int step=0; step<log2N_x; step++)
-			{
-				Fi_2D_x<<<blocksx, threadsxx>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_x_b);
-				KCHECK
-
-				d_tmp = d_src;
-				d_src = d_dest;
-				d_dest = d_tmp;
-			}
-			for(int step=0; step<log2N_y; step++)
-			{
-				Fi_2D_y<<<blocksy, threadsyy>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_y_b);
-				KCHECK
-
-				d_tmp = d_src;
-				d_src = d_dest;
-				d_dest = d_tmp;
-			}
-			
-			//real space of iFFT in d_src, need to chop off the (hopefully) zero imag part
-			getRPart<<<blocksx, threadsxx>>>(N_x, N_y, p->d_output, d_src);
-			KCHECK
-			
-			setLayer<<<blocksx, threadsxx>>>(N_x, N_y, z, d_hxyz, p->d_output);
-			KCHECK
+		    d_tmp = d_src;
+		    d_src = d_dest;
+		    d_dest = d_tmp;
 		}
+		for(int step=0; step<log2N_y; step++)
+		{
+		    Fi_2D_y<<<blocksy, threadsyy>>>(N_x, N_y, step, d_dest, d_src, p->d_exp2pi_y_b);
+		    KCHECK;
+			
+		    d_tmp = d_src;
+		    d_src = d_dest;
+		    d_dest = d_tmp;
+		}
+			
+		//real space of iFFT in d_src, need to chop off the (hopefully) zero imag part
+		getRPart<<<blocksx, threadsxx>>>(N_x, N_y, p->d_output, d_src);
+		KCHECK;
+			
+		setLayer<<<blocksx, threadsxx>>>(N_x, N_y, targetLayer, d_hxyz, p->d_output);
+		KCHECK;
+	    }
 	}
+	
 	//holy crap, we're done.
 }
 

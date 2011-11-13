@@ -50,6 +50,7 @@ distclean: clean
 	make -C modules/cuda distclean
 	make -C modules/cpu distclean
 	make -C modules/common distclean
+	make -C modules/extras distclean
 	rm -f $(BIN)
 	rm -f info.h	#dev version
 
