@@ -96,7 +96,7 @@ MagnetostaticCuda::~MagnetostaticCuda()
 	deinit();
 }
 
-void MagnetostaticCuda::getPlan()
+bool MagnetostaticCuda::getPlan()
 {
 	deinit();
 	
@@ -126,6 +126,13 @@ void MagnetostaticCuda::getPlan()
 	delete [] YY;
 	delete [] YZ;
 	delete [] ZZ;
+	
+	if(!plan)
+	{
+		errormsg = "Failed to factor system into small primes\n";
+	}
+	
+	return plan != 0;
 }
 
 
@@ -137,6 +144,8 @@ bool MagnetostaticCuda::apply(SpinSystem* ss)
 
 	if(!plan)
 		getPlan();
+	if(!plan)
+		return false;
 	
 	ss->sync_spins_hd();
 	
@@ -536,7 +545,7 @@ MAGNETOSTATICSCUDA_API int lib_version(lua_State* L)
 
 MAGNETOSTATICSCUDA_API const char* lib_name(lua_State* L)
 {
-	return "Magnetostatics";
+	return "Magnetostatics-Cuda";
 }
 
 MAGNETOSTATICSCUDA_API int lib_main(lua_State* L, int argc, char** argv)

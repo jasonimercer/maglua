@@ -63,7 +63,7 @@ private:
 	void init();
 	void deinit();
 
-	void getPlan();
+	bool getPlan();
 
 	JM_LONGRANGE_PLAN* plan;
 };

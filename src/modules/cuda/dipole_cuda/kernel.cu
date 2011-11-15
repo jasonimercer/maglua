@@ -788,7 +788,6 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
     const int N_x = p->N_x;
     const int N_y = p->N_y;
     const int N_z = p->N_z;
-	const int nxy = N_x * N_y;
 	#ifdef SMART_SCHEDULE
 	//different thread schedules for different access patterns
 	dim3 blocks(N_x);
