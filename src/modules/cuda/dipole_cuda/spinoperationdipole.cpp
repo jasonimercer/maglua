@@ -85,7 +85,7 @@ DipoleCuda::~DipoleCuda()
 	deinit();
 }
 
-void DipoleCuda::getPlan()
+bool DipoleCuda::getPlan()
 {
 	deinit();
 	
@@ -114,6 +114,13 @@ void DipoleCuda::getPlan()
 	delete [] YY;
 	delete [] YZ;
 	delete [] ZZ;
+	
+	if(!plan)
+	{
+		errormsg = "Failed to factor system into small primes\n";
+	}
+	
+	return plan != 0;
 }
 
 	
@@ -123,6 +130,8 @@ bool DipoleCuda::apply(SpinSystem* ss)
 
 	if(!plan)
 		getPlan();
+	if(!plan)
+		return false;
 	
 	ss->sync_spins_hd();
 	
@@ -223,7 +232,7 @@ int l_dip_apply(lua_State* L)
 	
 	if(!dip->apply(ss))
 	{
-		printf("(%s:%i)\n", __FILE__, __LINE__);
+// 		printf("(%s:%i)\n", __FILE__, __LINE__);
 		return luaL_error(L, dip->errormsg.c_str());
 	}
 

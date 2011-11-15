@@ -204,7 +204,14 @@ static void _writemat(FILE* f, const char* name, int zoffset, const double* M, i
 		for(int i=0; i<nx; i++)
 		{
 // 			fprintf(f, "% 12e%s", M[i+j*nx], i==(nx-1)?"}":", ");
-			fprintf(f, "% 12e%s", M[i+j*nx], (i==(nx-1) && j==(ny-1))?"":",");
+			if(M[i+j*nx] == 0)
+			{
+				fprintf(f, "0%s", (i==(nx-1) && j==(ny-1))?"":",");
+			}
+			else
+			{
+				fprintf(f, "% .16g%s", M[i+j*nx], (i==(nx-1) && j==(ny-1))?"":",");
+			}
 		}
 		fprintf(f, "\n");
 // 		fprintf(f, "%c\n", j==(ny-1)?' ':',');
@@ -524,6 +531,7 @@ void dipoleLoad(
 				{
 					for(int i=0; i<nx; i++)
 					{
+						fflush(stdout);
 						getWAB(ABC,
 							nx, ny, nz,
 							i, j, k,
