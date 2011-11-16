@@ -107,6 +107,10 @@ CORECUDA_API int lib_main(lua_State* L, int argc, char** argv)
 		{
 			gpu = atoi(argv[i+1]);
 			got_gpu = 1;
+			
+			//consume the input
+			argv[i][0] = 0;
+			argv[i+1][0] = 0;
 		}
 	}
 	

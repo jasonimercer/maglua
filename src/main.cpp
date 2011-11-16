@@ -36,7 +36,7 @@ vector<loader_item> theModules;
 vector<string> initial_args;
 
 int registerLibs(int suppress, lua_State* L);
-void lua_addargs(lua_State* L); //add initial_args to state
+void lua_addargs(lua_State* L, int argc, char** argv); //add initial_args to state (after module consumption)
 static int l_info(lua_State* L);
 void print_help();
 int suppress;
@@ -70,8 +70,11 @@ int main(int argc, char** argv)
 	for(int i=0; i<argc; i++)
 	{
 		if(strcmp("-q", argv[i]) == 0)
+		{
+			argv[i][0] = 0; //consume
 			suppress = 1;
-
+		}
+		
 		if(strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
 		{
 			print_help();
@@ -107,8 +110,6 @@ int main(int argc, char** argv)
 					fprintf(stderr, "%s\n", lua_tostring(L, -1));
 				}
 				
-				//printf("\n\n%s\n\n", setup_lua_code);
-				
 				lua_getglobal(L, "setup");
 				lua_pushstring(L, argv[i+1]);
 				
@@ -131,6 +132,14 @@ int main(int argc, char** argv)
 		#endif
 		return 0;
 	}
+	
+	
+	// yuck: rebuilding initial_args after we've consumed any local startups (-q)
+	initial_args.clear();
+	for(int i=0; i<argc; i++)
+		initial_args.push_back(argv[i]);
+
+	
 	
 #ifdef _MPI
 	{
@@ -156,22 +165,22 @@ int main(int argc, char** argv)
 
 	if(!registerMain(L))
 	{
-	  if(!suppress)
-	    {
-		const char* printModules = 
-			"print(\"Modules:\") \n"\
-			"local m = {}\n"\
-			"for k,v in pairs(getModules()) do\n"\
-			"	table.insert(m, v.name .. \"(r\" .. v.version .. \")\")\n"\
-			"end\n"\
-			"table.sort(m)\n"\
-			"print(table.concat(m, \", \"))";
-
-		if(luaL_dostring(L, printModules))
+		if(!suppress)
 		{
-			fprintf(stderr, "%s\n", lua_tostring(L, -1));
-			return -1;
-		}
+			const char* printModules = 
+				"print(\"Modules:\") \n"\
+				"local m = {}\n"\
+				"for k,v in pairs(getModules()) do\n"\
+				"	table.insert(m, v.name .. \"(r\" .. v.version .. \")\")\n"\
+				"end\n"\
+				"table.sort(m)\n"\
+				"print(table.concat(m, \", \"))";
+
+			if(luaL_dostring(L, printModules))
+			{
+				fprintf(stderr, "%s\n", lua_tostring(L, -1));
+				return -1;
+			}
 	    }	
 		int script = 0;
 
@@ -287,8 +296,6 @@ MAGLUA_API int registerMain(lua_State* L)
 	lua_pushcfunction(L, l_modules);
 	lua_setglobal(L, "getModules");
 	
-	lua_addargs(L);
-
 	// get the path to each shared library
 	vector<string> module_paths;
 	getModulePaths(L, module_paths);
@@ -315,6 +322,10 @@ MAGLUA_API int registerMain(lua_State* L)
 	// load the modules
 	int i = load_items(L, theModules, argc, argv, suppress);
 
+	
+	lua_addargs(L, argc, argv);
+
+	
 	for(int i=0; i<argc; i++)
 		free(argv[i]);
 	free(argv);
@@ -334,9 +345,8 @@ MAGLUA_API int registerMain(lua_State* L)
 
 // add command line args to the lua state
 // adding argc, argv and a table arg
-void lua_addargs(lua_State* L)
+void lua_addargs(lua_State* L, int argc, char** argv)
 {
-	const int argc = initial_args.size();
 	lua_pushinteger(L, argc);
 	lua_setglobal(L, "argc");
 
@@ -350,11 +360,16 @@ void lua_addargs(lua_State* L)
 	lua_setglobal(L, "argv");
 	
 	lua_newtable(L);
+	int j = 1;
 	for(int i=2; i<argc; i++)
 	{
-		lua_pushinteger(L, i-1);
-		lua_pushstring(L, initial_args[i].c_str());
-		lua_settable(L, -3);
+		if(argv[i][0])
+		{
+			lua_pushinteger(L, j);
+			lua_pushstring(L, argv[i]);
+			lua_settable(L, -3);
+			j++;
+		}
 	}
 	lua_setglobal(L, "arg");
 }

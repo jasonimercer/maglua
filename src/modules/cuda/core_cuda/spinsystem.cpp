@@ -733,6 +733,7 @@ void SpinSystem::getNetMag(double* v8)
 {
 
 #if 1
+	sync_spins_hd();
 	v8[0] = ss_reduce3DArray_sum(d_x, d_ws1, h_ws1, nx, ny, nz);
 	v8[1] = ss_reduce3DArray_sum(d_y, d_ws1, h_ws1, nx, ny, nz);
 	v8[2] = ss_reduce3DArray_sum(d_z, d_ws1, h_ws1, nx, ny, nz);
