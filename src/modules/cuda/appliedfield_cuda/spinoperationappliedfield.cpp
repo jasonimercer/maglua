@@ -49,6 +49,10 @@ bool AppliedField::apply(SpinSystem* ss)
 	double* d_hy = ss->d_hy[slot];
 	double* d_hz = ss->d_hz[slot];
 
+	const int nx = ss->nx;
+	const int ny = ss->ny;
+	const int nz = ss->nz;
+
 	markSlotUsed(ss);
 	
 	ss_d_set3DArray(d_hx, nx, ny, nz, B[0]);

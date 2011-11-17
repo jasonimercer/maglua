@@ -137,6 +137,20 @@ void getModuleDirectories(vector<string>& mds, vector<string>& initial_args)
 	lua_State *L = lua_open();
 	luaL_openlibs(L);
 	
+	lua_newtable(L);
+	int j = 1;
+	for(unsigned int i=1; i<initial_args.size(); i++) //skilling binary name
+	{
+		if(initial_args[i].size())
+		{
+			lua_pushinteger(L, j);
+			lua_pushstring(L, initial_args[i].c_str());
+			lua_settable(L, -3);
+			j++;
+		}
+	}
+	lua_setglobal(L, "arg");
+
 	int home_len = 0;
 #ifndef WIN32
 	char* home = getenv(HOME);
@@ -206,6 +220,22 @@ void getModuleDirectories(vector<string>& mds, vector<string>& initial_args)
 	
 	delete [] init_file;
 
+	
+	initial_args.clear();
+	lua_getglobal(L, "arg");
+	if(lua_istable(L, -1))
+	{
+		lua_pushnil(L);
+		while(lua_next(L, -2))
+		{
+			if(lua_isstring(L, -1))
+			{
+				initial_args.push_back(lua_tostring(L, -1));
+			}
+			lua_pop(L, 1);
+		}
+	}
+		
 #ifdef WIN32
 	free(home);
 #endif

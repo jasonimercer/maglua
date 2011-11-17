@@ -11,8 +11,7 @@
 ******************************************************************************/
 
 // This is the main entry point for maglua. It loads in the 
-// modules in the default directory and any others specified
-// with -L options
+// modules in the default directory
 
 #include "info.h"
 
@@ -34,6 +33,7 @@ using namespace std;
 
 vector<loader_item> theModules;
 vector<string> initial_args;
+vector<string> moduleDirectories;
 
 int registerLibs(int suppress, lua_State* L);
 void lua_addargs(lua_State* L, int argc, char** argv); //add initial_args to state (after module consumption)
@@ -44,7 +44,6 @@ const char* reference();
 
 // 
 // command line switches:
-//  -L                  add moduel dir to search path
 //  -q                  run quietly, omit some startup info printing
 //  --module_path       print primary mod dir
 //  --setup mod_dir     setup startup files in $(HOME)/.maglua.d
@@ -67,40 +66,46 @@ int main(int argc, char** argv)
 	if(!suppress) //prevent slaves from getting legal. 
 		fprintf(stderr, "This evaluation version of MagLua is for private, non-commercial use only\n");
 
-	for(int i=0; i<argc; i++)
+	vector<string>::iterator it;
+	for(it=initial_args.begin(); it!= initial_args.end(); ++it)
 	{
-		if(strcmp("-q", argv[i]) == 0)
-		{
-			argv[i][0] = 0; //consume
-			suppress = 1;
-		}
-		
-		if(strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
-		{
-			print_help();
-			shutdown = 1;
-		}
-		
-		if(strcmp("-v", argv[i]) == 0 || strcmp("--version", argv[i]) == 0)
-		{
-			printf("MagLua-r%i\n", __revi);
-			shutdown = 1;
-		}
-		
-		if(strcmp("--module_path", argv[i]) == 0)
+		// module path can change the length of initial_args, invalidating iterators
+		if((*it).compare("--module_path") == 0)
 		{
 			vector<string> mp;
-			getModuleDirectories(mp, initial_args);
+			getModuleDirectories(mp,initial_args);
 			for(unsigned int i=0; i<mp.size() && i < 1; i++)
 			{
 				cout << mp[i] << endl;
 			}
 			shutdown = 1;
+			break;
+		}
+	}
+	
+	for(it=initial_args.begin(); it!= initial_args.end(); ++it)
+	{
+		if((*it).compare("-q") == 0)
+		{
+			(*it) = ""; //consume
+			suppress = 1;
+		}
+		
+		if((*it).compare("-h") == 0 || (*it).compare("--help") == 0)
+		{
+			print_help();
+			shutdown = 1;
+		}
+		
+		if((*it).compare("-v") == 0 || (*it).compare("--version") == 0)
+		{
+			printf("MagLua-r%i\n", __revi);
+			shutdown = 1;
 		}
 
-		if(strcmp("--setup", argv[i]) == 0)
+		if((*it).compare("--setup") == 0)
 		{
-			if(i < argc-1)
+			if((it+1) != initial_args.end())
 			{
 				lua_State *L = lua_open();
 				luaL_openlibs(L);
@@ -111,7 +116,7 @@ int main(int argc, char** argv)
 				}
 				
 				lua_getglobal(L, "setup");
-				lua_pushstring(L, argv[i+1]);
+				lua_pushstring(L, (*(it+1)).c_str());
 				
 				if(lua_pcall(L, 1,0,0))
 				{
@@ -121,7 +126,6 @@ int main(int argc, char** argv)
 				lua_close(L);
 				shutdown = 1;
 			}
-			
 		}
 	}
 	
@@ -132,14 +136,6 @@ int main(int argc, char** argv)
 		#endif
 		return 0;
 	}
-	
-	
-	// yuck: rebuilding initial_args after we've consumed any local startups (-q)
-	initial_args.clear();
-	for(int i=0; i<argc; i++)
-		initial_args.push_back(argv[i]);
-
-	
 	
 #ifdef _MPI
 	{
@@ -199,7 +195,7 @@ int main(int argc, char** argv)
 					if(luaL_dofile(L, fn))
 					{
 						const char* errmsg = lua_tostring(L, -1);
-						fprintf(stderr, "Error:\n%s", errmsg);
+						fprintf(stderr, "Error:\n%s\n", errmsg);
 					}
 				}
 			}
@@ -311,14 +307,24 @@ MAGLUA_API int registerMain(lua_State* L)
 	
 	// build argc, argv to look like main args
 	// should probably build from argc/argv in L
-	int argc = initial_args.size();
-	char** argv = (char**)malloc(sizeof(char**) * argc);
-	for(int i=0; i<argc; i++)
+	int argc = 0;//initial_args.size();
+	char** argv = (char**)malloc(sizeof(char**) * initial_args.size());
+	for(unsigned int i=0; i<initial_args.size(); i++)
 	{
-		argv[i] = (char*) malloc( initial_args[i].size() + 1);
-		strcpy(argv[i], initial_args[i].c_str());
+		argv[i] = 0;
 	}
-	
+
+	for(unsigned int i=0; i<initial_args.size(); i++)
+	{
+		if(initial_args[i].size())
+		{
+			argv[argc] = (char*) malloc( initial_args[i].size() + 1);
+			strcpy(argv[argc], initial_args[i].c_str());
+			argc++;
+		}
+	}
+
+
 	// load the modules
 	int i = load_items(L, theModules, argc, argv, suppress);
 
@@ -327,9 +333,14 @@ MAGLUA_API int registerMain(lua_State* L)
 
 	
 	for(int i=0; i<argc; i++)
-		free(argv[i]);
+	{
+		if(argv[i])
+		{
+			free(argv[i]);
+		}
+	}
 	free(argv);
-	
+
 	int failures = 0;
 	for(unsigned int i=0; i<theModules.size(); i++)
 	{
@@ -433,7 +444,6 @@ void print_help()
 	cout << " on top of the Lua scripting language." << endl;
 	cout << endl;
 	cout << "Command Line Arguments:" << endl;
-	cout << " -L mod_dir       Add module <mod_dir> to search path" << endl;
 	cout << " -q               Run quietly, omit some startup messages" << endl;
 	cout << " --module_path    Print primary module directory" << endl;
 #ifdef WIN32

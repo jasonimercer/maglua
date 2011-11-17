@@ -48,6 +48,8 @@ bool AppliedField::apply(SpinSystem* ss)
 	double* hy = ss->hy[slot];
 	double* hz = ss->hz[slot];
 
+	const int nxyz = ss->nx * ss->ny * ss->nz; //these are not imported
+	
 	for(int i=0; i<nxyz; i++)
 	{
 		hx[i] = B[0];

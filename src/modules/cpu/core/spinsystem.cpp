@@ -100,6 +100,7 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	alpha = src->alpha;
 	gamma = src->gamma;
 	dt = src->dt;
+	time = src->time;
 	
 	fft_time = time - 1.0;
 		

@@ -173,6 +173,7 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	alpha = src->alpha;
 	gamma = src->gamma;
 	dt = src->dt;
+	time = src->time;
 	
 // 	fft_time = time - 1.0;
 		
@@ -1263,7 +1264,7 @@ int l_ss_copyto(lua_State* L)
 	
 	SpinSystem* dest = checkSpinSystem(L, 2);
 	if(!dest) return 0;
-
+	
 	if(!dest->copyFrom(L, src))
 		return luaL_error(L, "Failed to copyTo");
 	
