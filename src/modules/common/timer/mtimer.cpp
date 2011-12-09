@@ -70,7 +70,7 @@ struct Timer* new_timer()
 }
 
 
-static void free_timer(struct Timer* t)
+void free_timer(struct Timer* t)
 {
 #ifndef WIN32
 	free(t->t0);
@@ -112,7 +112,7 @@ static long get_nanoseconds(struct Timer* t)
 	return t->nanoseconds;
 }
 
-static double get_time(struct Timer* t)
+double get_time(struct Timer* t)
 {
 	fixTime(t);
 #ifdef WIN32
@@ -122,14 +122,14 @@ static double get_time(struct Timer* t)
 #endif
 }
 
-static void reset_timer(struct Timer* t)
+void reset_timer(struct Timer* t)
 {
 	t->seconds = 0;
 	t->nanoseconds = 0;
 	t->paused = 1;
 }
 
-static void start_timer(struct Timer* t)
+void start_timer(struct Timer* t)
 {
 #ifdef WIN32
 	t->t0 = clock();
@@ -143,7 +143,7 @@ static void start_timer(struct Timer* t)
 	t->paused = 0;  
 }
 
-static void stop_timer(struct Timer* t)
+void stop_timer(struct Timer* t)
 {
 #ifdef WIN32
 	t->t1 = clock();

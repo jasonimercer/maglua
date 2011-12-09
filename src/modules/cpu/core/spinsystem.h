@@ -92,6 +92,8 @@ public:
 	virtual int  decode(buffer* b);
 
 private:
+	void init_fft();
+	
 	void init();
 	void deinit();
 	fftw_plan r2q;

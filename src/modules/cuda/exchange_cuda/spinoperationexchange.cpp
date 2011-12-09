@@ -13,13 +13,16 @@
 #include "spinoperationexchange.h"
 #include "spinoperationexchange.hpp"
 #include "spinsystem.h"
+#include "spinsystem.hpp"
 
 #include <stdlib.h>
 #include <stdio.h>
 
 #include <vector>
 #include <algorithm>
+#include <iostream>
 #include <string.h>
+using namespace std;
 
 Exchange::Exchange(int nx, int ny, int nz)
 	: SpinOperation("Exchange", EXCHANGE_SLOT, nx, ny, nz, ENCODE_EXCHANGE)
@@ -29,15 +32,360 @@ Exchange::Exchange(int nx, int ny, int nz)
 	d_strength = 0;
 	d_fromsite = 0;
 	maxFromSites = -1;
-	h_strength = 0;
-	h_fromsite = 0;
+
+	d_LUT = 0;
+	d_idx = 0;
+	compress_max_neighbours = 0;
 	
 	new_host = true;
 	
 	init();
-// 	fromsite =    (int*)malloc(sizeof(int)    * size);
-// 	  tosite =    (int*)malloc(sizeof(int)    * size);
-// 	strength = (double*)malloc(sizeof(double) * size);
+}
+
+Exchange::~Exchange()
+{
+	deinit();
+}
+
+void Exchange::init()
+{
+	make_host();
+}
+
+void Exchange::deinit()
+{
+	delete_host();
+	delete_compressed();
+	delete_uncompressed();
+}
+
+bool Exchange::make_uncompressed()
+{
+	if(!new_host)
+		return true;
+	
+// 	printf("make uncompressed\n");
+	
+	new_host = false;
+	
+	//find out max number of neighbours
+	int* nn = new int[nxyz];
+	for(int i=0; i<nxyz; i++)
+		nn[i] = 0;
+
+	for(int i=0; i<num; i++)
+		nn[ pathways[i].tosite ]++;
+	
+	maxFromSites = 0;
+	for(int i=0; i<num; i++)
+	{
+		const int j = nn[ pathways[i].fromsite ];
+		if(maxFromSites < j)
+			maxFromSites = j;
+	}
+	
+	// we will use nn to count number of recorded neighbours
+	for(int i=0; i<nxyz; i++)
+		nn[i] = 0;
+	
+	
+	int* h_fromsite;
+	double* h_strength;
+	malloc_host(&h_fromsite, sizeof(int)*maxFromSites*nxyz);
+	malloc_host(&h_strength, sizeof(double)*maxFromSites*nxyz);
+	
+	for(int i=0; i<nxyz*maxFromSites; i++)
+	{
+		h_fromsite[i] = 0;
+		h_strength[i] = 0;
+	}
+	
+	for(int i=0; i<num; i++)
+	{
+		int& j = pathways[i].fromsite;
+		int& k = pathways[i].tosite;
+		
+		int& n = nn[k];
+		
+		h_fromsite[k*maxFromSites + n] = j;
+		h_strength[k*maxFromSites + n] = pathways[i].strength;
+		n++;
+	}	
+	delete [] nn;
+	
+	delete_uncompressed();
+	//todo: put memchecks around the following. see if compressed is req'd
+	malloc_device(&d_fromsite, sizeof(int)*maxFromSites*nxyz);
+	malloc_device(&d_strength, sizeof(double)*maxFromSites*nxyz);
+	
+	memcpy_h2d(d_fromsite, h_fromsite, sizeof(int)*maxFromSites*nxyz);
+	memcpy_h2d(d_strength, h_strength, sizeof(double)*maxFromSites*nxyz);
+	
+	free_host(h_fromsite);
+	free_host(h_strength);
+
+	return true;
+}
+
+
+class ex_comp
+{
+public:
+	ex_comp(int ID=0) {lut_id = 0; id=ID;};
+	ex_comp(const ex_comp& r) {
+		id=r.id; 
+		lut_id=r.lut_id;
+		for(unsigned int i=0; i<r.from_off_strength.size(); i++)
+			from_off_strength.push_back(r.from_off_strength[i]);
+	}
+	void sort();
+	
+	int id;
+	int lut_id;
+	void add(int from, double strength, int nxyz);
+	vector< pair<int,double> > from_off_strength;
+};
+
+bool pair_id_sort(const pair<int,double>& d1, const pair<int,double>& d2)
+{
+	if(d1.first >= d2.first)
+		return false;
+	if(d1.second >= d2.second)
+		return false;
+	return true;
+}
+
+void ex_comp::sort()
+{
+	std::sort(from_off_strength.begin(), from_off_strength.end(), pair_id_sort);
+}
+
+
+void ex_comp::add(int from, double strength, int nxyz)
+{
+	int offset = (from - id + nxyz) % nxyz;
+
+	from_off_strength.push_back(pair<int,double>(offset,strength));
+}
+
+
+bool ex_comp_sort(const ex_comp& d1, const ex_comp& d2)
+{
+	const unsigned int s1 = d1.from_off_strength.size();
+	const unsigned int s2 = d2.from_off_strength.size();
+	
+	if(s1 < s2) return true;
+	if(s1 > s2) return false;
+	
+	for(unsigned int i=0; i<s1; i++)
+	{
+		const pair<int,double>& p1 = d1.from_off_strength[i];
+		const pair<int,double>& p2 = d2.from_off_strength[i];
+		
+		if(p1 < p2) return true;
+		if(p2 < p1) return false;
+	}
+	return false;
+}
+
+bool ex_comp_same(const ex_comp& d1, const ex_comp& d2)
+{
+	if(d1.from_off_strength.size() != d2.from_off_strength.size())
+		return false;
+	
+	for(unsigned int i=0; i<d1.from_off_strength.size(); i++)
+	{
+		if(d1.from_off_strength[i].first != d2.from_off_strength[i].first)
+			return false;
+		if(d1.from_off_strength[i].second != d2.from_off_strength[i].second)
+			return false;
+	}
+	
+	return true;
+}
+
+
+bool Exchange::make_compressed()
+{
+	delete_compressed();
+	
+	vector<ex_comp> vec;
+// 	vec.reserve(nxyz);
+
+	for(int i=0; i<nxyz; i++)
+	{
+		vec.push_back(ex_comp(i));
+	}
+	
+// 	printf("Building vector\n");
+	for(int i=0; i<num; i++)
+	{
+		const int to = pathways[i].tosite;
+		const int from = pathways[i].fromsite;
+		const double strength = pathways[i].strength;
+		
+// 		printf("%i %i %f\n", to, from, strength);
+		vec[to].add(from, strength, nxyz);
+	}
+		
+	
+	
+// 	printf("Sorting vector\n");
+	for(int i=0; i<nxyz; i++)
+		vec[i].sort();
+	
+	std::sort(vec.begin(), vec.end(), ex_comp_sort);
+
+// 	cout << "------------------------" << endl;
+// 	for(int i=0; i<nxyz; i++)
+// 	{
+// 		for(int j=0; j<vec[i].from_off_strength.size(); j++)
+// 		{
+// 			cout <<  vec[i].from_off_strength[j].first << " ";
+// 		}
+// 		cout << endl;
+// 	}
+// 	cout << "------------------------" << endl;
+	
+// 	printf("calc max neighbours\n");
+	compress_max_neighbours = 0;
+	for(int i=0; i<nxyz; i++)
+	{
+		if(vec[i].from_off_strength.size() > compress_max_neighbours)
+			compress_max_neighbours = vec[i].from_off_strength.size();
+	}
+
+
+// 	printf("find uniques\n");
+	vec[0].lut_id = 0;
+	int last_unique = 0;
+	vector<int> uniques;
+	uniques.push_back(0);
+	for(int i=1; i<nxyz; i++)
+	{
+		if(ex_comp_same(vec[last_unique], vec[i]))
+		{
+			vec[i].lut_id = vec[last_unique].lut_id;
+		}
+		else
+		{
+			uniques.push_back(i);
+			const int next_lut_id = vec[last_unique].lut_id + 1;
+			last_unique = i;
+			vec[i].lut_id = next_lut_id;
+		}
+	}
+	
+// 	printf("%i uniques\n", (uniques.size()));
+	//LUT can do up to 255 flavours
+	if(uniques.size() >= 255) 
+	{
+		compressAttempted = true;
+		compressed = false;
+		return false;
+	}
+
+	ex_compressed_struct* h_LUT;
+	unsigned char* h_idx;
+	
+	malloc_host(&h_LUT, sizeof(ex_compressed_struct) * uniques.size());
+	malloc_host(&h_idx, sizeof(unsigned char) * nxyz);
+	
+	malloc_device(&d_LUT, sizeof(ex_compressed_struct) * uniques.size());
+	malloc_device(&d_idx, sizeof(unsigned char) * nxyz);
+	
+	// build LUT
+// 	printf("build LUT\n");
+	for(unsigned int i=0; i<uniques.size(); i++)
+	{
+		const int j = uniques[i];
+		const int js = vec[j].from_off_strength.size();
+		for(unsigned int k=0; k<js; k++)
+		{
+			h_LUT[i*compress_max_neighbours + k].offset   = vec[j].from_off_strength[k].first;
+			h_LUT[i*compress_max_neighbours + k].strength = vec[j].from_off_strength[k].second;
+		}
+		int dummy_offset = 0;
+		if(js)
+			dummy_offset = vec[j].from_off_strength[js-1].first;
+
+		// padding out structure with zero strength dummy interactions:
+		//  gets rid of if statements on device
+		for(unsigned int k=js; k<compress_max_neighbours; k++)
+		{
+			h_LUT[i*compress_max_neighbours + k].offset   = dummy_offset;
+			h_LUT[i*compress_max_neighbours + k].strength = 0.0;
+		}
+	}
+
+// 	printf("build idx\n");
+	for(int i=0; i<nxyz; i++)
+	{
+		h_idx[i] = vec[i].lut_id;
+	}
+	
+// 	printf("memcpy\n");
+	memcpy_h2d(d_LUT, h_LUT, sizeof(ex_compressed_struct) * uniques.size());
+	memcpy_h2d(d_idx, h_idx, sizeof(unsigned char) * nxyz);
+
+	free_host(h_LUT);
+	free_host(h_idx);
+	
+	compressed = true;
+	compressAttempted = true;	
+// 	printf("done\n");
+	return true;
+}
+
+bool Exchange::make_host()
+{
+	if(pathways)
+		delete_host();
+
+	size = 32;
+	num  = 0;
+	pathways = (sss*)malloc(sizeof(sss) * size);
+	new_host = true;
+	
+	return true;
+}
+
+void Exchange::delete_uncompressed()
+{
+	void** a[2] = {(void**)&d_strength, (void**)&d_fromsite};
+	for(int i=0; i<2; i++)
+	{
+		if(*a[i])
+			free_device(*a[i]);
+		*a[i] = 0;
+	}
+}
+
+
+void Exchange::delete_compressed()
+{
+	if(compressed)
+	{
+		void** a[2] = {(void**)&d_LUT, (void**)&d_idx};
+		for(int i=0; i<2; i++)
+		{
+			if(*a[i])
+				free_device(*a[i]);
+			*a[i] = 0;
+		}
+	}
+	
+	compressed = false;
+}
+
+void Exchange::delete_host()
+{
+	if(pathways)
+	{
+		free(pathways);	
+		pathways = 0;
+	}
+	num = 0;
 }
 
 void Exchange::encode(buffer* b)
@@ -77,128 +425,23 @@ int  Exchange::decode(buffer* b)
 		pathways[i].strength = decodeDouble(b);
 	}
 	
+	compressAttempted = false;
 	new_host = true;
+	
 	return 0;
-}
-
-void Exchange::sync()
-{
-	if(!new_host)
-		return;
-	new_host = false;
-	opt();
-	
-	int oldMaxToSites = maxFromSites;
-	
-	//find out max number of neighbours
-	int* nn = new int[nxyz];
-	for(int i=0; i<nxyz; i++)
-	{
-		nn[i] = 0;
-	}
-
-	for(int i=0; i<num; i++)
-	{
-		nn[ pathways[i].tosite ]++;
-	}
-	
-	maxFromSites = 0;
-	
-	for(int i=0; i<num; i++)
-	{
-		const int j = nn[ pathways[i].fromsite ];
-		if(maxFromSites < j)
-			maxFromSites = j;
-	}
-	
-	// we will use nn to count number of recorded neighbours
-	for(int i=0; i<nxyz; i++)
-	{
-		nn[i] = 0;
-	}
-	
-	
-	if(oldMaxToSites != maxFromSites)
-	{
-		if(d_strength)
-		{
-			ex_d_freeStrengthArray(d_strength);
-			ex_d_freeNeighbourArray(d_fromsite);
-			
-			ex_h_freeStrengthArray(h_strength);
-			ex_h_freeNeighbourArray(h_fromsite);
-		}
-		ex_d_makeStrengthArray(&d_strength, nx, ny, nz, maxFromSites);
-		ex_d_makeNeighbourArray(&d_fromsite, nx, ny, nz, maxFromSites);
-		
-		ex_h_makeStrengthArray(&h_strength, nx, ny, nz, maxFromSites);
-		ex_h_makeNeighbourArray(&h_fromsite, nx, ny, nz, maxFromSites);
-	}
-	
-	for(int i=0; i<nxyz*maxFromSites; i++)
-	{
-		h_fromsite[i] = -1;
-	}
-	
-	for(int i=0; i<num; i++)
-	{
-		int& j = pathways[i].fromsite;
-		int& k = pathways[i].tosite;
-		
-		int& n = nn[k];
-		
-		h_fromsite[k*maxFromSites + n] = j;
-		h_strength[k*maxFromSites + n] = pathways[i].strength;
-		n++;
-	}	
-	delete [] nn;
-	
-	ex_hd_syncNeighbourArray(d_fromsite, h_fromsite, nx, ny, nz, maxFromSites);
-	ex_hd_syncStrengthArray(d_strength, h_strength, nx, ny, nz, maxFromSites);
-}
-	
-void Exchange::init()
-{
-	if(pathways)
-		deinit();
-
-	size = 32;
-	num  = 0;
-	pathways = (sss*)malloc(sizeof(sss) * size);
-
-}
-void Exchange::deinit()
-{
-	if(pathways)
-	{
-		free(pathways);
-		
-		if(d_strength)
-		{
-			ex_d_freeStrengthArray(d_strength);
-			ex_d_freeNeighbourArray(d_fromsite);
-			
-			ex_h_freeStrengthArray(h_strength);
-			ex_h_freeNeighbourArray(h_fromsite);
-			
-			d_strength = 0;
-		}
-		
-		pathways = 0;
-	}
-	num = 0;
-}
-
-Exchange::~Exchange()
-{
-	deinit();
 }
 
 bool Exchange::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
-	sync();
-	
+	ss->sync_spins_hd();
+
+// 	make_uncompressed();
+// 	make_compressed();
+// 	if(!compressAttempted)
+// 		if(!make_compressed())
+			make_uncompressed();
+		
 	double* d_hx = ss->d_hx[slot];
 	double* d_hy = ss->d_hy[slot];
 	double* d_hz = ss->d_hz[slot];
@@ -207,11 +450,22 @@ bool Exchange::apply(SpinSystem* ss)
 	const double* d_sy = ss->d_y;
 	const double* d_sz = ss->d_z;
 
-	cuda_exchange(
-		d_sx, d_sy, d_sz,
-		d_strength, d_fromsite, maxFromSites,
-		d_hx, d_hy, d_hz,
-		nx, ny, nz);
+	if(compressed)
+	{
+		cuda_exchange_compressed(
+			d_sx, d_sy, d_sz,
+			d_LUT, d_idx, compress_max_neighbours,
+			d_hx, d_hy, d_hz,
+			nxyz);
+	}
+	else
+	{
+		cuda_exchange(
+			d_sx, d_sy, d_sz,
+			d_strength, d_fromsite, maxFromSites,
+			d_hx, d_hy, d_hz,
+			nx, ny, nz);
+	}
 	
 	ss->new_device_fields[slot] = true;
 	
@@ -277,6 +531,12 @@ void Exchange::addPath(int site1, int site2, double str)
 		new_host = true;
 	}
 }
+
+
+
+
+
+
 
 
 

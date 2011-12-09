@@ -6,13 +6,6 @@
 
 #include "spinoperationexchange.hpp"
 
-
-
-#define IDX_PATT(a, b) \
-	const int a = blockDim.x * blockIdx.x + threadIdx.x; \
-	const int b = blockDim.y * blockIdx.y + threadIdx.y;
-
-
 #define KCHECK \
 { \
 	const cudaError_t i = cudaGetLastError();\
@@ -20,163 +13,31 @@
 		printf("(%s:%i) %s\n",  __FILE__, __LINE__-1, cudaGetErrorString(i));\
 }
 
-#define CHECKERR(err) \
-{ \
-	if(err != cudaSuccess) \
-		printf("(%s:%i) (%i)%s\n", __FILE__, __LINE__, err, cudaGetErrorString(err)); \
-}
-
-
-
-void ex_d_makeStrengthArray(double** d_v, int nx, int ny, int nz, int max_neighbours)
-{
-	const cudaError_t err = cudaMalloc(d_v, sizeof(double) * max_neighbours * nx * ny * nz);
-	CHECKERR(err);
-}
-
-void ex_d_freeStrengthArray(double* d_v)
-{
-	const cudaError_t err = cudaFree(d_v);
-	CHECKERR(err);
-}
-
-void ex_d_makeNeighbourArray(int** d_v, int nx, int ny, int nz, int max_neighbours)
-{
-	const cudaError_t err = cudaMalloc(d_v, sizeof(int) * max_neighbours * nx * ny * nz);
-	CHECKERR(err);
-}
-
-void ex_d_freeNeighbourArray(int* d_v)
-{
-	const cudaError_t err = cudaFree(d_v);
-	CHECKERR(err);
-}
-
-void ex_h_makeStrengthArray(double** h_v, int nx, int ny, int nz, int max_neighbours)
-{
-	const cudaError_t err = cudaHostAlloc(h_v, sizeof(double) * max_neighbours * nx * ny * nz, 0);
-	CHECKERR(err);
-}
-
-void ex_h_freeStrengthArray(double* h_v)
-{
-	const cudaError_t err = cudaFreeHost(h_v);
-	CHECKERR(err);
-}
-
-void ex_h_makeNeighbourArray(int** h_v, int nx, int ny, int nz, int max_neighbours)
-{
-	const cudaError_t err = cudaHostAlloc(h_v, sizeof(int) * max_neighbours * nx * ny * nz, 0);
-	CHECKERR(err);
-}
-
-void ex_h_freeNeighbourArray(int* h_v)
-{
-	const cudaError_t err = cudaFreeHost(h_v);
-	CHECKERR(err);
-}
-
-void ex_hd_syncStrengthArray(double* d_v, double* h_v, int nx, int ny, int nz, int max_neighbours)
-{
-	const cudaError_t err = cudaMemcpy(d_v, h_v, sizeof(double)* max_neighbours * nx * ny * nz, cudaMemcpyHostToDevice);
-	CHECKERR(err);
-}
-
-void ex_hd_syncNeighbourArray(int* d_v, int* h_v, int nx, int ny, int nz, int max_neighbours)
-{
-	const cudaError_t err = cudaMemcpy(d_v, h_v, sizeof(int) * max_neighbours * nx * ny * nz, cudaMemcpyHostToDevice);
-	CHECKERR(err);
-}
-
-#define HARD_CODE(n) \
-for(int j=0; j<n; j++) \
-{ \
-	const int p = i * max_neighbours + j; \
-	const int k = d_neighbour[p]; \
-	const double strength = d_strength[p];	\
-			 \
-	d_hx[i] += strength * d_sx[k]; \
-	d_hy[i] += strength * d_sy[k]; \
-	d_hz[i] += strength * d_sz[k]; \
-}
 
 __global__ void do_exchange(
 	const double* d_sx, const double* d_sy, const double* d_sz,
 	const double* d_strength, const int* d_neighbour, const int max_neighbours,
 	double* d_hx, double* d_hy, double* d_hz,
-	const int nx, const int ny, const int offset
+	const int nxyz
 	)
 {
-	IDX_PATT(x,y)
+	const int i = blockDim.x * blockIdx.x + threadIdx.x;
+	if(i >= nxyz) return;
 	
-	if(x >= nx || y >= ny)
-		return;
-	
-	const int i = x + y*nx + offset;
-	
-	switch(max_neighbours)
+	// not all sites have max_neighbours but we've dummied the
+	// fromsite and zero'd the strength so it doesn't matter
+	for(int j=0; j<max_neighbours; j++)
 	{
-		case 1:
-		#pragma unroll
-		HARD_CODE(1)
-		break;
+		const int p = i * max_neighbours + j;
+		const int k = d_neighbour[p];
+		const double strength = d_strength[p];
 
-		case 2:
-		#pragma unroll
-		HARD_CODE(2)
-		break;
-
-		case 3:
-		#pragma unroll
-		HARD_CODE(3)
-		break;
-
-		case 4:
-		#pragma unroll
-		HARD_CODE(4)
-		break;
-		
-		case 5:
-		#pragma unroll
-		HARD_CODE(5)
-		break;
-				
-		case 6:
-		#pragma unroll
-		HARD_CODE(6)
-		break;
-
-		case 8:
-		#pragma unroll
-		HARD_CODE(8)
-		break;
-
-		case 10:
-		#pragma unroll
-		HARD_CODE(10)
-		break;
-
-		case 12:
-		#pragma unroll
-		HARD_CODE(12)
-		break;
-
-		default:
-			for(int j=0; j<max_neighbours; j++)
-			{
-				const int p = i * max_neighbours + j;
-				const int k = d_neighbour[p];
-				const double strength = d_strength[p];
-				if(k >= 0)
-				{
-					d_hx[i] += strength * d_sx[k];
-					d_hy[i] += strength * d_sy[k];
-					d_hz[i] += strength * d_sz[k];
-				}
-			}
+		d_hx[i] += strength * d_sx[k];
+		d_hy[i] += strength * d_sy[k];
+		d_hz[i] += strength * d_sz[k];
 	}
-	
 }
+
 
 void cuda_exchange(
 	const double* d_sx, const double* d_sy, const double* d_sz,
@@ -185,22 +46,57 @@ void cuda_exchange(
 	const int nx, const int ny, const int nz
 					)
 {
-	const int blocksx = nx / 32 + 1;
-	const int blocksy = ny / 32 + 1;
+	const int nxyz = nx*ny*nz;
+	const int blocks = nxyz / 1024 + 1;
+	const int threads = 1024;
+	
+	do_exchange<<<blocks, threads>>>(
+			d_sx, d_sy, d_sz,
+			d_strength, d_neighbour, max_neighbours,
+			d_hx, d_hy, d_hz, 
+			nxyz);
 
-	dim3 blocks(blocksx, blocksy);
-	dim3 threads(32, 32);
+	KCHECK;
+}
 
-	for(int z=0; z<nz; z++)
+
+
+__global__ void do_exchange_compressed(
+	const double* d_sx, const double* d_sy, const double* d_sz,
+	const ex_compressed_struct* d_LUT, const unsigned char* d_idx, const int max_neighbours,
+	double* d_hx, double* d_hy, double* d_hz,
+	const int nxyz)
+{
+	const int i = blockDim.x * blockIdx.x + threadIdx.x;
+	if(i >= nxyz) return;
+	
+	const ex_compressed_struct* e = & d_LUT[ d_idx[i] * max_neighbours ];
+	
+	for(int j=0; j<max_neighbours; j++)
 	{
-		const int offset = z * nx * ny;
-		do_exchange<<<blocks, threads>>>(
-				d_sx, d_sy, d_sz,
-				d_strength, d_neighbour, max_neighbours,
-				d_hx, d_hy, d_hz, 
-				nx, ny, offset);
-		KCHECK;
+		const int p = (i + e[j].offset) % nxyz;
+		const double strength = e[j].strength;
+
+		d_hx[i] += strength * d_sx[p];
+		d_hy[i] += strength * d_sy[p];
+		d_hz[i] += strength * d_sz[p];
 	}
 }
 
 
+void cuda_exchange_compressed(
+	const double* d_sx, const double* d_sy, const double* d_sz,
+	const ex_compressed_struct* d_LUT, const unsigned char* d_idx, const int max_neighbours,
+	double* d_hx, double* d_hy, double* d_hz, 
+	const int nxyz)
+{
+	const int blocks = nxyz / 1024 + 1;
+	const int threads = 1024;
+
+	do_exchange_compressed<<<blocks, threads>>>(
+		d_sx, d_sy, d_sz,
+		d_LUT, d_idx, max_neighbours,
+		d_hx, d_hy, d_hz, 
+		nxyz);
+	KCHECK;
+}

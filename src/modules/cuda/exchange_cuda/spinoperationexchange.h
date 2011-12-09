@@ -14,6 +14,7 @@
 #define SPINOPERATIONEXCHANGE
 
 #include "spinoperation.h"
+#include "spinoperationexchange.hpp"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -50,22 +51,32 @@ public:
 		double strength;
 	} sss;
 
+	bool make_uncompressed();
+	bool make_compressed();
+	bool make_host();
+	
+	void delete_uncompressed();
+	void delete_compressed();
+	void delete_host();
 	
 private:
 	void deinit();
 	void init();
-	void sync();
-	bool new_host;
+// 	void sync();
+ 	bool new_host;
 	
 	int size;
 	int num;
 	sss* pathways;
 	
 	double* d_strength;
-	double* h_strength;
 	int* d_fromsite;
-	int* h_fromsite;
+
 	int maxFromSites;
+	
+	int compress_max_neighbours;
+	ex_compressed_struct* d_LUT;
+	unsigned char* d_idx;
 	
 // 	int* fromsite;
 // 	int* tosite;

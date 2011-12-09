@@ -46,10 +46,13 @@ void SpinSystem::sync_spins_dh(bool force)
 		{
 			printf("(%s:%i) overwriting new host spins\n", __FILE__, __LINE__);
 		}
-		ss_copyDeviceToHost(h_x, d_x, nxyz);
-		ss_copyDeviceToHost(h_y, d_y, nxyz);
-		ss_copyDeviceToHost(h_z, d_z, nxyz);
-		ss_copyDeviceToHost(h_ms,d_ms,nxyz);
+		
+		const size_t dxyz = sizeof(double) * nxyz;
+
+		memcpy_d2h(h_x, d_x, dxyz);
+		memcpy_d2h(h_y, d_y, dxyz);
+		memcpy_d2h(h_z, d_z, dxyz);
+		memcpy_d2h(h_ms,d_ms,dxyz);
 
 		new_device_spins = false;
 		new_host_spins = false;
@@ -60,10 +63,11 @@ void SpinSystem::sync_fields_dh(int field, bool force)
 {
 	if(new_device_fields[field] || force)
 	{
+		const size_t dxyz = sizeof(double) * nxyz;
 // 	  printf("(%s:%i) sync_fields_dh(%i)\n", __FILE__, __LINE__, field);
-		ss_copyDeviceToHost(h_hx[field], d_hx[field], nxyz);
-		ss_copyDeviceToHost(h_hy[field], d_hy[field], nxyz);
-		ss_copyDeviceToHost(h_hz[field], d_hz[field], nxyz);
+		memcpy_d2h(h_hx[field], d_hx[field], dxyz);
+		memcpy_d2h(h_hy[field], d_hy[field], dxyz);
+		memcpy_d2h(h_hz[field], d_hz[field], dxyz);
 		
 		new_device_fields[field] = false;
 		new_host_fields[field] = false;
@@ -74,11 +78,13 @@ void SpinSystem::sync_spins_hd(bool force)
 {
 	if(new_host_spins || force)
 	{
+		const size_t dxyz = sizeof(double) * nxyz;
+
 // 	  printf("(%s:%i) sync_spins_hd\n", __FILE__, __LINE__);
-		ss_copyHostToDevice(d_x, h_x, nxyz);
-		ss_copyHostToDevice(d_y, h_y, nxyz);
-		ss_copyHostToDevice(d_z, h_z, nxyz);
-		ss_copyHostToDevice(d_ms,h_ms,nxyz);
+		memcpy_h2d(d_x, h_x, dxyz);
+		memcpy_h2d(d_y, h_y, dxyz);
+		memcpy_h2d(d_z, h_z, dxyz);
+		memcpy_h2d(d_ms,h_ms,dxyz);
 		
 		new_host_spins = false;
 		new_device_spins = false;
@@ -89,10 +95,12 @@ void SpinSystem::sync_fields_hd(int field, bool force)
 {
 	if(new_host_fields[field] || force)
 	{
+		const size_t dxyz = sizeof(double) * nxyz;
+
 // 	  printf("(%s:%i) sync_fields_hd(%i)\n", __FILE__, __LINE__, field);
-		ss_copyHostToDevice(d_hx[field], h_hx[field], nxyz);
-		ss_copyHostToDevice(d_hy[field], h_hy[field], nxyz);
-		ss_copyHostToDevice(d_hz[field], h_hz[field], nxyz);
+		memcpy_h2d(d_hx[field], h_hx[field], dxyz);
+		memcpy_h2d(d_hy[field], h_hy[field], dxyz);
+		memcpy_h2d(d_hz[field], h_hz[field], dxyz);
 
 		new_host_fields[field] = false;
 		new_device_fields[field] = false;
@@ -204,13 +212,16 @@ bool SpinSystem::copySpinsFrom(lua_State* L, SpinSystem* src)
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 	
-	sync_spins_hd();
+// 	sync_spins_hd();
 	src->sync_spins_hd();
 	
 	ss_d_copyArray(d_x,  src->d_x,  nxyz);
 	ss_d_copyArray(d_y,  src->d_y,  nxyz);
 	ss_d_copyArray(d_z,  src->d_z,  nxyz);
 	ss_d_copyArray(d_ms, src->d_ms, nxyz);
+	
+	new_host_spins = false;
+	new_device_spins = true;
 	
 // 	memcpy( x, src->x,  nxyz * sizeof(double));
 // 	memcpy( y, src->y,  nxyz * sizeof(double));
@@ -228,13 +239,16 @@ bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 
-	sync_fields_hd(SUM_SLOT);
+// 	sync_fields_hd(SUM_SLOT);
 	src->sync_fields_hd(SUM_SLOT);
 	
 	ss_d_copyArray(d_hx[SUM_SLOT], src->d_hx[SUM_SLOT], nxyz);
 	ss_d_copyArray(d_hy[SUM_SLOT], src->d_hy[SUM_SLOT], nxyz);
 	ss_d_copyArray(d_hz[SUM_SLOT], src->d_hz[SUM_SLOT], nxyz);
 	
+	new_host_fields[SUM_SLOT] = false;
+	new_device_fields[SUM_SLOT] = true;
+
 // 	memcpy(hx[SUM_SLOT], src->hx[SUM_SLOT], nxyz * sizeof(double));
 // 	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
 // 	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
@@ -788,11 +802,14 @@ void SpinSystem::getNetMag(double* v8)
 
 int lua_isSpinSystem(lua_State* L, int idx)
 {
-	lua_getmetatable(L, idx);
-	luaL_getmetatable(L, "MERCER.spinsystem");
-	int eq = lua_equal(L, -2, -1);
-	lua_pop(L, 2);
-	return eq;
+    const int i = lua_gettop(L);
+    lua_getmetatable(L, idx);
+    luaL_getmetatable(L, "MERCER.spinsystem");
+    int eq = lua_equal(L, -2, -1);
+
+    while(lua_gettop(L) > i)
+        lua_pop(L, 1);
+    return eq;
 }
 
 

@@ -48,17 +48,30 @@ public:
 	double* h_nz;
 	double* h_k;
 	
+	double* d_LUT;
+	char*   d_idx;
+	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
-	void sync_dh(bool force=false);
-	void sync_hd(bool force=false);
+// 	void sync_dh(bool force=false);
+// 	void sync_hd(bool force=false);
 
 	bool new_host; // if host data is most recent
-	bool new_device;
+// 	bool new_device;
 
 	void init();
 	void deinit();
+	
+	bool make_uncompressed();
+	bool make_compressed();
+	bool make_host();
+	
+	void delete_uncompressed();
+	void delete_compressed();
+	void delete_host();
+private:
+	int unique; //number of LUT entries
 };
 
 ANISOTROPYCUDA_API void lua_pushAnisotropy(lua_State* L, Encodable* _ani);

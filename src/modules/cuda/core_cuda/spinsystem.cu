@@ -39,25 +39,69 @@
 #define CHECKCALL(expression)  CHECKCALL_FL(expression, __FILE__, __LINE__)
 
 
+bool malloc_device_(void** d_v, size_t n)
+{
+// 	printf("malloc_device %i bytes\n", n);
+	CHECKCALL(cudaMalloc(d_v, n));
+	//TODO here we check for fail and compress if needed
+	
+	return true; //eventually this will reflect succesfulness of malloc
+}
+
+void free_device_(void* d_v, const char* file, unsigned int line)
+{
+	CHECKCALL_FL(cudaFree(d_v), file,line);
+}
+
+bool malloc_host_(void** h_v, size_t n)
+{
+	CHECKCALL(cudaMallocHost(h_v, n));
+	return true; //to mirror malloc_device
+}
+
+void free_host_(void* h_v, const char* file, unsigned int line)
+{
+	CHECKCALL_FL(cudaFreeHost(h_v),file,line);
+}
+
+
+
+
 void ss_d_make3DArray(double** v, int nx, int ny, int nz)
 {
-	CHECKCALL(cudaMalloc(v, sizeof(double) * nx * ny * nz));
+	malloc_device(v, sizeof(double) * nx * ny * nz);
 }
 
 void ss_d_free3DArray(double* v)
 {
-	CHECKCALL(cudaFree(v));
+	free_device(v);
 }
 
 void ss_h_make3DArray(double** v, int nx, int ny, int nz)
 {
-	CHECKCALL(cudaMallocHost(v, sizeof(double) * nx * ny * nz));
+	malloc_host(v, sizeof(double) * nx * ny * nz);
 }
 
 void ss_h_free3DArray(double* v)
 {
-	CHECKCALL(cudaFreeHost(v));
+	free_host(v);
 }
+
+void memcpy_d2d_(void* d_dest, void* d_src, size_t n)
+{
+	CHECKCALL(cudaMemcpy(d_dest, d_src, n, cudaMemcpyDeviceToDevice));
+}
+
+void memcpy_d2h_(void* h_dest, void* d_src, size_t n)
+{
+	CHECKCALL(cudaMemcpy(h_dest, d_src, n, cudaMemcpyDeviceToHost));
+}
+
+void memcpy_h2d_(void* d_dest, void* h_src, size_t n)
+{
+	CHECKCALL(cudaMemcpy(d_dest, h_src, n, cudaMemcpyHostToDevice));
+}
+
 
 void ss_copyDeviceToHost_(double* dest, double* src, int nxyz, const char* file, const unsigned int line)
 {

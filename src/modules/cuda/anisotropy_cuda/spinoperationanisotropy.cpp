@@ -16,109 +16,282 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <vector>
+#include <algorithm>
+using namespace std;
 
 Anisotropy::Anisotropy(int nx, int ny, int nz)
 	: SpinOperation("Anisotropy", ANISOTROPY_SLOT, nx, ny, nz, ENCODE_ANISOTROPY)
 {
 	d_nx = 0;
+	d_LUT = 0;
+	h_nx = 0;
+	new_host = true;
+	
 	init();
 }
 
-void Anisotropy::sync_dh(bool force)
+Anisotropy::~Anisotropy()
 {
-	if(new_device || force)
-	{
-		ss_copyDeviceToHost(h_nx, d_nx, nxyz);
-		ss_copyDeviceToHost(h_ny, d_ny, nxyz);
-		ss_copyDeviceToHost(h_nz, d_nz, nxyz);
-		ss_copyDeviceToHost(h_k,  d_k,  nxyz);
-		
-		new_host = false;
-		new_device = false;
-	}	
-}
-
-void Anisotropy::sync_hd(bool force)
-{
-	if(new_host || force)
-	{
-		ss_copyHostToDevice(d_nx, h_nx, nxyz);
-		ss_copyHostToDevice(d_ny, h_ny, nxyz);
-		ss_copyHostToDevice(d_nz, h_nz, nxyz);
-		ss_copyHostToDevice(d_k,  h_k,  nxyz);
-		
-		new_host = false;
-		new_device = false;
-	}	
+	deinit();
 }
 
 void Anisotropy::init()
 {
-	if(d_nx)
-		deinit();
-	nxyz = nx*ny*nz;
-	
-	ss_d_make3DArray(&d_nx, nx, ny, nz);
-	ss_d_make3DArray(&d_ny, nx, ny, nz);
-	ss_d_make3DArray(&d_nz, nx, ny, nz);
-	ss_d_make3DArray(&d_k,  nx, ny, nz);
-	
-	h_nx = new double[nxyz];
-	h_ny = new double[nxyz];
-	h_nz = new double[nxyz];
-	h_k  = new double[nxyz];
-	
-	new_host = false;
-	new_device = true;
-	
-	ss_d_set3DArray(d_nx, nx, ny, nz, 0);
-	ss_d_set3DArray(d_ny, nx, ny, nz, 0);
-	ss_d_set3DArray(d_nz, nx, ny, nz, 0);
-	ss_d_set3DArray(d_k,  nx, ny, nz, 0);
-	
-	sync_dh();
+	make_host();
 }
 
 void Anisotropy::deinit()
 {
-	if(d_nx)
-	{
-		ss_d_free3DArray(d_nx);
-		ss_d_free3DArray(d_ny);
-		ss_d_free3DArray(d_nz);
-		ss_d_free3DArray(d_k);
+	delete_host();
+	delete_compressed();
+	delete_uncompressed();
+}
 
+bool Anisotropy::make_host()
+{
+	if(h_nx)
+		return true;
+
+	h_nx = new double[nxyz];
+	h_ny = new double[nxyz];
+	h_nz = new double[nxyz];
+	h_k  = new double[nxyz];
+
+	for(int i=0; i<nxyz; i++)
+	{
+		h_nx[i] = 0;
+		h_ny[i] = 0;
+		h_nz[i] = 0;
+		h_k[i] = 0;
+	}
+	return true;
+}
+
+
+bool Anisotropy::make_uncompressed()
+{
+	delete_compressed();
+
+	if(new_host || !d_nx)
+	{
+		delete_uncompressed();
+		
+		malloc_device(&d_nx, sizeof(double)*nxyz);
+		malloc_device(&d_ny, sizeof(double)*nxyz);
+		malloc_device(&d_nz, sizeof(double)*nxyz);
+		malloc_device(&d_k,  sizeof(double)*nxyz);
+		
+		
+		memcpy_h2d(d_nx, h_nx, sizeof(double)*nxyz);
+		memcpy_h2d(d_ny, h_ny, sizeof(double)*nxyz);
+		memcpy_h2d(d_nz, h_nz, sizeof(double)*nxyz);
+		memcpy_h2d(d_k,  h_k,  sizeof(double)*nxyz);
+	}
+	new_host = false;
+	compressed = false;
+}
+
+class sani
+{
+public:
+	sani(int s, double x, double y, double z, double k)
+		: site(s), nx(x), ny(y), nz(z), K(k) {}
+	sani(const sani& s) {site = s.site; nx=s.nx; ny=s.ny; nz=s.nz; K=s.K;}
+	int site;
+	double nx, ny, nz, K;
+	char id;
+};
+
+bool sani_sort(const sani& d1, const sani& d2)
+{
+	if(d1.nx < d2.nx) return true;
+	if(d1.nx > d2.nx) return false;
+	
+	if(d1.ny < d2.ny) return true;
+	if(d1.ny > d2.ny) return false;
+	
+	if(d1.nz < d2.nz) return true;
+	if(d1.nz > d2.nz) return false;
+	
+	if(d1.K  < d2.K ) return true;
+	if(d1.K  > d2.K ) return false;
+	
+	return false;
+}
+
+bool sani_same(const sani& d1, const sani& d2)
+{
+	if(d1.nx != d2.nx)
+		return false;
+	if(d1.ny != d2.ny)
+		return false;
+	if(d1.nz != d2.nz)
+		return false;
+	if(d1.K  != d2.K )
+		return false;
+	return true;
+}
+
+bool Anisotropy::make_compressed()
+{
+	delete_compressed();
+	delete_uncompressed();
+	
+	compressAttempted = true;
+	if(!nxyz)
+		return false;
+	
+	compressing = true;
+	
+	vector<sani> aa;
+	for(int i=0; i<nxyz; i++)
+		aa.push_back(sani(i, h_nx[i], h_ny[i], h_nz[i], h_k[i]));
+	
+	std::sort(aa.begin(), aa.end(), sani_sort);
+	
+	unsigned int last_one = 0;
+	
+	vector<unsigned int> uu; //uniques
+	uu.push_back(0);
+	aa[0].id = 0;
+	
+	for(unsigned int i=1; i<nxyz; i++)
+	{
+		if(!sani_same(aa[i], aa[last_one]))
+		{
+			last_one = i;
+			uu.push_back(i);
+			
+		}
+		aa[i].id = uu.size()-1;
+	}
+	
+	if(uu.size() >= 255)
+	{
+		compressing = false;
+		return false;
+	}
+	unique = uu.size();
+
+	//ani can be compressed, build LUT
+	double* h_LUT;// = new double[unique * 4];
+	unsigned char* h_idx;
+	
+	malloc_host(&h_LUT, sizeof(double) * unique * 4);
+	malloc_host(&h_idx, sizeof(unsigned char) * nxyz);
+	
+	for(unsigned int i=0; i<uu.size(); i++)
+	{
+		sani& q = aa[ uu[i] ];
+		h_LUT[i*4+0] = q.nx;
+		h_LUT[i*4+1] = q.ny;
+		h_LUT[i*4+2] = q.nz;
+		h_LUT[i*4+3] = q.K;
+	}
+	
+	for(unsigned int i=0; i<nxyz; i++)
+	{
+		h_idx[i] = aa[i].id;
+	}
+	
+	bool ok;
+	ok  = malloc_device(&d_LUT, sizeof(double) * unique * 4);
+	ok &= malloc_device(&d_idx, sizeof(unsigned char) * nxyz);
+	
+	if(!ok)
+	{
+		delete_compressed(); //incase LUT generated
+		compressed = false;
+		compressing = false;
+		//should probably say something: this is bad.
+		return false;
+	}
+	
+	memcpy_h2d(d_LUT, h_LUT, sizeof(double) * unique * 4);
+	memcpy_h2d(d_idx, h_idx, sizeof(unsigned char) * nxyz);
+	
+	free_host(h_LUT);
+	free_host(h_idx);
+	
+	compressed = true;
+	compressing = false;
+	return true;
+}
+
+
+void Anisotropy::delete_host()
+{
+	if(h_nx)
+	{
 		delete [] h_nx;
 		delete [] h_ny;
 		delete [] h_nz;
 		delete [] h_k;
+		h_nx = 0;
+	}	
+}
+
+void Anisotropy::delete_compressed()
+{
+	void** a[2] = {(void**)&d_LUT, (void**)&d_idx};
+	for(int i=0; i<2; i++)
+	{
+		if(*a[i])
+			free_device(*a[i]);
+		*a[i] = 0;
 	}
-	d_nx = 0;
+	compressed = false;
+}
+
+void Anisotropy::delete_uncompressed()
+{
+	void** a[4] = {
+		(void**)&d_nx, (void**)&d_nx,
+		(void**)&d_nz, (void**)&d_k
+	};
+	
+	for(int i=0; i<4; i++)
+	{
+		if(*a[i])
+			free_device(*a[i]);
+		*a[i] = 0;
+	}
 }
 
 void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double K)
 {
 	if(site >= 0 && site < nxyz)
 	{
+		make_host();
+		if(nz < 0)
+		{
+			nx *= -1.0;
+			ny *= -1.0;
+			nz *= -1.0;
+		}
+		
 		double d = sqrt(nx*nx + ny*ny + nz*nz);
 
 		if(d > 0)
 		{
-			sync_dh();
-
 			h_nx[site] = nx/d;
 			h_ny[site] = ny/d;
 			h_nz[site] = nz/d;
 			h_k[site]  = K;
+
+			new_host = true;
+			compressAttempted = false;
+
+			delete_compressed();
+			delete_uncompressed();
 		}
 
-		new_host = true;
 	}
 }
 
 void Anisotropy::encode(buffer* b)
 {
-	sync_dh();
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
@@ -145,8 +318,6 @@ int Anisotropy::decode(buffer* b)
 	nxyz = nx*ny*nz;
 	init();
 	
-	new_device = false;
-	
 	for(int i=0; i<num; i++)
 	{
 		int j = decodeInteger(b);
@@ -162,25 +333,42 @@ int Anisotropy::decode(buffer* b)
 	return 0;
 }
 
-Anisotropy::~Anisotropy()
-{
-	deinit();
-}
+
 
 bool Anisotropy::apply(SpinSystem* ss)
 {
-	sync_hd();
 	markSlotUsed(ss);
+	ss->sync_spins_hd();
 
 	double* d_hx = ss->d_hx[slot];
 	double* d_hy = ss->d_hy[slot];
 	double* d_hz = ss->d_hz[slot];
 
-	cuda_anisotropy(
-		ss->d_x, ss->d_y, ss->d_z, 
-		d_nx, d_ny, d_nz, d_k,
-		d_hx, d_hy, d_hz,
-		nx, ny, nz);
+	if(!compressAttempted)
+		if(!make_compressed())
+			make_uncompressed();
+
+	if(compressed)
+	{
+		// d_LUT is non-null (since compressed)
+		cuda_anisotropy_compressed(
+			ss->d_x, ss->d_y, ss->d_z,
+			d_LUT, d_idx, 
+			d_hx, d_hy, d_hz,
+			nxyz);
+	}
+	else
+	{
+		if(!d_nx)
+			make_uncompressed();
+		
+		cuda_anisotropy(
+			ss->d_x, ss->d_y, ss->d_z, 
+			d_nx, d_ny, d_nz, d_k,
+			d_hx, d_hy, d_hz,
+			nx, ny, nz);
+	}
+	
 
 	ss->new_device_fields[slot] = true;
 

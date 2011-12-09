@@ -49,6 +49,8 @@ inline T import_function(std::string path, std::string name)
 			dlclose(handle);
 		}
 	}
+//  	else
+//  		printf("dlsym() %s\n", dlerror());
 	return func;
 }
 

@@ -64,3 +64,61 @@ void cuda_anisotropy(
 				nx, ny, offset);
 	}
 }
+
+
+
+
+
+__global__ void do_anisotropy_compressed(
+	const double* d_sx, const double* d_sy, const double* d_sz,
+	const double* d_LUT, const char* d_idx,
+	double* d_hx, double* d_hy, double* d_hz, 
+	const int nxyz)
+{
+	const int i = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(i >= nxyz)
+		return;
+	
+	const double nx = d_LUT[d_idx[i]*4+0];
+	const double ny = d_LUT[d_idx[i]*4+1];
+	const double nz = d_LUT[d_idx[i]*4+2];
+	const double k  = d_LUT[d_idx[i]*4+3];
+	
+	const double ms2 = d_sx[i]*d_sx[i] + d_sy[i]*d_sy[i] + d_sz[i]*d_sz[i];
+	
+	if(ms2 > 0)
+	{
+		const double SpinDotEasyAxis = 
+			d_sx[i]*nx + d_sy[i]*ny + d_sz[i]*nz;
+	
+		const double v = 2.0 * k * SpinDotEasyAxis / ms2;
+		
+		d_hx[i] = nx * v;
+		d_hy[i] = ny * v;
+		d_hz[i] = nz * v;
+	}
+	else
+	{
+		d_hx[i] = 0;
+		d_hy[i] = 0;
+		d_hz[i] = 0;
+	}
+}
+
+
+void cuda_anisotropy_compressed(
+	const double* d_sx, const double* d_sy, const double* d_sz,
+	const double* d_LUT, const char* d_idx,
+	double* d_hx, double* d_hy, double* d_hz,
+	const int nxyz)
+{
+	const int blocks = nxyz / 1024 + 1;
+	const int threads = 1024;
+
+	do_anisotropy_compressed<<<blocks, threads>>>(
+			d_sx, d_sy, d_sz,
+			d_LUT, d_idx,
+			d_hx, d_hy, d_hz, 
+			nxyz);
+}

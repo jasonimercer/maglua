@@ -36,7 +36,7 @@ vector<string> initial_args;
 vector<string> moduleDirectories;
 
 int registerLibs(int suppress, lua_State* L);
-void lua_addargs(lua_State* L, int argc, char** argv); //add initial_args to state (after module consumption)
+void lua_addargs(lua_State* L);//, int argc, char** argv); //add initial_args to state (after module consumption)
 static int l_info(lua_State* L);
 void print_help();
 int suppress;
@@ -324,12 +324,21 @@ MAGLUA_API int registerMain(lua_State* L)
 		}
 	}
 
-
 	// load the modules
 	int i = load_items(L, theModules, argc, argv, suppress);
 
+	//crud, building initial args... again!
+	initial_args.clear();
+	for(int i=0; i<argc; i++)
+	{
+		if(argv[i] && argv[i][0])
+		{
+			initial_args.push_back(argv[i]);
+		}
+	}
 	
-	lua_addargs(L, argc, argv);
+	
+	lua_addargs(L);//, argc, argv);
 
 	
 	for(int i=0; i<argc; i++)
@@ -356,9 +365,10 @@ MAGLUA_API int registerMain(lua_State* L)
 
 // add command line args to the lua state
 // adding argc, argv and a table arg
-void lua_addargs(lua_State* L, int argc, char** argv)
+void lua_addargs(lua_State* L)//, int argc, char** argv)
 {
-	lua_pushinteger(L, argc);
+
+/*	lua_pushinteger(L, argc);
 	lua_setglobal(L, "argc");
 
 	lua_newtable(L);
@@ -368,16 +378,17 @@ void lua_addargs(lua_State* L, int argc, char** argv)
 		lua_pushstring(L, initial_args[i].c_str());
 		lua_settable(L, -3);
 	}
-	lua_setglobal(L, "argv");
+	lua_setglobal(L, "argv");*/
 	
 	lua_newtable(L);
 	int j = 1;
-	for(int i=2; i<argc; i++)
+	for(unsigned int i=0; i<initial_args.size(); i++)
+// 	for(int i=2; i<argc; i++)
 	{
-		if(argv[i][0])
+		if(initial_args[i].size())
 		{
 			lua_pushinteger(L, j);
-			lua_pushstring(L, argv[i]);
+			lua_pushstring(L, initial_args[i].c_str());
 			lua_settable(L, -3);
 			j++;
 		}
@@ -447,12 +458,13 @@ void print_help()
 	cout << " -q               Run quietly, omit some startup messages" << endl;
 	cout << " --module_path    Print primary module directory" << endl;
 #ifdef WIN32
-	cout << " --setup mod_dir  Setup startup files in $(APPDATA)\\maglua" << endl;
+	cout << " --setup [tag:]mod_dir  Setup startup files in $(APPDATA)\\maglua" << endl;
 #else
-	cout << " --setup mod_dir  Setup startup files in $(HOME)/.maglua.d" << endl;
+	cout << " --setup [tag:]mod_dir  Setup startup files in $(HOME)/.maglua.d" << endl;
 #endif
-	cout << "                   with <mod_dir> in the list of paths" << endl;
-		cout << " -v, --version    Print version" << endl;
+	cout << "                  with <mod_dir> in the list of paths" << endl;
+	cout << "                  for optional \"tag\" configuraton" << endl; 
+	cout << " -v, --version    Print version" << endl;
 	cout << " -h, --help       Show this help" << endl;
 	cout << endl;
 	cout << reference() << endl;

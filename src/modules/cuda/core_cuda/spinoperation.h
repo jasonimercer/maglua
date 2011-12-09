@@ -51,6 +51,17 @@ public:
 	virtual void encode(buffer* b) = 0;
 	virtual int  decode(buffer* b) = 0;
 
+	//eventually these will be pure-abstract
+	virtual bool make_uncompressed();
+	virtual bool make_compressed();
+	
+	virtual void delete_uncompressed();
+	virtual void delete_compressed();
+	
+	bool compressing;
+	bool compressed;
+	bool compressAttempted;
+	
 protected:
 	void markSlotUsed(SpinSystem* ss);
 	

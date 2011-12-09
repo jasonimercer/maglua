@@ -203,7 +203,8 @@ void SpinSystem::deinit()
 		
 		delete [] extra_data;
 
-		fftw_destroy_plan(r2q);
+		if(r2q)
+			fftw_destroy_plan(r2q);
 	}
 }
 
@@ -257,6 +258,12 @@ void SpinSystem::init()
 	qy = new complex<double>[nxyz];
 	qz = new complex<double>[nxyz];
 	
+
+	r2q = 0;
+}
+
+void SpinSystem::init_fft()
+{
 	fftw_iodim dims[2];
 	dims[0].n = nx;
 	dims[0].is= 1;
@@ -269,8 +276,9 @@ void SpinSystem::init()
 				reinterpret_cast<fftw_complex*>(rx),
 				reinterpret_cast<fftw_complex*>(qx),
 				FFTW_FORWARD, FFTW_PATIENT);
-				
+	
 	fft_time = time - 1.0;
+
 }
 
 //   void encodeBuffer(const void* s, int len, buffer* b);
@@ -541,6 +549,9 @@ int SpinSystem::getSlot(const char* name)
 
 void SpinSystem::fft()
 {
+	if(!r2q)
+		init_fft();
+	
 	for(int i=0; i<nxyz; i++) rx[i] = x[i];
 	for(int i=0; i<nxyz; i++) ry[i] = y[i];
 	for(int i=0; i<nxyz; i++) rz[i] = z[i];
@@ -663,14 +674,16 @@ void SpinSystem::getNetMag(double* v8)
 
 
 
-
 int lua_isSpinSystem(lua_State* L, int idx)
 {
-	lua_getmetatable(L, idx);
-	luaL_getmetatable(L, "MERCER.spinsystem");
-	int eq = lua_equal(L, -2, -1);
-	lua_pop(L, 2);
-	return eq;
+    const int i = lua_gettop(L);
+    lua_getmetatable(L, idx);
+    luaL_getmetatable(L, "MERCER.spinsystem");
+    int eq = lua_equal(L, -2, -1);
+
+    while(lua_gettop(L) > i)
+	lua_pop(L, 1);
+    return eq;
 }
 
 

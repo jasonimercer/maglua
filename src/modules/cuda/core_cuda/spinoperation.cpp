@@ -20,9 +20,32 @@ SpinOperation::SpinOperation(std::string Name, int Slot, int NX, int NY, int NZ,
 	: Encodable(etype), nx(NX), ny(NY), nz(NZ), refcount(0), operationName(Name), slot(Slot)
 {
 	nxyz = nx * ny * nz;
+	compressing = false;
+	compressAttempted = false;
 }
 
 SpinOperation::~SpinOperation()
+{
+	
+}
+
+bool SpinOperation::make_uncompressed()
+{
+	return true;
+}
+
+bool SpinOperation::make_compressed()
+{
+	return true;
+}
+
+	
+void SpinOperation::delete_uncompressed()
+{
+	
+}
+
+void SpinOperation::delete_compressed()
 {
 	
 }
@@ -125,6 +148,24 @@ int lua_getnewargs(lua_State* L, int* vec, int pos)
 		}
 		return 1;
 	}
+
+	if(lua_isnumber(L, pos))
+	{
+	    vec[0] = 1;
+	    vec[1] = 1;
+	    vec[2] = 1;
+	    
+	    for(int i=0; i<3; i++)
+	    {
+		//printf("lua_isnumber(L, pos+i [%i %i]) = %i\n", pos, i, lua_isnumber(L, pos+i));
+		if(lua_isnumber(L, pos+i))
+		{
+		    vec[i] = lua_tointeger(L, pos+i);
+		}
+		else
+		    return 3;
+	    }   
+	}
 	
 	if(lua_isSpinSystem(L, pos))
 	{
@@ -135,21 +176,9 @@ int lua_getnewargs(lua_State* L, int* vec, int pos)
 		return 1;
 	}
 
-	vec[0] = 1;
-	vec[1] = 1;
-	vec[2] = 1;
-
-	for(int i=0; i<3; i++)
-	{
-		if(lua_isnumber(L, pos+i))
-		{
-			vec[i] = lua_tointeger(L, pos+i);
-		}
-		else
-			return 3;
-	}
 	
-	return 3;
+	return luaL_error(L, "Failed to parse new arguments");
+//	return 0;
 }
 
 
