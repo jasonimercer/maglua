@@ -24,7 +24,7 @@ class LLG_API LLGCartesian : public LLG
 public:
 	LLGCartesian();
 
-	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
+	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
 };
 
 #endif

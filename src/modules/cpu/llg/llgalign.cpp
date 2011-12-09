@@ -20,7 +20,7 @@ LLGAlign::LLGAlign()
 {
 }
 
-bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
+bool  LLGAlign::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
 	const double* sx = spinfrom->x;
 	const double* sy = spinfrom->y;
@@ -28,9 +28,9 @@ bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* sp
 	const double* ms = spinfrom->ms;
 	      double* mt = spinto->ms;
 
-	const double* hx = fieldfrom->hx[SUM_SLOT];
-	const double* hy = fieldfrom->hy[SUM_SLOT];
-	const double* hz = fieldfrom->hz[SUM_SLOT];
+	const double* hx = dmdt->hx[SUM_SLOT];
+	const double* hy = dmdt->hy[SUM_SLOT];
+	const double* hz = dmdt->hz[SUM_SLOT];
 
 	      double* x  = spinto->x;
 	      double* y  = spinto->y;
@@ -49,7 +49,7 @@ bool LLGAlign::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* sp
 	}
 
 	if(advancetime)
-		spinto->time = spinfrom->time + spinfrom->dt;
+		spinto->time = spinfrom->time + dmdt->dt;
 	return true;
 }
 

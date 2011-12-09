@@ -24,7 +24,7 @@ class LLG_API LLGFake : public LLG
 public:
 	LLGFake();
 
-	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
+	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
 };
 
 #endif

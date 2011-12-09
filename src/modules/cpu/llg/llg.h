@@ -38,7 +38,7 @@ public:
 	LLG(const char* llgtype, int etype);
 	virtual ~LLG();
 	
-	virtual bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime) = 0;
+	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime) = 0;
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 	
 	std::string type;

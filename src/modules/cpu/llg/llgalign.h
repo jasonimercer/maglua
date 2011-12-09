@@ -23,7 +23,7 @@ class LLG_API LLGAlign : public LLG
 public:
 	LLGAlign();
 
-	bool apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
+	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
 };
 
 #endif
