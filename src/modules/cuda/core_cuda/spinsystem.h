@@ -18,6 +18,19 @@
 
 using namespace std;
 
+typedef struct work_space_device_memory
+{
+	double* d_memory;
+	int refcount;
+	size_t size;
+} work_space_device_memory;
+
+static work_space_device_memory WS_MEM = {0,0,0};
+void  registerWS();
+void  unregisterWS();
+double* getWSMem(size_t size);
+
+
 class CORECUDA_API SpinSystem : public Encodable
 {
 public:
@@ -68,12 +81,12 @@ public:
 	// these are used when kernels need to
 	// split into multiple parts to
 	// keep register counts down.
-	double* d_wsAll; //this is the real one. 
-
-	double* d_ws1; //these index into it
-	double* d_ws2;
-	double* d_ws3;
-	double* d_ws4;
+// 	double* d_wsAll; //this is the real one. 
+// 
+// 	double* d_ws1; //these index into it
+// 	double* d_ws2;
+// 	double* d_ws3;
+// 	double* d_ws4;
 
 
 	

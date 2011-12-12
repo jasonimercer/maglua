@@ -26,6 +26,36 @@
 using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
+void registerWS()
+{
+	WS_MEM.refcount++;
+}
+
+void  unregisterWS()
+{
+	WS_MEM.refcount--;
+	
+	if(!WS_MEM.refcount)
+	{
+		if(WS_MEM.d_memory)
+			free_device(WS_MEM.d_memory);
+		WS_MEM.d_memory = 0;
+	}
+}
+
+double* getWSMem(size_t size)
+{
+	if(WS_MEM.size < size)
+	{
+		free_device(WS_MEM.d_memory);
+		malloc_device(&(WS_MEM.d_memory), size);
+		WS_MEM.size = size;
+	}
+	return WS_MEM.d_memory;
+}
+
+
+
 SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 	: Encodable(ENCODE_SPINSYSTEM), d_x(0), d_y(0), d_z(0), 
 		d_ms(0), gamma(1.0), alpha(1.0), dt(1.0),
@@ -143,6 +173,12 @@ void SpinSystem::diff(SpinSystem* other, double* v4)
 	//ensure spins are on the device
 	sync_spins_hd();
 	other->sync_spins_hd();
+	
+	double* d_wsAll = getWSMem(sizeof(double)*nxyz*4);
+	double* d_ws1 = d_wsAll + nxyz * 0;
+	double* d_ws2 = d_wsAll + nxyz * 1;
+	double* d_ws3 = d_wsAll + nxyz * 2;
+	double* d_ws4 = d_wsAll + nxyz * 3;
 	
 	ss_d_absDiffArrays(d_ws1, d_x, other->d_x, nxyz);
 	ss_d_absDiffArrays(d_ws2, d_y, other->d_y, nxyz);
@@ -279,8 +315,8 @@ void SpinSystem::deinit()
 		ss_d_free3DArray(d_z);
 		ss_d_free3DArray(d_ms);
 		
-		ss_d_free3DArray(d_wsAll);
-
+// 		ss_d_free3DArray(d_wsAll);
+		unregisterWS();
 		//ss_d_free3DArray(d_ws1);
 		//ss_d_free3DArray(d_ws2);
 		//ss_d_free3DArray(d_ws3);
@@ -371,12 +407,15 @@ void SpinSystem::init()
 	sync_spins_dh();
 	
 	
-	ss_d_make3DArray(&d_wsAll, nx, ny, nz*4);
+// 	ss_d_make3DArray(&d_wsAll, nx, ny, nz*4);
+	
+	registerWS();
+	
 
-	d_ws1 = d_wsAll + nxyz * 0;
-	d_ws2 = d_wsAll + nxyz * 1;
-	d_ws3 = d_wsAll + nxyz * 2;
-	d_ws4 = d_wsAll + nxyz * 3;
+// 	d_ws1 = d_wsAll + nxyz * 0;
+// 	d_ws2 = d_wsAll + nxyz * 1;
+// 	d_ws3 = d_wsAll + nxyz * 2;
+// 	d_ws4 = d_wsAll + nxyz * 3;
 
 	//ss_d_make3DArray(&d_ws1, nx, ny, nz);
 	//ss_d_make3DArray(&d_ws2, nx, ny, nz);
@@ -748,6 +787,8 @@ void SpinSystem::getNetMag(double* v8)
 {
 
 #if 1
+	double* d_ws1 = getWSMem(sizeof(double)*nxyz);
+
 	sync_spins_hd();
 	v8[0] = ss_reduce3DArray_sum(d_x, d_ws1, h_ws1, nx, ny, nz);
 	v8[1] = ss_reduce3DArray_sum(d_y, d_ws1, h_ws1, nx, ny, nz);

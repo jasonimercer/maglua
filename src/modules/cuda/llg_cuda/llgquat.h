@@ -21,6 +21,7 @@ class LLGQuaternion : public LLG
 {
 public:
 	LLGQuaternion();
+	~LLGQuaternion();
 
 	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
 };

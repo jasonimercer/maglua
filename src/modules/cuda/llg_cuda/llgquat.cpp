@@ -33,7 +33,14 @@
 LLGQuaternion::LLGQuaternion()
 	: LLG("Quaternion", ENCODE_LLGQUAT)
 {
+	registerWS();
 }
+
+LLGQuaternion::~LLGQuaternion()
+{
+	unregisterWS();
+}
+
 
 bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 // bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
@@ -51,13 +58,22 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 	const double gamma = dmdt->gamma;
 	const double alpha = dmdt->alpha;
 	const double dt    = dmdt->dt * scaledmdt;
+	
+	const int nxyz = nx*ny*nz;
+	double* d_wsAll = getWSMem(sizeof(double)*nxyz*4);
+	double* d_ws1 = d_wsAll + nxyz * 0;
+	double* d_ws2 = d_wsAll + nxyz * 1;
+	double* d_ws3 = d_wsAll + nxyz * 2;
+	double* d_ws4 = d_wsAll + nxyz * 3;
+
+	
 #define S SUM_SLOT
 	cuda_llg_quat_apply(nx, ny, nz,
 						  spinto->d_x,   spinto->d_y,   spinto->d_z,   spinto->d_ms,
 						spinfrom->d_x, spinfrom->d_y, spinfrom->d_z, spinfrom->d_ms,
 						    dmdt->d_x,     dmdt->d_y,     dmdt->d_z,     dmdt->d_ms,
 						    dmdt->d_hx[S], dmdt->d_hy[S], dmdt->d_hz[S],
-						spinfrom->d_ws1, spinfrom->d_ws2, spinfrom->d_ws3, spinfrom->d_ws4,
+						          d_ws1,         d_ws2,         d_ws3,         d_ws4,
 						alpha, dt, gamma);	
 
 	// mark spins as new for future d->h syncing
