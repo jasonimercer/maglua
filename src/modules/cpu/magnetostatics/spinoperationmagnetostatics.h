@@ -20,69 +20,42 @@ extern "C" {
 #define SPINOPERATIONMAGNETOSTATICS
 
 #include "spinoperation.h"
+#include "../longrange/spinoperationlongrange.h"
 
-#include <complex>
-#include <fftw3.h>
+#ifdef WIN32
+ #define strcasecmp(A,B) _stricmp(A,B)
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #pragma warning(disable: 4251)
+
+ #ifdef MAGNETOSTATICS_EXPORTS
+  #define MAGNETOSTATICS_API __declspec(dllexport)
+ #else
+  #define MAGNETOSTATICS_API __declspec(dllimport)
+ #endif
+#else
+ #define MAGNETOSTATICS_API 
+#endif
 
 using namespace std;
 
-class Magnetostatic : public SpinOperation
+class Magnetostatic : public LongRange
 {
 public:
 	Magnetostatic(int nx=32, int ny=32, int nz=1);
 	virtual ~Magnetostatic();
-	
-	bool apply(SpinSystem* ss);
-	void getMatrices();
-	
-	double g;
-	
-	double ABC[9];
-	int gmax;
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
 	double volumeDimensions[3];
 	double crossover_tolerance; //calculations crossover from magnetostatics to dipole
-private:
-	void init();
-	void deinit();
-	
-	void ifftAppliedForce(SpinSystem* ss);
-	void collectIForces(SpinSystem* ss);
-	
-	bool hasMatrices;
-	
-	complex<double>* srx;
-	complex<double>* sry;
-	complex<double>* srz;
-	
-	complex<double>* hqx;
-	complex<double>* hqy;
-	complex<double>* hqz;
-	
-	complex<double>* hrx;
-	complex<double>* hry;
-	complex<double>* hrz;
-	
-	
-	complex<double>* qXX;
-	complex<double>* qXY;
-	complex<double>* qXZ;
-	
-	complex<double>* qYY;
-	complex<double>* qYZ;
-	complex<double>* qZZ;
-	
-	
-	fftw_plan forward;
-	fftw_plan backward;
+
+	void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ);
 };
 
-void lua_pushMagnetostatic(lua_State* L, Encodable* d);
-Magnetostatic* checkMagnetostatic(lua_State* L, int idx);
-void registerMagnetostatic(lua_State* L);
+MAGNETOSTATICS_API void lua_pushMagnetostatic(lua_State* L, Encodable* d);
+MAGNETOSTATICS_API Magnetostatic* checkMagnetostatic(lua_State* L, int idx);
+MAGNETOSTATICS_API void registerMagnetostatic(lua_State* L);
 
 
 #endif

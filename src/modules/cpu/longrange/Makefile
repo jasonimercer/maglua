@@ -9,10 +9,10 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationdipole.o dipolesupport.o
-LIBNAME=Dipole
+OBJECTS=spinoperationlongrange.o
+LIBNAME=LongRange
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core encode longrange
+DEPEND=core encode
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

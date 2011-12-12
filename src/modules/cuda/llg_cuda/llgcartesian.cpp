@@ -37,8 +37,7 @@ LLGCartesian::LLGCartesian()
 	v[0] = a[1] * b[2] - a[2] * b[1]; \
 	v[1] = a[2] * b[0] - a[0] * b[2]; \
 	v[2] = a[0] * b[1] - a[1] * b[0];
-
-bool LLGCartesian::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
+bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
 	const double* sx = spinfrom->x;
 	const double* sy = spinfrom->y;
@@ -47,22 +46,26 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem
 	
 	      double* mt = spinto->ms;
 
-	const double* hx = fieldfrom->hx[SUM_SLOT];
-	const double* hy = fieldfrom->hy[SUM_SLOT];
-	const double* hz = fieldfrom->hz[SUM_SLOT];
+	const double* hx = dmdt->hx[SUM_SLOT];
+	const double* hy = dmdt->hy[SUM_SLOT];
+	const double* hz = dmdt->hz[SUM_SLOT];
+
+	const double* mx = dmdt->x;
+	const double* my = dmdt->y;
+	const double* mz = dmdt->z;
 
 	      double* x  = spinto->x;
 	      double* y  = spinto->y;
 	      double* z  = spinto->z;
 
-	const double gamma = spinfrom->gamma;
-	const double alpha = spinfrom->alpha;
-	const double dt    = spinfrom->dt;
+	const double gamma = dmdt->gamma;
+	const double alpha = dmdt->alpha;
+	const double dt    =  scaledmdt * dmdt->dt;
 
 	//LLG from http://inoe.inoe.ro/joam/arhiva/pdf8_5/5Ciubotaru.pdf
-
+	const int nxyz = spinfrom->nxyz;
 	#pragma omp parallel for shared(x, y, z)
-	for(int i=0; i<spinfrom->nxyz; i++)
+	for(int i=0; i<nxyz; i++)
 	{
 		mt[i] = ms[i];
 		if(ms[i] > 0)
@@ -74,7 +77,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem
 			double MMH[3];
 			double gaa, inv;
 	
-			M[0]=sx[i];     M[1]=sy[i];     M[2]=sz[i];
+			M[0]=mx[i];     M[1]=my[i];     M[2]=mz[i];
 			H[0]=hx[i];     H[1]=hy[i];     H[2]=hz[i];
 
 			CROSS(MH, M, H);
@@ -98,7 +101,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem
 	}
 
 	if(advancetime)
-		spinto->time = spinfrom->time + dt;
+		spinto->time = spinfrom->time +  dt;
 	return true;
 }
 

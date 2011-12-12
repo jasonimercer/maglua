@@ -102,7 +102,7 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 		  
 	const double gamma = dmdt->gamma;
 	const double alpha = dmdt->alpha;
-	const double dt    = dmdt->dt;
+	const double dt    = dmdt->dt * scaledmdt;
 
 // dS    -g
 // -- = ---- S X (h + a S X H)
@@ -123,6 +123,7 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 			double HLen;
 			double S[3];
 			double H[3];
+			double M[3];
 			double SH[3];
 			const double inv = 1.0 / ms[i];
 			double ra; //rotate amount
@@ -132,10 +133,11 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 // -- = ---- S X (H +---S X H)
 // dt   1+aa         |S|
 
-			S[0]=mx[i]; S[1]=my[i]; S[2]=mz[i];
+			S[0]=sx[i]; S[1]=sy[i]; S[2]=sz[i];
+			M[0]=mx[i]; M[1]=my[i]; M[2]=mz[i];
 			H[0]=hx[i]; H[1]=hy[i]; H[2]=hz[i];
 
-			CROSS(SH, S, H);
+			CROSS(SH, M, H);
 			for(int j=0; j<3; j++)
 				H[j] += alpha * SH[j] * inv;
 
@@ -151,8 +153,8 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 				double iHLen = 1.0 / HLen;
 				ra = 1.0 * gamma * HLen / (1.0 + alpha * alpha);
 
-				cost = cos(0.5 * ra * dt * scaledmdt);
-				sint = sin(0.5 * ra * dt * scaledmdt);
+				cost = cos(0.5 * ra * dt);
+				sint = sin(0.5 * ra * dt);
 				
 // 				printf("theta: %g\n", 0.5 * ra * dt);
 

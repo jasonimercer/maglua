@@ -14,7 +14,7 @@
 #define SPINOPERATIONDIPOLECUDA
 
 #include "spinoperation.h"
-#include "kernel.hpp"
+#include "../longrange_cuda/spinoperationlongrange.h"
 
 
 #ifdef WIN32
@@ -33,28 +33,17 @@
 
 using namespace std;
 
-class DipoleCuda : public SpinOperation
+class DipoleCuda : public LongRangeCuda
 {
 public:
 	DipoleCuda(int nx=32, int ny=32, int nz=1);
 	virtual ~DipoleCuda();
 	
-	bool apply(SpinSystem* ss);
-	
-	double g;
-
-	double ABC[9];
-	int gmax;
-	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 
-	void init();
-	void deinit();
-private:
-	bool getPlan();
+	void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ);
 
-	JM_LONGRANGE_PLAN* plan;
 };
 
 DIPOLECUDA_API void lua_pushDipoleCuda(lua_State* L, Encodable* d);

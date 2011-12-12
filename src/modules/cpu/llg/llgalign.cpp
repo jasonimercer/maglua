@@ -49,7 +49,7 @@ bool  LLGAlign::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, 
 	}
 
 	if(advancetime)
-		spinto->time = spinfrom->time + dmdt->dt;
+		spinto->time = spinfrom->time + scaledmdt * dmdt->dt;
 	return true;
 }
 

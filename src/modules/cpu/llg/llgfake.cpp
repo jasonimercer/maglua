@@ -24,7 +24,7 @@ LLGFake::LLGFake()
 bool LLGFake::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 // bool LLGFake::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
-	const double dt    = dmdt->dt;
+	const double dt    =  scaledmdt * dmdt->dt;
 	
 	if(advancetime)
 		spinto->time = spinfrom->time + dt;

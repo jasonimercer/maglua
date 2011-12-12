@@ -108,49 +108,59 @@ int l_llg_new(lua_State* L)
 
 
 
-// this is a bit messy, should fix it down the road
+// 
+// The apply function is highly overloaded 
+//  it looks like this
+//  ll:apply(A, x, B, C, yn)
+// 
+// Where 
+// 
+// A = "from system", this "old system" in "x_new = x_old + dt * dx/dt"
+// x = optional scalar, default = 1. Scales the dt.
+// B = system that is used to calculate dx/dt. Also the souce of the timestep
+// C = "to system". This is where the result will get stored
+// yn = boolean, optional. default = true. If true, the time of x_new is updated, else, not updated.
+
+
 int l_llg_apply(lua_State* L)
 {
+	LLG* llg = checkLLG(L, 1);
+				
 	bool advanceTime = true;
+	double scale_dmdt = 1.0;
+	
 	if(lua_isboolean(L, -1))
 		if(lua_toboolean(L, -1) == 0)
 			advanceTime = false;
-	if(lua_gettop(L) >= 2)
+		
+	int sys1_pos = 2; //because the llg operator is at 1
+	int sys2_pos = 3;
+	if(lua_isnumber(L, 3))
 	{
-		if(lua_gettop(L) <= 3)
-		{
-			LLG* llg = checkLLG(L, 1);
-			SpinSystem* ss  = checkSpinSystem(L, 2);
-			
-			if(!llg)
-				return 0;
-			
-			if(!ss)
-				return 0;
-			
-			llg->apply(ss, ss, ss, advanceTime);
-			
-			return 0;
-		}
-		if(lua_gettop(L) <= 5)
-		{
-			LLG* llg = checkLLG(L, 1);
-			SpinSystem* spinfrom  = checkSpinSystem(L, 2);
-			SpinSystem* fieldfrom = checkSpinSystem(L, 3);
-			SpinSystem* spinto    = checkSpinSystem(L, 4);
-			
-			if(!llg)
-				return 0;
-			
-			if(!spinfrom || !fieldfrom || !spinto)
-				return 0;
-			
-			llg->apply(spinfrom, fieldfrom, spinto, advanceTime);
-
-			return 0;
-		}
+		scale_dmdt = lua_tonumber(L, 3);
+		sys2_pos = 4; //need to shift it
 	}
-	luaL_error(L, "apply requires 1 or 3 spin systems (extra boolean argument allowed to control timestep)");
+	
+	SpinSystem* ss[3]; //from, dmdt, to
+	
+	ss[0] = checkSpinSystem(L, sys1_pos);
+	ss[1] = ss[0];
+	ss[2] = ss[0];
+	
+	SpinSystem* t;
+	//get 2nd and 3rd systems if present
+	for(int i=0; i<2; i++)
+	{
+		if(lua_isSpinSystem(L, sys2_pos+i))
+			ss[1+i] = lua_toSpinSystem(L, sys2_pos+i);
+	}	
+
+	if(!llg || !ss[0])
+	{
+		return luaL_error(L, "apply requires 1, 2 or 3 spin systems (extra boolean argument allowed to control timestep, optional 2nd arg can scale timestep)");
+	}
+
+	llg->apply(ss[0], scale_dmdt, ss[1], ss[2], advanceTime);
 	
 	return 0;
 }
@@ -226,8 +236,11 @@ static int l_llg_help(lua_State* L)
 	
 	if(func == l_llg_apply)
 	{
-		lua_pushstring(L, "Compute 1 LLG step.");
-		lua_pushstring(L, "1 *SpinSystem*, Optional Boolean or 3 *SpinSystem*s, Optional Boolean: If there is only 1 *SpinSystem* then a single LLG step will be applied to the system. If there are 3 spin systems then the spins of the first will be updated using the fields of the second and written to the spins of the thrid. In both cases the optional Boolean value, if false, will force the internal time to not step.");
+		lua_pushstring(L, "Compute 1 LLG Euler Step.");
+		lua_pushstring(L, "1 *SpinSystem*, Oprional Number, Optional 2 *SpinSystem*s, Optional Boolean: " 
+		"Make 1 Euler step from 1st system using 2nd system to compute derivative (defaulting to 1st system), "
+		"scaling timestep be optional number (default 1.0) and storing in 3rd system (defaulting to 1st system)."
+		"If last argument is the boolean \"false\", the time will not be incremented");
 		lua_pushstring(L, "");
 		return 3;
 	}

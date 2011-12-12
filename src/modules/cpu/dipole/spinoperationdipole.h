@@ -14,6 +14,7 @@
 #define SPINOPERATIONDIPOLE
 
 #include "spinoperation.h"
+#include "../longrange/spinoperationlongrange.h"
 
 #ifdef WIN32
  #ifdef DIPOLE_EXPORTS
@@ -31,57 +32,16 @@
 
 using namespace std;
 
-class Dipole : public SpinOperation
+class Dipole : public LongRange
 {
 public:
 	Dipole(int nx=32, int ny=32, int nz=1);
 	virtual ~Dipole();
 	
-	bool apply(SpinSystem* ss);
-	void getMatrices();
-	
-	void threadApply(SpinSystem* ss);
-	
-	double g;
-
-	double ABC[9];
-	int gmax;
-	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
-
-	void init();
-	void deinit();
-private:
-	void ifftAppliedForce(SpinSystem* ss);
-	void collectIForces(SpinSystem* ss);
-
-	bool hasMatrices;
-
-	complex<double>* srx;
-	complex<double>* sry;
-	complex<double>* srz;
-
-	complex<double>* hqx;
-	complex<double>* hqy;
-	complex<double>* hqz;
-
-	complex<double>* hrx;
-	complex<double>* hry;
-	complex<double>* hrz;
-
-
-	complex<double>* qXX;
-	complex<double>* qXY;
-	complex<double>* qXZ;
-
-	complex<double>* qYY;
-	complex<double>* qYZ;
-	complex<double>* qZZ;
-
-
-	fftw_plan forward;
-	fftw_plan backward;
+	
+	void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ);
 };
 
 DIPOLE_API void lua_pushDipole(lua_State* L, Encodable* d);

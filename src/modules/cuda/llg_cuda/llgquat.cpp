@@ -35,26 +35,28 @@ LLGQuaternion::LLGQuaternion()
 {
 }
 
-bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
+bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
+// bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
-	const double gamma = spinfrom->gamma;
-	const double alpha = spinfrom->alpha;
-	const double dt    = spinfrom->dt;
-
 	// if new spins/fields exist on the host copy them to the device
 	spinfrom->sync_spins_hd();
-	fieldfrom->sync_fields_hd(SUM_SLOT);
+	spinto->sync_spins_hd();
+	dmdt->sync_spins_hd();
+	dmdt->sync_fields_hd(SUM_SLOT);
 	
 	const int nx = spinfrom->nx;
 	const int ny = spinfrom->ny;
 	const int nz = spinfrom->nz;
-
+	
+	const double gamma = dmdt->gamma;
+	const double alpha = dmdt->alpha;
+	const double dt    = dmdt->dt * scaledmdt;
+#define S SUM_SLOT
 	cuda_llg_quat_apply(nx, ny, nz,
-						spinto->d_x, spinto->d_y, spinto->d_z, spinto->d_ms, 
-						spinfrom->d_x, spinfrom->d_y, spinfrom->d_z, spinfrom->d_ms, 
-								fieldfrom->d_hx[SUM_SLOT], 
-								fieldfrom->d_hy[SUM_SLOT], 
-								fieldfrom->d_hz[SUM_SLOT],
+						  spinto->d_x,   spinto->d_y,   spinto->d_z,   spinto->d_ms,
+						spinfrom->d_x, spinfrom->d_y, spinfrom->d_z, spinfrom->d_ms,
+						    dmdt->d_x,     dmdt->d_y,     dmdt->d_z,     dmdt->d_ms,
+						    dmdt->d_hx[S], dmdt->d_hy[S], dmdt->d_hz[S],
 						spinfrom->d_ws1, spinfrom->d_ws2, spinfrom->d_ws3, spinfrom->d_ws4,
 						alpha, dt, gamma);	
 

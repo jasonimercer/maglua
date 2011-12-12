@@ -9,11 +9,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationdipole.o dipolesupport.o kernel.cuo
+OBJECTS=spinoperationdipole.o dipolesupport.o
 LIBNAME=DipoleCuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=encode corecuda
+DEPEND=encode corecuda longrangecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

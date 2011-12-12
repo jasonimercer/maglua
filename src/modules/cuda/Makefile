@@ -10,7 +10,8 @@
 #
 
 DIRS=anisotropy_cuda appliedfield_cuda core_cuda dipole_cuda \
-     exchange_cuda llg_cuda thermal_cuda magnetostatics_cuda
+     exchange_cuda llg_cuda thermal_cuda magnetostatics_cuda \
+     longrange_cuda
 
 all:
 	@for d in $(DIRS); do (make -C $$d); done

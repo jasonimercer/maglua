@@ -9,12 +9,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o kernel.cuo
+OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o
 
 LIBNAME=MagnetostaticsCuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=encode corecuda dipolecuda
+DEPEND=encode corecuda dipolecuda longrangecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

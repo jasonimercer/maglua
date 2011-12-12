@@ -60,7 +60,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 
 	const double gamma = dmdt->gamma;
 	const double alpha = dmdt->alpha;
-	const double dt    = dmdt->dt;
+	const double dt    =  scaledmdt * dmdt->dt;
 
 	//LLG from http://inoe.inoe.ro/joam/arhiva/pdf8_5/5Ciubotaru.pdf
 	const int nxyz = spinfrom->nxyz;
@@ -88,9 +88,9 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 			for(int c=0; c<3; c++)
 				dM[c] = -gaa * MH[c] - (alpha/ms[i]) * gaa * MMH[c];
 
-			M[0] = (sx[i] + scaledmdt * dt * dM[0]);
-			M[1] = (sy[i] + scaledmdt * dt * dM[1]);
-			M[2] = (sz[i] + scaledmdt * dt * dM[2]);
+			M[0] = (sx[i] + dt * dM[0]);
+			M[1] = (sy[i] + dt * dM[1]);
+			M[2] = (sz[i] + dt * dM[2]);
 
 			inv = 1.0 / sqrt(M[0]*M[0] + M[1]*M[1] + M[2]*M[2]);
 
@@ -101,7 +101,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 	}
 
 	if(advancetime)
-		spinto->time = spinfrom->time + dt;
+		spinto->time = spinfrom->time +  dt;
 	return true;
 }
 

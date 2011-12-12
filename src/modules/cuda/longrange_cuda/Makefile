@@ -9,10 +9,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationdipole.o dipolesupport.o
-LIBNAME=Dipole
+OBJECTS=spinoperationlongrange.o longrange_kernel.cuo
+LIBNAME=LongRangeCuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core encode longrange
+DEPEND=encode corecuda
 BASEDIR=../../..
+EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
+include $(BASEDIR)/makefile.common.gpu

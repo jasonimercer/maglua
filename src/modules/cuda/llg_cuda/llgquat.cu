@@ -216,11 +216,11 @@ __global__ void llg_quat_apply_4(
 }
 
 
-
 void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
-	double* dsx, double* dsy, double* dsz, double* dms, //dest
-	double* ssx, double* ssy, double* ssz, double* sms, // src
-	double* hx, double* hy, double* hz,
+	double* dsx, double* dsy, double* dsz, double* dms, //dest (spinto)
+	double* ssx, double* ssy, double* ssz, double* sms, // src (spinfrom)
+	double* ddx, double* ddy, double* ddz, double* dds, // dm/dt spins
+	double* dhx, double* dhy, double* dhz,              // dm/dt fields
 	double* ws1, double* ws2, double* ws3, double* ws4,
 	const double alpha, const double dt, const double gamma)
 {
@@ -231,25 +231,31 @@ void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
 	const int threads = 512;
 	const int blocks = nxyz / threads + 1;
 
+	// _1 calculates rhs of S x (damped field)
+	// the (damped field) is done with dm/dt terms
+	// result is stored in W
 	llg_quat_apply_1<<<blocks, threads>>>(nxyz,
 					alpha,
-					ssx, ssy, ssz, sms,
-						hx,  hy,  hz,
+					ddx, ddy, ddz, dds,
+					dhx, dhy, dhz,
 					ws1, ws2, ws3, ws4);
 	CHECK
 	
+	// spinfrom x W (via quats)
 	llg_quat_apply_2<<<blocks, threads>>>(nxyz,
 					ssx, ssy, ssz,
 					ws1, ws2, ws3, ws4,
 					alpha, gadt);
 	CHECK
 
+	// normalize
 	llg_quat_apply_3<<<blocks, threads>>>(nxyz,
 					ws1, ws2, ws3, ws4,
 					ssx, ssy, ssz, sms,
 					dsx, dsy, dsz, dms);
 	CHECK
 	
+	// store in (spinto)
 	llg_quat_apply_4<<<blocks, threads>>>(nxyz,
 					ws1, ws2, ws3, ws4,
 					dsx, dsy, dsz);

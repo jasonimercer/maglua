@@ -36,6 +36,7 @@ inline T import_function(std::string path, std::string name)
 #include <stdio.h>
 #include <dlfcn.h>
 template <class T>
+//#define IMPORT_DEBUG
 inline T import_function(std::string path, std::string name)
 {
 	void* handle = dlopen(path.c_str(),  RTLD_NOW | RTLD_GLOBAL);
@@ -48,9 +49,14 @@ inline T import_function(std::string path, std::string name)
 			printf("dlsym() %s\n", dlerror());
 			dlclose(handle);
 		}
+#ifdef IMPORT_DEBUG
+		printf("%s Import OK\n", path.c_str());
+#endif		
 	}
-//  	else
-//  		printf("dlsym() %s\n", dlerror());
+#ifdef IMPORT_DEBUG
+  	else
+  		printf("dlsym() %s\n", dlerror());
+#endif
 	return func;
 }
 

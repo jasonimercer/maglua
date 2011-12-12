@@ -10,51 +10,54 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifndef LLGDEF
-#define LLGDEF
-#include "luacommon.h"
-#include <string>
-#include "encodable.h"
+#ifndef SPINOPERATIONLONGRANGECUDA
+#define SPINOPERATIONLONGRANGECUDA
+
+#include "spinoperation.h"
+#include "longrange_kernel.hpp"
+
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
  #pragma warning(disable: 4251)
 
- #ifdef LLGCUDA_EXPORTS
-  #define LLGCUDA_API __declspec(dllexport)
+ #ifdef LONGRANGECUDA_EXPORTS
+  #define LONGRANGECUDA_API __declspec(dllexport)
  #else
-  #define LLGCUDA_API __declspec(dllimport)
+  #define LONGRANGECUDA_API __declspec(dllimport)
  #endif
 #else
- #define LLGCUDA_API 
+ #define LONGRANGECUDA_API 
 #endif
 
-class SpinSystem;
+using namespace std;
 
-class LLG : public Encodable
+class LongRangeCuda : public SpinOperation
 {
 public:
-	LLG(const char* llgtype, int etype);
-	virtual ~LLG();
+	LongRangeCuda(const char* name, const int field_slot, int nx, int ny, int nz, const int encode_tag);
+	virtual ~LongRangeCuda();
 	
-	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime) = 0;
-	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
+	bool apply(SpinSystem* ss);
 	
-	std::string type;
+	double ABC[9];
+	double g;
+	int gmax;
 	
-	int refcount;
+	virtual void encode(buffer* b)=0;
+	virtual int  decode(buffer* b)=0;
 
-	bool disablePrecession;
+	void init();
+	void deinit();
+	
+	virtual void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ)=0;
 
-	void encode(buffer* b);
-	int  decode(buffer* b);
+private:
+	bool getPlan();
+
+	JM_LONGRANGE_PLAN* plan;
 };
 
-
-void registerLLG(lua_State* L);
-LLG* checkLLG(lua_State* L, int idx);
-void lua_pushLLG(lua_State* L, LLG* llg);
-int  lua_isllg(lua_State* L, int idx);
 
 #endif

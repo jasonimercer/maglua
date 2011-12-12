@@ -20,35 +20,13 @@
 #include <math.h>
 
 MagnetostaticCuda::MagnetostaticCuda(int nx, int ny, int nz)
-	: SpinOperation("MagnetostaticPureCuda",DIPOLE_SLOT, nx, ny, nz,ENCODE_MAGNETOSTATIC)
+	: LongRangeCuda("MagnetostaticCuda", DIPOLE_SLOT, nx, ny, nz, ENCODE_MAGNETOSTATIC)
 {
+	crossover_tolerance = 0.0001;
+
 	volumeDimensions[0] = 1;
 	volumeDimensions[1] = 1;
 	volumeDimensions[2] = 1;
-	
-	g = 1;
-	gmax = 2000;
-
-	ABC[0] = 1; ABC[1] = 0; ABC[2] = 0;
-	ABC[3] = 0; ABC[4] = 1; ABC[5] = 0;
-	ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
-
-	plan = 0;
-	crossover_tolerance = 0.0001;
-}
-
-void MagnetostaticCuda::init()
-{
-	getPlan();
-}
-
-void MagnetostaticCuda::deinit()
-{
-	if(plan)
-	{
-		free_JM_LONGRANGE_PLAN(plan);
-		plan = 0;
-	}	
 }
 
 void MagnetostaticCuda::encode(buffer* b)
@@ -96,81 +74,15 @@ MagnetostaticCuda::~MagnetostaticCuda()
 	deinit();
 }
 
-bool MagnetostaticCuda::getPlan()
+void MagnetostaticCuda::loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ)
 {
-	deinit();
-	
-	int s = nx*ny * (nz*2-1);
-	double* XX = new double[s];
-	double* XY = new double[s];
-	double* XZ = new double[s];
-	double* YY = new double[s];
-	double* YZ = new double[s];
-	double* ZZ = new double[s];
-	
 	magnetostaticsLoad(
 		nx, ny, nz,
 		gmax, ABC,
 		volumeDimensions,
 		XX, XY, XZ,
 		YY, YZ, ZZ, crossover_tolerance);
-	
-	plan = make_JM_LONGRANGE_PLAN(nx, ny, nz,
-								  XX, XY, XZ,
-									  YY, YZ,
-									      ZZ);
-
-	delete [] XX;
-	delete [] XY;
-	delete [] XZ;
-	delete [] YY;
-	delete [] YZ;
-	delete [] ZZ;
-	
-	if(!plan)
-	{
-		errormsg = "Failed to factor system into small primes\n";
-	}
-	
-	return plan != 0;
 }
-
-
-
-
-bool MagnetostaticCuda::apply(SpinSystem* ss)
-{
-	markSlotUsed(ss);
-
-	if(!plan)
-		getPlan();
-	if(!plan)
-		return false;
-	
-	ss->sync_spins_hd();
-	
-	double* d_hx = ss->d_hx[slot];
-	double* d_hy = ss->d_hy[slot];
-	double* d_hz = ss->d_hz[slot];
-	
-	const double* d_sx = ss->d_x;
-	const double* d_sy = ss->d_y;
-	const double* d_sz = ss->d_z;
-	
-	JM_LONGRANGE(plan, 
-					d_sx, d_sy, d_sz, 
-					d_hx, d_hy, d_hz);
-
-	ss_d_scale3DArray(d_hx, nxyz, g);
-	ss_d_scale3DArray(d_hy, nxyz, g);
-	ss_d_scale3DArray(d_hz, nxyz, g);
-
-	
-	ss->new_device_fields[slot] = true;
-
-	return true;
-}
-
 
 
 

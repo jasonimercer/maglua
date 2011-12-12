@@ -153,9 +153,8 @@ int l_llg_apply(lua_State* L)
 	//get 2nd and 3rd systems if present
 	for(int i=0; i<2; i++)
 	{
-		t = checkSpinSystem(L, sys2_pos+i);
-		if(t)
-			ss[1+i] = t;
+		if(lua_isSpinSystem(L, sys2_pos+i))
+			ss[1+i] = lua_toSpinSystem(L, sys2_pos+i);
 	}	
 
 	if(!llg || !ss[0])

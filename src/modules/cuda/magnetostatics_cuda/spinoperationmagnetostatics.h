@@ -20,8 +20,7 @@ extern "C" {
 #define SPINOPERATIONMAGNETOSTATICSCUDA
 
 #include "spinoperation.h"
-#include "kernel.hpp"
-
+#include "../longrange_cuda/spinoperationlongrange.h"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -39,33 +38,19 @@ extern "C" {
 
 using namespace std;
 
-class MAGNETOSTATICSCUDA_API MagnetostaticCuda : public SpinOperation
+class MAGNETOSTATICSCUDA_API MagnetostaticCuda : public LongRangeCuda
 {
 public:
 	MagnetostaticCuda(int nx=32, int ny=32, int nz=1);
 	virtual ~MagnetostaticCuda();
-	
-	bool apply(SpinSystem* ss);
-	void getMatrices();
-	
-	double g;
-	
-	double ABC[9];
-	int gmax;
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
 	double volumeDimensions[3];
 	double crossover_tolerance; //calculations crossover from magnetostatics to dipole
-
-private:
-	void init();
-	void deinit();
-
-	bool getPlan();
-
-	JM_LONGRANGE_PLAN* plan;
+	
+	void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ);
 };
 
 MAGNETOSTATICSCUDA_API void lua_pushMagnetostaticCuda(lua_State* L, Encodable* d);
