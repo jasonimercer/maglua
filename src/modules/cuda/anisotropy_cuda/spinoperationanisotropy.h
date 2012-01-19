@@ -36,6 +36,7 @@ public:
 	virtual ~Anisotropy();
 	
 	bool apply(SpinSystem* ss);
+	bool applyToSum(SpinSystem* ss);
 	void addAnisotropy(int site, double nx, double ny, double nz, double K);
 	
 	double* d_nx;

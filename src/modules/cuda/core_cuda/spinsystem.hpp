@@ -17,15 +17,16 @@
  #define CORECUDA_API 
 #endif
 
-/* v is a address of the pointer to the array */
-void CORECUDA_API ss_d_make3DArray(double** d_v, int nx, int ny, int nz);
-void CORECUDA_API ss_d_free3DArray(double* d_v);
+#include <cuda.h>
+#include <cuda_runtime.h>
 
 /* v is a address of the pointer to the array */
-bool CORECUDA_API malloc_device_(void** d_v, size_t n);
-bool CORECUDA_API malloc_host_(void** d_v, size_t n);
-#define malloc_device(v,n) malloc_device_((void**)v,n)
-#define malloc_host(v,n) malloc_host_((void**)v,n)
+
+/* v is a address of the pointer to the array */
+cudaError_t CORECUDA_API malloc_device_(void** d_v, size_t n, const char* file, const unsigned int line);
+cudaError_t CORECUDA_API malloc_host_(void** d_v, size_t n, const char* file, const unsigned int line);
+#define malloc_device(v,n) malloc_device_((void**)v,n,__FILE__, __LINE__)
+#define malloc_host(v,n) malloc_host_((void**)v,n,__FILE__, __LINE__)
 
 void CORECUDA_API free_device_(void* d_v, const char* file, unsigned int line);
 void CORECUDA_API free_host_(void* d_v, const char* file, unsigned int line);
@@ -34,9 +35,6 @@ void CORECUDA_API free_host_(void* d_v, const char* file, unsigned int line);
 
 
 
-
-void CORECUDA_API ss_h_make3DArray(double** h_v, int nx, int ny, int nz);
-void CORECUDA_API ss_h_free3DArray(double* h_v);
 
 void CORECUDA_API ss_copyDeviceToHost_(double* dest, double* src, int nxyz, const char* file, const unsigned int line);
 #define ss_copyDeviceToHost(d,s,n) ss_copyDeviceToHost_(d, s, n, __FILE__, __LINE__)
@@ -63,11 +61,16 @@ void CORECUDA_API ss_d_absDiffArrays_(double* d_dest, double* d_src1, double* d_
 
 void CORECUDA_API ss_d_copyArray(double* d_dest, double* d_src, int nxyz);
 
-void CORECUDA_API memcpy_d2d_(void* d_dest, void* d_src, size_t n);
-void CORECUDA_API memcpy_d2h_(void* h_dest, void* d_src, size_t n);
-void CORECUDA_API memcpy_h2d_(void* d_dest, void* h_src, size_t n);
+void CORECUDA_API memcpy_d2d_(void* d_dest, void* d_src, size_t n,const char* file, unsigned int line);
+void CORECUDA_API memcpy_d2h_(void* h_dest, void* d_src, size_t n,const char* file, unsigned int line);
+void CORECUDA_API memcpy_h2d_(void* d_dest, void* h_src, size_t n,const char* file, unsigned int line);
 
-#define memcpy_d2d(a,b,n) memcpy_d2d_((void*)a, (void*)b, n)
-#define memcpy_h2d(a,b,n) memcpy_h2d_((void*)a, (void*)b, n)
-#define memcpy_d2h(a,b,n) memcpy_d2h_((void*)a, (void*)b, n)
+#define memcpy_d2d(a,b,n) memcpy_d2d_((void*)a, (void*)b, n,__FILE__, __LINE__)
+#define memcpy_h2d(a,b,n) memcpy_h2d_((void*)a, (void*)b, n,__FILE__, __LINE__)
+#define memcpy_d2h(a,b,n) memcpy_d2h_((void*)a, (void*)b, n,__FILE__, __LINE__)
 
+
+
+void CORECUDA_API ss_d_add3DArray(double* d_dest, int nx, int ny, int nz, double* d_src1, double* d_src2);
+void CORECUDA_API cuda_addArrays(double* d_dest, int n, const double* d_src1, const double* d_src2);
+void CORECUDA_API cuda_scaledAddArrays(double* d_dest, int n, const double s1, const double* d_src1, const double s2, const double* d_src2);

@@ -56,6 +56,8 @@ typedef struct buffer
 #define ENCODE_INTERP1D    12
 #define ENCODE_MAGNETOSTATIC 13
 
+#define ENCODE_SHORTRANGE  14
+
 // This is a base class for classes that 
 // can be encoded into and from a char stream,
 class ENCODE_API Encodable

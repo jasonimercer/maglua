@@ -13,6 +13,6 @@ NVCC=/usr/bin/nvcc
 #NVFLAGS=-O2 --ptxas-options="-v" -Xcompiler -fPIC  -arch=sm_21
 NVFLAGS=-O2 -Xcompiler -fPIC -arch=sm_21
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I$(BASEDIR) -I$(BASEDIR)/modules/common/encode -I$(BASEDIR)/modules/cuda/core_cuda
-
+MODARGS=gpu
 %.cuo : %.cu
 	$(NVCC) $(NVFLAGS) $(NV_EXTRAOPS) $(INCLUDEPATH) -c $*.cu -o $*.cuo

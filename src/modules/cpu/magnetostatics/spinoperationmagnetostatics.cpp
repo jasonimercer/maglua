@@ -197,21 +197,41 @@ int l_mag_getunitcell(lua_State* L)
 
 	return 9;
 }
-int l_mag_settrunc(lua_State* L)
+static int l_mag_settrunc(lua_State* L)
 {
 	Magnetostatic* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
-	mag->gmax = lua_tointeger(L, 2);
-
+	lua_getglobal(L, "math");
+	lua_pushstring(L, "huge");
+	lua_gettable(L, -2);
+	lua_pushvalue(L, 2);
+	int huge = lua_equal(L, -2, -1);
+	
+	if(huge)
+	{
+		mag->gmax = -1;
+	}
+	else
+	{
+		mag->gmax = lua_tointeger(L, 2);
+	}
 	return 0;
 }
-int l_mag_gettrunc(lua_State* L)
+static int l_mag_gettrunc(lua_State* L)
 {
 	Magnetostatic* mag = checkMagnetostatic(L, 1);
 	if(!mag) return 0;
 
-	lua_pushnumber(L, mag->gmax);
+	if(mag->gmax == -1)
+	{
+		lua_getglobal(L, "math");
+		lua_pushstring(L, "huge");
+		lua_gettable(L, -2);
+		lua_remove(L, -2);//remove table (not really needed);
+	}
+	else
+		lua_pushnumber(L, mag->gmax);
 
 	return 1;
 }

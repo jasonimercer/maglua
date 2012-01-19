@@ -19,7 +19,8 @@
 #define ANISOTROPY_SLOT   3
 #define THERMAL_SLOT      4
 #define DIPOLE_SLOT       5
-#define NSLOTS            6
+#define SHORTRANGE_SLOT   6
+#define NSLOTS            7
 
 //#include <omp.h>
 #include "luacommon.h"
@@ -36,6 +37,7 @@ public:
 	virtual ~SpinOperation();
 	
 	virtual bool apply(SpinSystem* ss) = 0;
+	virtual bool applyToSum(SpinSystem* ss) = 0;
 	int getSite(int x, int y, int z);
 
 	bool member(int px, int py, int pz);

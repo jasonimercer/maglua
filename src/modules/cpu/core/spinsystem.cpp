@@ -141,19 +141,23 @@ bool SpinSystem::copySpinsFrom(lua_State* L, SpinSystem* src)
 	return true;
 }
 
-bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
+bool SpinSystem::copyFieldFrom(lua_State* L, SpinSystem* src, int slot)
 {
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 	
-	memcpy(hx[SUM_SLOT], src->hx[SUM_SLOT], nxyz * sizeof(double));
-	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
-	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
-	
+	memcpy(hx[slot], src->hx[slot], nxyz * sizeof(double));
+	memcpy(hy[slot], src->hy[slot], nxyz * sizeof(double));
+	memcpy(hz[slot], src->hz[slot], nxyz * sizeof(double));
+
 	fft_time = time - 1.0;
-	
 	return true;
+}
+
+bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
+{
+    return copyFieldFrom(L, src, SUM_SLOT);
 }
 
 
@@ -1164,6 +1168,30 @@ int l_ss_copyfieldsto(lua_State* L)
 	return 0;
 }
 
+int l_ss_copyfieldto(lua_State* L)
+{
+    SpinSystem* src = checkSpinSystem(L, 1);
+    if(!src) return 0;
+
+    const char* slotname = lua_tostring(L, 2);
+    int i = src->getSlot(slotname);
+
+    SpinSystem* dest = checkSpinSystem(L, 3);
+    if(!dest) return 0;
+
+    if(i >= 0)
+    {
+	if(!dest->copyFieldFrom(L, src, i))
+	    return luaL_error(L, "Failed to copyTo");
+    }
+    else
+    {
+	return luaL_error(L, "Unknown field name");
+    }
+    return 0;
+}
+
+
 int l_ss_copyspinsto(lua_State* L)
 {
 	SpinSystem* src = checkSpinSystem(L, 1);
@@ -1507,6 +1535,15 @@ static int l_ss_help(lua_State* L)
 		return 3;
 	}
 
+        if(func == l_ss_copyfieldto)
+        {
+	    lua_pushstring(L, "Copy a field type of the calling *SpinSystem* to the given system.");
+	    lua_pushstring(L, "1 string, 1 *SpinSystem*: Field name, destination spin system.");
+	    lua_pushstring(L, "");
+	    return 3;
+        }
+
+
 	if(func == l_ss_setalpha)
 	{
 		lua_pushstring(L, "Set the damping value for the spin system. This is used in *LLG* routines as well as *Thermal* calculations.");
@@ -1617,6 +1654,7 @@ void registerSpinSystem(lua_State* L)
 		{"copyTo",       l_ss_copyto},
 		{"copySpinsTo",  l_ss_copyspinsto},
 		{"copyFieldsTo", l_ss_copyfieldsto},
+                {"copyFieldTo",  l_ss_copyfieldto},
 		{"setAlpha",     l_ss_setalpha},
 		{"alpha",        l_ss_getalpha},
 		{"setTimeStep",  l_ss_settimestep},

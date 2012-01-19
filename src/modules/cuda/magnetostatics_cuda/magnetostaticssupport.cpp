@@ -436,15 +436,23 @@ static bool valueMatch(lua_State* L, const char* name, int value)
 	return v == value;
 }
 
+static bool approxSame(double a, double b)
+{
+	bool c = fabs(a-b) <= 0.5*(fabs(a) + fabs(b)) * 1e-6;
+	return c;
+}
+
 static bool checkTable(lua_State* L, const double* v3)
 {
 	if(!lua_istable(L, -1))
+	{
 		return false;
+	}
 	for(int i=0; i<3; i++)
 	{
 		lua_pushinteger(L, i+1);
 		lua_gettable(L, -2);
-		if(!lua_isnumber(L, -1) || (lua_tonumber(L, -1) != v3[i]))
+		if(!lua_isnumber(L, -1) || !(approxSame(lua_tonumber(L, -1), v3[i])))
 		{
 			lua_pop(L, 1);
 			return false;

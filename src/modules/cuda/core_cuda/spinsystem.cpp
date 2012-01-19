@@ -26,8 +26,53 @@
 using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
+void  getWSMem(double** ptr0, size_t size0, 
+			   double** ptr1, size_t size1, 
+			   double** ptr2, size_t size2,
+			   double** ptr3, size_t size3,
+			   double** ptr4, size_t size4)
+{
+	getWSMem( (void**) ptr0, size0, 
+			  (void**) ptr1, size1, 
+			  (void**) ptr2, size2, 
+			  (void**) ptr3, size3, 
+			  (void**) ptr4, size4 );
+}
+
+void  getWSMem(void** ptr0, size_t size0, 
+			   void** ptr1, size_t size1, 
+			   void** ptr2, size_t size2,
+			   void** ptr3, size_t size3,
+			   void** ptr4, size_t size4)
+{
+	void** ptr[5]  = {ptr0, ptr1, ptr2, ptr3, ptr4};
+	size_t size[5] = {size0, size1, size2, size3, size4};
+	
+	for(int i=0; i<5; i++)
+	{
+		if(!ptr[i]) return;
+		if(size[i] > WS_MEM.size[i]) 
+		{
+			free_device(WS_MEM.d_memory[i]);
+			malloc_device(&(WS_MEM.d_memory[i]), size[i]);
+			WS_MEM.size[i] = size[i];
+		}
+		*ptr[i] = WS_MEM.d_memory[i];
+	}
+}
+
+
+
 void registerWS()
 {
+	if(!WS_MEM.refcount)
+	{
+		for(int i=0; i<5; i++)
+		{
+				WS_MEM.d_memory[i] = 0;
+				WS_MEM.size[i] = 0;
+		}
+	}
 	WS_MEM.refcount++;
 }
 
@@ -37,30 +82,33 @@ void  unregisterWS()
 	
 	if(!WS_MEM.refcount)
 	{
-		if(WS_MEM.d_memory)
-			free_device(WS_MEM.d_memory);
-		WS_MEM.d_memory = 0;
+		for(int i=0; i<5; i++)
+		{
+			free_device(WS_MEM.d_memory[i]);
+			WS_MEM.d_memory[i] = 0;
+			WS_MEM.size[i] = 0;
+		}
 	}
 }
 
-double* getWSMem(size_t size)
-{
-	if(WS_MEM.size < size)
-	{
-		free_device(WS_MEM.d_memory);
-		malloc_device(&(WS_MEM.d_memory), size);
-		WS_MEM.size = size;
-	}
-	return WS_MEM.d_memory;
-}
+// void* getWSMem(size_t size)
+// {
+// 	if(WS_MEM.size < size || WS_MEM.d_memory == 0)
+// 	{
+// 		free_device(WS_MEM.d_memory);
+// 		malloc_device(&(WS_MEM.d_memory), size);
+// 		printf("Malloc'd new GPU memory at %p, size = 0x%X\n", WS_MEM.d_memory, size);
+// 		WS_MEM.size = size;
+// 	}
+// 	return WS_MEM.d_memory;
+// }
 
 
 
 SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 	: Encodable(ENCODE_SPINSYSTEM), d_x(0), d_y(0), d_z(0), 
 		d_ms(0), gamma(1.0), alpha(1.0), dt(1.0),
-		nx(NX), ny(NY), nz(NZ), refcount(0),
-		nslots(NSLOTS), time(0)
+		nx(NX), ny(NY), nz(NZ), refcount(0), time(0)
 {
 	d_x = 0;
 	init();
@@ -91,6 +139,8 @@ void SpinSystem::sync_spins_dh(bool force)
 
 void SpinSystem::sync_fields_dh(int field, bool force)
 {
+	ensureSlotExists(field);
+
 	if(new_device_fields[field] || force)
 	{
 		const size_t dxyz = sizeof(double) * nxyz;
@@ -123,6 +173,7 @@ void SpinSystem::sync_spins_hd(bool force)
 
 void SpinSystem::sync_fields_hd(int field, bool force)
 {
+	ensureSlotExists(field);
 	if(new_host_fields[field] || force)
 	{
 		const size_t dxyz = sizeof(double) * nxyz;
@@ -174,19 +225,29 @@ void SpinSystem::diff(SpinSystem* other, double* v4)
 	sync_spins_hd();
 	other->sync_spins_hd();
 	
-	double* d_wsAll = getWSMem(sizeof(double)*nxyz*4);
-	double* d_ws1 = d_wsAll + nxyz * 0;
-	double* d_ws2 = d_wsAll + nxyz * 1;
-	double* d_ws3 = d_wsAll + nxyz * 2;
-	double* d_ws4 = d_wsAll + nxyz * 3;
+// 	double* d_wsAll = (double*)getWSMem(sizeof(double)*nxyz*4);
+// 	double* d_ws1 = d_wsAll + nxyz * 0;
+// 	double* d_ws2 = d_wsAll + nxyz * 1;
+// 	double* d_ws3 = d_wsAll + nxyz * 2;
+// 	double* d_ws4 = d_wsAll + nxyz * 3;
+// 	
+	double* d_ws1;
+	double* d_ws2;
+// 	double* d_ws3;
+// 	double* d_ws4;
+	
+	const int sz = sizeof(double)*nxyz;
+	getWSMem(&d_ws1, sz, &d_ws2, sz);//, &d_ws3, sz, &d_ws4, sz);
 	
 	ss_d_absDiffArrays(d_ws1, d_x, other->d_x, nxyz);
-	ss_d_absDiffArrays(d_ws2, d_y, other->d_y, nxyz);
-	ss_d_absDiffArrays(d_ws3, d_z, other->d_z, nxyz);
+	v4[0] = ss_reduce3DArray_sum(d_ws1, d_ws2, h_ws1, nx, ny, nz);
+
+	ss_d_absDiffArrays(d_ws1, d_y, other->d_y, nxyz);
+	v4[1] = ss_reduce3DArray_sum(d_ws1, d_ws2, h_ws1, nx, ny, nz);
+
+	ss_d_absDiffArrays(d_ws1, d_z, other->d_z, nxyz);
+	v4[2] = ss_reduce3DArray_sum(d_ws1, d_ws2, h_ws1, nx, ny, nz);
 	
-	v4[0] = ss_reduce3DArray_sum(d_ws1, d_ws4, h_ws1, nx, ny, nz);
-	v4[1] = ss_reduce3DArray_sum(d_ws2, d_ws4, h_ws1, nx, ny, nz);
-	v4[2] = ss_reduce3DArray_sum(d_ws3, d_ws4, h_ws1, nx, ny, nz);
 
 	
 // 	const double* txyz[3] = {x,y,z};
@@ -268,30 +329,35 @@ bool SpinSystem::copySpinsFrom(lua_State* L, SpinSystem* src)
 	
 	return true;
 }
+//	bool copyFieldFrom(lua_State* L, SpinSystem* src);
 
-bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
+bool SpinSystem::copyFieldFrom(lua_State* L, SpinSystem* src, int slot)
 {
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 
-// 	sync_fields_hd(SUM_SLOT);
-	src->sync_fields_hd(SUM_SLOT);
+	if(slot < 0 || slot >= NSLOTS)
+		return false;
 	
-	ss_d_copyArray(d_hx[SUM_SLOT], src->d_hx[SUM_SLOT], nxyz);
-	ss_d_copyArray(d_hy[SUM_SLOT], src->d_hy[SUM_SLOT], nxyz);
-	ss_d_copyArray(d_hz[SUM_SLOT], src->d_hz[SUM_SLOT], nxyz);
+	src->ensureSlotExists(slot);
+	ensureSlotExists(slot);
 	
-	new_host_fields[SUM_SLOT] = false;
-	new_device_fields[SUM_SLOT] = true;
+	src->sync_fields_hd(slot);
+	ss_d_copyArray(d_hx[slot], src->d_hx[slot], nxyz);
+	ss_d_copyArray(d_hy[slot], src->d_hy[slot], nxyz);
+	ss_d_copyArray(d_hz[slot], src->d_hz[slot], nxyz);
 
-// 	memcpy(hx[SUM_SLOT], src->hx[SUM_SLOT], nxyz * sizeof(double));
-// 	memcpy(hy[SUM_SLOT], src->hy[SUM_SLOT], nxyz * sizeof(double));
-// 	memcpy(hz[SUM_SLOT], src->hz[SUM_SLOT], nxyz * sizeof(double));
-	
-// 	fft_time = time - 1.0;
+	slot_used[slot] = true;
+	new_host_fields[slot] = false;
+	new_device_fields[slot] = true;
 	
 	return true;
+}
+
+bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
+{
+	return copyFieldFrom(L, src, SUM_SLOT);
 }
 
 
@@ -310,10 +376,10 @@ void SpinSystem::deinit()
 			}
 		}
 		
-		ss_d_free3DArray(d_x);
-		ss_d_free3DArray(d_y);
-		ss_d_free3DArray(d_z);
-		ss_d_free3DArray(d_ms);
+		free_device(d_x);
+		free_device(d_y);
+		free_device(d_z);
+		free_device(d_ms);
 		
 // 		ss_d_free3DArray(d_wsAll);
 		unregisterWS();
@@ -322,24 +388,30 @@ void SpinSystem::deinit()
 		//ss_d_free3DArray(d_ws3);
 		//ss_d_free3DArray(d_ws4);
 		
-		ss_h_free3DArray(h_ws1);
+		free_host(h_ws1);
 			
-		ss_h_free3DArray(h_x);
-		ss_h_free3DArray(h_y);
-		ss_h_free3DArray(h_z);
-		ss_h_free3DArray(h_ms);
+		free_host(h_x);
+		free_host(h_y);
+		free_host(h_z);
+		free_host(h_ms);
 		
 		delete [] slot_used;
 		
-		for(int i=0; i<nslots; i++)
+		for(int i=0; i<NSLOTS; i++)
 		{
-			ss_d_free3DArray(d_hx[i]);
-			ss_d_free3DArray(d_hy[i]);
-			ss_d_free3DArray(d_hz[i]);
+			if(d_hx[i])
+			{
+				free_device(d_hx[i]);
+				free_device(d_hy[i]);
+				free_device(d_hz[i]);
+			}
 
-			ss_h_free3DArray(h_hx[i]);
-			ss_h_free3DArray(h_hy[i]);
-			ss_h_free3DArray(h_hz[i]);
+			if(d_hx[i])
+			{
+				free_host(h_hx[i]);
+				free_host(h_hy[i]);
+				free_host(h_hz[i]);
+			}
 		}
 
 		delete [] d_hx;
@@ -379,16 +451,16 @@ void SpinSystem::init()
 	}
 
 
-	ss_d_make3DArray(&d_x,  nx, ny, nz);
-	ss_d_make3DArray(&d_y,  nx, ny, nz);
-	ss_d_make3DArray(&d_z,  nx, ny, nz);
-	ss_d_make3DArray(&d_ms, nx, ny, nz);
+	malloc_device(&d_x,  nx*ny*nz*sizeof(double));
+	malloc_device(&d_y,  nx*ny*nz*sizeof(double));
+	malloc_device(&d_z,  nx*ny*nz*sizeof(double));
+	malloc_device(&d_ms, nx*ny*nz*sizeof(double));
 
-	ss_h_make3DArray(&h_x,  nx, ny, nz);
-	ss_h_make3DArray(&h_y,  nx, ny, nz);
-	ss_h_make3DArray(&h_z,  nx, ny, nz);
-	ss_h_make3DArray(&h_ms, nx, ny, nz);
-	
+	malloc_host(&h_x,  nx*ny*nz*sizeof(double));
+	malloc_host(&h_y,  nx*ny*nz*sizeof(double));
+	malloc_host(&h_z,  nx*ny*nz*sizeof(double));
+	malloc_host(&h_ms, nx*ny*nz*sizeof(double));
+
 	for(int i=0; i<nx*ny*nz; i++)
 	{
 		h_x[i] = 0;
@@ -426,42 +498,78 @@ void SpinSystem::init()
 	
 	if(nx*ny*nz < min_size)
 	{
-		ss_h_make3DArray(&h_ws1, min_size, 1, 1);
+		malloc_host(&h_ws1, sizeof(double)*min_size);
 	}
 	else
-		ss_h_make3DArray(&h_ws1, nx, ny, nz);
+		malloc_host(&h_ws1, sizeof(double)*nx*ny*nz);
 	
 	
-	d_hx = new double* [nslots];
-	d_hy = new double* [nslots];
-	d_hz = new double* [nslots];
+	d_hx = new double* [NSLOTS];
+	d_hy = new double* [NSLOTS];
+	d_hz = new double* [NSLOTS];
 	
-	h_hx = new double* [nslots];
-	h_hy = new double* [nslots];
-	h_hz = new double* [nslots];
+	h_hx = new double* [NSLOTS];
+	h_hy = new double* [NSLOTS];
+	h_hz = new double* [NSLOTS];
 	
-	slot_used = new bool[nslots];
+	slot_used = new bool[NSLOTS];
 
 	extra_data = new int[nxyz];
 	for(int i=0; i<nxyz; i++)
 		extra_data[i] = LUA_REFNIL;
 	
+	const int nn = sizeof(double) * nx*ny*nz;
 	for(int i=0; i<NSLOTS; i++)
 	{
-		ss_d_make3DArray(&(d_hx[i]), nx, ny, nz);
-		ss_d_make3DArray(&(d_hy[i]), nx, ny, nz);
-		ss_d_make3DArray(&(d_hz[i]), nx, ny, nz);
-
-		ss_h_make3DArray(&(h_hx[i]), nx, ny, nz);
-		ss_h_make3DArray(&(h_hy[i]), nx, ny, nz);
-		ss_h_make3DArray(&(h_hz[i]), nx, ny, nz);
+		d_hx[i] = 0;
+		d_hy[i] = 0;
+		d_hz[i] = 0;
 		
-		new_host_fields[i] = true; //this will also get set in zeroFields but we're
-								   // doing it here to remind ourselves of the pattern
-		zeroField(i);
-		sync_fields_dh(i);
+		h_hx[i] = 0;
+		h_hy[i] = 0;
+		h_hz[i] = 0;
+
+		slot_used[i] = false;
 	}
+
+	/*
+	malloc_device(&(d_hx[SUM_SLOT]), nn);
+	malloc_device(&(d_hy[SUM_SLOT]), nn);
+	malloc_device(&(d_hz[SUM_SLOT]), nn);
+
+	new_host_fields[SUM_SLOT] = true; //this will also get set in zeroFields but we're
+										// doing it here to remind ourselves of the pattern
+	zeroField(SUM_SLOT);
+	sync_fields_dh(SUM_SLOT);
+	*/
+// 	}
 }
+
+void SpinSystem::ensureSlotExists(int slot)
+{
+	if(d_hx[slot]) return;
+// 	printf("ENSURE %s(%i) EXISTS (%p)\n", slotName(slot), slot, this);
+	const int nn = sizeof(double) * nx*ny*nz;
+	malloc_device(&(d_hx[slot]), nn);
+	malloc_device(&(d_hy[slot]), nn);
+	malloc_device(&(d_hz[slot]), nn);
+
+	printf("slot %i ss %p res %p\n", slot, this, d_hx[slot]);
+	
+// 	printf("%p %p %p\n", d_hx[slot], d_hy[slot], d_hz[slot]);
+	ss_d_set3DArray(d_hx[slot], nx, ny, nz, 0);
+	ss_d_set3DArray(d_hy[slot], nx, ny, nz, 0);
+	ss_d_set3DArray(d_hz[slot], nx, ny, nz, 0);
+
+	malloc_host(&(h_hx[slot]), nn);
+	malloc_host(&(h_hy[slot]), nn);
+	malloc_host(&(h_hz[slot]), nn);
+		
+	memcpy_d2h(h_hx[slot], d_hx[slot], nn);
+	memcpy_d2h(h_hy[slot], d_hy[slot], nn);
+	memcpy_d2h(h_hz[slot], d_hz[slot], nn);
+}
+
 
 //   void encodeBuffer(const void* s, int len, buffer* b);
 //   void encodeDouble(const double d, buffer* b);
@@ -600,12 +708,13 @@ int  SpinSystem::decode(buffer* b)
 
 void SpinSystem::sumFields()
 {
+	ensureSlotExists(SUM_SLOT);
 	sync_fields_hd(SUM_SLOT);
-	ss_d_set3DArray(d_hx[SUM_SLOT], nx, ny, nz, 0);
-	ss_d_set3DArray(d_hy[SUM_SLOT], nx, ny, nz, 0);
-	ss_d_set3DArray(d_hz[SUM_SLOT], nx, ny, nz, 0);
+	//ss_d_set3DArray(d_hx[SUM_SLOT], nx, ny, nz, 0);
+	//ss_d_set3DArray(d_hy[SUM_SLOT], nx, ny, nz, 0);
+	//ss_d_set3DArray(d_hz[SUM_SLOT], nx, ny, nz, 0);
 
-	for(int i=1; i<NSLOTS; i++)
+	for(int i=0; i<NSLOTS; i++)
 	{
 		if(slot_used[i])
 		{
@@ -615,7 +724,8 @@ void SpinSystem::sumFields()
 			ss_d_add3DArray(d_hz[SUM_SLOT], nx, ny, nz, d_hz[SUM_SLOT], d_hz[i]);
 		}
 	}
-	
+
+	slot_used[SUM_SLOT] = true;
 	new_device_fields[SUM_SLOT] = true;
 }
 
@@ -656,6 +766,8 @@ const char* SpinSystem::slotName(int index)
 		return "Applied";
 	if(index == SUM_SLOT)
 		return "Total";
+	if(index == SHORTRANGE_SLOT)
+		return "ShortRange";
 	return 0;
 }
 
@@ -667,8 +779,10 @@ int SpinSystem::getSlot(const char* name)
 		return ANISOTROPY_SLOT;
 	if(strcasecmp(name, "thermal") == 0 || strcasecmp(name, "stochastic") == 0 || strcasecmp(name, "temperature") == 0)
 		return THERMAL_SLOT;
-	if(strcasecmp(name, "dipole") == 0)
+	if(strcasecmp(name, "dipole") == 0 || strcasecmp(name, "magnetostatic") == 0  || strcasecmp(name, "magnetostatics") == 0)
 		return DIPOLE_SLOT;
+	if(strcasecmp(name, "short") == 0 || strcasecmp(name, "shortrange") == 0)
+		return SHORTRANGE_SLOT;
 	if(strcasecmp(name, "applied") == 0 || strcasecmp(name, "zeeman") == 0)
 		return APPLIEDFIELD_SLOT;
 	if(strcasecmp(name, "total") == 0 || strcasecmp(name, "sum") == 0)
@@ -708,6 +822,7 @@ void SpinSystem::zeroField(int i)
 
 	//will need to fetch fields from device before we can use them here
 	new_device_fields[i] = true;
+
 }
 
 void SpinSystem::zeroFields()
@@ -787,8 +902,13 @@ void SpinSystem::getNetMag(double* v8)
 {
 
 #if 1
-	double* d_ws1 = getWSMem(sizeof(double)*nxyz);
 
+	double* d_ws1;// = (double*)getWSMem(sizeof(double)*nxyz);
+
+	const int sz = sizeof(double)*nxyz;
+	getWSMem(&d_ws1, sz);
+
+	
 	sync_spins_hd();
 	v8[0] = ss_reduce3DArray_sum(d_x, d_ws1, h_ws1, nx, ny, nz);
 	v8[1] = ss_reduce3DArray_sum(d_y, d_ws1, h_ws1, nx, ny, nz);
@@ -1343,6 +1463,30 @@ int l_ss_copyfieldsto(lua_State* L)
 	return 0;
 }
 
+int l_ss_copyfieldto(lua_State* L)
+{
+	SpinSystem* src = checkSpinSystem(L, 1);
+	if(!src) return 0;
+	
+	const char* slotname = lua_tostring(L, 2);
+	int i = src->getSlot(slotname);
+	
+	SpinSystem* dest = checkSpinSystem(L, 3);
+	if(!dest) return 0;
+
+	
+	if(i >= 0)
+	{
+		if(!dest->copyFieldFrom(L, src, i))
+			return luaL_error(L, "Failed to copyTo");
+	}
+	else
+	{
+		return luaL_error(L, "Unknown field name");
+	}
+	return 0;
+}
+
 int l_ss_copyspinsto(lua_State* L)
 {
 	SpinSystem* src = checkSpinSystem(L, 1);
@@ -1685,6 +1829,14 @@ static int l_ss_help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+	
+	if(func == l_ss_copyfieldto)
+	{
+		lua_pushstring(L, "Copy a field type of the calling *SpinSystem* to the given system.");
+		lua_pushstring(L, "1 string, 1 *SpinSystem*: Field name, destination spin system.");
+		lua_pushstring(L, "");
+		return 3;
+	}
 
 	if(func == l_ss_setalpha)
 	{
@@ -1795,6 +1947,7 @@ void registerSpinSystem(lua_State* L)
 		{"copyTo",       l_ss_copyto},
 		{"copySpinsTo",  l_ss_copyspinsto},
 		{"copyFieldsTo", l_ss_copyfieldsto},
+		{"copyFieldTo",  l_ss_copyfieldto},
 		{"setAlpha",     l_ss_setalpha},
 		{"alpha",        l_ss_getalpha},
 		{"setTimeStep",  l_ss_settimestep},

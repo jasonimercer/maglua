@@ -15,6 +15,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include "extrapolate.h"
+#include <vector>
+using namespace std;
 
 #ifdef WIN32
  #include <windows.h>
@@ -65,111 +68,160 @@ double gamma_zz_dip(double rx, double ry, double rz)
 }
 
 
+static void getWAB_range(const double* ABC, 
+	const int nA, const int nB, const int nC,  //width, depth, layers 
+	const int ix, const int iy, const int iz,
+	const int ax, const int ay, const int bx, const int by,	      
+	              const int truemax, 
+	double& gXX, double& gXY, double& gXZ,
+	double& gYY, double& gYZ, double& gZZ)
+{
+    {
+	for(int x=ax; x<=bx; x++)
+	{
+	    const int xx = x*nA+ix;
+	    
+	    if(abs(xx) <= truemax)
+	    {
+		for(int y=ay; y<=by; y++)
+		{
+		    const int yy = y*nB+iy;
+		    if(abs(yy) <= truemax)
+		    {
+			const double rx = ((double)xx)*ABC[0] + ((double)yy)*ABC[3] + ((double)iz)*ABC[6];
+			const double ry = ((double)xx)*ABC[1] + ((double)yy)*ABC[4] + ((double)iz)*ABC[7];
+			const double rz = ((double)xx)*ABC[2] + ((double)yy)*ABC[5] + ((double)iz)*ABC[8];
+			
+			const double r2 = rx*rx + ry*ry + rz*rz;
+			if(r2 != 0)
+			{
+			    const double ir  = 1.0/sqrt(r2);
+			    const double ir3 = ir*ir*ir;
+			    const double ir5 = ir3*ir*ir;
+			    
+			    gXX += ir3 - 3.0 * rx * rx * ir5;
+			    gXY +=     - 3.0 * rx * ry * ir5;
+			    gXZ +=     - 3.0 * rx * rz * ir5;
+			    
+			    gYY += ir3 - 3.0 * ry * ry * ir5;
+			    gYZ +=     - 3.0 * ry * rz * ir5;
+							
+			    gZZ += ir3 - 3.0 * rz * rz * ir5;
+			}
+		    }
+		}
+	    }
+	}
+    }
+}
+
+
 ///periodic XY
-void getWAB(
+static void getWAB(
 	const double* ABC, 
 	const int nA, const int nB, const int nC,  //width, depth, layers 
 	const int ix, const int iy, const int iz, 
-	const int gmax, 
+	const int smin, const int smax, const int truemax, //allowing rings 
 	double* XX, double* XY, double* XZ,
 	double* YY, double* YZ, double* ZZ)
 {
-	int smax;
-	int i, j, c;
-	double r2;
-	double ir,ir3,ir5;
-	double rx, ry, rz;
-	int iL;
+	double gXX = 0;
+	double gXY = 0;
+	double gXZ = 0;
+	double gYY = 0;
+	double gYZ = 0;
+	double gZZ = 0;
 
-	if(nA < nB)
-		iL = nA;
-	else
-		iL = nB;
+	const int minx = smin;
+	const int miny = smin;
+	const int maxx = smax;
+	const int maxy = smax;
 
-	smax = gmax/iL + 1;
+	// +----b
+	// |    |
+	// |    |
+	// a----+
 
-	double* gXX = new double[smax*2+1];
-	double* gXY = new double[smax*2+1];
-	double* gXZ = new double[smax*2+1];
-	double* gYY = new double[smax*2+1];
-	double* gYZ = new double[smax*2+1];
-	double* gZZ = new double[smax*2+1];
+	// each coordinate here denotes a lattice
+	int ax[9];
+	int ay[9];
+	int bx[9];
+	int by[9];
 
-	for(c=0; c<smax*2+1; c++)
+	ax[0] = -(maxx-1);
+	ay[0] = miny;
+	bx[0] = -minx;
+	by[0] = (maxy-1);
+
+	ax[1] = -minx+1;
+	ay[1] = ay[0];
+	bx[1] = minx-1;
+	by[1] = by[0];
+
+	ax[2] = minx;
+	ay[2] = ay[0];
+	bx[2] = maxx-1;
+	by[2] = by[0];
+
+	ax[3] = ax[0];
+	ay[3] = -(miny-1);
+	bx[3] = bx[0];
+	by[3] = miny-1;
+
+	ax[4] = ax[2];
+	ay[4] = ay[3];
+	bx[4] = bx[2];
+	by[4] = by[3];
+
+	ax[5] = ax[0];
+	ay[5] = -(maxy-1);
+	bx[5] = bx[0];
+	by[5] = -miny;
+
+	ax[6] = ax[1];
+	ay[6] = ay[5];
+	bx[6] = bx[1];
+	by[6] = by[5];
+
+	ax[7] = ax[2];
+	ay[7] = ay[5];
+	bx[7] = bx[2];
+	by[7] = by[5];
+
+	ax[8] = -(maxx-1);
+	ay[8] = -(maxy-1);
+	bx[8] = -ax[8];
+	by[8] = -ay[8];
+
+	if(smin == 0)
 	{
-		gXX[c] = 0;
-		gXY[c] = 0;
-		gXZ[c] = 0;
-		gYY[c] = 0;
-		gYZ[c] = 0;
-		gZZ[c] = 0;
+	    const int i = 8;
+	    getWAB_range(ABC, nA, nB, nC, ix, iy, iz,
+			 ax[i], ay[i], bx[i], by[i],
+			 truemax, 
+			 gXX, gXY, gXZ,
+			 gYY, gYZ, gZZ);
+	}
+	else
+	{
+	    for(int i=0; i<8; i++)
+	    {
+		getWAB_range(ABC, nA, nB, nC, ix, iy, iz,
+			     ax[i], ay[i], bx[i], by[i],
+			     truemax,
+			     gXX, gXY, gXZ,
+			     gYY, gYZ, gZZ);
+	    }
 	}
 
-	for(j=-smax; j<= smax; j++)
-		for(i=-smax, c=0; i<= smax; i++, c++)
-		{
-			const int xx = i*nA+ix;
-			const int yy = j*nB+iy;
-			const int zz = iz;
-			
-			if(abs(xx) <= gmax && abs(yy) <= gmax && abs(zz) <= gmax)
-			{
-				rx = ((double)i*nA+ix)*ABC[0] + ((double)j*nB+iy)*ABC[3] + ((double)iz)*ABC[6];
-				ry = ((double)i*nA+ix)*ABC[1] + ((double)j*nB+iy)*ABC[4] + ((double)iz)*ABC[7];
-				rz = ((double)i*nA+ix)*ABC[2] + ((double)j*nB+iy)*ABC[5] + ((double)iz)*ABC[8];
+	*XX = -gXX;
+	*XY = -gXY;
+	*XZ = -gXZ;
 
-				r2 = rx*rx + ry*ry + rz*rz;
-				if(r2 != 0)
-				{
-					ir = 1.0/sqrt(r2);
-					ir3 = ir*ir*ir;
-					ir5 = ir3*ir*ir;
-					
-					gXX[c] += ir3 - 3.0 * rx * rx * ir5;
-					gXY[c] +=     - 3.0 * rx * ry * ir5;
-					gXZ[c] +=     - 3.0 * rx * rz * ir5;
+	*YY = -gYY;
+	*YZ = -gYZ;
 
-					gYY[c] += ir3 - 3.0 * ry * ry * ir5;
-					gYZ[c] +=     - 3.0 * ry * rz * ir5;
-
-					gZZ[c] += ir3 - 3.0 * rz * rz * ir5;
-				}
-			}
-		}
-	
-	*XX = 0;
-	for(c=0; c<smax*2+1; c++)
-		*XX -= gXX[c];
-
-	*XY = 0;
-	for(c=0; c<smax*2+1; c++)
-		*XY -= gXY[c];
-
-	*XZ = 0;
-	for(c=0; c<smax*2+1; c++)
-		*XZ -= gXZ[c];
-
-	*YY = 0;
-	for(c=0; c<smax*2+1; c++)
-		*YY -= gYY[c];
-
-	*YZ = 0;
-	for(c=0; c<smax*2+1; c++)
-		*YZ -= gYZ[c];
-
-	*ZZ = 0;
-	for(c=0; c<smax*2+1; c++)
-		*ZZ -= gZZ[c];
-
-
-	delete [] gXX;
-	delete [] gXY;
-	delete [] gXZ;
-
-	delete [] gYY;
-	delete [] gYZ;
-
-	delete [] gZZ;
+	*ZZ = -gZZ;
 }//end function WAB
 
 
@@ -278,7 +330,7 @@ static void _writeParser(FILE* f)
 	fprintf(f, "%s", parse);
 }
 
-bool dipole_write_matrix(const char* filename,
+static bool dipole_write_matrix(const char* filename,
 	const double* ABC,
 	const int nx, const int ny, const int nz,  //width, depth, layers 
 	const int gmax, 
@@ -291,7 +343,11 @@ bool dipole_write_matrix(const char* filename,
 	
 	fprintf(f, "-- This file contains dipole interaction matrices\n");
 	fprintf(f, "\n");
-	fprintf(f, "gmax = %i\n", gmax);
+	if(gmax == -1)
+		fprintf(f, "gmax = math.huge\n");
+	else
+		fprintf(f, "gmax = %i\n", gmax);
+		
 	fprintf(f, "nx, ny, nz = %i, %i, %i\n", nx, ny, nz);
 	fprintf(f, "ABC = {{%g, %g, %g}, --unit cell\n       {%g, %g, %g},\n       {%g, %g, %g}}\n\n", 
 		ABC[0], ABC[1], ABC[2],
@@ -361,15 +417,23 @@ static bool valueMatch(lua_State* L, const char* name, int value)
 	return v == value;
 }
 
+static bool approxSame(double a, double b)
+{
+	bool c = fabs(a-b) <= 0.5*(fabs(a) + fabs(b)) * 1e-6;
+	return c;
+}
+
 static bool checkTable(lua_State* L, const double* v3)
 {
 	if(!lua_istable(L, -1))
+	{
 		return false;
+	}
 	for(int i=0; i<3; i++)
 	{
 		lua_pushinteger(L, i+1);
 		lua_gettable(L, -2);
-		if(!lua_isnumber(L, -1) || (lua_tonumber(L, -1) != v3[i]))
+		if(!lua_isnumber(L, -1) || !(approxSame(lua_tonumber(L, -1), v3[i])))
 		{
 			lua_pop(L, 1);
 			return false;
@@ -394,18 +458,37 @@ static bool dipoleParamsMatch(
 		return false;
 	}
 	
-	const char* nn[4] = {"nx", "ny", "nz", "gmax"};
-	int  nv[4]; 
+	const char* nn[3] = {"nx", "ny", "nz"};
+	int  nv[3]; 
 	nv[0] = nx; nv[1] = ny; 
-	nv[2] = nz; nv[3] = gmax;
+	nv[2] = nz;
 
-	for(int i=0; i<4; i++)
+	for(int i=0; i<3; i++)
 	{
 		if(!valueMatch(L, nn[i], nv[i]))
 		{
 			lua_close(L);
 			return false;
 		}
+	}
+	
+	int file_gmax = 0;
+	lua_getglobal(L, "gmax");
+	file_gmax = lua_tointeger(L, -1);
+	lua_getglobal(L, "math");
+	lua_pushstring(L, "huge");
+	lua_gettable(L, -2);
+	lua_remove(L, -2); //remove math table
+	if(lua_equal(L, -2, -1)) //then gmax = math.huge
+	{
+		file_gmax = -1; //special marker for math.huge
+	}
+	lua_pop(L, 2);
+	
+	if(file_gmax != gmax)
+	{
+		lua_close(L);
+		return false;
 	}
 	
 	//see if unit cell matches
@@ -499,6 +582,79 @@ static void loadXYZ(
 	lua_close(L);
 }
 
+static bool extrapolate(lua_State* L,
+			vector<int>& cuttoffs,
+            vector<double>& vXX, vector<double>& vXY, vector<double>& vXZ, 
+                                 vector<double>& vYY, vector<double>& vYZ, 
+                                                      vector<double>& vZZ, bool& fail)
+{
+	vector< vector<double> > vAB;
+	vAB.push_back(vXX);
+	vAB.push_back(vXY);
+	vAB.push_back(vXZ);
+	vAB.push_back(vYY);
+	vAB.push_back(vYZ);
+	vAB.push_back(vZZ);
+	
+	double sol[6];
+	bool   res[6];
+	bool   ok = true;
+	for(int i=0; i<6; i++)
+	{
+		lua_pop(L, lua_gettop(L));
+		lua_getglobal(L, "extrapolate");
+		lua_newtable(L);
+		for(unsigned int j=0; j<cuttoffs.size(); j++)
+		{
+			lua_pushinteger(L, j+1);
+			lua_newtable(L); //{x,y} holder
+			lua_pushinteger(L, 1);
+			lua_pushinteger(L, cuttoffs[j]);
+			lua_settable(L, -3); //set x
+			lua_pushinteger(L, 2);
+			lua_pushnumber(L, vAB[i][j]);
+			lua_settable(L, -3); // set y
+			lua_settable(L, -3); // add {x,y} pair
+		}
+		
+		//int lua_pcall (lua_State *L, int nargs, int nresults, int errfunc);
+
+		if(lua_pcall(L, 1, 1, 0))
+		{
+			fprintf(stderr, "%s\n", lua_tostring(L, -1));
+			fail = true;
+			return false;
+		}
+		
+		int t = lua_type(L, -1);
+		
+		if(t == LUA_TBOOLEAN)
+		{
+			res[i] = false;
+		}
+		if(t == LUA_TNUMBER)
+		{
+			res[i] = true;
+			sol[i] = lua_tonumber(L, -1);
+		}
+		lua_pop(L, 1);
+		ok &= res[i];
+	}
+	
+	fail = false;
+	if(ok)
+	{
+		vXX.push_back(sol[0]);
+		vXY.push_back(sol[1]);
+		vXZ.push_back(sol[2]);
+		vYY.push_back(sol[3]);
+		vYZ.push_back(sol[4]);
+		vZZ.push_back(sol[5]);
+		return true;
+	}
+	return false;
+}
+
 
 void dipoleLoad(
 	const int nx, const int ny, const int nz,
@@ -506,11 +662,21 @@ void dipoleLoad(
 	double* XX, double* XY, double* XZ,
 	double* YY, double* YZ, double* ZZ)
 {
-	char fn[64] = "";
+	char fn[1024] = ""; //mmm arbitrary
+	
+	lua_State* L = lua_open();
+	luaL_openlibs(L);
+	
+	if(luaL_dostring(L, __extrapolate))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		lua_close(L);
+		return;
+	}
 	
 	while(true)
 	{
-		next_dipolefilename(fn, fn, 64, nx, ny);
+		next_dipolefilename(fn, fn, 1024, nx, ny);
 		if(file_exists(fn))
 		{
 			if(dipoleParamsMatch(fn, nx, ny, nz, gmax, ABC))
@@ -519,6 +685,7 @@ void dipoleLoad(
 						nx, ny, nz,
 						XX, XY, XZ,
 						YY, YZ, ZZ);
+				lua_close(L);
 				return;
 			}
 		}
@@ -526,22 +693,89 @@ void dipoleLoad(
 		{
 			int c = 0;
 			for(int k=0; k<nz; k++)
+			for(int j=0; j<ny; j++)
+			for(int i=0; i<nx; i++)
 			{
-				for(int j=0; j<ny; j++)
+				fflush(stdout);
+				if(gmax != -1)
 				{
-					for(int i=0; i<nx; i++)
+					getWAB(ABC,
+						nx, ny, nz,
+						i, j, k,
+						0, gmax, gmax,
+						XX+c, XY+c, XZ+c,
+						YY+c, YZ+c, ZZ+c);
+				}
+				else // math.huge sum
+				{
+					vector<double> vXX;
+					vector<double> vXY;
+					vector<double> vXZ;
+					vector<double> vYY;
+					vector<double> vYZ;
+					vector<double> vZZ;
+					vector<int> cuttoffs;
+					
+					double tXX, tXY, tXZ, tYY, tYZ, tZZ;
+					double sXX, sXY, sXZ, sYY, sYZ, sZZ;
+					sXX=0; sXY=0; sXZ=0;
+					sYY=0; sYZ=0; sZZ=0;
+
+					const int lstep = 10;
+					bool fail = false;
+					int _lmin = 0; //inits of lattices
+					int _lmax = lstep;
+					
+					bool converge = false;
+					int q = 0;
+					int maxiter = 5000;
+					do
 					{
-						fflush(stdout);
-						getWAB(ABC,
-							nx, ny, nz,
-							i, j, k,
-							gmax,
-							XX+c, XY+c, XZ+c,
-							YY+c, YZ+c, ZZ+c);
-						c++;
+						getWAB(ABC, nx,ny,nz, i,j,k, _lmin, _lmax, (int)1e16, &tXX, &tXY, &tXZ, &tYY, &tYZ, &tZZ);
+						sXX+=tXX;sXY+=tXY;sXZ+=tXZ;
+						sYY+=tYY;sYZ+=tYZ;sZZ+=tZZ;
+						vXX.push_back(sXX);
+						vXY.push_back(sXY);
+						vXZ.push_back(sXZ);
+						vYY.push_back(sYY);
+						vYZ.push_back(sYZ);
+						vZZ.push_back(sZZ);
+
+						cuttoffs.push_back(_lmax);
+						_lmin += lstep;
+						_lmax += lstep;
+						if(q>=8) //let the system prime itself before trying to extrapolate
+						{
+// 						    converge = true;
+
+						    converge = extrapolate(L, cuttoffs, vXX, vXY, vXZ, vYY, vYZ, vZZ, fail);
+						}
+						q++;
+						maxiter--;
+					}while(!converge && !fail && maxiter);
+				
+// 					if(converge || fail)
+					{
+					    int last = vXX.size() - 1;
+					    
+					    XX[c] = vXX[last];
+					    XY[c] = vXY[last];
+					    XZ[c] = vXZ[last];
+
+					    YY[c] = vYY[last];
+					    YZ[c] = vYZ[last];
+
+					    ZZ[c] = vZZ[last];
+					}
+	
+					if(fail | !maxiter)
+					{
+					    fprintf(stderr, "Failed to find a extrapolate to solution under tolerance, using best calculated value\n");
 					}
 				}
+				c++;
 			}
+
 
 			dipole_write_matrix(fn,
 				ABC,
@@ -549,9 +783,10 @@ void dipoleLoad(
 				gmax,
 				XX, XY, XZ,
 				YY, YZ, ZZ);
+			lua_close(L);
 			return;
 		}
 	}
+	lua_close(L);
 }
-
 

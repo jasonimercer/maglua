@@ -32,18 +32,20 @@ Exchange::Exchange(int nx, int ny, int nz)
 	d_strength = 0;
 	d_fromsite = 0;
 	maxFromSites = -1;
+	registerWS();
 
 	d_LUT = 0;
 	d_idx = 0;
 	compress_max_neighbours = 0;
 	
 	new_host = true;
-	
+	compressed = false;
 	init();
 }
 
 Exchange::~Exchange()
 {
+	unregisterWS();
 	deinit();
 }
 
@@ -88,7 +90,6 @@ bool Exchange::make_uncompressed()
 	for(int i=0; i<nxyz; i++)
 		nn[i] = 0;
 	
-	
 	int* h_fromsite;
 	double* h_strength;
 	malloc_host(&h_fromsite, sizeof(int)*maxFromSites*nxyz);
@@ -102,8 +103,8 @@ bool Exchange::make_uncompressed()
 	
 	for(int i=0; i<num; i++)
 	{
-		int& j = pathways[i].fromsite;
-		int& k = pathways[i].tosite;
+		const int j = pathways[i].fromsite;
+		const int k = pathways[i].tosite;
 		
 		int& n = nn[k];
 		
@@ -142,30 +143,34 @@ public:
 	
 	int id;
 	int lut_id;
-	void add(int from, double strength, int nxyz);
+	int add(int from, double strength, int nxyz);
 	vector< pair<int,double> > from_off_strength;
 };
 
-bool pair_id_sort(const pair<int,double>& d1, const pair<int,double>& d2)
-{
-	if(d1.first >= d2.first)
-		return false;
-	if(d1.second >= d2.second)
-		return false;
-	return true;
-}
+// bool pair_id_sort(const pair<int,double>& d1, const pair<int,double>& d2)
+// {
+// 	if(d1.first >= d2.first)
+// 		return false;
+// 	if(d1.second >= d2.second)
+// 		return false;
+// 	return true;
+// }
 
 void ex_comp::sort()
 {
-	std::sort(from_off_strength.begin(), from_off_strength.end(), pair_id_sort);
+// 	std::sort(from_off_strength.begin(), from_off_strength.end(), pair_id_sort);
+	std::sort(from_off_strength.begin(), from_off_strength.end());
 }
 
 
-void ex_comp::add(int from, double strength, int nxyz)
+int ex_comp::add(int from, double strength, int nxyz)
 {
 	int offset = (from - id + nxyz) % nxyz;
 
 	from_off_strength.push_back(pair<int,double>(offset,strength));
+	
+	return offset;
+// 	printf("ADD: t:%i f:%i o:%i\n", id, from, offset);
 }
 
 
@@ -205,49 +210,65 @@ bool ex_comp_same(const ex_comp& d1, const ex_comp& d2)
 }
 
 
+//#define DEBUG_EX_COMP 1
 bool Exchange::make_compressed()
 {
+	if(compressAttempted)
+		return compressed;
+	
 	delete_compressed();
 	
 	vector<ex_comp> vec;
-// 	vec.reserve(nxyz);
 
 	for(int i=0; i<nxyz; i++)
 	{
 		vec.push_back(ex_comp(i));
 	}
 	
-// 	printf("Building vector\n");
+#ifdef DEBUG_EX_COMP
+	printf("Building vector\n");
+#endif
 	for(int i=0; i<num; i++)
 	{
 		const int to = pathways[i].tosite;
 		const int from = pathways[i].fromsite;
 		const double strength = pathways[i].strength;
-		
-// 		printf("%i %i %f\n", to, from, strength);
-		vec[to].add(from, strength, nxyz);
+
+		const int offset = vec[to].add(from, strength, nxyz);
+#if 0	
+#ifdef DEBUG_EX_COMP
+		printf("%5i %5i %4.3f (%+3i)\n", from, to, strength, offset);
+#endif
+#endif
 	}
 		
 	
 	
-// 	printf("Sorting vector\n");
+#ifdef DEBUG_EX_COMP
+	printf("Sorting vector\n");
+#endif
 	for(int i=0; i<nxyz; i++)
 		vec[i].sort();
 	
 	std::sort(vec.begin(), vec.end(), ex_comp_sort);
 
-// 	cout << "------------------------" << endl;
-// 	for(int i=0; i<nxyz; i++)
-// 	{
-// 		for(int j=0; j<vec[i].from_off_strength.size(); j++)
-// 		{
-// 			cout <<  vec[i].from_off_strength[j].first << " ";
-// 		}
-// 		cout << endl;
-// 	}
-// 	cout << "------------------------" << endl;
+#if 0
+#ifdef DEBUG_EX_COMP
+	cout << "------------------------" << endl;
+	for(int i=0; i<nxyz; i++)
+	{
+		for(int j=0; j<vec[i].from_off_strength.size(); j++)
+		{
+			printf("%6i", vec[i].from_off_strength[j].first);
+// 			cout <<   << " ";
+		}
+		cout << endl;
+	}
+	cout << "------------------------" << endl;
 	
-// 	printf("calc max neighbours\n");
+	printf("calc max neighbours\n");
+#endif
+#endif
 	compress_max_neighbours = 0;
 	for(int i=0; i<nxyz; i++)
 	{
@@ -256,7 +277,10 @@ bool Exchange::make_compressed()
 	}
 
 
-// 	printf("find uniques\n");
+#ifdef DEBUG_EX_COMP
+	printf("find uniques\n");
+#endif
+
 	vec[0].lut_id = 0;
 	int last_unique = 0;
 	vector<int> uniques;
@@ -276,7 +300,9 @@ bool Exchange::make_compressed()
 		}
 	}
 	
-// 	printf("%i uniques\n", (uniques.size()));
+#ifdef DEBUG_EX_COMP
+	printf("%i uniques\n", (int)(uniques.size()));
+#endif
 	//LUT can do up to 255 flavours
 	if(uniques.size() >= 255) 
 	{
@@ -288,14 +314,17 @@ bool Exchange::make_compressed()
 	ex_compressed_struct* h_LUT;
 	unsigned char* h_idx;
 	
-	malloc_host(&h_LUT, sizeof(ex_compressed_struct) * uniques.size());
+	malloc_host(&h_LUT, sizeof(ex_compressed_struct) * uniques.size()*compress_max_neighbours);
 	malloc_host(&h_idx, sizeof(unsigned char) * nxyz);
 	
-	malloc_device(&d_LUT, sizeof(ex_compressed_struct) * uniques.size());
+	malloc_device(&d_LUT, sizeof(ex_compressed_struct) * uniques.size()*compress_max_neighbours);
 	malloc_device(&d_idx, sizeof(unsigned char) * nxyz);
 	
 	// build LUT
-// 	printf("build LUT\n");
+#ifdef DEBUG_EX_COMP
+	printf("build LUT\n");
+#endif
+
 	for(unsigned int i=0; i<uniques.size(); i++)
 	{
 		const int j = uniques[i];
@@ -317,15 +346,38 @@ bool Exchange::make_compressed()
 			h_LUT[i*compress_max_neighbours + k].strength = 0.0;
 		}
 	}
+#ifdef DEBUG_EX_COMP
+	printf("LUT:\n");
+	for(unsigned int i=0; i<uniques.size(); i++)
+	{
+		printf("LUT(%3i): ", i);
+		for(int k=0; k<compress_max_neighbours; k++)
+		{
+			printf("%+4i %4.3f  ", h_LUT[i*compress_max_neighbours + k].offset, h_LUT[i*compress_max_neighbours + k].strength);
+		}
+		printf("\n");
+	}
 
-// 	printf("build idx\n");
+#endif
+
+#ifdef DEBUG_EX_COMP
+	printf("build idx\n");
+#endif
 	for(int i=0; i<nxyz; i++)
 	{
-		h_idx[i] = vec[i].lut_id;
+		const int j = vec[i].id;
+		h_idx[j] = vec[i].lut_id;
+#if 0
+#ifdef DEBUG_EX_COMP
+		printf("%8i   %4i\n", j, h_idx[j]);
+#endif
+#endif		
 	}
 	
-// 	printf("memcpy\n");
-	memcpy_h2d(d_LUT, h_LUT, sizeof(ex_compressed_struct) * uniques.size());
+#ifdef DEBUG_EX_COMP
+	printf("memcpy\n");
+#endif
+	memcpy_h2d(d_LUT, h_LUT, sizeof(ex_compressed_struct) * uniques.size()*compress_max_neighbours);
 	memcpy_h2d(d_idx, h_idx, sizeof(unsigned char) * nxyz);
 
 	free_host(h_LUT);
@@ -435,12 +487,16 @@ bool Exchange::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
 	ss->sync_spins_hd();
+	ss->ensureSlotExists(slot);
 
 // 	make_uncompressed();
 // 	make_compressed();
 // 	if(!compressAttempted)
-// 		if(!make_compressed())
-			make_uncompressed();
+	if(!make_compressed())
+	{
+		printf("compressed FAILED\n");
+		make_uncompressed();
+	}
 		
 	double* d_hx = ss->d_hx[slot];
 	double* d_hy = ss->d_hy[slot];
@@ -468,7 +524,68 @@ bool Exchange::apply(SpinSystem* ss)
 	}
 	
 	ss->new_device_fields[slot] = true;
+	return true;
+}
+
+
+bool Exchange::applyToSum(SpinSystem* ss)
+{
+	ss->sync_spins_hd();
+	ss->ensureSlotExists(SUM_SLOT);
+
+//     double* d_wsAll = (double*)getWSMem(sizeof(double)*nxyz*3);
+//     double* d_wsx = d_wsAll + nxyz * 0;
+//     double* d_wsy = d_wsAll + nxyz * 1;
+//     double* d_wsz = d_wsAll + nxyz * 2;
 	
+	double* d_wsx;
+	double* d_wsy;
+	double* d_wsz;
+	
+	const int sz = sizeof(double)*nxyz;
+	getWSMem(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
+	
+// 	make_uncompressed();
+// 	make_compressed();
+// 	if(!compressAttempted)
+	if(!make_compressed())
+	{
+		printf("compressed FAILED\n");
+		make_uncompressed();
+	}
+		
+	double* d_hx = ss->d_hx[slot];
+	double* d_hy = ss->d_hy[slot];
+	double* d_hz = ss->d_hz[slot];
+
+	const double* d_sx = ss->d_x;
+	const double* d_sy = ss->d_y;
+	const double* d_sz = ss->d_z;
+
+	if(compressed)
+	{
+		cuda_exchange_compressed(
+			d_sx, d_sy, d_sz,
+			d_LUT, d_idx, compress_max_neighbours,
+			d_wsx, d_wsy, d_wsz,
+			nxyz);
+	}
+	else
+	{
+		cuda_exchange(
+			d_sx, d_sy, d_sz,
+			d_strength, d_fromsite, maxFromSites,
+			d_wsx, d_wsy, d_wsz,
+			nx, ny, nz);
+	}
+	
+// 	ss->new_device_fields[slot] = true;
+	const int nxyz = nx*ny*nz;
+	cuda_addArrays(ss->d_hx[SUM_SLOT], nxyz, ss->d_hx[SUM_SLOT], d_wsx);
+	cuda_addArrays(ss->d_hy[SUM_SLOT], nxyz, ss->d_hy[SUM_SLOT], d_wsy);
+	cuda_addArrays(ss->d_hz[SUM_SLOT], nxyz, ss->d_hz[SUM_SLOT], d_wsz);
+	ss->slot_used[SUM_SLOT] = true;
+
 	return true;
 }
 
@@ -587,6 +704,17 @@ int l_ex_apply(lua_State* L)
 	SpinSystem* ss = checkSpinSystem(L, 2);
 	
 	if(!ex->apply(ss))
+		return luaL_error(L, ex->errormsg.c_str());
+	
+	return 0;
+}
+
+int l_ex_applytosum(lua_State* L)
+{
+	Exchange* ex = checkExchange(L, 1);
+	SpinSystem* ss = checkSpinSystem(L, 2);
+	
+	if(!ex->applyToSum(ss))
 		return luaL_error(L, ex->errormsg.c_str());
 	
 	return 0;
@@ -717,6 +845,14 @@ static int l_ex_help(lua_State* L)
 		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field");
 		lua_pushstring(L, "");
 		return 3;
+	}	
+	
+	if(func == l_ex_applytosum)
+	{
+		lua_pushstring(L, "Calculate the exchange field of a *SpinSystem*");
+		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field, added to the total field.");
+		lua_pushstring(L, "");
+		return 3;
 	}
 	
 	if(func == l_ex_addpath)
@@ -757,6 +893,7 @@ void registerExchange(lua_State* L)
 		{"__gc",         l_ex_gc},
 		{"__tostring",   l_ex_tostring},
 		{"apply",        l_ex_apply},
+		{"applyToSum",   l_ex_applytosum},
 		{"addPath",      l_ex_addpath},
 		{"add",          l_ex_addpath},
 //		{"set",          l_ex_addpath},

@@ -2,12 +2,15 @@
 #include <iostream>
 #include <vector>
 using namespace std;
+#include <stdlib.h>
 
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <math.h>
 #include <cuComplex.h>
 #include <stdio.h>
+
+#include "../core_cuda/spinsystem.hpp"
 
 #define JM_FORWARD 1
 #define JM_BACKWARD 0
@@ -35,7 +38,10 @@ using namespace std;
 { \
 	const cudaError_t i = cudaGetLastError();\
 	if(i) \
+	{\
 		printf("(%s:%i) %s\n",  __FILE__, __LINE__-1, cudaGetErrorString(i));\
+		exit(-1);\
+	}\
 }
 #define CHECKCALL(expression) \
 { \
@@ -161,8 +167,8 @@ typedef struct JM_LONGRANGE_PLAN
 	
 	CUCOMPLEX** d_GammaZZ;
 	
-	CUCOMPLEX* d_A; //chunks of memory for out-of-place FFT calcs, workscapes
-	CUCOMPLEX* d_B;
+// 	CUCOMPLEX* d_A; //chunks of memory for out-of-place FFT calcs, workscapes
+// 	CUCOMPLEX* d_B;
 }JM_LONGRANGE_PLAN;
 
 
@@ -312,6 +318,7 @@ static void d_r2c(const int nx, const int ny, CUCOMPLEX* d_dest, const REAL* d_s
 	dim3 threads(32,32);
 	#endif	
 	
+// 	printf("%i %i %p %p\n", nx, ny, d_dest, d_src);
 	__r2c<<<blocks, threads>>>(nx, ny, d_dest, d_src);
 	KCHECK;
 }
@@ -426,13 +433,21 @@ static void fourier2D(int nx, int ny, vector<int>& rx, vector<int>& ry,
 	}
 
 	if(A != d_dest)
+	{
+// 		printf("(%s:%i) %p %p %i %i\n", __FILE__, __LINE__, d_dest, A, sizeof(CUCOMPLEX)*nx*ny, cudaMemcpyDeviceToDevice);
 	    CHECKCALL(cudaMemcpy(d_dest, A, sizeof(CUCOMPLEX)*nx*ny, cudaMemcpyDeviceToDevice));
+	}
+}
+
+int JM_LONGRANGE_PLAN_ws_size(int nx, int ny, int /*nz*/)
+{
+	return sizeof(CUCOMPLEX) * nx*ny;
 }
 
 JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z, 
 	double* GammaXX, double* GammaXY, double* GammaXZ,
 	                 double* GammaYY, double* GammaYZ,
-	                                  double* GammaZZ)
+	                                  double* GammaZZ, void* ws_d_A, void* ws_d_B)
 {
 	const int nz   = N_z;
 	const int nxy = N_x * N_y;
@@ -462,26 +477,6 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 	fft_plan* backward_x = make_plan(N_x, -1);
 	fft_plan* backward_y = make_plan(N_y, -1);
 	
-/*
-	fft_plan* q = forward_x;
-
-	for(int w=0; w<2; w++)
-	{
-	    cout << "w = " << w << endl;
-	    for(int i=0; i<N_x; i++)
-	    {
-		cout << ")))) " << q->p[w][i].i << endl;
-		cout << ")))) " << q->p[w][i].s << endl;
-		cout << ">>>> " << q->p[w][i].e << endl;
-	    }
-	}
-*/
-
-// 	for(int i=0; i<4; i++)
-// 	{
-// 	    printf("#### %f\n", GammaXX[i]);
-// 	}
-
 	const int sRx = p->Rx.size();
 	const int sRy = p->Ry.size();
 	CUCOMPLEX* h_exp2pi_x_f;
@@ -493,25 +488,25 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 	int* h_step_x;
 	int* h_step_y;
 
-	CHECKCALL(cudaMallocHost(&h_exp2pi_x_f, sizeof(CUCOMPLEX) * N_x * sRx));
-	CHECKCALL(cudaMallocHost(&h_exp2pi_x_b, sizeof(CUCOMPLEX) * N_x * sRx));
-	CHECKCALL(cudaMallocHost(&h_exp2pi_y_f, sizeof(CUCOMPLEX) * N_y * sRy));
-	CHECKCALL(cudaMallocHost(&h_exp2pi_y_b, sizeof(CUCOMPLEX) * N_y * sRy));
+	CHECKCALL(malloc_host(&h_exp2pi_x_f, sizeof(CUCOMPLEX) * N_x * sRx));
+	CHECKCALL(malloc_host(&h_exp2pi_x_b, sizeof(CUCOMPLEX) * N_x * sRx));
+	CHECKCALL(malloc_host(&h_exp2pi_y_f, sizeof(CUCOMPLEX) * N_y * sRy));
+	CHECKCALL(malloc_host(&h_exp2pi_y_b, sizeof(CUCOMPLEX) * N_y * sRy));
 
-	CHECKCALL(cudaMallocHost(&h_base_x, sizeof(int) * N_x * sRx));
-	CHECKCALL(cudaMallocHost(&h_step_x, sizeof(int) * N_x * sRx));
-	CHECKCALL(cudaMallocHost(&h_base_y, sizeof(int) * N_y * sRy));
-	CHECKCALL(cudaMallocHost(&h_step_y, sizeof(int) * N_y * sRy));
+	CHECKCALL(malloc_host(&h_base_x, sizeof(int) * N_x * sRx));
+	CHECKCALL(malloc_host(&h_step_x, sizeof(int) * N_x * sRx));
+	CHECKCALL(malloc_host(&h_base_y, sizeof(int) * N_y * sRy));
+	CHECKCALL(malloc_host(&h_step_y, sizeof(int) * N_y * sRy));
 	
-	CHECKCALL(cudaMalloc(&(p->d_exp2pi_x_f), sizeof(CUCOMPLEX) * N_x * sRx));
-	CHECKCALL(cudaMalloc(&(p->d_exp2pi_x_b), sizeof(CUCOMPLEX) * N_x * sRx));
-	CHECKCALL(cudaMalloc(&(p->d_exp2pi_y_f), sizeof(CUCOMPLEX) * N_y * sRy));
-	CHECKCALL(cudaMalloc(&(p->d_exp2pi_y_b), sizeof(CUCOMPLEX) * N_y * sRy));
+	CHECKCALL(malloc_device(&(p->d_exp2pi_x_f), sizeof(CUCOMPLEX) * N_x * sRx));
+	CHECKCALL(malloc_device(&(p->d_exp2pi_x_b), sizeof(CUCOMPLEX) * N_x * sRx));
+	CHECKCALL(malloc_device(&(p->d_exp2pi_y_f), sizeof(CUCOMPLEX) * N_y * sRy));
+	CHECKCALL(malloc_device(&(p->d_exp2pi_y_b), sizeof(CUCOMPLEX) * N_y * sRy));
 	
-	CHECKCALL(cudaMalloc(&(p->d_base_x), sizeof(int) * N_x * sRx));
-	CHECKCALL(cudaMalloc(&(p->d_step_x), sizeof(int) * N_x * sRx));
-	CHECKCALL(cudaMalloc(&(p->d_base_y), sizeof(int) * N_y * sRy));
-	CHECKCALL(cudaMalloc(&(p->d_step_y), sizeof(int) * N_y * sRy));
+	CHECKCALL(malloc_device(&(p->d_base_x), sizeof(int) * N_x * sRx));
+	CHECKCALL(malloc_device(&(p->d_step_x), sizeof(int) * N_x * sRx));
+	CHECKCALL(malloc_device(&(p->d_base_y), sizeof(int) * N_y * sRy));
+	CHECKCALL(malloc_device(&(p->d_step_y), sizeof(int) * N_y * sRy));
 
 	int c = 0;
 	for(int j=0; j<sRx; j++)
@@ -567,10 +562,14 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 	// DONE making parts needed for future FFTs
 	
 	// temporary workspaces
-	CHECKCALL(cudaMallocHost(&(p->h_temp), sCxy));
-	CHECKCALL(cudaMalloc(&(p->d_A), sCxy));
-	CHECKCALL(cudaMalloc(&(p->d_B), sCxy));
+	CHECKCALL(malloc_host(&(p->h_temp), sCxy));
+//	CHECKCALL(malloc_device(&(p->d_A), sCxy));
+//	CHECKCALL(malloc_device(&(p->d_B), sCxy));
 
+	CUCOMPLEX* d_A = (CUCOMPLEX*)ws_d_A;
+	CUCOMPLEX* d_B = (CUCOMPLEX*)ws_d_B;
+	
+	
 
 	// 2D arrays, 1st dimmension is for layer
 	p->d_sx_q = new CUCOMPLEX*[nz];
@@ -579,11 +578,11 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 
 	for(int i=0; i<nz; i++)
 	{
-		CHECKCALL(cudaMalloc(&(p->d_sx_q[i]), sCxy));
-		CHECKCALL(cudaMalloc(&(p->d_sy_q[i]), sCxy));
-		CHECKCALL(cudaMalloc(&(p->d_sz_q[i]), sCxy));
+		CHECKCALL(malloc_device(&(p->d_sx_q[i]), sCxy));
+		CHECKCALL(malloc_device(&(p->d_sy_q[i]), sCxy));
+		CHECKCALL(malloc_device(&(p->d_sz_q[i]), sCxy));
 	}
-	CHECKCALL(cudaMalloc(&(p->d_hA_q), sCxy));
+	CHECKCALL(malloc_device(&(p->d_hA_q), sCxy));
 	
 	// make room for FT'd interaction matrices
 	p->d_GammaXX = new CUCOMPLEX*[nz];
@@ -597,18 +596,18 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 
 	for(int i=0; i<nz; i++)
 	{
-		CHECKCALL(cudaMalloc(&(p->d_GammaXX[i]), sCxy));
-		CHECKCALL(cudaMalloc(&(p->d_GammaXY[i]), sCxy));
-		CHECKCALL(cudaMalloc(&(p->d_GammaXZ[i]), sCxy));
+		CHECKCALL(malloc_device(&(p->d_GammaXX[i]), sCxy));
+		CHECKCALL(malloc_device(&(p->d_GammaXY[i]), sCxy));
+		CHECKCALL(malloc_device(&(p->d_GammaXZ[i]), sCxy));
 	
-		CHECKCALL(cudaMalloc(&(p->d_GammaYY[i]), sCxy));
-		CHECKCALL(cudaMalloc(&(p->d_GammaYZ[i]), sCxy));
+		CHECKCALL(malloc_device(&(p->d_GammaYY[i]), sCxy));
+		CHECKCALL(malloc_device(&(p->d_GammaYZ[i]), sCxy));
 	
-		CHECKCALL(cudaMalloc(&(p->d_GammaZZ[i]), sCxy));
+		CHECKCALL(malloc_device(&(p->d_GammaZZ[i]), sCxy));
 	}
 	
 	
-	CHECKCALL(cudaMalloc(&(p->d_output),sRxy));
+	CHECKCALL(malloc_device(&(p->d_output),sRxy));
 	
 	// now we will work on loading all the interaction matrices
 	// onto the GPU and fourier transforming them
@@ -634,17 +633,17 @@ JM_LONGRANGE_PLAN* make_JM_LONGRANGE_PLAN(int N_x, int N_y, int N_z,
 			    p->h_temp[c] = MAKECOMPLEX(sd[k].h[j*nxy + c], 0);
 			}
 
-			CHECKCALL(cudaMemcpy(p->d_A, p->h_temp, sizeof(CUCOMPLEX)*nxy, cudaMemcpyHostToDevice));
+			CHECKCALL(cudaMemcpy(d_A, p->h_temp, sizeof(CUCOMPLEX)*nxy, cudaMemcpyHostToDevice));
 			
 			fourier2D(N_x, N_y, p->Rx, p->Ry, 
 				  p->d_exp2pi_x_f, p->d_exp2pi_y_f, 
 				  p->d_base_x, p->d_base_y, 
 				  p->d_step_x, p->d_step_y,
-				  p->d_B, p->d_A);
+				  d_B, d_A);
 // 				  sd[k].d[j], p->d_A);
 
 			// going to prescale the data into d_GammaAB:
-			d_scaleC(N_x, N_y, sd[k].d[j], p->d_B, 1.0/((double)(nxy)));
+			d_scaleC(N_x, N_y, sd[k].d[j], d_B, 1.0/((double)(nxy)));
 // 			d_scaleC(N_x, N_y, sd[k].d[j], p->d_B, 1.0);
 		}
 	}
@@ -728,9 +727,6 @@ void free_JM_LONGRANGE_PLAN(JM_LONGRANGE_PLAN* p)
 	
 	delete [] p->d_GammaZZ;
 	
-	CHECKCALL(cudaFree(p->d_A));
-	CHECKCALL(cudaFree(p->d_B));
-
 	delete p;
 }
 
@@ -783,7 +779,7 @@ __global__ void setLayer(const int N_x, const int N_y, const int layer, REAL* d_
 
 void JM_LONGRANGE(JM_LONGRANGE_PLAN* p, 
 				  const double* d_sx, const double* d_sy, const double* d_sz,
-				  double* d_hx, double* d_hy, double* d_hz)
+				  double* d_hx, double* d_hy, double* d_hz, void* ws_d_A, void* ws_d_B)
 {
     const int N_x = p->N_x;
     const int N_y = p->N_y;
@@ -799,8 +795,11 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 	dim3 threads(32,32);
 	#endif	
 
-	CUCOMPLEX* d_src  = p->d_A; //local vars for swapping workspace
-	CUCOMPLEX* d_dest = p->d_B;
+	CUCOMPLEX* d_A = (CUCOMPLEX*)ws_d_A;
+	CUCOMPLEX* d_B = (CUCOMPLEX*)ws_d_B;
+		
+	CUCOMPLEX* d_src  = d_A; //local vars for swapping workspace
+	CUCOMPLEX* d_dest = d_B;
 	
 	// FT the spins
 	struct {
@@ -819,8 +818,8 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 		
 		for(int z=0; z<N_z; z++)
 		{
-			d_src  = p->d_A;
-			d_dest = p->d_B;
+			d_src  = d_A;
+			d_dest = d_B;
 
 			//destination
 			CUCOMPLEX* d_s_q = sd[k].d_s_q[z];
@@ -882,8 +881,8 @@ void JM_LONGRANGE(JM_LONGRANGE_PLAN* p,
 		// h(q) now calculated, iFT it
 		double* d_hxyz = sd[c].d_h_r; // this is where the result will go
 
-		d_src = p->d_A;
-		d_dest = p->d_B;
+		d_src = d_A;
+		d_dest = d_B;
 		
 		fourier2D(N_x, N_y, p->Rx, p->Ry, 
 			p->d_exp2pi_x_b, p->d_exp2pi_y_b, 

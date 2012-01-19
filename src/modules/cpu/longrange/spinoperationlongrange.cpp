@@ -10,9 +10,9 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "spinoperationlongrange.h"
 #include "spinsystem.h"
 #include "info.h"
+#include "spinoperationlongrange.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -22,9 +22,14 @@ LongRange::LongRange(const char* name, const int field_slot, int nx, int ny, int
 {
 	qXX = 0;
 	
+	forward = 0;
+        backward = 0;
+
 	g = 1;
 	gmax = 2000;
-	
+	matrixLoaded = false;
+	newdata = true;
+	XX = 0;
 	ABC[0] = 1; ABC[1] = 0; ABC[2] = 0;
 	ABC[3] = 0; ABC[4] = 1; ABC[5] = 0;
 	ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
@@ -34,18 +39,19 @@ LongRange::LongRange(const char* name, const int field_slot, int nx, int ny, int
 
 void LongRange::init()
 {
-	if(qXX)
-		deinit();
+	if(XX) return;
 	
-	hqx = new complex<double> [nxyz];
-	hqy = new complex<double> [nxyz];
-	hqz = new complex<double> [nxyz];
-
-	hrx = new complex<double> [nxyz];
-	hry = new complex<double> [nxyz];
-	hrz = new complex<double> [nxyz];
-
+	deinit();
 	int s = nx*ny * nz;
+
+	hqx = new complex<double> [s];
+	hqy = new complex<double> [s];
+	hqz = new complex<double> [s];
+
+	hrx = new complex<double> [s];
+	hry = new complex<double> [s];
+	hrz = new complex<double> [s];
+
 	qXX = new complex<double>[s];
 	qXY = new complex<double>[s];
 	qXZ = new complex<double>[s];
@@ -72,33 +78,130 @@ void LongRange::init()
 								reinterpret_cast<fftw_complex*>(qYY),
 								FFTW_BACKWARD, FFTW_PATIENT);
 								
+ 	XX = new double[s];
+	XY = new double[s];
+	XZ = new double[s];
+	YY = new double[s];
+	YZ = new double[s];
+	ZZ = new double[s];
+	
 	hasMatrices = false;
+}
+
+static int offsetOK(int nx, int ny, int nz,  int x, int y, int z, int& offset)
+{
+	if(x<0 || x >= nx) return 0;
+	if(y<0 || y >= ny) return 0;
+	if(z<0 || z >= nz) return 0;
+	
+	offset = x + y*nx + z*nx*ny;
+	return 1;
+}
+
+#define getsetPattern(AB) \
+double LongRange::get##AB (int ox, int oy, int oz) \
+{ \
+    ox = (ox + 10*nx)%nx; \
+    oy = (oy + 10*ny)%ny; \
+    loadMatrix(); \
+	int offset; \
+	if(offsetOK(nx,ny,nz, ox,oy,oz, offset)) \
+		return AB [offset]; \
+	return 0; \
+} \
+ \
+void   LongRange::set##AB (int ox, int oy, int oz, double value) \
+{ \
+    ox = (ox + 10*nx)%nx; \
+    oy = (oy + 10*ny)%ny; \
+	loadMatrix(); \
+	int offset; \
+	if(offsetOK(nx,ny,nz, ox,oy,oz, offset)) \
+	{ \
+		AB [offset] = value; \
+		newdata = true; \
+	} \
+} 
+
+getsetPattern(XX)
+getsetPattern(XY)
+getsetPattern(XZ)
+getsetPattern(YY)
+getsetPattern(YZ)
+getsetPattern(ZZ)
+
+double LongRange::getAB(int matrix, int ox, int oy, int oz)
+{
+	switch(matrix)
+	{
+		case 0:	return getXX(ox,oy,oz);
+		case 1:	return getXY(ox,oy,oz);
+		case 2:	return getXZ(ox,oy,oz);
+		case 3:	return getYY(ox,oy,oz);
+		case 4:	return getYZ(ox,oy,oz);
+		case 5:	return getZZ(ox,oy,oz);
+	}
+	return 0;
+}
+
+void  LongRange::setAB(int matrix, int ox, int oy, int oz, double value)
+{
+	switch(matrix)
+	{
+		case 0:	setXX(ox,oy,oz,value); break;
+		case 1:	setXY(ox,oy,oz,value); break;
+		case 2:	setXZ(ox,oy,oz,value); break;
+		case 3:	setYY(ox,oy,oz,value); break;
+		case 4:	setYZ(ox,oy,oz,value); break;
+		case 5:	setZZ(ox,oy,oz,value); break;
+	}
+}
+
+void LongRange::loadMatrix()
+{
+	if(matrixLoaded) return;
+	init();
+	loadMatrixFunction(XX, XY, XZ, YY, YZ, ZZ); //implemented by child
+	newdata = true;
+	matrixLoaded = true;
 }
 
 void LongRange::deinit()
 {
-	if(!qXX)
-		return;
-	delete [] qXX;
-	delete [] qXY;
-	delete [] qXZ;
+	if(qXX)
+	{
+		delete [] qXX;
+		delete [] qXY;
+		delete [] qXZ;
 
-	delete [] qYY;
-	delete [] qYZ;
+		delete [] qYY;
+		delete [] qYZ;
 
-	delete [] qZZ;
+		delete [] qZZ;
 
-	delete [] hqx;
-	delete [] hqy;
-	delete [] hqz;
+		delete [] hqx;
+		delete [] hqy;
+		delete [] hqz;
 
-	delete [] hrx;
-	delete [] hry;
-	delete [] hrz;
+		delete [] hrx;
+		delete [] hry;
+		delete [] hrz;
 
-	fftw_destroy_plan(forward);
-	fftw_destroy_plan(backward);
-	qXX = 0;
+		fftw_destroy_plan(forward);
+		fftw_destroy_plan(backward);
+		qXX = 0;
+	}
+	if(XX)
+	{
+		delete [] XX;
+		delete [] XY;
+		delete [] XZ;
+		delete [] YY;
+		delete [] YZ;
+		delete [] ZZ;
+		XX = 0;
+	}
+	
 	hasMatrices = false;
 }
 
@@ -111,15 +214,7 @@ void LongRange::getMatrices()
 {
 	init();
 	
-	int s = nx*ny * nz;
-	double* XX = new double[s];
-	double* XY = new double[s];
-	double* XZ = new double[s];
-	double* YY = new double[s];
-	double* YZ = new double[s];
-	double* ZZ = new double[s];
-	
-	loadMatrixFunction(XX, XY, XZ, YY, YZ, ZZ); //implemented by child
+	loadMatrix();
 
 	fftw_iodim dims[2];
 	dims[0].n = nx;
@@ -166,14 +261,8 @@ void LongRange::getMatrices()
 	
 	delete [] q;
 	delete [] r;
-	
-	delete [] XX;
-	delete [] XY;
-	delete [] XZ;
-	delete [] YY;
-	delete [] YZ;
-	delete [] ZZ;
-	
+
+	newdata = false;
 	hasMatrices = true;
 }
 
@@ -223,8 +312,8 @@ void LongRange::collectIForces(SpinSystem* ss)
 	complex<double>* sqy = ss->qy;
 	complex<double>* sqz = ss->qz;
 
-	if(!hasMatrices)
-		getMatrices();
+// 	if(!hasMatrices)
+// 		getMatrices();
 	
 	const complex<double> cz(0,0);
 	for(c=0; c<nxyz; c++) hqx[c] = cz;
@@ -271,6 +360,9 @@ bool LongRange::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
 
+	if(newdata)
+		getMatrices();
+	
 	ss->fft();
 	collectIForces(ss);
 	ifftAppliedForce(ss);

@@ -16,6 +16,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include "extrapolate.h"
+#include <vector>
+using namespace std;
 
 #ifdef WIN32
  #include <windows.h>
@@ -41,8 +44,6 @@ typedef struct mag_dip_crossover
 
 bool equal_tol(double a, double b, double tolerance)
 {
-// 	if(a == b)
-// 		return true;
 	if(a == 0 && b == 0)
 		return true;
 	
@@ -54,32 +55,20 @@ bool equal_tol(double a, double b, double tolerance)
 	return t < tolerance;
 }
 
-///periodic XY
-static void getGAB(
+
+static void getGAB_range(
 	const double* ABC, 
-	const double* prism, /* 3 vector */
+	const double* prism,
 	const int nA, const int nB, const int nC,  //width, depth, layers 
-	const int ix, const int iy, const int iz, 
-	const int gmax, 
-	double* XX, double* XY, double* XZ,
-	double* YY, double* YZ, double* ZZ,
+	const int ix, const int iy, const int iz,
+	const int ax, const int ay, const int bx, const int by,	      
+	              const int truemax, 
+	double& gXX, double& gXY, double& gXZ,
+	double& gYY, double& gYZ, double& gZZ,
 	mag_dip_crossover& crossover)
 {
-	int smax;
-	int i, j, c;
-	double r2;
-	double ir,ir3,ir5;
-	double rx, ry, rz;
-	int iL;
-
-	if(nA < nB)
-		iL = nA;
-	else
-		iL = nB;
-
-	smax = gmax/iL + 1;
-
-	double volume2 = pow(prism[0] * prism[1] * prism[2], 2);
+	
+	const double volume2 = pow(prism[0] * prism[1] * prism[2], 2);
 	
 	const double d1 = prism[0];
 	const double l1 = prism[1];
@@ -88,13 +77,6 @@ static void getGAB(
 	const double d2 = prism[0];
 	const double l2 = prism[1];
 	const double w2 = prism[2];
-	
-	double* gXX = new double[smax*2+1];
-	double* gXY = new double[smax*2+1];
-	double* gXZ = new double[smax*2+1];
-	double* gYY = new double[smax*2+1];
-	double* gYZ = new double[smax*2+1];
-	double* gZZ = new double[smax*2+1];
 
 	double magXX, magXY, magXZ;
 	double dipXX, dipXY, dipXZ;
@@ -105,42 +87,35 @@ static void getGAB(
 	double magZZ;
 	double dipZZ;
 	
-	for(c=0; c<smax*2+1; c++)
+	const int zz = iz;
+	if(abs(zz) <= truemax)
+    {
+	for(int x=ax; x<=bx; x++)
 	{
-		gXX[c] = 0;
-		gXY[c] = 0;
-		gXZ[c] = 0;
-		gYY[c] = 0;
-		gYZ[c] = 0;
-		gZZ[c] = 0;
-	}
-
-	/* sum over periodic lattices */
-	for(j=-smax; j<= smax; j++)
-		for(i=-smax, c=0; i<= smax; i++, c++)
+	    const int xx = x*nA+ix;
+	    if(abs(xx) <= truemax)
+	    {
+		for(int y=ay; y<=by; y++)
 		{
-			const int xx = i*nA+ix;
-			const int yy = j*nB+iy;
-			const int zz = iz;
-
-			if(abs(xx) <= gmax && abs(yy) <= gmax && abs(zz) <= gmax)
-			{
-				rx = ((double)i*nA+ix)*ABC[0] + ((double)j*nB+iy)*ABC[3] + ((double)iz)*ABC[6];
-				ry = ((double)i*nA+ix)*ABC[1] + ((double)j*nB+iy)*ABC[4] + ((double)iz)*ABC[7];
-				rz = ((double)i*nA+ix)*ABC[2] + ((double)j*nB+iy)*ABC[5] + ((double)iz)*ABC[8];
-				r2 = rx*rx + ry*ry + rz*rz;
+		    const int yy = y*nB+iy;
+		    if(abs(yy) <= truemax)
+		    {
+				const double rx = ((double)xx)*ABC[0] + ((double)yy)*ABC[3] + ((double)zz)*ABC[6];
+				const double ry = ((double)xx)*ABC[1] + ((double)yy)*ABC[4] + ((double)zz)*ABC[7];
+				const double rz = ((double)xx)*ABC[2] + ((double)yy)*ABC[5] + ((double)zz)*ABC[8];
+			
+				const double r2 = rx*rx + ry*ry + rz*rz;
 				//if(r2 != 0)
 
 				if(r2 >= crossover.r2)
 				{
+					gXX += DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
+					gXY += DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
+					gXZ += DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
 
-					gXX[c] += DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
-					gXY[c] += DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
-					gXZ[c] += DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
-
-					gYY[c] += DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
-					gYZ[c] += DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
-					gZZ[c] += DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
+					gYY += DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
+					gYZ += DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
+					gZZ += DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
 				}
 				else
 				{
@@ -192,66 +167,159 @@ static void getGAB(
 						//printf("crossover at: r = %f\n", sqrt(crossover.r2));
 					}
 
-					gXX[c] += magXX;
-					gXY[c] += magXY;
-					gXZ[c] += magXZ;
+					gXX += magXX;
+					gXY += magXY;
+					gXZ += magXZ;
 
-					gYY[c] += magYY;
-					gYZ[c] += magYZ;
-					gZZ[c] += magZZ;	
+					gYY += magYY;
+					gYZ += magYZ;
+					gZZ += magZZ;	
 				}
+		    }
+		}
+	    }
+	}
+    }
+}
+
+
+///periodic XY
+static void getGAB(
+	const double* ABC, 
+	const double* prism, /* 3 vector */
+	const int nA, const int nB, const int nC,  //width, depth, layers 
+	const int ix, const int iy, const int iz, 
+	const int smin, const int smax, const int truemax, //allowing rings 
+	double* XX, double* XY, double* XZ,
+	double* YY, double* YZ, double* ZZ,
+	mag_dip_crossover& crossover)
+{
+	double gXX = 0;
+	double gXY = 0;
+	double gXZ = 0;
+	double gYY = 0;
+	double gYZ = 0;
+	double gZZ = 0;
+
+	const int minx = smin;
+	const int miny = smin;
+	const int maxx = smax;
+	const int maxy = smax;
+
+	// +----b
+	// |    |
+	// |    |
+	// a----+
+
+	// each coordinate here denotes a lattice
+	int ax[9];
+	int ay[9];
+	int bx[9];
+	int by[9];
+
+	ax[0] = -(maxx-1);
+	ay[0] = miny;
+	bx[0] = -minx;
+	by[0] = (maxy-1);
+
+	ax[1] = -minx+1;
+	ay[1] = ay[0];
+	bx[1] = minx-1;
+	by[1] = by[0];
+
+	ax[2] = minx;
+	ay[2] = ay[0];
+	bx[2] = maxx-1;
+	by[2] = by[0];
+
+	ax[3] = ax[0];
+	ay[3] = -(miny-1);
+	bx[3] = bx[0];
+	by[3] = miny-1;
+
+	ax[4] = ax[2];
+	ay[4] = ay[3];
+	bx[4] = bx[2];
+	by[4] = by[3];
+
+	ax[5] = ax[0];
+	ay[5] = -(maxy-1);
+	bx[5] = bx[0];
+	by[5] = -miny;
+
+	ax[6] = ax[1];
+	ay[6] = ay[5];
+	bx[6] = bx[1];
+	by[6] = by[5];
+
+	ax[7] = ax[2];
+	ay[7] = ay[5];
+	bx[7] = bx[2];
+	by[7] = by[5];
+
+	ax[8] = -(maxx-1);
+	ay[8] = -(maxy-1);
+	bx[8] = -ax[8];
+	by[8] = -ay[8];
+
+	if(smin == 0)
+	{
+	    const int i = 8;
+// static void getGAB_range(
+// 	const double* ABC, 
+// 	const double* prism,
+// 	const int nA, const int nB, const int nC,  //width, depth, layers 
+// 	const int ix, const int iy, const int iz,
+// 	const int ax, const int ay, const int bx, const int by,	      
+// 	              const int truemax, 
+// 	double& gXX, double& gXY, double& gXZ,
+// 	double& gYY, double& gYZ, double& gZZ,
+// 	mag_dip_crossover& crossover)
+
+	getGAB_range(ABC, prism, nA, nB, nC, ix, iy, iz,
+			 ax[i], ay[i], bx[i], by[i],
+			 truemax, 
+			 gXX, gXY, gXZ,
+			 gYY, gYZ, gZZ,
+			 crossover);
+	}
+	else
+	{
+	    for(int i=0; i<8; i++)
+	    {
+		getGAB_range(ABC, prism, nA, nB, nC, ix, iy, iz,
+			     ax[i], ay[i], bx[i], by[i],
+			     truemax,
+			     gXX, gXY, gXZ,
+			     gYY, gYZ, gZZ,
+				 crossover);
+	    }
+	}
+
 #ifndef WIN32
 #warning This is a hack to fix self terms. Eventually this will be in the numerical code.
 #endif
-				if(xx == 0 && yy == 0 && zz == 0)
-				{
-					gXX[c] *= 0.5;
-					gXY[c] *= 0.5;
-					gXZ[c] *= 0.5;
+	if(ix == 0 && iy == 0 && iz == 0)
+	{
+		gXX *= 0.5;
+		gXY *= 0.5;
+		gXZ *= 0.5;
 
-					gYY[c] *= 0.5;
-					gYZ[c] *= 0.5;
+		gYY *= 0.5;
+		gYZ *= 0.5;
 
-					gZZ[c] *= 0.5;
-				}
-			}
-		}
-	
-	*XX = 0;
-	for(c=0; c<smax*2+1; c++)
-		*XX += gXX[c];
+		gZZ *= 0.5;
+	}
 
-	*XY = 0;
-	for(c=0; c<smax*2+1; c++)
-		*XY += gXY[c];
+	*XX = gXX;
+	*XY = gXY;
+	*XZ = gXZ;
 
-	*XZ = 0;
-	for(c=0; c<smax*2+1; c++)
-		*XZ += gXZ[c];
+	*YY = gYY;
+	*YZ = gYZ;
 
-	*YY = 0;
-	for(c=0; c<smax*2+1; c++)
-		*YY += gYY[c];
-
-	*YZ = 0;
-	for(c=0; c<smax*2+1; c++)
-		*YZ += gYZ[c];
-
-	*ZZ = 0;
-	for(c=0; c<smax*2+1; c++)
-		*ZZ += gZZ[c];
-
-	
-	delete [] gXX;
-	delete [] gXY;
-	delete [] gXZ;
-
-	delete [] gYY;
-	delete [] gYZ;
-
-	delete [] gZZ;
-}//end function WAB
-
+	*ZZ = gZZ;
+}//end function getGAB
 
 
 static int _isZeroMat(const double* M, int nx, int ny)
@@ -366,7 +434,10 @@ static bool magnetostatics_write_matrix(const char* filename,
 	
 	fprintf(f, "-- This file contains magnetostatic interaction matrices\n");
 	fprintf(f, "\n");
-	fprintf(f, "gmax = %i\n", gmax);
+	if(gmax == -1)
+		fprintf(f, "gmax = math.huge\n");
+	else
+		fprintf(f, "gmax = %i\n", gmax);
 	fprintf(f, "nx, ny, nz = %i, %i, %i\n", nx, ny, nz);
 	fprintf(f, "cellDimensions = {%g, %g, %g}\n", prism[0], prism[1], prism[2]);
 	fprintf(f, "ABC = {{%g, %g, %g}, --unit cell\n       {%g, %g, %g},\n       {%g, %g, %g}}\n\n", 
@@ -436,15 +507,23 @@ static bool valueMatch(lua_State* L, const char* name, int value)
 	return v == value;
 }
 
+static bool approxSame(double a, double b)
+{
+	bool c = fabs(a-b) <= 0.5*(fabs(a) + fabs(b)) * 1e-6;
+	return c;
+}
+
 static bool checkTable(lua_State* L, const double* v3)
 {
 	if(!lua_istable(L, -1))
+	{
 		return false;
+	}
 	for(int i=0; i<3; i++)
 	{
 		lua_pushinteger(L, i+1);
 		lua_gettable(L, -2);
-		if(!lua_isnumber(L, -1) || (lua_tonumber(L, -1) != v3[i]))
+		if(!lua_isnumber(L, -1) || !(approxSame(lua_tonumber(L, -1), v3[i])))
 		{
 			lua_pop(L, 1);
 			return false;
@@ -469,12 +548,13 @@ static bool magnetostaticsParamsMatch(
 		return false;
 	}
 	
-	const char* nn[4] = {"nx", "ny", "nz", "gmax"};
-	int  nv[4]; 
-	nv[0] = nx; nv[1] = ny; 
-	nv[2] = nz; nv[3] = gmax;
+	const char* nn[3] = {"nx", "ny", "nz"};
+	int  nv[3]; 
+	nv[0] = nx; 
+	nv[1] = ny; 
+	nv[2] = nz; 
 
-	for(int i=0; i<4; i++)
+	for(int i=0; i<3; i++)
 	{
 		if(!valueMatch(L, nn[i], nv[i]))
 		{
@@ -482,7 +562,27 @@ static bool magnetostaticsParamsMatch(
 			return false;
 		}
 	}
+
+
+	int file_gmax = 0;
+	lua_getglobal(L, "gmax");
+	file_gmax = lua_tointeger(L, -1);
+	lua_getglobal(L, "math");
+	lua_pushstring(L, "huge");
+	lua_gettable(L, -2);
+	lua_remove(L, -2); //remove math table
+	if(lua_equal(L, -2, -1)) //then gmax = math.huge
+	{
+		file_gmax = -1; //special marker for math.huge
+	}
+	lua_pop(L, 2);
 	
+	if(file_gmax != gmax)
+	{
+		lua_close(L);
+		return false;
+	}
+
 	lua_getglobal(L, "cellDimensions");
 	if(!checkTable(L, prism))
 	{
@@ -581,6 +681,79 @@ static void loadXYZ(
 	lua_close(L);
 }
 
+static bool extrapolate(lua_State* L,
+			vector<int>& cuttoffs,
+            vector<double>& vXX, vector<double>& vXY, vector<double>& vXZ, 
+                                 vector<double>& vYY, vector<double>& vYZ, 
+                                                      vector<double>& vZZ, bool& fail)
+{
+	vector< vector<double> > vAB;
+	vAB.push_back(vXX);
+	vAB.push_back(vXY);
+	vAB.push_back(vXZ);
+	vAB.push_back(vYY);
+	vAB.push_back(vYZ);
+	vAB.push_back(vZZ);
+	
+	double sol[6];
+	bool   res[6];
+	bool   ok = true;
+	for(int i=0; i<6; i++)
+	{
+		lua_pop(L, lua_gettop(L));
+		lua_getglobal(L, "extrapolate");
+		lua_newtable(L);
+		for(unsigned int j=0; j<cuttoffs.size(); j++)
+		{
+			lua_pushinteger(L, j+1);
+			lua_newtable(L); //{x,y} holder
+			lua_pushinteger(L, 1);
+			lua_pushinteger(L, cuttoffs[j]);
+			lua_settable(L, -3); //set x
+			lua_pushinteger(L, 2);
+			lua_pushnumber(L, vAB[i][j]);
+			lua_settable(L, -3); // set y
+			lua_settable(L, -3); // add {x,y} pair
+		}
+		
+		//int lua_pcall (lua_State *L, int nargs, int nresults, int errfunc);
+
+		if(lua_pcall(L, 1, 1, 0))
+		{
+			fprintf(stderr, "%s\n", lua_tostring(L, -1));
+			fail = true;
+			return false;
+		}
+		
+		int t = lua_type(L, -1);
+		
+		if(t == LUA_TBOOLEAN)
+		{
+			res[i] = false;
+		}
+		if(t == LUA_TNUMBER)
+		{
+			res[i] = true;
+			sol[i] = lua_tonumber(L, -1);
+		}
+		lua_pop(L, 1);
+		ok &= res[i];
+	}
+	
+	fail = false;
+	if(ok)
+	{
+		vXX.push_back(sol[0]);
+		vXY.push_back(sol[1]);
+		vXZ.push_back(sol[2]);
+		vYY.push_back(sol[3]);
+		vYZ.push_back(sol[4]);
+		vZZ.push_back(sol[5]);
+		return true;
+	}
+	return false;
+}
+
 void magnetostaticsLoad(
 	const int nx, const int ny, const int nz,
 	const int gmax, const double* ABC,
@@ -589,7 +762,10 @@ void magnetostaticsLoad(
 	double* YY, double* YZ, double* ZZ,
 	double tol)
 {
-	char fn[64] = "";
+	char fn[1024] = ""; //mmm arbitrary
+	
+	lua_State* L = lua_open();
+	luaL_openlibs(L);
 	
 	mag_dip_crossover crossover;
 	crossover.r2  = 1E10;
@@ -607,6 +783,7 @@ void magnetostaticsLoad(
 						nx, ny, nz,
 						XX, XY, XZ,
 						YY, YZ, ZZ);
+				lua_close(L);
 				return;
 			}
 		}
@@ -614,33 +791,111 @@ void magnetostaticsLoad(
 		{
 			int c = 0;
 			for(int k=0; k<nz; k++)
+			for(int j=0; j<ny; j++)
+			for(int i=0; i<nx; i++)
 			{
-				for(int j=0; j<ny; j++)
+				fflush(stdout);
+				if(gmax != -1)
 				{
-					for(int i=0; i<nx; i++)
+					getGAB(ABC,
+							prism,
+							nx, ny, nz,
+							i, j, k,
+							0, gmax, gmax,
+							XX+c, XY+c, XZ+c,
+							YY+c, YZ+c, ZZ+c, 
+							crossover);
+					
+						c++;
+				}
+				else // math.huge sum
+				{
+					vector<double> vXX;
+					vector<double> vXY;
+					vector<double> vXZ;
+					vector<double> vYY;
+					vector<double> vYZ;
+					vector<double> vZZ;
+					vector<int> cuttoffs;
+					
+					double tXX, tXY, tXZ, tYY, tYZ, tZZ;
+					double sXX, sXY, sXZ, sYY, sYZ, sZZ;
+					sXX=0; sXY=0; sXZ=0;
+					sYY=0; sYZ=0; sZZ=0;
+
+					const int lstep = 10;
+					bool fail = false;
+					int _lmin = 0; //inits of lattices
+					int _lmax = lstep;
+					
+					bool converge = false;
+					int q = 0;
+					int maxiter = 5000;
+					do
 					{
 						getGAB(ABC,
 							prism,
 							nx, ny, nz,
 							i, j, k,
-							gmax,
-							XX+c, XY+c, XZ+c,
-							YY+c, YZ+c, ZZ+c, 
+							_lmin, _lmax, (int)1e16,
+							 &tXX, &tXY, &tXZ, &tYY, &tYZ, &tZZ,
 							crossover);
-						c++;
+						
+						sXX+=tXX;sXY+=tXY;sXZ+=tXZ;
+						sYY+=tYY;sYZ+=tYZ;sZZ+=tZZ;
+						vXX.push_back(sXX);
+						vXY.push_back(sXY);
+						vXZ.push_back(sXZ);
+						vYY.push_back(sYY);
+						vYZ.push_back(sYZ);
+						vZZ.push_back(sZZ);
+
+						cuttoffs.push_back(_lmax);
+						_lmin += lstep;
+						_lmax += lstep;
+						if(q>=8) //let the system prime itself before trying to extrapolate
+						{
+// 						    converge = true;
+
+						    converge = extrapolate(L, cuttoffs, vXX, vXY, vXZ, vYY, vYZ, vZZ, fail);
+						}
+						q++;
+						maxiter--;
+					}while(!converge && !fail && maxiter);
+				
+// 					if(converge || fail)
+					{
+					    int last = vXX.size() - 1;
+					    
+					    XX[c] = vXX[last];
+					    XY[c] = vXY[last];
+					    XZ[c] = vXZ[last];
+
+					    YY[c] = vYY[last];
+					    YZ[c] = vYZ[last];
+
+					    ZZ[c] = vZZ[last];
+					}
+	
+					if(fail | !maxiter)
+					{
+					    fprintf(stderr, "Failed to find a extrapolate to solution under tolerance, using best calculated value\n");
 					}
 				}
+				c++;
 			}
-
+			
 			magnetostatics_write_matrix(fn,
 				ABC, prism,
 				nx, ny, nz,
 				gmax,
 				XX, XY, XZ,
 				YY, YZ, ZZ);
+			lua_close(L);
 			return;
 		}
 	}
+	lua_close(L);
 }
 
 

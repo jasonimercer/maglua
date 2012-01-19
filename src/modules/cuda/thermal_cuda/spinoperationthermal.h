@@ -40,7 +40,9 @@ public:
 	virtual ~Thermal();
 	
 	bool apply(RNG* rand, SpinSystem* ss);
+	bool applyToSum(RNG* rand, SpinSystem* ss);
 	bool apply(SpinSystem* ss) {return false;};
+	bool applyToSum(SpinSystem* ss) {return false;};
 
 	void scaleSite(int px, int py, int pz, double strength);
 

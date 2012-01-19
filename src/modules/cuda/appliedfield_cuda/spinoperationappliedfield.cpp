@@ -45,6 +45,10 @@ AppliedField::~AppliedField()
 
 bool AppliedField::apply(SpinSystem* ss)
 {
+	markSlotUsed(ss);
+	ss->ensureSlotExists(slot);
+
+	
 	double* d_hx = ss->d_hx[slot];
 	double* d_hy = ss->d_hy[slot];
 	double* d_hz = ss->d_hz[slot];
@@ -53,7 +57,6 @@ bool AppliedField::apply(SpinSystem* ss)
 	const int ny = ss->ny;
 	const int nz = ss->nz;
 
-	markSlotUsed(ss);
 	
 	ss_d_set3DArray(d_hx, nx, ny, nz, B[0]);
 	ss_d_set3DArray(d_hy, nx, ny, nz, B[1]);
@@ -61,6 +64,39 @@ bool AppliedField::apply(SpinSystem* ss)
 	
 	ss->new_device_fields[slot] = true;
 	
+	return true;
+}
+
+bool AppliedField::applyToSum(SpinSystem* ss)
+{
+	ss->ensureSlotExists(slot);
+
+	const int nx = ss->nx;
+	const int ny = ss->ny;
+	const int nz = ss->nz;
+	const int nxyz = nx*ny*nz;
+
+	double* d_wsx;
+	double* d_wsy;
+	double* d_wsz;
+	
+	const int sz = sizeof(double)*nxyz;
+	getWSMem(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
+	
+// 	double* d_wsAll = (double*)getWSMem(*3);
+// 	double* d_wsx = d_wsAll + nxyz * 0;
+// 	double* d_wsy = d_wsAll + nxyz * 1;
+// 	double* d_wsz = d_wsAll + nxyz * 2;
+	
+	ss_d_set3DArray(d_wsx, nx, ny, nz, B[0]);
+	ss_d_set3DArray(d_wsy, nx, ny, nz, B[1]);
+	ss_d_set3DArray(d_wsz, nx, ny, nz, B[2]);
+	
+	cuda_addArrays(ss->d_hx[SUM_SLOT], nxyz, ss->d_hx[SUM_SLOT], d_wsx);
+	cuda_addArrays(ss->d_hy[SUM_SLOT], nxyz, ss->d_hy[SUM_SLOT], d_wsy);
+	cuda_addArrays(ss->d_hz[SUM_SLOT], nxyz, ss->d_hz[SUM_SLOT], d_wsz);
+	ss->slot_used[SUM_SLOT] = true;
+
 	return true;
 }
 
@@ -179,6 +215,17 @@ int l_ap_apply(lua_State* L)
 	SpinSystem* ss = checkSpinSystem(L, 2);
 	
 	if(!ap->apply(ss))
+		return luaL_error(L, ap->errormsg.c_str());
+	
+	return 0;
+}
+
+int l_ap_applytosum(lua_State* L)
+{
+	AppliedField* ap = lua_toAppliedField(L, 1);
+	SpinSystem* ss = checkSpinSystem(L, 2);
+	
+	if(!ap->applyToSum(ss))
 		return luaL_error(L, ap->errormsg.c_str());
 	
 	return 0;
@@ -306,6 +353,14 @@ static int l_ap_help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+
+	if(func == l_ap_applytosum)
+	{
+		lua_pushstring(L, "Applies a field on to a *SpinSystem*");
+		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field, added into the Total slot.");
+		lua_pushstring(L, "");
+		return 3;
+	}
 	
 	if(func == l_ap_set)
 	{
@@ -402,6 +457,7 @@ void registerAppliedField(lua_State* L)
 		{"__gc",         l_ap_gc},
 		{"__tostring",   l_ap_tostring},
 		{"apply",        l_ap_apply},
+		{"applyToSum",   l_ap_applytosum},
 		{"set",          l_ap_set},
 		{"get",          l_ap_get},
 		{"add",          l_ap_add},

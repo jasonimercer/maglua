@@ -14,6 +14,8 @@
 #include "llgcartesian.h"
 #include "spinsystem.h"
 #include "spinoperation.h"
+#include "llgcartesian.hpp"
+
 // Gilbert equation of motion:
 //  dS    -g           a  g
 //  -- = ----  S X h - ---- S X (S X h)
@@ -31,79 +33,40 @@ LLGCartesian::LLGCartesian()
 }
 
 
-
-
-#define CROSS(v, a, b) \
-	v[0] = a[1] * b[2] - a[2] * b[1]; \
-	v[1] = a[2] * b[0] - a[0] * b[2]; \
-	v[2] = a[0] * b[1] - a[1] * b[0];
 bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
+// bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
-	const double* sx = spinfrom->x;
-	const double* sy = spinfrom->y;
-	const double* sz = spinfrom->z;
-	const double* ms = spinfrom->ms;
+	// if new spins/fields exist on the host copy them to the device
+	spinfrom->sync_spins_hd();
+	spinto->sync_spins_hd();
+	dmdt->sync_spins_hd();
+	dmdt->sync_fields_hd(SUM_SLOT);
 	
-	      double* mt = spinto->ms;
-
-	const double* hx = dmdt->hx[SUM_SLOT];
-	const double* hy = dmdt->hy[SUM_SLOT];
-	const double* hz = dmdt->hz[SUM_SLOT];
-
-	const double* mx = dmdt->x;
-	const double* my = dmdt->y;
-	const double* mz = dmdt->z;
-
-	      double* x  = spinto->x;
-	      double* y  = spinto->y;
-	      double* z  = spinto->z;
-
+	const int nx = spinfrom->nx;
+	const int ny = spinfrom->ny;
+	const int nz = spinfrom->nz;
+	
 	const double gamma = dmdt->gamma;
 	const double alpha = dmdt->alpha;
-	const double dt    =  scaledmdt * dmdt->dt;
-
-	//LLG from http://inoe.inoe.ro/joam/arhiva/pdf8_5/5Ciubotaru.pdf
-	const int nxyz = spinfrom->nxyz;
-	#pragma omp parallel for shared(x, y, z)
-	for(int i=0; i<nxyz; i++)
-	{
-		mt[i] = ms[i];
-		if(ms[i] > 0)
-		{
-			double dM[3];
-			double M[3];
-			double H[3];
-			double MH[3];
-			double MMH[3];
-			double gaa, inv;
+	const double dt    = dmdt->dt * scaledmdt;
 	
-			M[0]=mx[i];     M[1]=my[i];     M[2]=mz[i];
-			H[0]=hx[i];     H[1]=hy[i];     H[2]=hz[i];
+#define S SUM_SLOT
+	cuda_llg_cart_apply(nx, ny, nz,
+						  spinto->d_x,   spinto->d_y,   spinto->d_z,   spinto->d_ms,
+						spinfrom->d_x, spinfrom->d_y, spinfrom->d_z, spinfrom->d_ms,
+						    dmdt->d_x,     dmdt->d_y,     dmdt->d_z,     dmdt->d_ms,
+						    dmdt->d_hx[S], dmdt->d_hy[S], dmdt->d_hz[S],
+						alpha, dt, gamma);	
 
-			CROSS(MH, M, H);
-			CROSS(MMH, M, MH);
-
-			gaa = gamma / (1.0+alpha*alpha);
-
-			for(int c=0; c<3; c++)
-				dM[c] = -gaa * MH[c] - (alpha/ms[i]) * gaa * MMH[c];
-
-			M[0] = (sx[i] + dt * dM[0]);
-			M[1] = (sy[i] + dt * dM[1]);
-			M[2] = (sz[i] + dt * dM[2]);
-
-			inv = 1.0 / sqrt(M[0]*M[0] + M[1]*M[1] + M[2]*M[2]);
-
-			x[i] = M[0] * inv * ms[i];
-			y[i] = M[1] * inv * ms[i];
-			z[i] = M[2] * inv * ms[i];
-		}
-	}
-
+	// mark spins as new for future d->h syncing
+	spinto->new_device_spins = true;
+	
 	if(advancetime)
-		spinto->time = spinfrom->time +  dt;
+		spinto->time = spinfrom->time + dt;
+
 	return true;
 }
+
 
 
 

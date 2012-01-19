@@ -60,12 +60,19 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 	const double dt    = dmdt->dt * scaledmdt;
 	
 	const int nxyz = nx*ny*nz;
-	double* d_wsAll = getWSMem(sizeof(double)*nxyz*4);
-	double* d_ws1 = d_wsAll + nxyz * 0;
-	double* d_ws2 = d_wsAll + nxyz * 1;
-	double* d_ws3 = d_wsAll + nxyz * 2;
-	double* d_ws4 = d_wsAll + nxyz * 3;
+// 	double* d_wsAll = (double*)getWSMem(sizeof(double)*nxyz*4);
+// 	double* d_ws1 = d_wsAll + nxyz * 0;
+// 	double* d_ws2 = d_wsAll + nxyz * 1;
+// 	double* d_ws3 = d_wsAll + nxyz * 2;
+// 	double* d_ws4 = d_wsAll + nxyz * 3;
 
+	double* d_ws1;
+	double* d_ws2;
+	double* d_ws3;
+	double* d_ws4;
+	
+	const int sz = sizeof(double)*nxyz;
+	getWSMem(&d_ws1, sz, &d_ws2, sz, &d_ws3, sz, &d_ws4, sz);
 	
 #define S SUM_SLOT
 	cuda_llg_quat_apply(nx, ny, nz,

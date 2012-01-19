@@ -42,7 +42,7 @@ public:
 	virtual int  decode(buffer* b);
 	
 	void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ);
-};
+ };
 
 DIPOLE_API void lua_pushDipole(lua_State* L, Encodable* d);
 DIPOLE_API Dipole* checkDipole(lua_State* L, int idx);

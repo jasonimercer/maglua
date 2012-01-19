@@ -11,7 +11,7 @@
 ******************************************************************************/
 
 #include "llg.h"
-// #include "llgcartesian.h"
+#include "llgcartesian.h"
 #include "llgquat.h"
 // #include "llgfake.h"
 // #include "llgalign.h"
@@ -84,7 +84,7 @@ int l_llg_new(lua_State* L)
 	
 	if(strcasecmp(lua_tostring(L, 1), "Cartesian") == 0)
 	{
-// 		llg = new LLGCartesian;
+		llg = new LLGCartesian;
 	}
 	else if(strcasecmp(lua_tostring(L, 1), "Quaternion") == 0)
 	{

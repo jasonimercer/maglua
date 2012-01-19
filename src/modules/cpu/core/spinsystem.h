@@ -35,6 +35,7 @@ public:
 	bool copyFrom(lua_State* L, SpinSystem* src);
 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
+	bool copyFieldFrom(lua_State* L, SpinSystem* src, int slot);
 	
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);

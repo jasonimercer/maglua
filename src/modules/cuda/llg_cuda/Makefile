@@ -10,7 +10,7 @@
 #
 
 TODO= llgcartesian.o llgfake.o llgalign.o
-OBJECTS=llg.o llgquat.o llgquat.cuo
+OBJECTS=llg.o llgquat.o llgquat.cuo llgcartesian.o llgcartesian.cuo
 LIBNAME=LLGCuda
 
 #DEPEND is parsed to make the vs2010 project

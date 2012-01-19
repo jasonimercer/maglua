@@ -1,4 +1,5 @@
 #include "hybridtaus.hpp"
+#include "spinsystem.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -91,26 +92,32 @@ __global__ void HybridTaus_BoxMuller(const int n, float* d_rngs)
 
 void HybridTausAllocState(state_t** d_state, int nx, int ny, int nz)
 {
-	const cudaError_t err = cudaMalloc(d_state, sizeof(state_t) * 4 * nx * ny * nz);
-	CHECK
+	malloc_device(d_state, sizeof(state_t) * 4 * nx * ny * nz);
+
+// 	const cudaError_t err = cudaMalloc(d_state, sizeof(state_t) * 4 * nx * ny * nz);
+// 	CHECK
 }
 
 void HybridTausAllocRNG(float** d_rngs, int nx, int ny, int nz)
 {
-	const cudaError_t err = cudaMalloc(d_rngs, sizeof(float) * 6 * nx * ny * nz);
-	CHECK
+	malloc_device(d_rngs, sizeof(float) * 6 * nx * ny * nz);
+
+// 	const cudaError_t err = cudaMalloc(d_rngs, sizeof(float) * 6 * nx * ny * nz);
+// 	CHECK
 }
 
 void HybridTausFreeState(state_t* d_state)
 {
-	const cudaError_t err = cudaFree(d_state);
-	CHECK
+	free_device(d_state);
+// 	const cudaError_t err = cudaFree(d_state);
+// 	CHECK
 }
 
 void HybridTausFreeRNG(float* d_rngs)
 {
-	const cudaError_t err = cudaFree(d_rngs);
-	CHECK
+	free_device(d_rngs);
+// 	const cudaError_t err = cudaFree(d_rngs);
+// 	CHECK
 }
 
 
@@ -124,8 +131,14 @@ void HybridTausSeed(state_t* d_state, int nx, int ny, int nz, const int i)
 
 	#ifndef _WIN32
 	char randstate[4096];
+	#define STATELEN 4096
+	for(int j=0; j<STATELEN; j++)
+	{
+	    randstate[j] = 0;
+	}
 	random_data buf;
-	initstate_r(i, randstate, 256, &buf);
+	memset( &buf, 0, sizeof( random_data ) );
+	initstate_r(i, randstate, 4096, &buf);
 	#else
 	srand( i );
 	#endif

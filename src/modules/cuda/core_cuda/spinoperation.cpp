@@ -57,6 +57,7 @@ const string& SpinOperation::name()
 	
 void SpinOperation::markSlotUsed(SpinSystem* ss)
 {
+	ss->ensureSlotExists(slot);
 	ss->slot_used[slot] = true;
 }
 

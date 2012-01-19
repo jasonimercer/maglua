@@ -24,15 +24,23 @@ Anisotropy::Anisotropy(int nx, int ny, int nz)
 	: SpinOperation("Anisotropy", ANISOTROPY_SLOT, nx, ny, nz, ENCODE_ANISOTROPY)
 {
 	d_nx = 0;
+	d_ny = 0;
+	d_nz = 0;
+	d_k = 0;
+
 	d_LUT = 0;
+	d_idx = 0;
 	h_nx = 0;
 	new_host = true;
+	registerWS();
+	compressed = false;
 	
 	init();
 }
 
 Anisotropy::~Anisotropy()
 {
+	unregisterWS();
 	deinit();
 }
 
@@ -135,12 +143,17 @@ bool sani_same(const sani& d1, const sani& d2)
 
 bool Anisotropy::make_compressed()
 {
+	if(compressAttempted)
+		return compressed;
+		
 	delete_compressed();
 	delete_uncompressed();
 	
 	compressAttempted = true;
 	if(!nxyz)
 		return false;
+	
+
 	
 	compressing = true;
 	
@@ -229,6 +242,9 @@ void Anisotropy::delete_host()
 		delete [] h_nz;
 		delete [] h_k;
 		h_nx = 0;
+		h_ny = 0;
+		h_nz = 0;
+		h_k  = 0;
 	}	
 }
 
@@ -247,7 +263,7 @@ void Anisotropy::delete_compressed()
 void Anisotropy::delete_uncompressed()
 {
 	void** a[4] = {
-		(void**)&d_nx, (void**)&d_nx,
+		(void**)&d_nx, (void**)&d_ny,
 		(void**)&d_nz, (void**)&d_k
 	};
 	
@@ -344,9 +360,8 @@ bool Anisotropy::apply(SpinSystem* ss)
 	double* d_hy = ss->d_hy[slot];
 	double* d_hz = ss->d_hz[slot];
 
-	if(!compressAttempted)
-		if(!make_compressed())
-			make_uncompressed();
+	if(!make_compressed())
+		make_uncompressed();
 
 	if(compressed)
 	{
@@ -371,6 +386,60 @@ bool Anisotropy::apply(SpinSystem* ss)
 	
 
 	ss->new_device_fields[slot] = true;
+
+	return true;
+}
+ 
+
+bool Anisotropy::applyToSum(SpinSystem* ss)
+{
+//     double* d_wsAll = (double*)getWSMem(*3);
+
+// 	double* d_wsx = d_wsAll + nxyz * 0;
+//     double* d_wsy = d_wsAll + nxyz * 1;
+//     double* d_wsz = d_wsAll + nxyz * 2;
+
+	double* d_wsx;
+	double* d_wsy;
+	double* d_wsz;
+	const int sz = sizeof(double)*nxyz;
+	getWSMem(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
+	
+//	markSlotUsed(ss);
+	ss->sync_spins_hd();
+	ss->ensureSlotExists(SUM_SLOT);
+
+	if(!make_compressed())
+		make_uncompressed();
+
+
+	if(compressed)
+	{
+		// d_LUT is non-null (since compressed)
+		cuda_anisotropy_compressed(
+			ss->d_x, ss->d_y, ss->d_z,
+			d_LUT, d_idx, 
+			d_wsx, d_wsy, d_wsz,
+			nxyz);
+	}
+	else
+	{
+		if(!d_nx)
+			make_uncompressed();
+		
+		cuda_anisotropy(
+			ss->d_x, ss->d_y, ss->d_z, 
+			d_nx, d_ny, d_nz, d_k,
+			d_wsx, d_wsy, d_wsz,
+			nx, ny, nz);
+	}
+	
+
+	const int nxyz = nx*ny*nz;
+	cuda_addArrays(ss->d_hx[SUM_SLOT], nxyz, ss->d_hx[SUM_SLOT], d_wsx);
+	cuda_addArrays(ss->d_hy[SUM_SLOT], nxyz, ss->d_hy[SUM_SLOT], d_wsy);
+	cuda_addArrays(ss->d_hz[SUM_SLOT], nxyz, ss->d_hz[SUM_SLOT], d_wsz);
+	ss->slot_used[SUM_SLOT] = true;
 
 	return true;
 }
@@ -430,6 +499,17 @@ int l_ani_apply(lua_State* L)
 	SpinSystem* ss = checkSpinSystem(L, 2);
 	
 	if(!ani->apply(ss))
+		return luaL_error(L, ani->errormsg.c_str());
+	
+	return 0;
+}
+
+int l_ani_applytosum(lua_State* L)
+{
+	Anisotropy* ani = checkAnisotropy(L, 1);
+	SpinSystem* ss = checkSpinSystem(L, 2);
+	
+	if(!ani->applyToSum(ss))
 		return luaL_error(L, ani->errormsg.c_str());
 	
 	return 0;
@@ -565,6 +645,16 @@ static int l_ani_help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+
+	if(func == l_ani_applytosum)
+	{
+		lua_pushstring(L, "Calculate the anisotropy of a *SpinSystem*");
+		lua_pushstring(L, "1 *SpinSystem*: This system's Anisotropy field will be calculated based on the sites with Anisotropy and added to the total field slot.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+
 	
 	if(func == l_ani_add)
 	{
@@ -596,6 +686,7 @@ void registerAnisotropy(lua_State* L)
 		{"__gc",         l_ani_gc},
 		{"__tostring",   l_ani_tostring},
 		{"apply",        l_ani_apply},
+		{"applyToSum",   l_ani_applytosum},
 		//{"setSite",      l_ani_set},
 		{"add",          l_ani_add},
 		{"member",       l_ani_member},

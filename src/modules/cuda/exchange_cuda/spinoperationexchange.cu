@@ -24,6 +24,9 @@ __global__ void do_exchange(
 	const int i = blockDim.x * blockIdx.x + threadIdx.x;
 	if(i >= nxyz) return;
 	
+	d_hx[i] = 0;
+	d_hy[i] = 0;
+	d_hz[i] = 0;
 	// not all sites have max_neighbours but we've dummied the
 	// fromsite and zero'd the strength so it doesn't matter
 	for(int j=0; j<max_neighbours; j++)
@@ -47,8 +50,8 @@ void cuda_exchange(
 					)
 {
 	const int nxyz = nx*ny*nz;
-	const int blocks = nxyz / 1024 + 1;
-	const int threads = 1024;
+	const int threads = 128;
+	const int blocks = nxyz / threads + 1;
 	
 	do_exchange<<<blocks, threads>>>(
 			d_sx, d_sy, d_sz,
@@ -70,8 +73,11 @@ __global__ void do_exchange_compressed(
 	const int i = blockDim.x * blockIdx.x + threadIdx.x;
 	if(i >= nxyz) return;
 	
-	const ex_compressed_struct* e = & d_LUT[ d_idx[i] * max_neighbours ];
+	const ex_compressed_struct* e = & d_LUT[ (int)d_idx[i] * max_neighbours ];
 	
+	d_hx[i] = 0;
+	d_hy[i] = 0;
+	d_hz[i] = 0;
 	for(int j=0; j<max_neighbours; j++)
 	{
 		const int p = (i + e[j].offset) % nxyz;
@@ -90,8 +96,8 @@ void cuda_exchange_compressed(
 	double* d_hx, double* d_hy, double* d_hz, 
 	const int nxyz)
 {
-	const int blocks = nxyz / 1024 + 1;
-	const int threads = 1024;
+	const int threads = 256;
+	const int blocks = nxyz / threads + 1;
 
 	do_exchange_compressed<<<blocks, threads>>>(
 		d_sx, d_sy, d_sz,

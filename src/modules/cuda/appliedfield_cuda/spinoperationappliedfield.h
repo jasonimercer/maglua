@@ -36,6 +36,7 @@ public:
 	virtual ~AppliedField();
 	
 	bool apply(SpinSystem* ss);
+	bool applyToSum(SpinSystem* ss);
 
 	double B[3];
 

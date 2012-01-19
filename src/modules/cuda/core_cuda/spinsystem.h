@@ -20,15 +20,24 @@ using namespace std;
 
 typedef struct work_space_device_memory
 {
-	double* d_memory;
 	int refcount;
-	size_t size;
+	void* d_memory[5];
+	size_t size[5];
 } work_space_device_memory;
 
-static work_space_device_memory WS_MEM = {0,0,0};
+static work_space_device_memory WS_MEM = {0};
 void  registerWS();
 void  unregisterWS();
-double* getWSMem(size_t size);
+void  getWSMem(void** ptr1,   size_t size1, 
+			   void** ptr2=0, size_t size2=0, 
+			   void** ptr3=0, size_t size3=0,
+			   void** ptr4=0, size_t size4=0,
+			   void** ptr5=0, size_t size5=0);
+void  getWSMem(double** ptr1,   size_t size1, 
+			   double** ptr2=0, size_t size2=0, 
+			   double** ptr3=0, size_t size3=0,
+			   double** ptr4=0, size_t size4=0,
+			   double** ptr5=0, size_t size5=0);
 
 
 class CORECUDA_API SpinSystem : public Encodable
@@ -41,7 +50,8 @@ public:
 	bool copyFrom(lua_State* L, SpinSystem* src);
 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
-	
+	bool copyFieldFrom(lua_State* L, SpinSystem* src, int slot);
+
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);
 	int  getidx(const int px, const int py, const int pz) const ;
@@ -58,7 +68,7 @@ public:
 	void getNetMag(double* v4);
 	
 	void diff(SpinSystem* other, double* v4);
-	
+	void ensureSlotExists(int slot);
 	/* d_ = device (GPU) 
 	 * h_ = host (CPU)
 	 */
@@ -114,7 +124,6 @@ public:
 	int refcount;
 
 	int nxyz;
-	int nslots;
 
 	double time;
 	

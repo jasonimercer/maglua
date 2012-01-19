@@ -37,6 +37,7 @@ public:
 	virtual ~Exchange();
 	
 	bool apply(SpinSystem* ss);
+	bool applyToSum(SpinSystem* ss);
 
 	void addPath(int site1, int site2, double strength);
 

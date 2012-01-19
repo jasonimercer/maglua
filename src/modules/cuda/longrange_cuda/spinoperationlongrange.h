@@ -40,6 +40,7 @@ public:
 	virtual ~LongRangeCuda();
 	
 	bool apply(SpinSystem* ss);
+	bool applyToSum(SpinSystem* ss);
 	
 	double ABC[9];
 	double g;
@@ -53,10 +54,40 @@ public:
 	
 	virtual void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ)=0;
 
-private:
-	bool getPlan();
+	double getXX(int ox, int oy, int oz);
+	void   setXX(int ox, int oy, int oz, double value);
 
+	double getXY(int ox, int oy, int oz);
+	void   setXY(int ox, int oy, int oz, double value);
+	
+	double getXZ(int ox, int oy, int oz);
+	void   setXZ(int ox, int oy, int oz, double value);
+
+	double getYY(int ox, int oy, int oz);
+	void   setYY(int ox, int oy, int oz, double value);
+
+	double getYZ(int ox, int oy, int oz);
+	void   setYZ(int ox, int oy, int oz, double value);
+
+	double getZZ(int ox, int oy, int oz);
+	void   setZZ(int ox, int oy, int oz, double value);
+	
+	double getAB(int matrix, int ox, int oy, int oz);
+	void   setAB(int matrix, int ox, int oy, int oz, double value);
+private:
+	void loadMatrix();
+	bool getPlan();
+	bool newHostData;
+	bool matrixLoaded;
+	
 	JM_LONGRANGE_PLAN* plan;
+
+	double* XX;
+	double* XY;
+	double* XZ;
+	double* YY;
+	double* YZ;
+	double* ZZ;
 };
 
 
