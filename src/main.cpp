@@ -180,7 +180,7 @@ int main(int argc, char** argv)
 	    }	
 		int script = 0;
 
-		// execute each lua script on the command line
+		// execute 1st lua script on the command line
 		// TODO: convert the following to Lua code
 		for(int i=1; i<argc; i++)
 		{
@@ -197,6 +197,7 @@ int main(int argc, char** argv)
 						const char* errmsg = lua_tostring(L, -1);
 						fprintf(stderr, "Error:\n%s\n", errmsg);
 					}
+					i = argc;
 				}
 			}
 		}
@@ -380,14 +381,30 @@ void lua_addargs(lua_State* L)//, int argc, char** argv)
 	}
 	lua_setglobal(L, "argv");*/
 	
+	//centering 1st script at arg[0]
+	int script_pos = 0;
+
+	for(unsigned int i=0; i<initial_args.size() && !script_pos; i++)
+	{
+		const char* fn = initial_args[i].c_str();
+		int len = strlen(fn);
+			
+		if(len > 4)
+		{
+			if(strncasecmp(fn+len-4, ".lua", 4) == 0)
+				script_pos = i;
+		}
+	}
+	
+	
 	lua_newtable(L);
-	int j = 1;
+	int j = 0;
 	for(unsigned int i=0; i<initial_args.size(); i++)
 // 	for(int i=2; i<argc; i++)
 	{
 		if(initial_args[i].size())
 		{
-			lua_pushinteger(L, j);
+			lua_pushinteger(L, j-script_pos);
 			lua_pushstring(L, initial_args[i].c_str());
 			lua_settable(L, -3);
 			j++;

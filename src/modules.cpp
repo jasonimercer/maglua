@@ -1,6 +1,7 @@
 #include "modules.h"
 #include <iostream>
-
+#include <vector>
+#include <algorithm>
 
 #ifndef WIN32
  #include <stdlib.h>
@@ -137,20 +138,35 @@ void getModuleDirectories(vector<string>& mds, vector<string>& initial_args)
 	lua_State *L = lua_open();
 	luaL_openlibs(L);
 	
+	int script_pos = 0;
+	for(unsigned int i=0; i<initial_args.size() && !script_pos; i++)
+	{
+		const char* fn = initial_args[i].c_str();
+		int len = strlen(fn);
+			
+		if(len > 4)
+		{
+			if(strncasecmp(fn+len-4, ".lua", 4) == 0)
+				script_pos = i;
+		}
+	}
+	
 	lua_newtable(L);
-	int j = 1;
-	for(unsigned int i=1; i<initial_args.size(); i++) //skilling binary name
+	int j = 0;
+	for(unsigned int i=0; i<initial_args.size(); i++)
+// 	for(int i=2; i<argc; i++)
 	{
 		if(initial_args[i].size())
 		{
-			lua_pushinteger(L, j);
+			lua_pushinteger(L, j-script_pos);
 			lua_pushstring(L, initial_args[i].c_str());
 			lua_settable(L, -3);
 			j++;
 		}
 	}
 	lua_setglobal(L, "arg");
-
+	
+	
 	int home_len = 0;
 #ifndef WIN32
 	char* home = getenv(HOME);
@@ -220,22 +236,38 @@ void getModuleDirectories(vector<string>& mds, vector<string>& initial_args)
 	
 	delete [] init_file;
 
-	
 	initial_args.clear();
+
+	
+	vector<int> keys;
+	
 	lua_getglobal(L, "arg");
 	if(lua_istable(L, -1))
 	{
 		lua_pushnil(L);
 		while(lua_next(L, -2))
 		{
-			if(lua_isstring(L, -1))
+			if(lua_isnumber(L, -2))
 			{
-				initial_args.push_back(lua_tostring(L, -1));
+				keys.push_back(lua_tointeger(L, -2));
 			}
 			lua_pop(L, 1);
 		}
 	}
-		
+	lua_pop(L, 1); //pop table
+
+	sort(keys.begin(), keys.end());
+
+	lua_getglobal(L, "arg");
+	for(unsigned int i=0; i<keys.size(); i++)
+	{
+		lua_pushinteger(L, keys[i]);
+		lua_gettable(L, -2);
+		initial_args.push_back(lua_tostring(L, -1));
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+	
 #ifdef WIN32
 	free(home);
 #endif
