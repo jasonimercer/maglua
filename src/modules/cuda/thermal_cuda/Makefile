@@ -11,6 +11,7 @@
 
 OBJECTS=spinoperationthermal.o spinoperationthermal.cuo  hybridtaus.cuo
 LIBNAME=ThermalCuda
+CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=encode corecuda dipolecuda

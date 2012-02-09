@@ -22,7 +22,7 @@ extern "C"
 CORE_API int lib_register(lua_State* L);
 CORE_API int lib_version(lua_State* L);
 CORE_API const char* lib_name(lua_State* L);
-CORE_API int lib_main(lua_State* L, int argc, char** argv);
+CORE_API int lib_main(lua_State* L);
 }
 
 #include <stdio.h>
@@ -42,7 +42,7 @@ const char* lib_name(lua_State* L)
 	return "Core";
 }
 
-int lib_main(lua_State* L, int argc, char** argv)
+int lib_main(lua_State* L)
 {
 	return 0;
 }

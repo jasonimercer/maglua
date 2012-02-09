@@ -36,6 +36,150 @@ using namespace std;
 
 #include "../dipole/dipolesupport.h" //to compare for crossover
 
+static double F1(double X, double Y, double Z)
+{
+	const double D = sqrt(X*X + Y*Y + Z*Z);
+	
+	const double t1 = X*Y*Z*atan2(Y*Z, X*D);
+	      double t2 = 0.5 * Y * (Z*Z - X*X); //still needs log term 
+	      double t3 = 0.5 * Z * (Y*Y - X*X); //still needs log term 
+	const double t4 = (1.0/6.0) * (Y*Y + Z*Z - 2*X*X) * D;
+	
+	if(t2 != 0)	t2 *= log(fabs(D-Y));
+	if(t3 != 0)	t3 *= log(fabs(D-Z));
+	
+	return t1+t2+t3+t4;
+}
+
+
+static double self_term1(double a, double b, double c)
+{
+	const double R = sqrt(a*a+b*b+c*c);
+	const double Ra = sqrt(b*b+c*c);
+	const double Rb = sqrt(a*a+c*c);
+	const double Rc = sqrt(a*a+b*b);
+
+	const double t1 = 6.0 * (a*a*a + b*b*b) - (4.0 * c*c*c)/(a*b);
+	const double t2 = 2.0 * (a*a+b*b-2.0*c*c) * R / (a*b*c);
+	const double t3 = 6.0*c*(Rb+Ra) /(a*b);
+	const double t4 =-2.0 * (pow(a*a+b*b,1.5) + pow(a*a+c*c,1.5) + pow(b*b+c*c,1.5)) / (a*b*c);
+	const double t5 = 12.0 * atan2(a*b, c*R);
+	
+	const double t6 = 3.0*a*log( (a*a+2.0*b*(b+Rc)) / (a*a) ) / c;
+	const double t7 = 3.0*b*log( (b*b+2.0*a*(a+Rc)) / (b*b) ) / c;
+	const double t8 = 3.0*c*log( (c*c+2.0*a*(a-Rb)) / (c*c) ) / b;
+	const double t9 = 3.0*c*log( (c*c+2.0*b*(b-Ra)) / (c*c) ) / a;
+	
+	const double t10 = 3.0 * (b-c) * (b+c) * log( (R-a)/(R+a) ) / (b*c);
+	const double t11 = 3.0 * (a-c) * (a+c) * log( (R-b)/(R+b) ) / (a*c);
+	
+	
+	return (2*M_PI * -4.0) * (1.0/6.0) * (t1+t2+t3+t4+t5+t6+t7+t8+t9+t10+t11);
+}
+
+double self_term(double a, double b, double c)
+{
+  double R = sqrt(a*a + b*b + c*c);
+  double R1 = sqrt(a*a + b*b);
+  double R2 = sqrt(b*b + c*c);
+  double R3 = sqrt(a*a + c*c);
+
+  double r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;
+  r1  = (b*b-c*c)/(2.0*b*c)*log((R-a)/(R+a));
+  r2  = (a*a-c*c)/(2.0*a*c)*log((R-b)/(R+b));
+  r3  = b/(2.0*c)*log((R1+a)/(R1-a));
+  r4  = a/(2.0*c)*log((R1+b)/(R1-b));
+  r5  = c/(2.0*a)*log((R2-b)/(R2+b));
+  r6  = c/(2.0*b)*log((R3-a)/(R3+a));
+  r7  = 2.0*atan2(a*b,c*R);
+  r8  = (pow(a,3.0)+pow(b,3.0)-2.0*pow(c,3.0))/(3.0*a*b*c);
+  r9  = R*(a*a+b*b-2*c*c)/(3.0*a*b*c);
+  r10 = (c/(a*b))*(R3+R2);
+  r11 = -(pow(R1,3.0)+pow(R2,3.0)+pow(R3,3.0))/(3.0*a*b*c);
+  double result = r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10 + r11;
+  result *= -8.0; //to make explicit the SI factor
+  return result;
+
+}
+
+
+
+static double F2(double Z, double X, double Y)
+{
+	const double D = sqrt(X*X + Y*Y + Z*Z);
+	
+	double t1 = 0;
+	double t2 = 0;
+	double t3 = 0;
+	
+	if(D+Z != 0) t1 = -1.0 * X * Y * Z * log(fabs(D+Z));
+	if(D+X != 0) t2 = (1.0/6.0) * Y * (Y*Y - 3.0*Z*Z) * log(fabs(D+X));
+	if(D+Y != 0) t3 = (1.0/6.0) * X * (X*X - 3.0*Z*Z) * log(fabs(D+Y));
+	
+	const double t4 = 0.5*X*X*Z*atan2(Y*Z, X*D);
+	const double t5 = 0.5*Y*Y*Z*atan2(X*Z, Y*D);
+	const double t6 = (1.0/6.0)*Z*Z*Z*atan2(X*Y, Z*D);
+	const double t7 = X*Y*D / 3.0;
+	
+	return t1+t2+t3+t4+t5+t6+t7;
+}
+
+
+static double MagInt(
+	double   x, double   y, double   z,
+	double ddx, double ddy, double ddz, 
+	int a, int b)
+{
+	double ax[4];
+	double ay[4];
+	double az[4];
+	double sn[4];
+	
+	ax[1] = -ddx; ax[2] = 0; ax[3] = ddx;
+	ay[1] = -ddy; ay[2] = 0; ay[3] = ddy;
+	az[1] = -ddz; az[2] = 0; az[3] = ddz;
+	sn[1] = 1;    sn[2] = 2; sn[3] = 1;
+	
+#define for_ijk for(int i=1; i<=3; i++) for(int j=1; j<=3; j++) for(int k=1; k<=3; k++)
+#define X (x + ax[i])
+#define Y (y + ay[j])
+#define Z (z + az[k])
+	
+	double K = 0;
+	if(a == 0 && b == 0)
+	{
+		for_ijk	K += pow(-1.0, i+j+k-1) * sn[i] * sn[j] * sn[k] * F1(X, Y, Z);
+	}
+	if(a == 1 && b == 1)
+	{
+		for_ijk	K += pow(-1.0, i+j+k-1) * sn[i] * sn[j] * sn[k] * F1(Y, Z, X);
+	}
+	if(a == 2 && b == 2)
+	{
+		for_ijk	K += pow(-1.0, i+j+k-1) * sn[i] * sn[j] * sn[k] * F1(Z, X, Y);
+	}
+	
+	if(a == 0 && b == 1)
+	{
+		for_ijk	K += pow(-1.0, i+j+k-1) * sn[i] * sn[j] * sn[k] * F2(Z, X, Y);
+	}
+	if(a == 0 && b == 2)
+	{
+		for_ijk	K += pow(-1.0, i+j+k-1) * sn[i] * sn[j] * sn[k] * F2(Y, Z, X);
+	}
+	if(a == 1 && b == 2)
+	{
+		for_ijk	K += pow(-1.0, i+j+k-1) * sn[i] * sn[j] * sn[k] * F2(X, Y, Z);
+	}
+	
+#undef X
+#undef Y
+#undef Z
+
+	K /= -1.0*ddx*ddy*ddz;
+	return K;
+}
+
 typedef struct mag_dip_crossover
 {
 	double r2;  //crossover at this distance (squared) (initially big)
@@ -68,7 +212,7 @@ static void getGAB_range(
 	mag_dip_crossover& crossover)
 {
 	
-	const double volume2 = pow(prism[0] * prism[1] * prism[2], 2);
+	const double volumeP = pow(prism[0] * prism[1] * prism[2], 1.0);
 	
 	const double d1 = prism[0];
 	const double l1 = prism[1];
@@ -109,13 +253,13 @@ static void getGAB_range(
 
 				if(r2 >= crossover.r2)
 				{
-					gXX += DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
-					gXY += DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
-					gXZ += DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
+					gXX += DipMagConversion * volumeP * gamma_xx_dip(rx, ry, rz);
+					gXY += DipMagConversion * volumeP * gamma_xy_dip(rx, ry, rz);
+					gXZ += DipMagConversion * volumeP * gamma_xz_dip(rx, ry, rz);
 
-					gYY += DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
-					gYZ += DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
-					gZZ += DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
+					gYY += DipMagConversion * volumeP * gamma_yy_dip(rx, ry, rz);
+					gYZ += DipMagConversion * volumeP * gamma_yz_dip(rx, ry, rz);
+					gZZ += DipMagConversion * volumeP * gamma_zz_dip(rx, ry, rz);
 				}
 				else
 				{
@@ -124,25 +268,59 @@ static void getGAB_range(
 						magXX = gamma_xx_sv(d1, l1, w1)*2*M_PI * -4.0;
 						magYY = gamma_yy_sv(d1, l1, w1)*2*M_PI * -4.0;
 						magZZ = gamma_zz_sv(d1, l1, w1)*2*M_PI * -4.0;
+						
+						const double a = d1;
+						const double b = l1;
+						const double c = w1;
+
+// 						printf("XX  %g\n", magXX);
+// 						printf("YY  %g\n", magYY);
+// 						printf("ZZ  %g\n\n", magZZ);
+						
+// 						printf("BCA %g\n", self_term(b,c,a));
+// 						printf("CAB %g\n", self_term(c,a,b));
+// 						printf("ABC %g\n", self_term(a,b,c));
+
+// 						magXX = self_term(b,c,a);
+// 						magYY = self_term(c,a,b);
+// 						magZZ = self_term(a,b,c);
+						
+// 						printf("CBA %g\n", self_term(c,b,a));
+// 						printf("BAC %g\n", self_term(b,a,c));
+// 						printf("ACB %g\n", self_term(a,c,b));
+
 					}
 					else
 					{
 						magXX = gamma_xx_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
 						magYY = gamma_yy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
 						magZZ = gamma_zz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
+						
+// 						double XXTest = MagInt(rx, ry, rz, d1, l1, w1, 0, 0);
+						
+// 						magXX = MagInt(rx, ry, rz, d1, l1, w1, 0, 0);
+// 						magYY = MagInt(rx, ry, rz, d1, l1, w1, 1, 1);
+// 						magZZ = MagInt(rx, ry, rz, d1, l1, w1, 2, 2);
+// 	double   x, double   y, double   z,
+// 	double ddx, double ddy, double ddz, 
+// 	int a, int b)
 					}
+
+// 					magXY = MagInt(rx, ry, rz, d1, l1, w1, 0, 1);
+// 					magXZ = MagInt(rx, ry, rz, d1, l1, w1, 0, 2);
+// 					magYZ = MagInt(rx, ry, rz, d1, l1, w1, 1, 2);
 
 					magXY = gamma_xy_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
 					magXZ = gamma_xz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
 					magYZ = gamma_yz_v(rx, ry, rz, d1, l1, w1, d2, l2, w2);
 
-					dipXX = DipMagConversion * volume2 * gamma_xx_dip(rx, ry, rz);
-					dipXY = DipMagConversion * volume2 * gamma_xy_dip(rx, ry, rz);
-					dipXZ = DipMagConversion * volume2 * gamma_xz_dip(rx, ry, rz);
+					dipXX = DipMagConversion * volumeP * gamma_xx_dip(rx, ry, rz);
+					dipXY = DipMagConversion * volumeP * gamma_xy_dip(rx, ry, rz);
+					dipXZ = DipMagConversion * volumeP * gamma_xz_dip(rx, ry, rz);
 
-					dipYY = DipMagConversion * volume2 * gamma_yy_dip(rx, ry, rz);
-					dipYZ = DipMagConversion * volume2 * gamma_yz_dip(rx, ry, rz);
-					dipZZ = DipMagConversion * volume2 * gamma_zz_dip(rx, ry, rz);
+					dipYY = DipMagConversion * volumeP * gamma_yy_dip(rx, ry, rz);
+					dipYZ = DipMagConversion * volumeP * gamma_yz_dip(rx, ry, rz);
+					dipZZ = DipMagConversion * volumeP * gamma_zz_dip(rx, ry, rz);
 
 					// 				if( sqrt(rx*rx+ry*ry+rz+rz) > 40)
 					// 					printf("md: %E, %E\n", magXX, dipXX);
@@ -160,7 +338,10 @@ static void getGAB_range(
 						const double b = crossover.r2;
 						
 						if(a < b)
+						{
 							crossover.r2 = a;
+							printf("crossover at %g\n", a);
+						}
 						else
 							crossover.r2 = b;
 						
@@ -276,7 +457,7 @@ static void getGAB(
 // 	double& gYY, double& gYZ, double& gZZ,
 // 	mag_dip_crossover& crossover)
 
-	getGAB_range(ABC, prism, nA, nB, nC, ix, iy, iz,
+		getGAB_range(ABC, prism, nA, nB, nC, ix, iy, iz,
 			 ax[i], ay[i], bx[i], by[i],
 			 truemax, 
 			 gXX, gXY, gXZ,
@@ -797,6 +978,7 @@ void magnetostaticsLoad(
 				fflush(stdout);
 				if(gmax != -1)
 				{
+// 					printf("c = %i\n", c);
 					getGAB(ABC,
 							prism,
 							nx, ny, nz,
@@ -806,7 +988,7 @@ void magnetostaticsLoad(
 							YY+c, YZ+c, ZZ+c, 
 							crossover);
 					
-						c++;
+// 						c++;
 				}
 				else // math.huge sum
 				{
@@ -823,7 +1005,7 @@ void magnetostaticsLoad(
 					sXX=0; sXY=0; sXZ=0;
 					sYY=0; sYZ=0; sZZ=0;
 
-					const int lstep = 10;
+					const int lstep = 4;
 					bool fail = false;
 					int _lmin = 0; //inits of lattices
 					int _lmax = lstep;
@@ -856,8 +1038,11 @@ void magnetostaticsLoad(
 						if(q>=8) //let the system prime itself before trying to extrapolate
 						{
 // 						    converge = true;
-
-						    converge = extrapolate(L, cuttoffs, vXX, vXY, vXZ, vYY, vYZ, vZZ, fail);
+							converge = extrapolate(L, cuttoffs, vXX, vXY, vXZ, vYY, vYZ, vZZ, fail);
+							if(converge)
+							{
+								printf("Extrapolating at %i\n", _lmax);
+							}
 						}
 						q++;
 						maxiter--;
@@ -895,6 +1080,7 @@ void magnetostaticsLoad(
 			return;
 		}
 	}
+	//never reaches here
 	lua_close(L);
 }
 

@@ -11,6 +11,7 @@
 
 OBJECTS=spinoperationdipole.o dipolesupport.o
 LIBNAME=DipoleCuda
+CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=encode corecuda longrangecuda

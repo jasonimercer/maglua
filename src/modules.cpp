@@ -28,20 +28,38 @@
 
 using namespace std;
 
-void getModulePaths(lua_State* L, vector<string>& module_paths)
+int lua_getModulesInDirectory(lua_State* L)
 {
-	module_paths.clear();
-
+	vector<string> module_paths; //this is where the filenames will go
 	vector<string> module_dirs;
-	
-	lua_getglobal(L, "module_path");
-	lua_pushnil(L);
-	while(lua_next(L, -2) != 0)
+	if(!lua_isstring(L, 1))
 	{
-		module_dirs.push_back(lua_tostring(L, -1));
-		lua_pop(L, 1);
+		return luaL_error(L, "need directory");
 	}
-	lua_pop(L, 1); //pop table
+	module_dirs.push_back(lua_tostring(L, 1)); // this single element vector is a hack to adapt old (working) code
+	
+	
+#ifdef WIN32
+	// need to locally add mod dirs to PATH so that it will 
+	// automatically satisfy dll reqs. Hate Windows.
+	// The (weak) assumption here is that if you're looking for 
+	// modules in a directory then that directory should be in the path.
+	// This depends on reasonable programming in bootstrap.lua, which 
+	// in inaccessible to users. 
+	{
+		char* p = getenv("PATH");
+		string sp = p;
+
+		if( sp.find(module_dirs[0]) == string::npos ) //then PATH doesn't have path yet
+		{
+			sp.append(";");
+			sp.append(module_dirs[0]);
+			string patheq = "PATH=";
+			patheq.append(sp);
+			putenv(patheq.c_str());
+		}
+	}
+#endif
 	
 #ifndef WIN32
 	struct dirent *dp;
@@ -110,169 +128,25 @@ void getModulePaths(lua_State* L, vector<string>& module_paths)
 		}
 		else
 		{
+/*
+ * on error we'll do nothing. An error means the directory doesn't exist, which is like it's empty
 #ifndef WIN32
-			cerr << "Failed to read directory `" << module_dirs[d] << "': " << strerror(errno) << endl;
+			return luaL_error(L, "Failed to read directory `%s':%s", module_dirs[d].c_str(), strerror(errno));
 #else
-			cerr << "Failed to read directory `" << module_dirs[d] << "': " << GetLastError() << endl;
+			return luaL_error(L, "Failed to read directory `%s':%s", module_dirs[d].c_str(), GetLastError());
 #endif
-		}
-		
-	}
-}
-
-
-
-void getModuleDirectories(vector<string>& mds, vector<string>& initial_args)
-{
-	mds.clear();
-	for(unsigned int i=0; i<initial_args.size(); i++)
-	{
-		if(	strcmp("-L", initial_args[i].c_str()) == 0 	&&
-			i != initial_args.size()-2)
-		{
-			mds.push_back(initial_args[i+1]);
-			i++;
-		}
-	}
-
-	lua_State *L = lua_open();
-	luaL_openlibs(L);
-	
-	int script_pos = 0;
-	for(unsigned int i=0; i<initial_args.size() && !script_pos; i++)
-	{
-		const char* fn = initial_args[i].c_str();
-		int len = strlen(fn);
-			
-		if(len > 4)
-		{
-			if(strncasecmp(fn+len-4, ".lua", 4) == 0)
-				script_pos = i;
+*/
 		}
 	}
 	
 	lua_newtable(L);
-	int j = 0;
-	for(unsigned int i=0; i<initial_args.size(); i++)
-// 	for(int i=2; i<argc; i++)
+	
+	for(unsigned int i=0; i<module_paths.size(); i++)
 	{
-		if(initial_args[i].size())
-		{
-			lua_pushinteger(L, j-script_pos);
-			lua_pushstring(L, initial_args[i].c_str());
-			lua_settable(L, -3);
-			j++;
-		}
+		lua_pushinteger(L, i+1);
+		lua_pushstring(L, module_paths[i].c_str());
+		lua_settable(L, -3);
 	}
-	lua_setglobal(L, "arg");
-	
-	
-	int home_len = 0;
-#ifndef WIN32
-	char* home = getenv(HOME);
-#else
-	char* home;
-	size_t foo;
-	_dupenv_s(&home, &foo, HOME);
-#endif
-	if(home)
-	{
-		home_len = strlen(home);
-	}
-	
-	char* init_file = new char[home_len + 128];
-	
-	init_file[0] = 0;
-	if(home)
-	{
-#ifndef WIN32
-		strcpy(init_file, home);
-#else
-		strcpy_s(init_file, home_len+128, home);
-#endif
-	}
-	else
-	{
-#ifndef WIN32
-		strcpy(init_file, ".");
-#else
-		strcpy_s(init_file, home_len+128, ".");
-#endif
-	}
-	
-#ifndef WIN32
-	strcat(init_file, MAGLUA_SETUP_PATH);
-#else
-	strcat_s(init_file, home_len+128, MAGLUA_SETUP_PATH);
-#endif
-
-	if(!luaL_dofile(L, init_file))
-	{
-		lua_getglobal(L, "module_path");
-		if(lua_istable(L, -1))
-		{
-			lua_pushnil(L);
-			while(lua_next(L, -2))
-			{
-				if(lua_isstring(L, -1))
-				{
-					mds.push_back(lua_tostring(L, -1));
-				}
-				lua_pop(L, 1);
-			}
-		}
-		else
-		{
-			if(lua_isstring(L, -1))
-			{
-				mds.push_back(lua_tostring(L, -1));
-			}
-		}
-	}
-	else
-	{
-		printf("%s\n", lua_tostring(L, -1));
-	}
-	
-	delete [] init_file;
-
-	initial_args.clear();
-
-	
-	vector<int> keys;
-	
-	lua_getglobal(L, "arg");
-	if(lua_istable(L, -1))
-	{
-		lua_pushnil(L);
-		while(lua_next(L, -2))
-		{
-			if(lua_isnumber(L, -2))
-			{
-				keys.push_back(lua_tointeger(L, -2));
-			}
-			lua_pop(L, 1);
-		}
-	}
-	lua_pop(L, 1); //pop table
-
-	sort(keys.begin(), keys.end());
-
-	lua_getglobal(L, "arg");
-	for(unsigned int i=0; i<keys.size(); i++)
-	{
-		lua_pushinteger(L, keys[i]);
-		lua_gettable(L, -2);
-		initial_args.push_back(lua_tostring(L, -1));
-		lua_pop(L, 1);
-	}
-	lua_pop(L, 1);
-	
-#ifdef WIN32
-	free(home);
-#endif
-	lua_close(L);
+	return 1;
 }
-
-
 

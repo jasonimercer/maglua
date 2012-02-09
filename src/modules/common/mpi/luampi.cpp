@@ -621,8 +621,7 @@ extern "C"
 MPI_API int lib_register(lua_State* L);
 MPI_API int lib_version(lua_State* L);
 MPI_API const char* lib_name(lua_State* L);
-MPI_API int lib_main(lua_State* L, int argc, char** argv);
-	
+MPI_API int lib_main(lua_State* L);	
 }
 
 
@@ -645,7 +644,7 @@ MPI_API const char* lib_name(lua_State* L)
 	return "MPI";
 }
 
-MPI_API int lib_main(lua_State* L, int argc, char** argv)
+MPI_API int lib_main(lua_State* L)
 {
 	return 0;
 }

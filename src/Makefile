@@ -20,11 +20,14 @@ OBJECTS=main.o loader.o modules.o
 
 BIN=maglua
 
-$(BIN): $(OBJECTS)
+$(BIN): $(OBJECTS) 
 	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group $(LIBS) $(OBJECTS)  -Wl,--end-group
 
-%.o : %.cpp  %.h info.h Makefile
+%.o : %.cpp  %.h info.h Makefile bootstrap.h
 	$(CXX) -fPIC $(INCLUDEPATH) $(CFLAGS) -c $*.cpp -o $*.o 
+
+bootstrap.h: bootstrap.lua
+	lua hardcode.lua bootstrap.lua
 
 info.h:					#dev version
 	./premake.sh $(CXX) $(CFLAGS)	#dev version

@@ -11,6 +11,7 @@
 
 OBJECTS=spinoperationdipole.o dipolesupport.o
 LIBNAME=Dipole
+CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=core encode longrange

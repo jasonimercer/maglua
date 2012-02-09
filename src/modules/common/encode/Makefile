@@ -9,8 +9,9 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=luamigrate.o encodable.o factory.o
+OBJECTS=luamigrate.o encodable.o factory.o MurmurHash3.o
 LIBNAME=Encode
+CATEGORY=common
 
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

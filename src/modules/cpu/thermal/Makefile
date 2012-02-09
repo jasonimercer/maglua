@@ -13,6 +13,7 @@ EXTRA_INCLUDE=-I../../common/random
 
 OBJECTS=spinoperationthermal.o
 LIBNAME=Thermal
+CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=core random encode

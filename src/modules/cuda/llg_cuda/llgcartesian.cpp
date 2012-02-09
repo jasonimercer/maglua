@@ -37,11 +37,17 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 // bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
 	// if new spins/fields exist on the host copy them to the device
+       dmdt->ensureSlotExists(SUM_SLOT);
+       dmdt->ensureSlotExists(THERMAL_SLOT);
+
+
 	spinfrom->sync_spins_hd();
 	spinto->sync_spins_hd();
 	dmdt->sync_spins_hd();
 	dmdt->sync_fields_hd(SUM_SLOT);
 	
+
+
 	const int nx = spinfrom->nx;
 	const int ny = spinfrom->ny;
 	const int nz = spinfrom->nz;
@@ -51,12 +57,14 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 	const double dt    = dmdt->dt * scaledmdt;
 	
 #define S SUM_SLOT
+#define T THERMAL_SLOT
 	cuda_llg_cart_apply(nx, ny, nz,
-						  spinto->d_x,   spinto->d_y,   spinto->d_z,   spinto->d_ms,
-						spinfrom->d_x, spinfrom->d_y, spinfrom->d_z, spinfrom->d_ms,
-						    dmdt->d_x,     dmdt->d_y,     dmdt->d_z,     dmdt->d_ms,
-						    dmdt->d_hx[S], dmdt->d_hy[S], dmdt->d_hz[S],
-						alpha, dt, gamma);	
+			  spinto->d_x,   spinto->d_y,   spinto->d_z,   spinto->d_ms,
+			spinfrom->d_x, spinfrom->d_y, spinfrom->d_z, spinfrom->d_ms,
+			    dmdt->d_x,     dmdt->d_y,     dmdt->d_z,     dmdt->d_ms,
+			    dmdt->d_hx[T], dmdt->d_hy[T], dmdt->d_hz[T],
+			    dmdt->d_hx[S], dmdt->d_hy[S], dmdt->d_hz[S],
+			alpha, dt, gamma);	
 
 	// mark spins as new for future d->h syncing
 	spinto->new_device_spins = true;

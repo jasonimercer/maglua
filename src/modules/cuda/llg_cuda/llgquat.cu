@@ -67,6 +67,7 @@ __global__ void llg_quat_apply_1(
 	double alpha,
 	double* sx, double* sy, double* sz, double* sms,
 	double* hx, double* hy, double* hz,
+        double* htx, double* hty, double* htz,              // dm/dt thermal fields
 	// ws1, ws2, ws3,     ws4
 	double* wx, double* wy, double* wz, double* ww) 
 {
@@ -74,10 +75,15 @@ __global__ void llg_quat_apply_1(
 	
 	if(i >= nxyz)
 		return;
+
+	// subtracting thermal term from Heff in damping contribution
+	const double hX = hx[i] - htx[i];
+	const double hY = hy[i] - hty[i];
+	const double hZ = hz[i] - htz[i];
 	
-	wx[i] = sy[i]*hz[i] - sz[i]*hy[i];
-	wy[i] = sz[i]*hx[i] - sx[i]*hz[i];
-	wz[i] = sx[i]*hy[i] - sy[i]*hx[i];
+	wx[i] = sy[i]*hZ - sz[i]*hY;
+	wy[i] = sz[i]*hX - sx[i]*hZ;
+	wz[i] = sx[i]*hY - sy[i]*hX;
 	
 	ww[i] = sms[i];
 	if(ww[i] != 0)
@@ -221,6 +227,7 @@ void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
 	double* ssx, double* ssy, double* ssz, double* sms, // src (spinfrom)
 	double* ddx, double* ddy, double* ddz, double* dds, // dm/dt spins
 	double* dhx, double* dhy, double* dhz,              // dm/dt fields
+        double* htx, double* hty, double* htz,              // dm/dt thermal fields
 	double* ws1, double* ws2, double* ws3, double* ws4,
 	const double alpha, const double dt, const double gamma)
 {
@@ -238,6 +245,7 @@ void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
 					alpha,
 					ddx, ddy, ddz, dds,
 					dhx, dhy, dhz,
+					htx, hty, htz,
 					ws1, ws2, ws3, ws4);
 	CHECK
 	

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <string.h>
 
 using namespace std;
 
@@ -100,6 +101,19 @@ void Factory::lua_pushItem(lua_State* L, Encodable* item, int id)
 	
 	fprintf(stderr, "Failed to find pushFunction for id = %i\n", id);
 }
+
+#include "MurmurHash3.h"
+
+int hash32(const char* string)
+{
+    int N = strlen(string);
+    int seed = 1000;
+    int res;
+
+    MurmurHash3_x86_32(string, N, seed, &res);
+    return res;
+}
+
 
 
 

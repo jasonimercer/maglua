@@ -123,23 +123,33 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 			double HLen;
 			double S[3];
 			double H[3];
+			double h[3];
 			double M[3];
-			double SH[3];
+			double Sh[3];
 			const double inv = 1.0 / ms[i];
 			double ra; //rotate amount
 			double sint, cost;
 			
-// dS    -g           a
-// -- = ---- S X (H +---S X H)
-// dt   1+aa         |S|
+// dS    -g                  a
+// -- = ---- S X ((H+Hth) + ---S X H)
+// dt   1+aa                |S|
+
+			// here the thermal field is bundled up in Heff
+			// we need to subtract out that contribution for the
+			// second term of the LLG equation
 
 			S[0]=sx[i]; S[1]=sy[i]; S[2]=sz[i];
 			M[0]=mx[i]; M[1]=my[i]; M[2]=mz[i];
 			H[0]=hx[i]; H[1]=hy[i]; H[2]=hz[i];
 
-			CROSS(SH, M, H);
+			h[0] = H[0] - dmdt->hx[THERMAL_SLOT][i];
+			h[1] = H[1] - dmdt->hy[THERMAL_SLOT][i];
+			h[2] = H[2] - dmdt->hz[THERMAL_SLOT][i];
+
+			CROSS(Sh, M, h);
 			for(int j=0; j<3; j++)
-				H[j] += alpha * SH[j] * inv;
+				H[j] += alpha * Sh[j] * inv;
+
 
 			HLen = sqrt(H[0]*H[0] + H[1]*H[1] + H[2]*H[2]);
 

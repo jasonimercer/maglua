@@ -11,6 +11,7 @@
 
 OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o
 LIBNAME=Magnetostatics
+CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=core dipole encode

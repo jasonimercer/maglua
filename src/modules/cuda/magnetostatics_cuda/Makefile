@@ -12,6 +12,7 @@
 OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o
 
 LIBNAME=MagnetostaticsCuda
+CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=encode corecuda dipolecuda longrangecuda

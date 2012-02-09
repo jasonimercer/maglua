@@ -103,6 +103,49 @@ static int l_plot(lua_State* L)
     return 0;
 }
 
+static int l_plot_blend(lua_State* L)
+{
+    Lpng* p = checkPNG(L, 1);
+    if(!p) return 0;
+
+    int x = lua_tointeger(L, 2);
+    int y = lua_tointeger(L, 3);
+	double opacity = lua_tonumber(L, 4);
+	
+    double r = lua_tonumber(L, 5);
+    double g = lua_tonumber(L, 6);
+    double b = lua_tonumber(L, 7);
+
+    if(r > 1) r = 1;
+    if(g > 1) g = 1;
+    if(b > 1) b = 1;
+
+    if(r < 0) r = 0;
+    if(g < 0) g = 0;
+    if(b < 0) b = 0;
+
+    p->w->plot_blend(x, y, opacity, r, g, b);
+    return 0;
+}
+
+static int l_pixelat(lua_State* L)
+{
+    Lpng* p = checkPNG(L, 1);
+    if(!p) return 0;
+
+	if(lua_gettop(L) != 3)
+	{
+		return luaL_error(L, "pixelAt expects (x,y)\n");
+	}
+	
+	int x = lua_tointeger(L, 2);
+	int y = lua_tointeger(L, 3);
+	
+	lua_pushnumber(L, p->w->dread(x,y,1));
+	lua_pushnumber(L, p->w->dread(x,y,2));
+	lua_pushnumber(L, p->w->dread(x,y,3));
+	return 3;
+}
 
 static int l_plot_text(lua_State* L)
 {
@@ -155,7 +198,9 @@ int lib_registerpngwriter(lua_State* L)
 		{"__gc",         l_gc},
 		{"__tostring",   l_tostring},
 		{"plot",         l_plot},
+		{"plot_blend",   l_plot_blend},
 		{"plot_text",    l_plot_text},
+		{"read",         l_pixelat},
 		
 		{NULL, NULL}
 	};
@@ -183,7 +228,7 @@ extern "C"
 PNGWRITER_API int lib_register(lua_State* L);
 PNGWRITER_API int lib_version(lua_State* L);
 PNGWRITER_API const char* lib_name(lua_State* L);
-PNGWRITER_API int lib_main(lua_State* L, int argc, char** argv);
+PNGWRITER_API int lib_main(lua_State* L);
 }
 
 PNGWRITER_API int lib_register(lua_State* L)
@@ -202,7 +247,7 @@ PNGWRITER_API const char* lib_name(lua_State* L)
 	return "PNGWriter";
 }
 
-PNGWRITER_API int lib_main(lua_State* L, int argc, char** argv)
+PNGWRITER_API int lib_main(lua_State* L)
 {
 	return 0;
 }

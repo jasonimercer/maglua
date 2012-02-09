@@ -585,6 +585,8 @@ int LuaServer::addLuaFunction(LuaComm* comm, LuaVariableGroup& group)
 // this is in maglua 
 int registerMagLuaMain(lua_State* L)
 {
+#warning Need to sort this out
+	/*
 #ifndef WIN32
 	return registerMain(L);
 #else
@@ -600,6 +602,8 @@ int registerMagLuaMain(lua_State* L)
 	}
 	return 0;
 #endif
+	*/
+	return 0;
 }
 
 void LuaServer::executeLuaFunction(LuaComm* comm, LuaVariableGroup& input, LuaVariableGroup& output)
@@ -852,7 +856,7 @@ extern "C"
 SERVER_API int lib_register(lua_State* L);
 SERVER_API int lib_version(lua_State* L);
 SERVER_API const char* lib_name(lua_State* L);
-SERVER_API int lib_main(lua_State* L, int argc, char** argv);
+SERVER_API int lib_main(lua_State* L);
 }
 
 SERVER_API int lib_register(lua_State* L)
@@ -871,7 +875,7 @@ SERVER_API const char* lib_name(lua_State* L)
 	return "Server";
 }
 
-SERVER_API int lib_main(lua_State* L, int argc, char** argv)
+SERVER_API int lib_main(lua_State* L)
 {
 	return 0;
 }

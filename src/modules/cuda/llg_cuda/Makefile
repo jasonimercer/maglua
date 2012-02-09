@@ -12,6 +12,7 @@
 TODO= llgcartesian.o llgfake.o llgalign.o
 OBJECTS=llg.o llgquat.o llgquat.cuo llgcartesian.o llgcartesian.cuo
 LIBNAME=LLGCuda
+CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=encode corecuda

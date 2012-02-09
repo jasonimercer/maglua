@@ -11,6 +11,7 @@
 
 OBJECTS=spinoperationlongrange.o longrange_kernel.cuo
 LIBNAME=LongRangeCuda
+CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=encode corecuda

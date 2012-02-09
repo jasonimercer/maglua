@@ -7,6 +7,8 @@
 #include <iostream>
 #include <stdio.h>
 
+need error version, see linux version
+
 template <class T>
 inline T import_function(std::string path, std::string name)
 {
@@ -35,9 +37,9 @@ inline T import_function(std::string path, std::string name)
 #include <string>
 #include <stdio.h>
 #include <dlfcn.h>
+
 template <class T>
-//#define IMPORT_DEBUG
-inline T import_function(std::string path, std::string name)
+inline T import_function_e(std::string path, std::string name, std::string& error)
 {
 	void* handle = dlopen(path.c_str(),  RTLD_NOW | RTLD_GLOBAL);
 	T func = 0;
@@ -46,19 +48,23 @@ inline T import_function(std::string path, std::string name)
 		func = (T) dlsym(handle, name.c_str());
 		if(!func)
 		{
-			printf("dlsym() %s\n", dlerror());
+			error = dlerror();
 			dlclose(handle);
 		}
-#ifdef IMPORT_DEBUG
-		printf("%s Import OK\n", path.c_str());
-#endif		
 	}
-#ifdef IMPORT_DEBUG
   	else
-  		printf("dlsym() %s\n", dlerror());
-#endif
+	{
+		error = dlerror();
+	}
+
 	return func;
 }
 
+template <class T>
+inline T import_function(std::string path, std::string name)
+{
+	std::string e;
+	return import_function_e<T>(path, name, e);
+}
 #endif
 #endif

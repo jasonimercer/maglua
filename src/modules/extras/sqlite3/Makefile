@@ -11,6 +11,7 @@
 
 OBJECTS=libLuaSqlite.o
 LIBNAME=SQLite3
+CATEGORY=extra
 
 EXTRA_PKG=sqlite3
 BASEDIR=../../..

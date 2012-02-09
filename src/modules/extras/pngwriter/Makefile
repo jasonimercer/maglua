@@ -11,6 +11,7 @@
 
 OBJECTS=png.o
 LIBNAME=PNGWriter
+CATEGORY=extra
 
 EXTRALIBS=-lpngwriter
 EXTRA_PKG=freetype2 libpng

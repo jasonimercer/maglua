@@ -11,6 +11,7 @@
 
 OBJECTS=spinsystem.o spinoperation.o luacommon.o maglua.o spinsystem.cuo 
 LIBNAME=CoreCUDA
+CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=encode

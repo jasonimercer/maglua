@@ -33,3 +33,5 @@ ENCODE_API void Factory_lua_pushItem(lua_State* L, Encodable* item, int id);
 ENCODE_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, const char* name);
 ENCODE_API void Factory_cleanup();
 }
+
+ENCODE_API int hash32(const char* string);

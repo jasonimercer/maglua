@@ -11,6 +11,7 @@
 
 OBJECTS=spinoperationlongrange.o
 LIBNAME=LongRange
+CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=core encode

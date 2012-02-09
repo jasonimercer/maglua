@@ -310,7 +310,7 @@ extern "C"
 LONGRANGECUDA_API int lib_register(lua_State* L);
 LONGRANGECUDA_API int lib_version(lua_State* L);
 LONGRANGECUDA_API const char* lib_name(lua_State* L);
-LONGRANGECUDA_API int lib_main(lua_State* L, int argc, char** argv);
+LONGRANGECUDA_API int lib_main(lua_State* L);
 }
 
 LONGRANGECUDA_API int lib_register(lua_State* L)
@@ -328,7 +328,7 @@ LONGRANGECUDA_API const char* lib_name(lua_State* L)
 	return "LongRange-Cuda";
 }
 
-LONGRANGECUDA_API int lib_main(lua_State* L, int argc, char** argv)
+LONGRANGECUDA_API int lib_main(lua_State* L)
 {
 	return 0;
 }

@@ -11,6 +11,7 @@
 
 OBJECTS=interpolatingfunction.o interpolatingfunction2d.o
 LIBNAME=Interpolate
+CATEGORY=common
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=encode

@@ -502,7 +502,7 @@ extern "C"
 DIPOLECUDA_API int lib_register(lua_State* L);
 DIPOLECUDA_API int lib_version(lua_State* L);
 DIPOLECUDA_API const char* lib_name(lua_State* L);
-DIPOLECUDA_API int lib_main(lua_State* L, int argc, char** argv);
+DIPOLECUDA_API int lib_main(lua_State* L);
 }
 
 DIPOLECUDA_API int lib_register(lua_State* L)
@@ -523,7 +523,7 @@ DIPOLECUDA_API const char* lib_name(lua_State* L)
 	return "Dipole-Cuda";
 }
 
-DIPOLECUDA_API int lib_main(lua_State* L, int argc, char** argv)
+DIPOLECUDA_API int lib_main(lua_State* L)
 {
 	return 0;
 }

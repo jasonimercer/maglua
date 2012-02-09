@@ -11,6 +11,7 @@
 
 OBJECTS=mtimer.o
 LIBNAME=Timer
+CATEGORY=common
 
 EXTRALIBS=-lrt
 BASEDIR=../../..

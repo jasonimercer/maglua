@@ -11,6 +11,7 @@
 
 OBJECTS=mersennetwister.o random.o isaac.o crand.o
 LIBNAME=Random
+CATEGORY=common
 
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

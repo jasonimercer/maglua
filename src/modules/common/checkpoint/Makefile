@@ -11,6 +11,7 @@
 
 OBJECTS=checkpoint.o
 LIBNAME=CheckPoint
+CATEGORY=common
 
 DEPEND=encode
 BASEDIR=../../..

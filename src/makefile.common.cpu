@@ -18,10 +18,7 @@ INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
 		-I$(BASEDIR)/modules/cpu/core $(EXTRA_INCLUDE)
 
 LIBS=`pkg-config --libs $(PKG)` -lpthread $(EXTRALIBS)
-# MODARGS can be used to pass info to the configuration script
-# for instance "cpu", "gpu", "testing". See module_path.lua for details
-MODARGS=cpu
-MODDIR=$(shell maglua $(MODARGS) --module_path 2> /dev/null)
+MODDIR=$(shell maglua --module_path $(CATEGORY) 2> /dev/null)
 
 
 all: $(LIBNAME).so

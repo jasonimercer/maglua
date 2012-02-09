@@ -11,6 +11,7 @@
 
 OBJECTS=spinoperationanisotropy.o spinoperationanisotropy.cuo
 LIBNAME=AnisotropyCuda
+CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=encode corecuda

@@ -16,14 +16,18 @@
 #include "spinoperation.h"
 // Gilbert equation of motion:
 //  dS    -g           a  g
-//  -- = ----  S X h - ---- S X (S X h)
+//  -- = ----  S X H - ---- S X (S X h)
 //  dt   1+aa        (1+aa)|S|
 //
 // or
 //
 // dS    -g           a
-// -- = ---- S X (h +---S X H)
+// -- = ---- S X (H +---S X h)
 // dt   1+aa         |S|
+// 
+// H = h + h_th
+
+#define THERMAL_ONLY_FIRST_TERM 
 
 LLGCartesian::LLGCartesian()
 	: LLG("Cartesian", ENCODE_LLGCART)
@@ -80,8 +84,19 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 			M[0]=mx[i];     M[1]=my[i];     M[2]=mz[i];
 			H[0]=hx[i];     H[1]=hy[i];     H[2]=hz[i];
 
-			CROSS(MH, M, H);
-			CROSS(MMH, M, MH);
+#ifdef THERMAL_ONLY_FIRST_TERM
+			double h[3];
+			h[0] = H[0] - dmdt->hx[THERMAL_SLOT][i];
+			h[1] = H[1] - dmdt->hy[THERMAL_SLOT][i];
+			h[2] = H[2] - dmdt->hz[THERMAL_SLOT][i];
+			
+			CROSS(MH, M, h);   // M x h
+			CROSS(MMH, M, MH); // M x (M x h)
+ 			CROSS(MH, M, H);   // M x H
+#else
+			CROSS(MH, M, H);   // M x h
+			CROSS(MMH, M, MH); // M x (M x h)
+#endif
 
 			gaa = gamma / (1.0+alpha*alpha);
 

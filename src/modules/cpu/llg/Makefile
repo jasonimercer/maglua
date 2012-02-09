@@ -11,6 +11,7 @@
 
 OBJECTS=llg.o llgquat.o llgfake.o llgalign.o llgcartesian.o
 LIBNAME=LLG
+CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=core encode

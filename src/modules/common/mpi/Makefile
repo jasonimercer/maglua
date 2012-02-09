@@ -11,6 +11,7 @@
 
 OBJECTS=luampi.o
 LIBNAME=MPI
+CATEGORY=common
 
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

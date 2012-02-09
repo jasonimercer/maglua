@@ -11,6 +11,7 @@
 
 OBJECTS=libLuaClient.o net_helpers.o
 LIBNAME=Client
+CATEGORY=extra
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=pthreadVC2 encode wsock32

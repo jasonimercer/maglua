@@ -11,6 +11,7 @@
 
 OBJECTS=spinoperationexchange.o
 LIBNAME=Exchange
+CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=core encode

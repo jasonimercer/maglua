@@ -719,7 +719,7 @@ extern "C"
 ANISOTROPYCUDA_API int lib_register(lua_State* L);
 ANISOTROPYCUDA_API int lib_version(lua_State* L);
 ANISOTROPYCUDA_API const char* lib_name(lua_State* L);
-ANISOTROPYCUDA_API int lib_main(lua_State* L, int argc, char** argv);
+ANISOTROPYCUDA_API int lib_main(lua_State* L);
 }
 
 ANISOTROPYCUDA_API int lib_register(lua_State* L)
@@ -738,7 +738,7 @@ ANISOTROPYCUDA_API const char* lib_name(lua_State* L)
 	return "Anisotropy-Cuda";
 }
 
-ANISOTROPYCUDA_API int lib_main(lua_State* L, int argc, char** argv)
+ANISOTROPYCUDA_API int lib_main(lua_State* L)
 {
 	return 0;
 }

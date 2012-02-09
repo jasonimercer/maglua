@@ -11,6 +11,7 @@
 
 OBJECTS=spinoperationappliedfield.o spinoperationappliedfield.cuo
 LIBNAME=AppliedFieldCuda
+CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=encode corecuda
