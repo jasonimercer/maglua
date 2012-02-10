@@ -23,7 +23,7 @@
 #define NSLOTS            7
 
 //#include <omp.h>
-#include "luacommon.h"
+#include <luacommon.h>
 #include <string>
 #include "encodable.h"
 
