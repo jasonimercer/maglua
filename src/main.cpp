@@ -31,7 +31,7 @@ int main(int argc, char** argv)
 {
 #ifdef _MPI
 	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD, &suppress); //only rank 0 will chatter
+	//MPI_Comm_rank(MPI_COMM_WORLD, &suppress); //only rank 0 will chatter
 #endif
 	
 	lua_State *L = lua_open();
