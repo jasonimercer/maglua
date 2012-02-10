@@ -31,7 +31,7 @@
 
 using namespace std;
 
-LONGRANGE_API class LongRange : public SpinOperation
+class LONGRANGE_API LongRange : public SpinOperation
 {
 public:
 	LongRange(const char* name, const int field_slot, int nx, int ny, int nz, const int encode_tag);

@@ -29,9 +29,9 @@
 
 static size_t memTotal()
 {
-// 	CUresult res;
 	size_t free, total;
-	cuMemGetInfo(&free, &total);
+	//cuMemGetInfo(&free, &total);
+	cudaMemGetInfo(&free, &total);       
 
 	return total;
 }
@@ -40,7 +40,8 @@ static size_t memLeft()
 {
 // 	CUresult res;
 	size_t free, total;
-	cuMemGetInfo(&free, &total);
+	//cuMemGetInfo(&free, &total);
+	cudaMemGetInfo(&free, &total); 
 
 	return free;
 }

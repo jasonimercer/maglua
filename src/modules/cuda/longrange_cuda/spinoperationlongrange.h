@@ -33,7 +33,7 @@
 
 using namespace std;
 
-class LongRangeCuda : public SpinOperation
+class LONGRANGECUDA_API LongRangeCuda : public SpinOperation
 {
 public:
 	LongRangeCuda(const char* name, const int field_slot, int nx, int ny, int nz, const int encode_tag);

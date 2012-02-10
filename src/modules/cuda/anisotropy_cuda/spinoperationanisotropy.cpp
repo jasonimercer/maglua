@@ -98,6 +98,7 @@ bool Anisotropy::make_uncompressed()
 	}
 	new_host = false;
 	compressed = false;
+	return true;
 }
 
 class sani

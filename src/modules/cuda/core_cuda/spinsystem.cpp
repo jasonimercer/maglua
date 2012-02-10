@@ -434,7 +434,7 @@ void SpinSystem::deinit()
 void SpinSystem::init()
 {
 	nxyz = nx * ny * nz;
-	if(d_x);
+	if(d_x)
 		deinit();
 
 	new_host_spins = false;

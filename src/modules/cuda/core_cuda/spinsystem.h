@@ -26,14 +26,14 @@ typedef struct work_space_device_memory
 } work_space_device_memory;
 
 static work_space_device_memory WS_MEM = {0};
-void  registerWS();
-void  unregisterWS();
-void  getWSMem(void** ptr1,   size_t size1, 
+CORECUDA_API void  registerWS();
+CORECUDA_API void  unregisterWS();
+CORECUDA_API void  getWSMem(void** ptr1,   size_t size1, 
 			   void** ptr2=0, size_t size2=0, 
 			   void** ptr3=0, size_t size3=0,
 			   void** ptr4=0, size_t size4=0,
 			   void** ptr5=0, size_t size5=0);
-void  getWSMem(double** ptr1,   size_t size1, 
+CORECUDA_API void  getWSMem(double** ptr1,   size_t size1, 
 			   double** ptr2=0, size_t size2=0, 
 			   double** ptr3=0, size_t size3=0,
 			   double** ptr4=0, size_t size4=0,

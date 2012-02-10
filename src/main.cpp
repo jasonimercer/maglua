@@ -25,11 +25,10 @@
 
 #include <stdio.h>
 
-int lua_setupPreamble(lua_State* L);
+void lua_setupPreamble(lua_State* L);
 
 int main(int argc, char** argv)
 {
-	int suppress;
 #ifdef _MPI
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &suppress); //only rank 0 will chatter
@@ -62,7 +61,7 @@ int main(int argc, char** argv)
 }
 
 
-int lua_setupPreamble(lua_State* L)
+void lua_setupPreamble(lua_State* L)
 {
 #ifdef WIN32
 	lua_pushstring(L, "WIN32");

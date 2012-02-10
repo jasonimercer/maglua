@@ -14,7 +14,9 @@
 #include "spinsystem.h"
 #include "dipolesupport.h"
 #include "info.h"
+#ifndef WIN32
 #include <strings.h>
+#endif
 
 #include <stdlib.h>
 #include <math.h>

@@ -45,6 +45,15 @@ for k,v in pairs(arg) do
 	
 	if v == "--setup" then
 		setup_module_path = arg[k+1]
+		--need to strip quotes from it if they exist
+		local a, b, c = string.find(setup_module_path, "^%s*%'(.*)%'%s*$")
+		if a then
+			setup_module_path = c
+		end
+		local a, b, c = string.find(setup_module_path, "^%s*%\"(.*)\"%s*$")
+		if a then
+			setup_module_path = c
+		end
 	end
 	
 	if v == "-h" or v == "--help" then
@@ -57,8 +66,10 @@ if be_quiet then
 end
 
 function reference()
-	return "Use the following reference when citing this code:\n" ..
-		   [["MagLua, a Micromagnetics Programming Environment". Mercer, Jason I. (2012). Journal. Vol, pages]]
+	return "Publications with results derived from MagLua must co-author the following:\n" ..
+			"   Jason I. Mercer, Department of Computer Science,\n   Memorial University of Newfoundland. jason.mercer@mun.ca"
+--	return "Use the following reference when citing this code:\n" ..
+--		   [["MagLua, a Micromagnetics Programming Environment". Mercer, Jason I. (2012). Journal. Vol, pages]]
 end
 
 local function make_version()
@@ -81,7 +92,6 @@ end
 info = make_info()
 __info = nil
 
-
 if print_help then
 	print("MagLua-r" .. version()..  "by Jason Mercer (c) 2012\n")
 	print(string.format(
@@ -99,6 +109,10 @@ if print_help then
 	print(reference())
 	return false
 end
+
+function escape(line)
+	return string.gsub(line, "\\", "\\\\")
+end
 	
 if setup_module_path then
 	print("Creating `module_path.lua' file in `" .. module_path_dir .. "'")
@@ -108,10 +122,10 @@ if setup_module_path then
 	local f = io.open(module_path_file, "w")
 	f:write("-- Modules in the following directories can be loaded\n")
 	f:write("module_path = {}\n")
-	f:write("module_path[\"common\"] = \"" .. setup_module_path .. module_dir_sep .. "common"  .. "\"\n")
-	f:write("module_path[\"cpu\"]    = \"" .. setup_module_path .. module_dir_sep .. "cpu"     .. "\"\n")
-	f:write("module_path[\"cuda\"]   = \"" .. setup_module_path .. module_dir_sep .. "cuda"    .. "\"\n")
-	f:write("module_path[\"extra\"]  = \"" .. setup_module_path .. module_dir_sep .. "extra"   .. "\"\n\n")
+	f:write("module_path[\"common\"] = \"" .. escape(setup_module_path .. module_dir_sep .. "common")  .. "\"\n")
+	f:write("module_path[\"cpu\"]    = \"" .. escape(setup_module_path .. module_dir_sep .. "cpu")     .. "\"\n")
+	f:write("module_path[\"cuda\"]   = \"" .. escape(setup_module_path .. module_dir_sep .. "cuda")    .. "\"\n")
+	f:write("module_path[\"extra\"]  = \"" .. escape(setup_module_path .. module_dir_sep .. "extra")   .. "\"\n\n")
 	
 	f:write("-- Modules in the following categories will be loaded\n")
 	f:write("use_modules = {" .. [["common", "cpu", "extra"]] .. "}\n\n")
@@ -162,6 +176,10 @@ end
 
 -- get the module path
 dofile(module_path_file)
+
+if use_modules == nil then
+	error("use_modules not defined in `module_path.lua'")
+end
 
 -- build a big flat list of modules to load
 local mod = {}
@@ -223,7 +241,7 @@ local function e(x)
 end
 
 if be_quiet == nil then
-	e("This evaluation version of MagLua is for private, non-commercial use only")
+	e("This evaluation version of MagLua is for academic, non-commercial use only")
 	e("MagLua-r" .. version() .. " by Jason Mercer (c) 2012\n")
 	e( reference() .. "\n")
 	e("Modules:")

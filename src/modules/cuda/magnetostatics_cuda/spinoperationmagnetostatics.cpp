@@ -18,7 +18,9 @@
 
 #include <stdlib.h>
 #include <math.h>
+#ifndef WIN32
 #include <strings.h>
+#endif
 
 MagnetostaticCuda::MagnetostaticCuda(int nx, int ny, int nz)
 	: LongRangeCuda("MagnetostaticCuda", DIPOLE_SLOT, nx, ny, nz, ENCODE_MAGNETOSTATIC)

@@ -244,6 +244,7 @@ if cuda then
       <TargetMachinePlatform>64</TargetMachinePlatform>
 	  <Include>]] .. additionalIncludeDirectories .. [[%%(Include)</Include>
 		<Defines>]] .. uppercase .. [[_EXPORTS; WIN32</Defines>
+        <CodeGeneration>compute_20,sm_20;</CodeGeneration>
     </CudaCompile>]])
 	footer = string.gsub(footer, "CUDABUILDCUST", [[    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 4.0.targets" />]])
 else

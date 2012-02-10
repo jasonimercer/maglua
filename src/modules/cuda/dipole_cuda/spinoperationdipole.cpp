@@ -18,7 +18,9 @@
 
 #include <stdlib.h>
 #include <math.h>
+#ifndef WIN32
 #include <strings.h>
+#endif
 
 DipoleCuda::DipoleCuda(int nx, int ny, int nz)
 	: LongRangeCuda("DipoleCuda", DIPOLE_SLOT, nx, ny, nz, ENCODE_DIPOLE)

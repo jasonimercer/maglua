@@ -7,10 +7,8 @@
 #include <iostream>
 #include <stdio.h>
 
-need error version, see linux version
-
 template <class T>
-inline T import_function(std::string path, std::string name)
+inline T import_function_e(std::string path, std::string name, std::string& error)
 {
 	T func = 0;
 	if(path.length())
@@ -31,7 +29,23 @@ inline T import_function(std::string path, std::string name)
 	{
 		func = (T) GetProcAddress(GetModuleHandle(0), name.c_str()); //load from local space
 	}
+
+	if(func == 0)
+	{
+		error = "Failed to load `";
+		error.append(name);
+		error.append("' from `");
+		error.append(path);
+		error.append("'");
+	}
 	return func;
+}
+
+template <class T>
+inline T import_function(std::string path, std::string name)
+{
+	std::string e;
+	return import_function_e<T>(path, name, e);
 }
 #else
 #include <string>
