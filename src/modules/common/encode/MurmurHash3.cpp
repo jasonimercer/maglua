@@ -16,7 +16,7 @@
 
 #if defined(_MSC_VER)
 
-#define FORCE_INLINE__forceinline
+#define FORCE_INLINE __forceinline
 
 #include <stdlib.h>
 
