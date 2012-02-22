@@ -554,7 +554,7 @@ void SpinSystem::ensureSlotExists(int slot)
 	malloc_device(&(d_hy[slot]), nn);
 	malloc_device(&(d_hz[slot]), nn);
 
-	printf("slot %i ss %p res %p\n", slot, this, d_hx[slot]);
+// 	printf("slot %i ss %p res %p\n", slot, this, d_hx[slot]);
 	
 // 	printf("%p %p %p\n", d_hx[slot], d_hy[slot], d_hz[slot]);
 	ss_d_set3DArray(d_hx[slot], nx, ny, nz, 0);

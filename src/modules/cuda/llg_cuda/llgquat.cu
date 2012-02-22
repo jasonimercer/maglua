@@ -221,13 +221,20 @@ __global__ void llg_quat_apply_4(
 	dsz[i] = wz[i] * ww[i];
 }
 
+// 	cuda_llg_quat_apply(
+// 			    dmdt->d_x,     dmdt->d_y,     dmdt->d_z,     dmdt->d_ms,
+//             dmdt->d_hx[T], dmdt->d_hy[T], dmdt->d_hz[T],
+// 			dmdt->d_hx[S], dmdt->d_hy[S], dmdt->d_hz[S],
+// 			          d_ws1,         d_ws2,         d_ws3,         d_ws4,
+// 			alpha, dt, gamma);	
 
+	
 void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
 	double* dsx, double* dsy, double* dsz, double* dms, //dest (spinto)
 	double* ssx, double* ssy, double* ssz, double* sms, // src (spinfrom)
 	double* ddx, double* ddy, double* ddz, double* dds, // dm/dt spins
+    double* htx, double* hty, double* htz,              // dm/dt thermal fields
 	double* dhx, double* dhy, double* dhz,              // dm/dt fields
-        double* htx, double* hty, double* htz,              // dm/dt thermal fields
 	double* ws1, double* ws2, double* ws3, double* ws4,
 	const double alpha, const double dt, const double gamma)
 {

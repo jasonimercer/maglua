@@ -16,6 +16,7 @@
 		printf("(%s:%i) %s\n",  __FILE__, __LINE__-1, cudaGetErrorString(i));\
 }
 
+
 __global__ void llg_cart_apply(
 	const int nxyz,
 	const double* spinfrom_sx, const double* spinfrom_sy, const double* spinfrom_sz, const double* spinfrom_m,
@@ -70,7 +71,7 @@ __global__ void llg_cart_apply(
 	
 }
 	
-	
+				
 void cuda_llg_cart_apply(const int nx, const int ny, const int nz,
 	double* dsx, double* dsy, double* dsz, double* dms, //dest (spinto)
 	double* ssx, double* ssy, double* ssz, double* sms, // src (spinfrom)
