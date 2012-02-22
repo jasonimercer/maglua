@@ -29,10 +29,19 @@ local print_module_path = nil
 local print_version = false
 local setup_module_path = nil
 local print_help = false
+local print_module_path_file = nil
 
 for k,v in pairs(arg) do
 	if v == "--module_path" then
 		print_module_path = arg[k+1] or true
+	end
+	
+	if v == "--use_module_file" then
+		module_path_file = arg[k+1]
+	end
+	
+	if v == "--module_file" then
+		print_module_path_file = arg[k+1] or true
 	end
 	
 	if v == "-q" then
@@ -100,8 +109,10 @@ if print_help then
 
  Command Line Arguments:
   -q                        Run quietly, omit some startup messages
-  --module_path <category>  Print module directory for <category> module types
   --setup path              Setup startup files in %s
+  --module_file             Print the name of the file that manages modules
+  --use_module_file <file>  Use the given file to manage modules
+  --module_path <category>  Print module directory for <category> module types
   -v, --version             Print version
   -h, --help                Show this help
 ]], module_short_dir))
@@ -164,6 +175,11 @@ if print_module_path then
 	
 	io.stderr:write("Failed to lookup module category\n")
 	error("Must specify a module category (" .. table.concat(cats, ", ") .. ")", 0)
+end
+
+if print_module_path_file then
+	print(module_path_file)
+	return false
 end
 
 if print_version then

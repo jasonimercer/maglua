@@ -14,5 +14,5 @@ NVCC=/usr/bin/nvcc
 NVFLAGS=-O2 -Xcompiler -fPIC -arch=sm_21
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` -I$(BASEDIR) -I$(BASEDIR)/modules/common/encode -I$(BASEDIR)/modules/cuda/core_cuda
 MODBIN=maglua_gpu
-%.cuo : %.cu
+%.cuo : %.cu $(EXTRA_CUDA_DEP)
 	$(NVCC) $(NVFLAGS) $(NV_EXTRAOPS) $(INCLUDEPATH) -c $*.cu -o $*.cuo
