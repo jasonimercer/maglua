@@ -457,7 +457,11 @@ TIMER_API int lib_version(lua_State* L)
 
 TIMER_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Timer";
+#else
+	return "Timer-Debug";
+#endif
 }
 
 TIMER_API int lib_main(lua_State* L)

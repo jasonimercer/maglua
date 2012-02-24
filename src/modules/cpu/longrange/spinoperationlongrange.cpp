@@ -17,13 +17,13 @@
 #include <stdlib.h>
 #include <math.h>
 
-LongRange::LongRange(const char* name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
-	: SpinOperation(name, field_slot, nx, ny, nz, encode_tag)
+LongRange::LongRange(std::string Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
+	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
 {
 	qXX = 0;
 	
 	forward = 0;
-        backward = 0;
+    backward = 0;
 
 	g = 1;
 	gmax = 2000;
@@ -249,9 +249,10 @@ void LongRange::getMatrices()
 			for(int i=0; i<nx*ny; i++)
 				r[i] = complex<double>(arrs[a][k*nx*ny + i],0);
 		
-			fftw_execute_dft(forward, 
-					reinterpret_cast<fftw_complex*>(r),
-					reinterpret_cast<fftw_complex*>(q));
+			fftw_complex* fr = reinterpret_cast<fftw_complex*>(r);
+			fftw_complex* fq = reinterpret_cast<fftw_complex*>(q);
+
+			fftw_execute_dft(forward, fr, fq);
 
 			for(int i=0; i<nx*ny; i++)
 				qarrs[a][k*nx*ny + i] = q[i];
@@ -358,14 +359,20 @@ void LongRange::collectIForces(SpinSystem* ss)
 	
 bool LongRange::apply(SpinSystem* ss)
 {
+	// printf("(%s:%i)\n", __FILE__, __LINE__);
 	markSlotUsed(ss);
 
+	// printf("(%s:%i)\n", __FILE__, __LINE__);
 	if(newdata)
 		getMatrices();
 	
+	// printf("(%s:%i)\n", __FILE__, __LINE__);
 	ss->fft();
+	// printf("(%s:%i)\n", __FILE__, __LINE__);
 	collectIForces(ss);
+	// printf("(%s:%i)\n", __FILE__, __LINE__);
 	ifftAppliedForce(ss);
+	// printf("(%s:%i)\n", __FILE__, __LINE__);
 
 	return true;
 }
@@ -377,7 +384,7 @@ extern "C"
 LONGRANGE_API int lib_register(lua_State* L);
 LONGRANGE_API int lib_version(lua_State* L);
 LONGRANGE_API const char* lib_name(lua_State* L);
-LONGRANGE_API int lib_main(lua_State* L, int argc, char** argv);
+LONGRANGE_API int lib_main(lua_State* L);
 }
 
 LONGRANGE_API int lib_register(lua_State* L)
@@ -395,7 +402,7 @@ LONGRANGE_API const char* lib_name(lua_State* L)
 	return "LongRange";
 }
 
-LONGRANGE_API int lib_main(lua_State* L, int argc, char** argv)
+LONGRANGE_API int lib_main(lua_State* L)
 {
 	return 0;
 }

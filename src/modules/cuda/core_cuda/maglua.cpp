@@ -46,7 +46,11 @@ CORECUDA_API int lib_version(lua_State* L)
 
 CORECUDA_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Core-Cuda";
+#else
+	return "Core-Cuda-Debug";
+#endif
 }
 
 #ifndef WIN32

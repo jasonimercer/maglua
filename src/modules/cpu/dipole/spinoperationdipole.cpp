@@ -105,7 +105,6 @@ int l_dip_new(lua_State* L)
 {
 	int n[3];
 	lua_getnewargs(L, n, 1);
-
 	lua_pushDipole(L, new Dipole(n[0], n[1], n[2]));
 	return 1;
 }
@@ -493,7 +492,7 @@ extern "C"
 DIPOLE_API int lib_register(lua_State* L);
 DIPOLE_API int lib_version(lua_State* L);
 DIPOLE_API const char* lib_name(lua_State* L);
-DIPOLE_API int lib_main(lua_State* L, int argc, char** argv);
+DIPOLE_API int lib_main(lua_State* L);
 }
 
 DIPOLE_API int lib_register(lua_State* L)
@@ -510,10 +509,14 @@ DIPOLE_API int lib_version(lua_State* L)
 
 DIPOLE_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Dipole";
+#else
+	return "Dipole-Debug";
+#endif
 }
 
-DIPOLE_API int lib_main(lua_State* L, int argc, char** argv)
+DIPOLE_API int lib_main(lua_State* L)
 {
 	return 0;
 }

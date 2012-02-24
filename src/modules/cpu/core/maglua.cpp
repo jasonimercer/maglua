@@ -28,6 +28,7 @@ CORE_API int lib_main(lua_State* L);
 #include <stdio.h>
 CORE_API int lib_register(lua_State* L)
 {
+	//fftw_init_threads();
 	registerSpinSystem(L);
 	return 0;
 }
@@ -39,7 +40,11 @@ CORE_API int lib_version(lua_State* L)
 
 const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Core";
+#else
+	return "Core-Debug";
+#endif
 }
 
 int lib_main(lua_State* L)

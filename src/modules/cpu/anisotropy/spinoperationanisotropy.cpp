@@ -396,7 +396,7 @@ extern "C"
 ANISOTROPY_API int lib_register(lua_State* L);
 ANISOTROPY_API int lib_version(lua_State* L);
 ANISOTROPY_API const char* lib_name(lua_State* L);
-ANISOTROPY_API int lib_main(lua_State* L, int argc, char** argv);
+ANISOTROPY_API int lib_main(lua_State* L);
 }
 
 ANISOTROPY_API int lib_register(lua_State* L)
@@ -412,10 +412,14 @@ ANISOTROPY_API int lib_version(lua_State* L)
 
 ANISOTROPY_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Anisotropy";
+#else
+	return "Anisotropy-Debug";
+#endif
 }
 
-ANISOTROPY_API int lib_main(lua_State* L, int argc, char** argv)
+ANISOTROPY_API int lib_main(lua_State* L)
 {
 	return 0;
 }

@@ -551,7 +551,11 @@ THERMALCUDA_API int lib_version(lua_State* L)
 
 THERMALCUDA_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Thermal-Cuda";
+#else
+	return "Thermal-Cuda-Debug";
+#endif
 }
 
 THERMALCUDA_API int lib_main(lua_State* L)

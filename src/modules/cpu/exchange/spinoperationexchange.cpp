@@ -458,7 +458,7 @@ extern "C"
 EXCHANGE_API int lib_register(lua_State* L);
 EXCHANGE_API int lib_version(lua_State* L);
 EXCHANGE_API const char* lib_name(lua_State* L);
-EXCHANGE_API int lib_main(lua_State* L, int argc, char** argv);
+EXCHANGE_API int lib_main(lua_State* L);
 }
 
 EXCHANGE_API int lib_register(lua_State* L)
@@ -474,10 +474,14 @@ EXCHANGE_API int lib_version(lua_State* L)
 
 EXCHANGE_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Exchange";
+#else
+	return "Exchange-Debug";
+#endif
 }
 
-EXCHANGE_API int lib_main(lua_State* L, int argc, char** argv)
+EXCHANGE_API int lib_main(lua_State* L)
 {
 	return 0;
 }

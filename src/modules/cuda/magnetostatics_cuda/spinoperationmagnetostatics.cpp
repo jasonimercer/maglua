@@ -571,7 +571,11 @@ MAGNETOSTATICSCUDA_API int lib_version(lua_State* L)
 
 MAGNETOSTATICSCUDA_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Magnetostatics-Cuda";
+#else
+	return "Magnetostatics-Cuda-Debug";
+#endif
 }
 
 MAGNETOSTATICSCUDA_API int lib_main(lua_State* L, int argc, char** argv)

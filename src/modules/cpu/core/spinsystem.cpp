@@ -33,6 +33,7 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 {
 	init();
 	L = 0;
+	r2q = 0;
 }
 
 SpinSystem::~SpinSystem()
@@ -209,6 +210,7 @@ void SpinSystem::deinit()
 
 		if(r2q)
 			fftw_destroy_plan(r2q);
+		r2q = 0;
 	}
 }
 
@@ -261,9 +263,6 @@ void SpinSystem::init()
 	qx = new complex<double>[nxyz];
 	qy = new complex<double>[nxyz];
 	qz = new complex<double>[nxyz];
-	
-
-	r2q = 0;
 }
 
 void SpinSystem::init_fft()
@@ -553,8 +552,12 @@ int SpinSystem::getSlot(const char* name)
 
 void SpinSystem::fft()
 {
+	printf("%i %i %i  (%s:%i)\n", nx,ny,nz,__FILE__, __LINE__);
+
 	if(!r2q)
+	{
 		init_fft();
+	}
 	
 	for(int i=0; i<nxyz; i++) rx[i] = x[i];
 	for(int i=0; i<nxyz; i++) ry[i] = y[i];
@@ -572,7 +575,7 @@ void SpinSystem::fft()
 			reinterpret_cast<fftw_complex*>(&rz[k*nx*ny]),
 			reinterpret_cast<fftw_complex*>(&qz[k*nx*ny]));
 	}
-
+	printf("done fft\n");
 	fft_time = time;
 }
 

@@ -213,13 +213,13 @@ local last_error
 local num_loaded
 while keep_trying do
 	num_loaded = 0
-	last_error = nil
+	last_error = {}
 	
 	for k,v in pairs(mod) do
 		if v.result == nil then
 			local t = loadModule(v.path)
 			if t.error then
-				last_error = t.error
+				table.inserT(last_error, t.error)
 			else
 				num_loaded = num_loaded + 1
 				v.result = t
@@ -230,9 +230,9 @@ while keep_trying do
 	if num_loaded == 0 then
 		keep_trying = false
 		
-		if last_error then
+		if table.maxn(last_error) > 0 then
 			io.stderr:write("Failed to load module\n")
-			error(last_error, 0)
+			error(table.concat(last_error, "\n"), 0)
 		end
 	end
 end

@@ -31,7 +31,7 @@
 
 
 
-typedef struct buffer
+ENCODE_API typedef struct buffer
 {
 	char* buf;
 	int pos;

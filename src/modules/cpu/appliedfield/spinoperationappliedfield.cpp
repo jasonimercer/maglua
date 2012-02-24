@@ -439,7 +439,7 @@ extern "C"
 APPLIEDFIELD_API int lib_register(lua_State* L);
 APPLIEDFIELD_API int lib_version(lua_State* L);
 APPLIEDFIELD_API const char* lib_name(lua_State* L);
-APPLIEDFIELD_API int lib_main(lua_State* L, int argc, char** argv);
+APPLIEDFIELD_API int lib_main(lua_State* L);
 }
 
 APPLIEDFIELD_API int lib_register(lua_State* L)
@@ -455,10 +455,14 @@ APPLIEDFIELD_API int lib_version(lua_State* L)
 
 APPLIEDFIELD_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "AppliedField";
+#else
+	return "AppliedField-Debug";
+#endif
 }
 
-APPLIEDFIELD_API int lib_main(lua_State* L, int argc, char** argv)
+APPLIEDFIELD_API int lib_main(lua_State* L)
 {
 	return 0;
 }

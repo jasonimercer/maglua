@@ -317,7 +317,7 @@ extern "C"
 LLG_API int lib_register(lua_State* L);
 LLG_API int lib_version(lua_State* L);
 LLG_API const char* lib_name(lua_State* L);
-LLG_API int lib_main(lua_State* L, int argc, char** argv);
+LLG_API int lib_main(lua_State* L);
 }
 
 LLG_API int lib_register(lua_State* L)
@@ -333,10 +333,14 @@ LLG_API int lib_version(lua_State* L)
 
 LLG_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "LLG";
+#else
+	return "LLG-Debug";
+#endif
 }
 
-LLG_API int lib_main(lua_State* L, int argc, char** argv)
+LLG_API int lib_main(lua_State* L)
 {
 	return 0;
 }

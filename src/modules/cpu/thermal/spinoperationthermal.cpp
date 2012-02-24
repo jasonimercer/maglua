@@ -362,7 +362,7 @@ extern "C"
 THERMAL_API int lib_register(lua_State* L);
 THERMAL_API int lib_version(lua_State* L);
 THERMAL_API const char* lib_name(lua_State* L);
-THERMAL_API int lib_main(lua_State* L, int argc, char** argv);
+THERMAL_API int lib_main(lua_State* L);
 }
 
 THERMAL_API int lib_register(lua_State* L)
@@ -378,10 +378,14 @@ THERMAL_API int lib_version(lua_State* L)
 
 THERMAL_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Thermal";
+#else
+	return "Thermal-Debug";
+#endif
 }
 
-THERMAL_API int lib_main(lua_State* L, int argc, char** argv)
+THERMAL_API int lib_main(lua_State* L)
 {
 	return 0;
 }

@@ -2,6 +2,8 @@
 -- This lua script processes a Makefile for Maglua and 
 -- generates visual studio 10 project files
 -- 
+-- optionally, if arg[1] is Debug or Release then compile that mode
+
 
 basedir=[[C:\programming\c\maglua\src]]
 aid = basedir .. ";"
@@ -9,9 +11,9 @@ aid = aid .. basedir .. [[\..\Common;]]
 aid = aid .. basedir .. [[\modules\common\encode;]]
 
 
-local do_compile = false
+local compile_Configuration = nil
 if arg[1] then
-	do_compile = true
+	compile_Configuration = arg[1]
 end
 
 outputDirectory = basedir .. [[\..\Common\]]
@@ -404,16 +406,14 @@ for k,v in pairs(outs) do
 end
 end
 
-print("\nThis project can be compiled with the following command:")
-print("msbuild /property:Configuration=Release")
-
-
-if do_compile then
+if compile_Configuration then
 	if os.getenv("HOME") == nil then
-		os.execute("msbuild /property:Configuration=Release")
-		cmd = "copy " .. outputDirectory .. lowercase .. ".dll " .. outputDirectory .. "\MagLua"
-		os.execute(cmd)
+		os.execute("msbuild /target:Clean")
+		os.execute("msbuild /property:Configuration=" .. compile_Configuration)
 	else
 		error("can't compile on system with $HOME set (we thing we're on unix)")
 	end
+else
+	print("\nThis project can be compiled with the following command:")
+	print("msbuild /property:Configuration=Release")
 end

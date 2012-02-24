@@ -13,7 +13,6 @@
 #ifndef SPINOPERATIONDIPOLE
 #define SPINOPERATIONDIPOLE
 
-#include "spinoperation.h"
 #include "../longrange/spinoperationlongrange.h"
 
 #ifdef WIN32
@@ -32,7 +31,7 @@
 
 using namespace std;
 
-class Dipole : public LongRange
+class DIPOLE_API Dipole : public LongRange
 {
 public:
 	Dipole(int nx=32, int ny=32, int nz=1);

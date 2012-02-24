@@ -85,7 +85,11 @@ ENCODE_API int lib_version(lua_State* L)
 
 const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "Encode";
+#else
+	return "Encode-Debug";
+#endif
 }
 
 int lib_main(lua_State* L)

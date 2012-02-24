@@ -308,7 +308,11 @@ LLGCUDA_API int lib_version(lua_State* L)
 
 LLGCUDA_API const char* lib_name(lua_State* L)
 {
+#ifdef NDEBUG 
 	return "LLG-Cuda";
+#else
+	return "LLG-Cuda-Debug";
+#endif
 }
 
 LLGCUDA_API int lib_main(lua_State* L)
