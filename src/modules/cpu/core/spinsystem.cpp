@@ -552,8 +552,6 @@ int SpinSystem::getSlot(const char* name)
 
 void SpinSystem::fft()
 {
-	printf("%i %i %i  (%s:%i)\n", nx,ny,nz,__FILE__, __LINE__);
-
 	if(!r2q)
 	{
 		init_fft();
@@ -575,7 +573,6 @@ void SpinSystem::fft()
 			reinterpret_cast<fftw_complex*>(&rz[k*nx*ny]),
 			reinterpret_cast<fftw_complex*>(&qz[k*nx*ny]));
 	}
-	printf("done fft\n");
 	fft_time = time;
 }
 
@@ -621,8 +618,6 @@ void SpinSystem::set(const int px, const int py, const int pz, const double sx, 
 	set(i, sx, sy, sz);
 	if(i < 0 || i >= nxyz)
 	{
-		printf("%i %i %i %i\n", i, px, py, pz);
-
 		int* i = 0;
 		*i = 4;
 	}

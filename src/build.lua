@@ -7,8 +7,8 @@
 --     lua build.lua cpu exchange
 --
 
---configuration = "Release"
-configuration = "Debug"
+configuration = "Release"
+--configuration = "Debug"
 
 category = arg[1] or ""
   module = arg[2] or ""

@@ -38,43 +38,17 @@ inline T import_function_e(std::string path, std::string name, std::string& erro
 	T func = 0;
 	if(path.length())
 	{
-		int plen = path.length() + 10;
-		char* pp = (char*)malloc(plen);
-		sprintf_s(pp, plen, "%s", path.c_str());
-
-		wchar_t* wpp = new wchar_t[plen];
-		memset(wpp,0,plen);
-		::MultiByteToWideChar(  CP_ACP, NULL,pp, -1, wpp,plen );
-
-		
-		int nlen = name.length() + 10;
-		char* nn = (char*)malloc(nlen);
-		sprintf_s(nn, plen, "%s", name.c_str());
-		
-		//fprintf(stderr, "%s   %s\n", pp, nn);
-
-		//HINSTANCE handle = LoadLibraryA(path.c_str());
-		//HINSTANCE handle = LoadLibraryA(pp);
-		
-		//SetErrorMode(SEM_NOGPFAULTERRORBOX);
-		HINSTANCE handle = LoadLibraryEx( wpp, 0, 0);//LOAD_WITH_ALTERED_SEARCH_PATH);
+		HINSTANCE handle = LoadLibraryA(path.c_str());
 
 		if(!handle) //try to fetch it as if it were already loaded (it may be)
 		{
-			set_lib_error(GetLastError(), error);
-			//handle = GetModuleHandleA(path.c_str());
-			handle = GetModuleHandleA(pp);
+			handle = GetModuleHandleA(path.c_str());
 		}
 
 		if(handle)
 		{
-			//func = (T) GetProcAddress(handle,name.c_str());
-			func = (T) GetProcAddress(handle,nn);
+			func = (T) GetProcAddress(handle,name.c_str());
 		}
-
-		free(pp);
-		free(nn);
-		delete [] wpp;
 	}
 	else
 	{
@@ -83,20 +57,21 @@ inline T import_function_e(std::string path, std::string name, std::string& erro
 
 	if(func == 0)
 	{
-		std::string last_err = error;
+		std::string foo;
+		set_lib_error(GetLastError(), foo);
+
 		error = "Failed to load `";
 		error.append(name);
 		error.append("' from `");
 		error.append(path);
 		error.append("'");
-		if(last_err.length())
+		
+		if(foo.length())
 		{
 			error.append(": ");
-			error.append(last_err);
+			error.append(foo);
 		}
 	}
-	else
-		error = "";
 	return func;
 }
 
