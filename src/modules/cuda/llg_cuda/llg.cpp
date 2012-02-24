@@ -308,7 +308,7 @@ LLGCUDA_API int lib_version(lua_State* L)
 
 LLGCUDA_API const char* lib_name(lua_State* L)
 {
-#ifdef NDEBUG 
+#if defined NDEBUG || defined __OPTIMIZE__
 	return "LLG-Cuda";
 #else
 	return "LLG-Cuda-Debug";

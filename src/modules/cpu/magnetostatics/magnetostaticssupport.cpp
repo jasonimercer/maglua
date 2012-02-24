@@ -340,7 +340,7 @@ static void getGAB_range(
 						if(a < b)
 						{
 							crossover.r2 = a;
-							printf("crossover at %g\n", a);
+							//printf("crossover at %g\n", a);
 						}
 						else
 							crossover.r2 = b;

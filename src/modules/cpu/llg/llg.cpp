@@ -333,7 +333,7 @@ LLG_API int lib_version(lua_State* L)
 
 LLG_API const char* lib_name(lua_State* L)
 {
-#ifdef NDEBUG 
+#if defined NDEBUG || defined __OPTIMIZE__
 	return "LLG";
 #else
 	return "LLG-Debug";

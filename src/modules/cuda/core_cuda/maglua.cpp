@@ -46,7 +46,7 @@ CORECUDA_API int lib_version(lua_State* L)
 
 CORECUDA_API const char* lib_name(lua_State* L)
 {
-#ifdef NDEBUG 
+#if defined NDEBUG || defined __OPTIMIZE__
 	return "Core-Cuda";
 #else
 	return "Core-Cuda-Debug";

@@ -21,7 +21,7 @@ OBJECTS=main.o loader.o modules.o
 BIN=maglua
 
 $(BIN): $(OBJECTS) 
-	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group $(LIBS) $(OBJECTS)  -Wl,--end-group
+	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group  $(OBJECTS) $(LIBS) -Wl,--end-group
 
 %.o : %.cpp  %.h info.h Makefile bootstrap.h
 	$(CXX) -fPIC $(INCLUDEPATH) $(CFLAGS) -c $*.cpp -o $*.o 

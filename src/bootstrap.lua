@@ -219,7 +219,7 @@ while keep_trying do
 		if v.result == nil then
 			local t = loadModule(v.path)
 			if t.error then
-				table.inserT(last_error, t.error)
+				table.insert(last_error, t.error)
 			else
 				num_loaded = num_loaded + 1
 				v.result = t

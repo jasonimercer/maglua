@@ -384,7 +384,7 @@ INTERPOLATE_API int lib_version(lua_State* L)
 
 INTERPOLATE_API const char* lib_name(lua_State* L)
 {
-#ifdef NDEBUG 
+#if defined NDEBUG || defined __OPTIMIZE__
 	return "Interpolate";
 #else
 	return "Interpolate-Debug";

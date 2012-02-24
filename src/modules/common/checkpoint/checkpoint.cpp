@@ -193,7 +193,7 @@ CHECKPOINT_API int lib_version(lua_State* L)
 
 CHECKPOINT_API const char* lib_name(lua_State* L)
 {
-#ifdef NDEBUG 
+#if defined NDEBUG || defined __OPTIMIZE__
 	return "CheckPoint";
 #else
 	return "CheckPoint-Debug";
