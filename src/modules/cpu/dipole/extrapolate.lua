@@ -1,37 +1,72 @@
-tol = 1e-8
+tol = 1e-6
 
 -- assuming t is the {x,y} values of something that converges slowly
 -- 
 -- idea is to take log of {x,y}' and see if the resulting points fit
 -- a straight line, if so, extrapolate, else, return false
 function extrapolate(t, mult) --to infinity, mult for flipping y (can only have positive derivs)
-
-	while table.maxn(t) > 6 do
+	while table.maxn(t) > 8 do
 		table.remove(t, 1)
 	end
-	
+
+
+	local constant = true
+	for k,v in pairs(t) do
+		if v[2] ~= t[1][2] then
+			constant = false
+		end
+	end
+	if constant then
+		return t[1][2], true
+	end
+
 	if mult then
 		for k,v in pairs(t) do
 			t[k][2] = mult*v[2]
 		end
 	end
+
 	local N = table.maxn(t)
 	local lastx = t[N][1]
 	local lasty = t[N][2]
-	
-	if lasty == 0 then
-		return 0
+
+	if math.abs(lasty) < 1e-15 then
+		return 0, true
 	end
-	
+
+
+	-- if the difference between the 1st and last 
+	-- is very small then we'll declare it constant
+	local firsty = t[1][2]
+	if math.abs(math.abs(firsty) - math.abs(lasty)) / math.abs(lasty) < 1e-12 then
+		return lasty, true
+	end
+
+
 	local d = deriv(t)
+
 	for k,v in pairs(d) do
-		if v[2] < 0 and mult == nil then 
-			return extrapolate(t, -1)
+		if v[2] < 0 then
+			if mult == nil then 
+				return extrapolate(t, -1)
+			else
+				return 0, false
+			end
 		end
 	end
-	
+
+	--[[
+	f = io.open("data.dat", "w")
+	for k,v in pairs(d) do
+		f:write(v[1] .. "\t" .. v[2] .. "\n")
+	end
+	f:close()
+	--]]
+
 	for k,v in pairs(d) do
 		d[k] = {math.log(v[1]), math.log(v[2])}
+		--d[k] = {v[1], math.log(v[2])}
+		--d[k] = {v[1], v[2]}
 	end
 	
 	local N = table.maxn(d)
@@ -50,7 +85,7 @@ function extrapolate(t, mult) --to infinity, mult for flipping y (can only have 
 	local bu, bs = stats(b)
 	
 	if ms > tol or bs > tol then
-		return false
+		return 0, false
 	end
 	
 	-- we now have a good equation of a line in log-log space for the
@@ -68,6 +103,7 @@ function extrapolate(t, mult) --to infinity, mult for flipping y (can only have 
 	-- an approximation of the value at infinity
 
 	local m, b = m[N-1], b[N-1] -- last pair are best 
+
 	local function f(x)
 		return math.exp(b) * x^(m+1) / (m+1)
 	end
@@ -77,7 +113,8 @@ function extrapolate(t, mult) --to infinity, mult for flipping y (can only have 
 	if mult ~= nil then
 		solution = mult * solution 
 	end
-	return solution
+
+	return solution, true
 end
 
 function stats(t)

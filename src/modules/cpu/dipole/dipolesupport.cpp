@@ -599,7 +599,8 @@ static bool extrapolate(lua_State* L,
 	double sol[6];
 	bool   res[6];
 	bool   ok = true;
-	for(int i=0; i<6; i++)
+
+	for(int i=0; i<6 && ok; i++)
 	{
 		lua_pop(L, lua_gettop(L));
 		lua_getglobal(L, "extrapolate");
@@ -617,33 +618,30 @@ static bool extrapolate(lua_State* L,
 			lua_settable(L, -3); // add {x,y} pair
 		}
 		
-		//int lua_pcall (lua_State *L, int nargs, int nresults, int errfunc);
-
-		if(lua_pcall(L, 1, 1, 0))
+		if(lua_pcall(L, 1, 2, 0))
 		{
-			fprintf(stderr, "%s\n", lua_tostring(L, -1));
+			fprintf(stderr, "ERROR IN HARDCODED EXTRAPOLATE SCRIPT:\n  %s\n", lua_tostring(L, -1));
+			exit(1);
 			fail = true;
 			return false;
 		}
 		
-		int t = lua_type(L, -1);
-		
-		if(t == LUA_TBOOLEAN)
+		int b = lua_toboolean(L, -1);
+		if(b)
 		{
-			res[i] = false;
+			sol[i] = lua_tonumber(L, -2);
 		}
-		if(t == LUA_TNUMBER)
-		{
-			res[i] = true;
-			sol[i] = lua_tonumber(L, -1);
-		}
-		lua_pop(L, 1);
-		ok &= res[i];
+		res[i] = b;
+
+		lua_pop(L, 2);
+
+		ok &= (bool)b;
+		//printf("%i %i\n", i, b);
 	}
 	
-	fail = false;
 	if(ok)
 	{
+		fail = false;
 		vXX.push_back(sol[0]);
 		vXY.push_back(sol[1]);
 		vXZ.push_back(sol[2]);
@@ -696,6 +694,7 @@ void dipoleLoad(
 			for(int j=0; j<ny; j++)
 			for(int i=0; i<nx; i++)
 			{
+				//printf("get %i %i %i\n", i,j,k);
 				fflush(stdout);
 				if(gmax != -1)
 				{
@@ -721,14 +720,14 @@ void dipoleLoad(
 					sXX=0; sXY=0; sXZ=0;
 					sYY=0; sYZ=0; sZZ=0;
 
-					const int lstep = 10;
+					const int lstep = 5; //these are in steps of lattices
 					bool fail = false;
 					int _lmin = 0; //inits of lattices
 					int _lmax = lstep;
 					
 					bool converge = false;
 					int q = 0;
-					int maxiter = 5000;
+					int maxiter = 1000;
 					do
 					{
 						getWAB(ABC, nx,ny,nz, i,j,k, _lmin, _lmax, (int)1e16, &tXX, &tXY, &tXZ, &tYY, &tYZ, &tZZ);
@@ -746,9 +745,8 @@ void dipoleLoad(
 						_lmax += lstep;
 						if(q>=8) //let the system prime itself before trying to extrapolate
 						{
-// 						    converge = true;
-
 						    converge = extrapolate(L, cuttoffs, vXX, vXY, vXZ, vYY, vYZ, vZZ, fail);
+							//q -= 4; //collect more data before trying again
 						}
 						q++;
 						maxiter--;
@@ -788,5 +786,6 @@ void dipoleLoad(
 		}
 	}
 	lua_close(L);
+	printf("done %i %i %i\n", nx, ny, nz);
 }
 

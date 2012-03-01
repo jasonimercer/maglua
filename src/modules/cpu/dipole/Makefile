@@ -9,11 +9,18 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationdipole.o dipolesupport.o
+OBJECTS=spinoperationdipole.o dipolesupport.o extrapolate.o
 LIBNAME=Dipole
 CATEGORY=cpu
+EXTRA_CPU_DEPS=extrapolate.h
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=core encode longrange
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
+
+extrapolate.h: extrapolate.lua $(BASEDIR)/hardcode.lua
+	lua $(BASEDIR)/hardcode.lua extrapolate.lua
+
+extrapolate.cpp: extrapolate.lua
+	touch extrapolate.cpp
