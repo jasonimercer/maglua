@@ -11,7 +11,7 @@
 # When configuring fftw3: 
 # ./configure  --prefix=$HOME --with-pic --enable-shared
 
-CXX=mpic++ -D_MPI
+CXX=mpicxx -D_MPI
 CFLAGS=-ansi -O2 -g
 PKG=lua5.1 fftw3
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
