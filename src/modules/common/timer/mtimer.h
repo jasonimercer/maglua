@@ -1,8 +1,5 @@
-extern "C" {
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-}
+#ifndef MTIMER_DEF
+#define MTIMER_DEF
 
 #ifdef WIN32
  #ifdef TIMER_EXPORTS
@@ -14,18 +11,52 @@ extern "C" {
  #define TIMER_API 
 #endif
 
+#include "encodable.h"
 
 
-TIMER_API typedef struct Timer Timer;
+class TIMER_API Timer : public Encodable
+{
+public:
+	Timer();
+	virtual ~Timer();
+	
+	void fixTime();
+	long get_seconds();
+	long get_nanoseconds();
+	double get_time();
+	void set_time(double t);
+	void reset();
+	void start();
+	void stop();
+	void pause();
 
-TIMER_API void lua_pushtimer(lua_State* L, Timer* t);
-TIMER_API int lua_istimer(lua_State* L, int idx);
-TIMER_API Timer* lua_totimer(lua_State* L, int idx);
-TIMER_API void registertimer(lua_State* L);
 
-TIMER_API struct Timer* new_timer();
-TIMER_API void free_timer(struct Timer* t);
-TIMER_API void reset_timer(struct Timer* t);
-TIMER_API void start_timer(struct Timer* t);
-TIMER_API void stop_timer(struct Timer* t);
-TIMER_API double get_time(struct Timer* t);
+	void encode(buffer* b);
+	int decode(buffer* b);
+	
+	
+	
+#ifdef WIN32
+	clock_t  t0;
+	clock_t  t1;
+#else
+#ifndef MACOSX
+	struct timespec* t0; /* start time */
+	struct timespec* t1; /* end time */
+#else
+	struct timeval* t0; /* gettimeofday data */
+	struct timeval* t1;
+#endif
+#endif
+
+
+#ifdef WIN32
+	double seconds;
+#else
+	long seconds;
+#endif
+	long nanoseconds;
+	int paused;
+	int refcount;
+};
+#endif

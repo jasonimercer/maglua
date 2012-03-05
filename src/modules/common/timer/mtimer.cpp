@@ -1,42 +1,15 @@
 /* Jason Mercer's Custom Timer Routines. Compile with -lm */
+#include "mtimer.h"
+
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
 #include "info.h"
-#include "mtimer.h"
 
 // in the Win32 version we'll store all the time in a single double: seconds
 #ifdef WIN32
  #include <windows.h>
 #endif 
-
-#ifndef MTIMER_STRUCT
-#define MTIMER_STRUCT
-typedef struct Timer
-{
-#ifdef WIN32
-	clock_t  t0;
-	clock_t  t1;
-#else
-#ifndef MACOSX
-	struct timespec* t0; /* start time */
-	struct timespec* t1; /* end time */
-#else
-	struct timeval* t0; /* gettimeofday data */
-	struct timeval* t1;
-#endif
-#endif
-
-#ifdef WIN32
-	double seconds;
-#else
-	long seconds;
-#endif
-	long nanoseconds;
-	int paused;
-	int refcount;
-} Timer;
-#endif
 
 #ifdef CLOCK_THREAD_CPU_TIME
 #define CLOCKTYPE CLOCK_THREAD_CPU_TIME
@@ -47,136 +20,178 @@ typedef struct Timer
 #ifndef NANOSEC_PER_SEC
 #  define NANOSEC_PER_SEC 1000000000
 #endif
-struct Timer* new_timer()
-{
-	Timer* t = (Timer*)malloc(sizeof(Timer));
 
+
+Timer::Timer()
+	: Encodable(hash32("Timer"))
+{
 #ifdef WIN32
 	//not using structures
 #else
 #ifndef MACOSX
-	t->t0 = (struct timespec*)malloc(sizeof(struct timespec));
-	t->t1 = (struct timespec*)malloc(sizeof(struct timespec));
+	t0 = (struct timespec*)malloc(sizeof(struct timespec));
+	t1 = (struct timespec*)malloc(sizeof(struct timespec));
 #else
-	t->t0 = (struct timeval*)malloc(sizeof(struct timeval));
-	t->t1 = (struct timeval*)malloc(sizeof(struct timeval));
+	t0 = (struct timeval*)malloc(sizeof(struct timeval));
+	t1 = (struct timeval*)malloc(sizeof(struct timeval));
 #endif
 #endif
-	t->seconds = 0;
-	t->nanoseconds = 0;
-	t->paused = 1;
-	t->refcount = 0;
-	return t;
+	seconds = 0;
+	nanoseconds = 0;
+	paused = 1;
+	refcount = 0;
 }
 
 
-void free_timer(struct Timer* t)
+Timer::~Timer()
 {
 #ifndef WIN32
-	free(t->t0);
-	free(t->t1);
+	free(t0);
+	free(t1);
 #endif
-	free(t);
 }
 
-static void fixTime(struct Timer* t)
+
+void Timer::encode(buffer* b)
+{
+	int running = !paused;
+	
+	if(running)
+		stop();
+
+	double t = get_time();
+
+	if(running)
+		start();
+	
+	encodeInteger(running, b);
+	encodeDouble(t, b);
+}
+
+int Timer::decode(buffer* b)
+{
+	stop();
+	reset();
+	
+	int running = decodeInteger(b);
+	double t = decodeDouble(b);
+	
+	set_time(t);
+	if(running)
+		start();
+}
+	
+
+void Timer::fixTime()
 {
 #ifndef WIN32
-	while(t->nanoseconds < 0)
+	while(nanoseconds < 0)
 	{
-		t->nanoseconds+=NANOSEC_PER_SEC;
-		t->seconds--;
+		nanoseconds+=NANOSEC_PER_SEC;
+		seconds--;
 	}
 	
-	while(t->nanoseconds > NANOSEC_PER_SEC)
+	while(nanoseconds > NANOSEC_PER_SEC)
 	{
-		t->nanoseconds-=NANOSEC_PER_SEC;
-		t->seconds++;
+		nanoseconds-=NANOSEC_PER_SEC;
+		seconds++;
 	}
 #endif
 }
 
-static long get_seconds(struct Timer* t)
+long Timer::get_seconds()
 {
-	fixTime(t);
+	fixTime();
 #ifdef WIN32
-	return (long) floor(t->seconds);
+	return (long) floor(seconds);
 #else
-	return t->seconds;
+	return seconds;
 #endif
 }
 
-static long get_nanoseconds(struct Timer* t)
+long Timer::get_nanoseconds()
 {
-	fixTime(t);
-	return t->nanoseconds;
+	fixTime();
+	return nanoseconds;
 }
 
-double get_time(struct Timer* t)
+double Timer::get_time()
 {
-	fixTime(t);
+	fixTime();
 #ifdef WIN32
-	return t->seconds;
+	return seconds;
 #else
-	return (double)(t->seconds) + (double)(t->nanoseconds)/((double)NANOSEC_PER_SEC);
+	return (double)(seconds) + (double)(nanoseconds)/((double)NANOSEC_PER_SEC);
 #endif
 }
 
-void reset_timer(struct Timer* t)
-{
-	t->seconds = 0;
-	t->nanoseconds = 0;
-	t->paused = 1;
-}
-
-void start_timer(struct Timer* t)
+void Timer::set_time(double t)
 {
 #ifdef WIN32
-	t->t0 = clock();
+	seconds = t;
+	nanoseconds = 0;
+#else
+	seconds = floor(t);
+	nanoseconds = (t - floor(t)) * NANOSEC_PER_SEC;
+#endif
+}
+
+
+void Timer::reset()
+{
+	seconds = 0;
+	nanoseconds = 0;
+	paused = 1;
+}
+
+void Timer::start()
+{
+#ifdef WIN32
+	t0 = clock();
 #else
 #ifndef MACOSX
-	clock_gettime(CLOCKTYPE, (struct timespec*)t->t0);
+	clock_gettime(CLOCKTYPE, (struct timespec*)t0);
 #else
-	gettimeofday((struct timeval *)t->t0, NULL);
+	gettimeofday((struct timeval *)t0, NULL);
 #endif
 #endif
-	t->paused = 0;  
+	paused = 0;  
 }
 
-void stop_timer(struct Timer* t)
+void Timer::stop()
 {
 #ifdef WIN32
-	t->t1 = clock();
+	t1 = clock();
 #else
 #ifndef MACOSX
-	clock_gettime(CLOCKTYPE, (struct timespec*)t->t1);
+	clock_gettime(CLOCKTYPE, (struct timespec*)t1);
 #else
-	gettimeofday( (struct timeval *)t->t1, NULL);
+	gettimeofday( (struct timeval *)t1, NULL);
 #endif
 #endif
 
 #ifdef WIN32
-	t->seconds += (double)(t->t1 - t->t0) / CLOCKS_PER_SEC;
+	seconds += (double)(t1 - t0) / CLOCKS_PER_SEC;
 #else
 #ifndef MACOSX
-	t->seconds += (t->t1->tv_sec) - (t->t0->tv_sec);
-	t->nanoseconds += (t->t1->tv_nsec) - (t->t0->tv_nsec);
+	seconds += (t1->tv_sec) - (t0->tv_sec);
+	nanoseconds += (t1->tv_nsec) - (t0->tv_nsec);
 #else //macosx
-	t->seconds += (t->t1->tv_sec) - (t->t0->tv_sec);
-	t->nanoseconds += (t->t1->tv_usec*1000) - (t->t0->tv_usec*1000);
+	seconds += (t1->tv_sec) - (t0->tv_sec);
+	nanoseconds += (t1->tv_usec*1000) - (t0->tv_usec*1000);
 #endif
 #endif
-	t->paused = 1;
+	paused = 1;
 
-	fixTime(t);
+	fixTime();
 }
 
-static void pause_timer(struct Timer* t)
+void Timer::pause()
 {
-	if(t->paused)
-		start_timer(t);
+	if(paused)
+		start();
 	else
-		stop_timer(t);
+		stop();
 }
 
 
@@ -187,7 +202,7 @@ static void pause_timer(struct Timer* t)
 
 
 
-TIMER_API int lua_istimer(lua_State* L, int idx)
+int lua_istimer(lua_State* L, int idx)
 {
 	if(!lua_isuserdata(L, idx))
 			return 0;
@@ -198,7 +213,7 @@ TIMER_API int lua_istimer(lua_State* L, int idx)
 	return eq;
 }
 
-TIMER_API Timer* lua_totimer(lua_State* L, int idx)
+Timer* lua_totimer(lua_State* L, int idx)
 {
 	if(!lua_istimer(L, idx))
 		return 0;
@@ -212,19 +227,22 @@ TIMER_API Timer* lua_totimer(lua_State* L, int idx)
 	return *pp;
 }
 
-TIMER_API void lua_pushtimer(lua_State* L, Timer* timer)
+void lua_pushtimer(lua_State* L, Encodable* _t)
 {
-	timer->refcount++;
+	Timer* t = dynamic_cast<Timer*>(_t);
+	if(!t) return;
+	t->refcount++;
+	
 	Timer** pp = (Timer**)lua_newuserdata(L, sizeof(Timer**));
 	
-	*pp = timer;
+	*pp = t;
 	luaL_getmetatable(L, "MERCER.timer");
 	lua_setmetatable(L, -2);
 }
 
 static int l_new(lua_State* L)
 {
-	lua_pushtimer(L, new_timer());
+	lua_pushtimer(L, new Timer());
 	return 1;
 }
 
@@ -235,7 +253,7 @@ static int l_gc(lua_State* L)
 
 	timer->refcount--;
 	if(timer->refcount == 0)
-		free_timer(timer);
+		delete timer;
 	
 	return 0;
 }
@@ -254,7 +272,7 @@ static int l_reset(lua_State* L)
 	Timer* timer = lua_totimer(L, 1);
 	if(!timer) return 0;
 	
-	reset_timer(timer);
+	timer->reset();
 	return 0;
 }
 
@@ -264,7 +282,7 @@ static int l_start(lua_State* L)
 	Timer* timer = lua_totimer(L, 1);
 	if(!timer) return 0;
 	
-	start_timer(timer);
+	timer->start();
 	return 0;
 }
 
@@ -273,7 +291,8 @@ static int l_pause(lua_State* L)
 	Timer* timer = lua_totimer(L, 1);
 	if(!timer) return 0;
 	
-	pause_timer(timer);
+	timer->pause();
+	
 	return 0;
 }
 
@@ -282,7 +301,8 @@ static int l_stop(lua_State* L)
 	Timer* timer = lua_totimer(L, 1);
 	if(!timer) return 0;
 	
-	stop_timer(timer);
+	timer->stop();
+	
 	return 0;
 }
 
@@ -291,7 +311,7 @@ static int l_getsec(lua_State* L)
 	Timer* timer = lua_totimer(L, 1);
 	if(!timer) return 0;
 	
-	lua_pushinteger(L, get_seconds(timer));
+	lua_pushinteger(L, timer->get_seconds());
 	return 1;
 }
 static int l_getnano(lua_State* L)
@@ -299,7 +319,7 @@ static int l_getnano(lua_State* L)
 	Timer* timer = lua_totimer(L, 1);
 	if(!timer) return 0;
 	
-	lua_pushinteger(L, get_nanoseconds(timer));
+	lua_pushinteger(L, timer->get_nanoseconds());
 	return 1;
 }
 static int l_get(lua_State* L)
@@ -307,7 +327,7 @@ static int l_get(lua_State* L)
 	Timer* timer = lua_totimer(L, 1);
 	if(!timer) return 0;
 	
-	lua_pushnumber(L, get_time(timer));
+	lua_pushnumber(L, timer->get_time());
 	return 1;
 }
 
@@ -395,6 +415,10 @@ static int l_help(lua_State* L)
 	return 0;
 }
 
+static Encodable* newThing()
+{
+	return new Timer;
+}
 
 void registerTimer(lua_State* L)
 {
@@ -427,6 +451,8 @@ void registerTimer(lua_State* L)
 		
 	luaL_register(L, "Timer", functions);
 	lua_pop(L,1);	
+
+	Factory_registerItem(hash32("Timer"), newThing, lua_pushtimer, "Timer");
 }
 
 

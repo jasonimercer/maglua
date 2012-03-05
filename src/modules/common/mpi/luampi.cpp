@@ -134,6 +134,21 @@ static MPI_Comm get_comm(lua_State* L)
 }
 
 template<int base>
+static int l_mpi_comm_split(lua_State* L)
+{
+	MPI_Comm old = get_comm<base>(L);
+
+	int colour = lua_tointeger(L, base+1);
+	
+	MPI_Comm new_comm;
+	MPI_Comm_split(old, colour, 0, &new_comm);
+	lua_pushMPI_Comm(L, new mpi_comm_lua(new_comm));
+
+    return 1;
+}
+TFAW(l_mpi_comm_split)
+
+template<int base>
 static int l_cart_create(lua_State* L)
 {
 	MPI_Comm old = get_comm<base>(L);
@@ -188,6 +203,7 @@ static int l_mpi_get_processor_name(lua_State* L)
 	return 1;
 }
 
+
 template<int base>
 static int l_mpi_get_size(lua_State* L)
 {
@@ -208,38 +224,6 @@ static int l_mpi_get_rank(lua_State* L)
 TFAW(l_mpi_get_rank)
 
 
-#if 0
-template<int base>
-static int l_mpi_next_rank(lua_State* L)
-{
-	int r;
-	if(lua_isnumber(L, 1))
-		r = lua_tointeger(L, 1);
-	else
-		r = mpi_rank();
-
-	const int s = mpi_size(comm);
-		
-	lua_pushinteger(L, ((r+1)%s)+1);
-	return 1;
-}
-
-template<int base>
-static int l_mpi_prev_rank(lua_State* L)
-{
-	int r;
-	if(lua_isnumber(L, 1))
-		r = lua_tointeger(L, 1);
-	else
-		r = mpi_rank();
-
-	const int s = mpi_size(comm);
-		
-	lua_pushinteger(L, ((r-1+s)%s)+1);
-	return 1;
-}
-#endif
-	
 template<int base>
 static int l_mpi_barrier(lua_State* L)
 {
@@ -248,6 +232,7 @@ static int l_mpi_barrier(lua_State* L)
 	return 0;
 }
 TFAW(l_mpi_barrier)
+
 
 template<int base>
 static int l_mpi_send(lua_State* L)
@@ -275,6 +260,7 @@ static int l_mpi_send(lua_State* L)
 	return 0;
 }
 TFAW(l_mpi_send)
+
 
 template<int base>
 static int l_mpi_recv(lua_State* L)
@@ -313,205 +299,6 @@ static int l_mpi_recv(lua_State* L)
 }
 TFAW(l_mpi_recv)
 
-#if 0
-static int l_mpi_gather(lua_State* L)
-{
-	int root = lua_tointeger(L, 1) - 1; //lua is base 1
-	int n = mpi_size(comm);
-
-	char* buf = 0;
-	int bufsize = 0;
-	
-	int reqBufSize;
-	MPI_Status stat;
-	
-	if(mpi_rank() == root)
-	{
-		lua_newtable(L); //the return table
-		for(int i=0; i<n; i++)
-		{
-			if(i == root)
-			{
-				if(!lua_istable(L, -2))
-					return luaL_error(L, "Gather data from %d was not a table", i+1);
-				lua_pushvalue(L, -2); //push a copy of the input
-			}
-			else
-			{
-				MPI_Recv(&reqBufSize, 1, MPI_INT, i, BUFSIZE_TAG+i+GATHER_STEP, MPI_COMM_WORLD, &stat);
-				if(reqBufSize > bufsize)
-				{
-					buf = (char*)realloc(buf, reqBufSize);
-					bufsize = reqBufSize;
-				}
-		
-				MPI_Recv(buf, reqBufSize, MPI_CHAR, i, LUAVAR_TAG+i+GATHER_STEP, MPI_COMM_WORLD, &stat);
-				importLuaVariable(L, buf, reqBufSize);
-				if(!lua_istable(L, -1))
-					return luaL_error(L, "Gather data from %d was not a table", i+1);
-			}
-
-			//add table values to return table
-			lua_pushnil(L);
-			while(lua_next(L, -2) != 0)
-			{
-				lua_pushvalue(L, -2); //copy key and value
-				lua_pushvalue(L, -2);
-
-				lua_settable(L, -6); //reach past copy, orig, sourcetable
-
-				lua_pop(L, 1); //pop original value
-			}
-			lua_pop( L, 1 ); //pop nil
-		}
-	}
-	else
-	{
-		if(!lua_istable(L, -1))
-			return luaL_error(L, "sent item in gather must be a table");
-					
-		int size;	
-		char* buf = exportLuaVariable(L, -1, &size);
-		
-		MPI_Send(&size, 1, MPI_INT, root, BUFSIZE_TAG+mpi_rank()+GATHER_STEP, MPI_COMM_WORLD);
-		MPI_Send(buf, size, MPI_CHAR, root, LUAVAR_TAG+mpi_rank()+GATHER_STEP, MPI_COMM_WORLD);
-		free(buf);
-
-		//returning local slice
-	}
-
-	return 1;
-}
-#endif
-
-#if 0
-typedef struct mpi_req //non-blocking io
-{
-	char* data;
-	MPI_Request request;
-	int freedata;
-	int refcount;
-	int inuse;
-} mpi_req;
-
-mpi_req* checkRequest(lua_State* L, int idx)
-{
-    mpi_req** p = (mpi_req**)luaL_checkudata(L, idx, "MPI.request");
-    luaL_argcheck(L, p != NULL, 1, "`MPI_Request' expected");
-    return *p;
-}
-
-int l_mpi_newrequest(lua_State* L)
-{
-	mpi_req* io = new mpi_req;
-	io->refcount = 1;
-	io->data = 0;
-	io->freedata = 0;
-	io->inuse = 0;
-
-	mpi_req** pp = (mpi_req**)lua_newuserdata(L, sizeof(mpi_req**));
-
-    *pp = io;
-    luaL_getmetatable(L, "MPI.request");
-    lua_setmetatable(L, -2);
-    return 1;
-}
-
-
-int l_mpirequest_tostring(lua_State* L)
-{
-	mpi_req* io = checkRequest(L, 1);
-	if(!io) return 0;
-
-	/*
-	if(io->inuse)
-	{
-		MPI_Status status;
-		int flag;
-		MPI_Test(&(io->request), &flag, &status);
-		lua_pushboolean(L, flag);
-	}
-	*/
-	lua_pushstring(L, "MPI_Request");
-	return 1;
-}
-
-int l_mpi_isend(lua_State* L)
-{
-	int dest = lua_tointeger(L, 1) - 1; //lua is base 1
-
-	mpi_req* io = checkRequest(L, -1);
-
-	if(!io)
-		return luaL_error(L, "Last argument of isend must be an MPI_Request");
-
-	if(dest < 0 || dest >= mpi_size(comm))
-		return luaL_error(L, "Send destination (%d) is out of range.", dest+1); 
-	
-	int n = lua_gettop(L) - 1;
-	int size;
-	char* buf;
-	
-	MPI_Send(&n, 1, MPI_INT, dest, NUMLUAVAR_TAG, MPI_COMM_WORLD);
-	
-	for(int i=0; i<n; i++)
-	{
-		buf = exportLuaVariable(L, i+2, &size);
-		
-		MPI_Send(&size, 1, MPI_INT, dest, BUFSIZE_TAG+i, MPI_COMM_WORLD);
-		MPI_Send(buf, size, MPI_CHAR, dest, LUAVAR_TAG+i, MPI_COMM_WORLD);
-		free(buf);
-	}
-	
-}
-
-int l_mpi_irecv(lua_State* L)
-{
-	return 0;
-}
-#endif
-
-#if 0
-static int pos_val(lua_State* L, int neg)
-{
-	// -1 = n
-	// -2 = n-1
-	// -3 = n-2
-	return lua_gettop(L) + neg + 1;
-}
-
-static int merge_data(lua_State* L, int dest, int src)
-{
-	lua_pushnil(L);
-
-	while(lua_next(L, src))
-	{
-		if(lua_istable(L, -1))
-		{
-			lua_pushvalue(L, -2);
-			lua_gettable(L, dest); //get value at dest[key]
-
-			if(lua_isnil(L, -1))
-			{
-				lua_pop(L, 1);
-				lua_newtable(L);
-			}
-
-			merge_data(L, pos_val(L, -1), pos_val(L, -2));
-			lua_pushvalue(L, -3); //repush key
-			lua_insert(L, -2); //push key under dest_val
-			lua_settable(L, dest);
-		}
-		else
-		{
-			lua_pushvalue(L, -2); //copy key, value
-			lua_pushvalue(L, -2);
-			lua_settable(L, dest);
-		}
-		lua_pop(L, 1);
-	}
-}
-#endif
 
 template<int base>
 int l_mpi_gather(lua_State* L)
@@ -617,65 +404,18 @@ int l_mpi_bcast(lua_State* L)
 
 	MPI_Bcast(buf, size, MPI_CHAR, root, comm);
 
-	importLuaVariable(L, buf, size);
-
+	if(root == r)
+	{
+		lua_pushvalue(L, base+2);
+	}
+	else
+	{
+		importLuaVariable(L, buf, size);
+	}
 	free(buf);
 	return 1;
 }
 TFAW(l_mpi_bcast)
-
-
-
-#if 0
-int l_mpi_all2all(lua_State* L)
-{
-	int s = mpi_size(comm);
-	int n = lua_gettop(L);
-
-	char* buf;
-	int size;
-
-	int* remote_sizes = new int [s];
-	buf = exportLuaVariable(L, 1, &size);
-
-	lua_pop(L, n); //clear stack
-
-	MPI_Alltoall(&size, 1, MPI_INT, remote_sizes, 1, MPI_INT, comm);
-
-	int max_chunk_size = 0;
-	for(int i=0; i<s; i++)
-	{
-		if(remote_sizes[i] > max_chunk_size)
-			max_chunk_size = remote_sizes[i];
-	}
-
-	char*  b = new char[max_chunk_size];
-	char* tb = new char[max_chunk_size * s];
-
-	memcpy(b, buf, size);
-
-	MPI_Alltoall(buf, max_chunk_size, MPI_CHAR, tb, 1, MPI_CHAR, comm);
-
-	// now we have all the individual data in remote_bufs[], need to union them
-	// lets start with an empty table
-
-	lua_newtable(L);
-	for(int i=0; i<s; i++)
-	{
-		importLuaVariable(L, tb + i*s, remote_sizes[i]);
-		
-		merge_data(L, 1, 2);
-		lua_pop(L, 1);
-	}
-
-	free(buf);
-	delete [] b;
-	delete [] tb;
-	delete [] remote_sizes;
-
-	return 1;
-}
-#endif
 
 static int l_mpi_help(lua_State* L)
 {
@@ -741,33 +481,6 @@ static int l_mpi_help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
-	
-#if 0
-	if(func == l_mpi_next_rank)
-	{
-		lua_pushstring(L, "Return the rank of the next process with periodic bounds.");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 Number: Next rank");
-		return 3;
-	}
-	if(func == l_mpi_prev_rank)
-	{
-		lua_pushstring(L, "Return the rank of the previous process with periodic bounds.");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 Number: Previous rank");
-		return 3;
-	}
-#endif
-#if 0
-
-	if(func == l_mpi_all2all)
-	{
-		lua_pushstring(L, "Return the rank of the previous process with periodic bounds.");
-		lua_pushstring(L, "1 Table: Local table to share"); 
-		lua_pushstring(L, "1 Table: Union of all other tables");
-		return 3;
-	}
-#endif
 
 	if(func == TFA(l_mpi_gather,0) || func == TFA(l_mpi_gather,1))
 	{
@@ -792,29 +505,15 @@ static int l_mpi_help(lua_State* L)
 		lua_pushstring(L, "1 MPI_Comm: Optimized for cartesian communication");
 		return 3;
 	}
-#if 0
-	if(func == l_mpi_newrequest)
+	
+	if(func == TFA(l_mpi_comm_split,0) || func == TFA(l_mpi_comm_split,1))
 	{
-		lua_pushstring(L, "");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "");
+		lua_pushstring(L, "Split a workgroup into sub groups by common colours.");
+		lua_pushstring(L, "1 Integer: The colour for the MPI_Comm_split function. Processes with common colours will be put into common sub-workgroups."); 
+		lua_pushstring(L, "1 MPI_Comm: Sub-Workgroup");
 		return 3;
 	}
-	if(func == l_mpi_isend)
-	{
-		lua_pushstring(L, "");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "");
-		return 3;
-	}
-	if(func == l_mpi_irecv)
-	{
-		lua_pushstring(L, "");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "");
-		return 3;
-	}
-#endif
+
 	return 0;
 }
 
@@ -850,7 +549,7 @@ void registerMPI(lua_State* L)
     lua_pushstring(L, "__index");
     lua_pushvalue(L, -2);  /* pushes the metatable */
     lua_settable(L, -3);  /* metatable.__index = metatable */
-	add("get_size",           TFA(l_mpi_get_size,1)  );
+	add("get_size",           TFA(l_mpi_get_size,1)   );
 	add("get_rank",           TFA(l_mpi_get_rank,1)   );
 	add("send",               TFA(l_mpi_send,1)       );
 	add("recv",               TFA(l_mpi_recv,1)       );
@@ -858,6 +557,7 @@ void registerMPI(lua_State* L)
 	add("gather",             TFA(l_mpi_gather,1)     );
 	add("bcast",              TFA(l_mpi_bcast,1)      );
 	add("cart_create",        TFA(l_cart_create,1)    );
+	add("comm_split",         TFA(l_mpi_comm_split,1) );
 	add("__gc",               l_MPI_Comm_gc       );
 	add("__tostring",         l_MPI_Comm_tostring );
 	lua_pop(L,1); //metatable is registered
@@ -873,6 +573,7 @@ void registerMPI(lua_State* L)
 	add("gather",             TFA(l_mpi_gather,0)            );
 	add("bcast",              TFA(l_mpi_bcast,0)             );
 	add("cart_create",        TFA(l_cart_create,0)           );
+	add("comm_split",         TFA(l_mpi_comm_split,0)        );
 // 	add("new_request",        l_mpi_newrequest        );
 // 	add("isend",              l_mpi_isend             );
 // 	add("irecv",              l_mpi_irecv             );
