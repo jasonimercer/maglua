@@ -14,6 +14,9 @@
 #include "spinsystem.h"
 #include "magnetostaticssupport.h"
 #include "info.h"
+#ifndef WIN32
+#include <strings.h>
+#endif
 
 #include <stdlib.h>
 #include <math.h>
@@ -236,6 +239,83 @@ static int l_mag_gettrunc(lua_State* L)
 	return 1;
 }
 
+static int l_setmatrix(lua_State* L)
+{
+	Magnetostatic* p = checkMagnetostatic(L, 1);
+	if(!p) return 0;
+	const char* badname = "1st argument must be matrix name: XX, XY, XZ, YY, YZ or ZZ";
+	
+	if(!lua_isstring(L, 2))
+	    return luaL_error(L, badname);
+
+	const char* type = lua_tostring(L, 2);
+
+	const char* names[6] = {"XX", "XY", "XZ", "YY", "YZ", "ZZ"};
+	int mat = -1;
+	for(int i=0; i<6; i++)
+	{
+	    if(strcasecmp(type, names[i]) == 0)
+	    {
+		mat = i;
+	    }
+	}
+
+	if(mat < 0)
+	    return luaL_error(L, badname);
+
+
+	int offset[3];
+
+	int r1 = lua_getNint(L, 3, offset, 3, 0);
+        if(r1<0)
+	    return luaL_error(L, "invalid offset");
+
+	double val = lua_tonumber(L, 3+r1);
+
+	// not altering zero base here:
+	p->setAB(mat, offset[0], offset[1], offset[2], val);
+
+	return 0;
+}
+
+static int l_getmatrix(lua_State* L)
+{
+	Magnetostatic* p = checkMagnetostatic(L, 1);
+	if(!p) return 0;
+	const char* badname = "1st argument must be matrix name: XX, XY, XZ, YY, YZ or ZZ";
+	
+	if(!lua_isstring(L, 2))
+	    return luaL_error(L, badname);
+
+	const char* type = lua_tostring(L, 2);
+
+	const char* names[6] = {"XX", "XY", "XZ", "YY", "YZ", "ZZ"};
+	int mat = -1;
+	for(int i=0; i<6; i++)
+	{
+	    if(strcasecmp(type, names[i]) == 0)
+	    {
+			mat = i;
+	    }
+	}
+
+	if(mat < 0)
+	    return luaL_error(L, badname);
+
+	int offset[3];
+
+	int r1 = lua_getNint(L, 3, offset, 3, 0);
+        if(r1<0)
+	    return luaL_error(L, "invalid offset");
+
+	// not altering zero base here:
+	double val = p->getAB(mat, offset[0], offset[1], offset[2]);
+	lua_pushnumber(L, val);
+	return 1;
+}
+
+
+
 static int l_mag_tostring(lua_State* L)
 {
 	Magnetostatic* mag = checkMagnetostatic(L, 1);
@@ -413,6 +493,24 @@ static int l_mag_help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_getmatrix)
+	{
+		lua_pushstring(L, "Get an element of an interaction matrix");
+		lua_pushstring(L, "1 string, 1 *3Vector*: The string indicates which AB matrix to access. Can be XX, XY, XZ, YY, YZ or ZZ. The *3Vector* indexes into the matrix. Note: indexes are zero-based and are interpreted as offsets.");
+		lua_pushstring(L, "1 number: The fetched value.");
+		return 3;
+	}
+
+	if(func == l_setmatrix)
+	{
+		lua_pushstring(L, "Set an element of an interaction matrix");
+		lua_pushstring(L, "1 string, 1 *3Vector*, 1 number: The string indicates which AB matrix to access. Can be XX, XY, XZ, YY, YZ or ZZ. The *3Vector* indexes into the matrix. The number is the value that is set at the index. Note: indexes are zero-based and are interpreted as offsets.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	
+	
 	return 0;
 }
 
@@ -442,6 +540,9 @@ void registerMagnetostatic(lua_State* L)
 		
 		{"setCrossoverTolerance", l_mag_setcrossover},
 		{"crossoverTolerance", l_mag_setcrossover},
+
+		{"getMatrix",    l_getmatrix},
+		{"setMatrix",    l_setmatrix},
 		{NULL, NULL}
 	};
 		
