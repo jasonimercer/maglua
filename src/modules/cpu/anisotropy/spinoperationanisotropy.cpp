@@ -42,6 +42,23 @@ void Anisotropy::deinit()
 	ops = 0;
 }
 
+bool Anisotropy::getAnisotropy(int site, double& nx, double& ny, double& nz, double& K)
+{
+	for(int i=0; i<num; i++)
+	{
+		if(ops[i].site == site)
+		{
+			nx = ops[i].axis[0];
+			ny = ops[i].axis[1];
+			nz = ops[i].axis[2];
+			K = ops[i].strength;
+			return true;
+		}
+	}
+	return false;
+}
+
+
 void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double K)
 {
 	if(num == size)
@@ -215,6 +232,44 @@ int l_ani_member(lua_State* L)
 	return 1;
 }
 
+static int l_ani_get(lua_State* L)
+{
+	Anisotropy* ani = checkAnisotropy(L, 1);
+	if(!ani) return 0;
+
+	double nx, ny, nz, K;
+
+	int p[3];
+	int r1 = lua_getNint(L, 3, p, 2, 1);
+
+	if(r1<0)
+		return luaL_error(L, "invalid site format");
+	
+	if(!ani->member(p[0]-1, p[1]-1, p[2]-1))
+		return luaL_error(L, "site is not part of system");
+
+	int idx = ani->getidx(p[0]-1, p[1]-1, p[2]-1);
+	
+
+	if(!ani->getAnisotropy(idx, nx, ny, nz, K))
+	{
+		lua_pushnumber(L, 1);
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+	}
+	else
+	{
+		lua_pushnumber(L, nx);
+		lua_pushnumber(L, ny);
+		lua_pushnumber(L, nz);
+		lua_pushnumber(L, K);
+	}
+	return 4;
+}
+
+
+
 int l_ani_add(lua_State* L)
 {
 	Anisotropy* ani = checkAnisotropy(L, 1);
@@ -337,6 +392,14 @@ static int l_ani_help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_ani_get)
+	{
+		lua_pushstring(L, "Fetch the anisotropy direction and magnitude at a given site.");
+		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines a lattice site.");
+		lua_pushstring(L, "4 Numbers: The first 3 numbers define the normal axis, the 4th number is the magnitude.");
+		return 3;
+	}
+	
 	if(func == l_ani_member)
 	{
 		lua_pushstring(L, "Determine if a lattice site is a member of the Operation.");
@@ -361,6 +424,7 @@ void registerAnisotropy(lua_State* L)
 		{"apply",        l_ani_apply},
 		//{"setSite",      l_ani_set},
 		{"add",          l_ani_add},
+		{"get",          l_ani_get},
 		{"member",       l_ani_member},
 		{NULL, NULL}
 	};

@@ -38,6 +38,7 @@ public:
 	bool apply(SpinSystem* ss);
 	bool applyToSum(SpinSystem* ss);
 	void addAnisotropy(int site, double nx, double ny, double nz, double K);
+    bool getAnisotropy(int site, double& nx, double& ny, double& nz, double& K);
 	
 	double* d_nx;
 	double* d_ny;

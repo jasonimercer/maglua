@@ -37,6 +37,8 @@ public:
 	
 	bool apply(SpinSystem* ss);
 	void addAnisotropy(int site, double nx, double ny, double nz, double K);
+
+	bool getAnisotropy(int site, double& nx, double& ny, double& nz, double& K);
 	
 	typedef struct ani
 	{
