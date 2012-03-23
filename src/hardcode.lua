@@ -23,6 +23,9 @@ until c == nil
 
 f:close()
 
+f = io.open(base .. ".cpp", "w")
+f:close()
+
 f = io.open(base .. ".h", "w")
 
 N = table.maxn(bytes)

@@ -13,7 +13,6 @@
 
 #include "encodable.h"
 
-
 class TIMER_API Timer : public Encodable
 {
 public:
@@ -37,8 +36,8 @@ public:
 	
 	
 #ifdef WIN32
-	clock_t  t0;
-	clock_t  t1;
+	long t0;
+	long t1;
 #else
 #ifndef MACOSX
 	struct timespec* t0; /* start time */

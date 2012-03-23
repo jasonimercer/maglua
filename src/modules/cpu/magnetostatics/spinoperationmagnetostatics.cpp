@@ -14,12 +14,21 @@
 #include "spinsystem.h"
 #include "magnetostaticssupport.h"
 #include "info.h"
+#include "encodable.h"
 #ifndef WIN32
 #include <strings.h>
 #endif
 
 #include <stdlib.h>
 #include <math.h>
+
+#if defined NDEBUG || defined __OPTIMIZE__
+#define DDD
+#else
+#define DDD printf("(%s:%i)\n", __FILE__, __LINE__);
+#endif
+
+
 
 Magnetostatic::Magnetostatic(int nx, int ny, int nz)
 	: LongRange("Magnetostatic", DIPOLE_SLOT, nx, ny, nz, ENCODE_MAGNETOSTATIC)
@@ -120,7 +129,9 @@ int l_mag_new(lua_State* L)
 	int n[3];
 	lua_getnewargs(L, n, 1);
 
+//	DDD
 	lua_pushMagnetostatic(L, new Magnetostatic(n[0], n[1], n[2]));
+//	DDD
 	return 1;
 }
 

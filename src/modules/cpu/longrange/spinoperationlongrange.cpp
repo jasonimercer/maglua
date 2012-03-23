@@ -17,6 +17,12 @@
 #include <stdlib.h>
 #include <math.h>
 
+#if defined NDEBUG || defined __OPTIMIZE__
+#define DDD
+#else
+#define DDD printf("(%s:%i)\n", __FILE__, __LINE__);
+#endif
+
 LongRange::LongRange(std::string Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
 	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
 {
@@ -356,23 +362,23 @@ void LongRange::collectIForces(SpinSystem* ss)
 	}
 }
 
-	
+
 bool LongRange::apply(SpinSystem* ss)
 {
-	// printf("(%s:%i)\n", __FILE__, __LINE__);
+//	DDD
 	markSlotUsed(ss);
 
-	// printf("(%s:%i)\n", __FILE__, __LINE__);
+//	DDD
 	if(newdata)
 		getMatrices();
 	
-	// printf("(%s:%i)\n", __FILE__, __LINE__);
+//	DDD
 	ss->fft();
-	// printf("(%s:%i)\n", __FILE__, __LINE__);
+//	DDD
 	collectIForces(ss);
-	// printf("(%s:%i)\n", __FILE__, __LINE__);
+//	DDD
 	ifftAppliedForce(ss);
-	// printf("(%s:%i)\n", __FILE__, __LINE__);
+//	DDD
 
 	return true;
 }
@@ -399,7 +405,11 @@ LONGRANGE_API int lib_version(lua_State* L)
 
 LONGRANGE_API const char* lib_name(lua_State* L)
 {
+#if defined NDEBUG || defined __OPTIMIZE__
 	return "LongRange";
+#else
+	return "LongRange-Debug";
+#endif
 }
 
 LONGRANGE_API int lib_main(lua_State* L)

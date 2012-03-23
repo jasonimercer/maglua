@@ -27,7 +27,7 @@ static int lexportwriter(lua_State *L, const void* chunk, size_t size, void* dat
 {
 	(void)L;
 	buffer* b = (buffer*)data;
-	encodeBuffer(chunk, size, b);
+	encodeBuffer(chunk, (const int)size, b);
 	return 0;
 }
 

@@ -40,23 +40,23 @@ ENCODE_API typedef struct buffer
 
 #define ENCODE_UNKNOWN      0
 
-#define ENCODE_SPINSYSTEM   1
-#define ENCODE_ANISOTROPY   2
-#define ENCODE_APPLIEDFIELD 3
-#define ENCODE_DIPOLE       4
-#define ENCODE_EXCHANGE     5
-#define ENCODE_THERMAL      6
+#define ENCODE_SPINSYSTEM   hash32("SpinSystem")
+#define ENCODE_ANISOTROPY   hash32("Anisotropy")
+#define ENCODE_APPLIEDFIELD hash32("AppliedField")
+#define ENCODE_DIPOLE       hash32("Dipole")
+#define ENCODE_EXCHANGE     hash32("Exchange")
+#define ENCODE_THERMAL      hash32("Thermal")
 
-#define ENCODE_LLGCART      7
-#define ENCODE_LLGQUAT      8
-#define ENCODE_LLGFAKE      9
-#define ENCODE_LLGALIGN    10
+#define ENCODE_LLGCART      hash32("LLGCart")
+#define ENCODE_LLGQUAT      hash32("LLGQuat")
+#define ENCODE_LLGFAKE      hash32("LLGFake")
+#define ENCODE_LLGALIGN     hash32("LLGALign")
 
-#define ENCODE_INTERP2D    11
-#define ENCODE_INTERP1D    12
-#define ENCODE_MAGNETOSTATIC 13
+#define ENCODE_INTERP2D    hash32("Interpolate2D")
+#define ENCODE_INTERP1D    hash32("interpolate1D")
+#define ENCODE_MAGNETOSTATIC hash32("Magnetostatic")
 
-#define ENCODE_SHORTRANGE  14
+#define ENCODE_SHORTRANGE  hash32("ShortRange")
 
 // This is a base class for classes that 
 // can be encoded into and from a char stream,

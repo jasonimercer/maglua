@@ -79,6 +79,7 @@ int Timer::decode(buffer* b)
 	set_time(t);
 	if(running)
 		start();
+	return 0;
 }
 	
 
