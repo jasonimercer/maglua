@@ -11,3 +11,12 @@
 #else
  #define MAGLUA_API 
 #endif
+
+extern "C" {
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+}
+
+void MagLua_set_and_run(lua_State* L, int sub_process);
+

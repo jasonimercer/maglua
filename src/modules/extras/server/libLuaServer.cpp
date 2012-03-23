@@ -54,12 +54,10 @@ extern "C" {
 
 using namespace std;
 
+static int registerMagLuaMain(lua_State* L);
+static int copy_registry(lua_State* src, lua_State* dest);
 
 typedef int(*luafunc)(lua_State*);
-
-
-
-
 
 
 
@@ -112,14 +110,13 @@ struct LuaThread
 };
 
 
-// #define LuaServer (LuaServer::Instance())
-
 class LuaServer
 {
 public:
-	LuaServer(int port=55000);
+	LuaServer(lua_State* host_state, int port=55000);
+	~LuaServer();
 	
-	//bool init(int argc, char** argv);
+// 	bool init(int argc, char** argv);
 	void serve();
 
 	void addComm(LuaComm* comm);
@@ -137,7 +134,11 @@ public:
 	LuaThread* getThread(int pid);
 	
 	int port;
-	luafunc registerCallback;
+	
+	vector<string> share_list;
+	lua_State* server_L;
+	lua_State* holder_L;
+//	luafunc registerCallback;
 
 // 	static vector<pthread_t*> commThread;
 
@@ -150,13 +151,14 @@ public:
 	sem_t addCommSem;
 	sem_t updateSem;
 
+	sem_t holderSem;
+
 	sem_t availableStates;
 
 	vector<LuaComm*> comms;
 	
 	jmp_buf root_env;
 	int refcount; //for lua
-
 };
 
 
@@ -201,7 +203,7 @@ void __main_kill(int)
 // 	}
 }
 
-LuaServer::LuaServer(int default_port)
+LuaServer::LuaServer(lua_State* host_state, int default_port)
 {
 #ifdef WIN32
 	if(!WSAStartupCalled)
@@ -218,15 +220,25 @@ LuaServer::LuaServer(int default_port)
 	sem_init(&addCommSem,   0, 1);
 	sem_init(&updateSem,    0, 1);
 	sem_init(&luaThreadSem, 0, 1);
-	
+	sem_init(&addCommSem,   0, 1);
+
 	sem_init(&availableStates,  0, 10);
 	
 	refcount = 0;
 	port = default_port;
-
+	server_L = host_state;
 	rootThread = pthread_self();
+	
+	sem_init(&holderSem,   0, 1);
+	holder_L = lua_open();
+	registerMagLuaMain(holder_L);
 
-	registerCallback = 0;
+//	registerCallback = 0;
+}
+
+LuaServer::~LuaServer()
+{
+	lua_close(server_L);
 }
 
 // bool LuaServer::init(int argc, char** argv)
@@ -236,9 +248,9 @@ LuaServer::LuaServer(int default_port)
 // 		cerr << "Expected: " << argv[0] << " tagfile [port number]" << endl;
 // 		return false;
 // 	}
-
+// 
 // 	rootThread = pthread_self();
-
+// 
 // 	signal(SIGUSR1, __threadSignalHandler); //install sig handler
 // 	signal(SIGINT, __main_kill); //install sig handler
 // 
@@ -247,13 +259,13 @@ LuaServer::LuaServer(int default_port)
 // 		port = atoi(argv[1]);
 // 	else
 // 		port = 55000;
-
+// 
 // 	sem_init(&addCommSem,   0, 1);
 // 	sem_init(&updateSem,    0, 1);
 // 	sem_init(&luaThreadSem, 0, 1);
 // 	
 // 	sem_init(&availableStates,  0, 10);
-
+// 
 // 	return true;
 // }
 
@@ -440,42 +452,46 @@ int LuaServer::removeComm()
 
 void threadShutdown()
 {
-#ifndef WIN32
-#warning need to fix this
+#if 0
+#ifdef WIN32
+#warning need look at this
 #endif
-// 	sem_wait(&LuaServer.luaThreadSem);
-// 	vector<LuaThread*>::iterator it;
-// 
-// 	for(it=LuaServer.runningLuathreads.begin(); it != LuaServer.runningLuathreads.end(); ++it)
-// 	{
-// 		if(pthread_equal( (*it)->thread, pthread_self() ))
-// 		{
-// 			sem_post(&LuaServer.luaThreadSem);
-// 			longjmp((*it)->env, 1);
-// 		}
-// 	}
-// 	sem_post(&LuaServer.luaThreadSem);
-// 
-// 	fprintf(stderr, "FAILED to find self in thread vector (%s:%i)\n", __FILE__, __LINE__);
+	sem_wait(&LuaServer.luaThreadSem);
+	vector<LuaThread*>::iterator it;
+
+	for(it=LuaServer.runningLuathreads.begin(); it != LuaServer.runningLuathreads.end(); ++it)
+	{
+		if(pthread_equal( (*it)->thread, pthread_self() ))
+		{
+			sem_post(&LuaServer.luaThreadSem);
+			longjmp((*it)->env, 1);
+		}
+	}
+	sem_post(&LuaServer.luaThreadSem);
+
+	fprintf(stderr, "FAILED to find self in thread vector (%s:%i)\n", __FILE__, __LINE__);
+#endif
 }
 
 void __threadSignalHandler(int signo)
 {
-#ifndef WIN32
-#warning need to fix this
+#if 0
+#ifdef WIN32
+#warning need look at this
 #endif
-// 	if(signo == SIGUSR1)
-// 	{
-// 		if(!pthread_equal(LuaServer.rootThread, pthread_self()))
-// 		{
-// 			//printf("SIGUSR1 - thread long jumping\n");
-// 			threadShutdown();
-// 		}
-// 		else
-// 		{
-// 			//printf("root got SIGUSR1, ignoring\n");
-// 		}
-// 	}
+	if(signo == SIGUSR1)
+	{
+		if(!pthread_equal(LuaServer.rootThread, pthread_self()))
+		{
+			//printf("SIGUSR1 - thread long jumping\n");
+			threadShutdown();
+		}
+		else
+		{
+			//printf("root got SIGUSR1, ignoring\n");
+		}
+	}
+#endif
 }
 
 LuaThread* LuaServer::getThread(int pid)
@@ -582,11 +598,12 @@ int LuaServer::addLuaFunction(LuaComm* comm, LuaVariableGroup& group)
 }
 #endif
 
-// this is in maglua 
-int registerMagLuaMain(lua_State* L)
+static int registerMagLuaMain(lua_State* L)
 {
-#warning Need to sort this out
-	/*
+	int sub_process = 1;
+	MagLua_set_and_run(L, sub_process);
+
+#if 0
 #ifndef WIN32
 	return registerMain(L);
 #else
@@ -602,7 +619,8 @@ int registerMagLuaMain(lua_State* L)
 	}
 	return 0;
 #endif
-	*/
+#endif
+	
 	return 0;
 }
 
@@ -619,6 +637,16 @@ void LuaServer::executeLuaFunction(LuaComm* comm, LuaVariableGroup& input, LuaVa
 	
 	registerMagLuaMain(L);
 
+	copy_registry(holder_L, L);
+	
+	for(unsigned int i=0; i<share_list.size(); i++)
+	{
+		lua_getglobal(holder_L, share_list[i].c_str());
+		lua_xmove(holder_L, L, 1);
+		lua_setglobal(L, share_list[i].c_str());
+	}
+	sem_post(&holderSem);
+	
 // 	if(registerCallback)
 // 		registerCallback(L);
 
@@ -776,11 +804,12 @@ LuaServer* checkLuaServer(lua_State* L, int idx)
 	return *pp;
 }
 
-void lua_pushLuaServer(lua_State* L, LuaServer* lc)
+void lua_pushLuaServer(lua_State* L, LuaServer* ls)
 {
-	lc->refcount++;
+	ls->refcount++;
 	LuaServer** pp = (LuaServer**)lua_newuserdata(L, sizeof(LuaServer**));
-	*pp = lc;
+	ls->server_L = L;
+	*pp = ls;
 	luaL_getmetatable(L, "Server");
 	lua_setmetatable(L, -2);
 }
@@ -804,7 +833,7 @@ static int l_tostring(lua_State* L)
 
 static int l_new(lua_State* L)
 {
-	LuaServer* ls = new LuaServer;
+	LuaServer* ls = new LuaServer(L);
 	
 	if(lua_isnumber(L, 1))
 	{
@@ -818,7 +847,105 @@ static int l_new(lua_State* L)
 static int l_start(lua_State* L)
 {
 	LuaServer* ls = checkLuaServer(L, 1);
+	if(!ls) return 0;
 	ls->serve();
+	return 0;
+}
+
+static int copy_registry(lua_State* src, lua_State* dest)
+{
+	lua_pushnil(src);
+	while(lua_next(src, LUA_REGISTRYINDEX) != 0)
+	{
+		if(lua_istable(src, -1))
+		{
+			lua_pushvalue(src, -2);
+			lua_pushvalue(src, -2);
+			
+			lua_xmove(src, dest, 2);
+			lua_settable(dest, LUA_REGISTRYINDEX);
+		}
+			
+       lua_pop(src, 1);
+     }
+}
+
+static int l_share(lua_State* L)
+{
+	LuaServer* ls = checkLuaServer(L, 1);
+	if(!ls) return 0;
+
+	sem_wait(&(ls->holderSem));
+
+	printf("(%s:%i) TTT %i\n", __FILE__, __LINE__, lua_gettop(ls->holder_L));
+	
+	copy_registry(L, ls->holder_L);
+
+	for(int i=2; i<=lua_gettop(L); i++)
+	{
+		const char* name = lua_tostring(L, i);
+		lua_getglobal(L, name);
+		lua_xmove(L, ls->holder_L, 1);
+		lua_setglobal(ls->holder_L, name);
+		ls->share_list.push_back(name);
+	}
+	printf("(%s:%i) TTT %i\n", __FILE__, __LINE__, lua_gettop(ls->holder_L));
+#if 0
+// 	printf("lua_gettop: %i\n", lua_gettop(L));
+	for(int i=2; i<=lua_gettop(L); i++)
+	{
+		int base = lua_gettop(L);
+		if(lua_isstring(L, i))
+		{
+			string name = lua_tostring(L, 2);
+			lua_getglobal(L, name.c_str());
+			if(!lua_isnil(L, -1))
+			{
+				string metatable_name = "";
+				
+				if(lua_getmetatable(L, -1))
+				{
+					printf("%s has a metatable\n", name.c_str());
+					//lua_pop(L, 1);
+					
+					// iterate through the registry to find the metatable's name
+					lua_pushnil(L);
+					while(lua_next(L, LUA_REGISTRYINDEX) != 0)
+					{
+						if(lua_equal(L, -3,-1))
+						{
+							metatable_name = lua_tostring(L, -2);
+						}
+					
+						lua_pop(L, 1);
+					}
+				}
+				ls->share_list.push_back(name);
+				lua_xmove(L, ls->holder_L, 1);
+				
+				if(metatable_name.length())
+				{
+					luaL_getmetatable(ls->holder_L, metatable_name.c_str());
+					lua_setmetatable(ls->holder_L, -2);
+				}
+				
+				lua_setglobal(ls->holder_L, name.c_str());
+			}
+			else
+				lua_pop(L, 1);
+		}
+		while(lua_gettop(L) > base)
+			lua_pop(L, 1);
+	}
+	printf("lua_gettop: %i\n", lua_gettop(L));
+
+#endif
+
+	
+// 	lua_gettable(L, LUA_REGISTRYINDEX);
+// 	lua_xmove(L, ls->holder_L, 1);
+
+	sem_post(&(ls->holderSem));
 	return 0;
 }
 
@@ -828,6 +955,7 @@ void registerLuaServer(lua_State* L)
 	{"__gc",         l_gc},
 	{"__tostring",   l_tostring},
 	{"start",        l_start},
+	{"share",        l_share},
 	{NULL, NULL}
 	};
 	
@@ -872,7 +1000,11 @@ SERVER_API int lib_version(lua_State* L)
 
 SERVER_API const char* lib_name(lua_State* L)
 {
+#if defined NDEBUG || defined __OPTIMIZE__
 	return "Server";
+#else
+	return "Server-Debug";
+#endif
 }
 
 SERVER_API int lib_main(lua_State* L)

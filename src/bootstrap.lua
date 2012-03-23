@@ -32,7 +32,7 @@ local print_help = false
 local print_module_path_file = nil
 
 for k,v in pairs(arg) do
-	if v == "--module_path" then
+	if v == "--module_path" and sub_process == nil then
 		print_module_path = arg[k+1] or true
 	end
 	
@@ -40,7 +40,7 @@ for k,v in pairs(arg) do
 		module_path_file = arg[k+1]
 	end
 	
-	if v == "--module_file" then
+	if v == "--module_file" and sub_process == nil  then
 		print_module_path_file = arg[k+1] or true
 	end
 	
@@ -48,11 +48,11 @@ for k,v in pairs(arg) do
 		be_quiet = k
 	end
 	
-	if v == "-v" then
+	if v == "-v" and sub_process == nil then
 		print_version = true
 	end
 	
-	if v == "--setup" then
+	if v == "--setup" and sub_process == nil then
 		setup_module_path = arg[k+1]
 		--need to strip quotes from it if they exist
 		local a, b, c = string.find(setup_module_path, "^%s*%'(.*)%'%s*$")
@@ -65,7 +65,7 @@ for k,v in pairs(arg) do
 		end
 	end
 	
-	if v == "-h" or v == "--help" then
+	if (v == "-h" or v == "--help")  and sub_process == nil then
 		print_help = true
 	end
 end
@@ -73,6 +73,7 @@ end
 if be_quiet then
 	table.remove(arg, be_quiet)
 end
+
 
 function reference()
 	return "Publications with results derived from MagLua must co-author the following:\n" ..
@@ -270,29 +271,32 @@ if be_quiet == nil then
 end
 
 
+if sub_process == nil then
+	-- find first script in args
+	local first_script_index = nil
 
--- find first script in args
-local first_script_index = nil
-
-for i=1,table.maxn(arg) do
-	if arg[i] and first_script_index == nil then
-		local a, b = string.find(string.lower(arg[i]), ".*%.lua$")
-		if a then
-			first_script_index = i
+	for i=1,table.maxn(arg) do
+		if arg[i] and first_script_index == nil then
+			local a, b = string.find(string.lower(arg[i]), ".*%.lua$")
+			if a then
+				first_script_index = i
+			end
 		end
 	end
-end
 
-if first_script_index == nil then
-	e("Please supply a MagLua script (*.lua)")
-	return false
-end
+	if first_script_index == nil then
+		e("Please supply a MagLua script (*.lua)")
+		return false
+	end
 
--- need to shift indexes so that script is at [0]
-local a = {}
-for k,v in pairs(arg) do
-	a[k - first_script_index] = v
-end
-arg = a
+	-- need to shift indexes so that script is at [0]
+	local a = {}
+	for k,v in pairs(arg) do
+		a[k - first_script_index] = v
+	end
+	arg = a
 
-dofile(a[0])
+	dofile(a[0])
+else
+	sub_process = nil
+end
