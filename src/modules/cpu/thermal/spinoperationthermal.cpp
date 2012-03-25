@@ -17,12 +17,29 @@
 #include <stdio.h>
 
 Thermal::Thermal(int nx, int ny, int nz)
-	: SpinOperation("Thermal", THERMAL_SLOT, nx, ny, nz, ENCODE_THERMAL)
+	: SpinOperation(Thermal::typeName(), THERMAL_SLOT, nx, ny, nz, hash32(Thermal::typeName()))
 {
 	scale = new double[nxyz];
 	for(int i=0; i<nxyz; i++)
 		scale[i] = 1.0;
 	temperature = 0;
+}
+
+int Thermal::luaInit(lua_State* L)
+{
+	if(scale)
+		delete [] scale;
+	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
+
+	scale = new double[nxyz];
+	for(int i=0; i<nxyz; i++)
+		scale[i] = 1.0;
+	temperature = 0;
+}
+
+void Thermal::push(lua_State* L)
+{
+	luaT_push<Thermal>(L, this);
 }
 
 void Thermal::encode(buffer* b)
@@ -106,69 +123,21 @@ void Thermal::scaleSite(int px, int py, int pz, double strength)
 
 
 
-Thermal* checkThermal(lua_State* L, int idx)
+static int l_apply(lua_State* L)
 {
-	Thermal** pp = (Thermal**)luaL_checkudata(L, idx, "MERCER.thermal");
-    luaL_argcheck(L, pp != NULL, 1, "`Thermal' expected");
-    return *pp;
-}
+	LUA_PREAMBLE(Thermal, th, 1);
+	LUA_PREAMBLE(RNG,    rng, 2);
+	LUA_PREAMBLE(SpinSystem,ss,3);
 
-void lua_pushThermal(lua_State* L, Encodable* _th)
-{
-	Thermal* th = dynamic_cast<Thermal*>(_th);
-	if(!th) return;
-	th->refcount++;
-	
-	Thermal** pp = (Thermal**)lua_newuserdata(L, sizeof(Thermal**));
-	
-	*pp = th;
-	luaL_getmetatable(L, "MERCER.thermal");
-	lua_setmetatable(L, -2);
-}
-
-int l_thermal_new(lua_State* L)
-{
-	int n[3];
-	lua_getnewargs(L, n, 1);
-
-	lua_pushThermal(L, new Thermal(n[0], n[1], n[2]));
-	return 1;
-}
-
-int l_thermal_gc(lua_State* L)
-{
-	Thermal* th = checkThermal(L, 1);
-	if(!th) return 0;
-	
-	th->refcount--;
-	if(th->refcount == 0)
-		delete th;
-	
-	return 0;
-}
-
-int l_thermal_apply(lua_State* L)
-{
-	Thermal*    th = checkThermal(L, 1);
-	RNG*       rng = checkRandom(L, 2);
-	SpinSystem* ss = checkSpinSystem(L, 3);
-
-	if(!th)
-		return luaL_error(L, "Thermal object required");
-
-	if(!rng || !ss)
-		return luaL_error(L, "Thermal.apply requires rng, spinsystem");
-	
 	if(!th->apply(rng,ss))
 		return luaL_error(L, th->errormsg.c_str());
 	
 	return 0;
 }
 
-int l_thermal_scalesite(lua_State* L)
+static int l_scalesite(lua_State* L)
 {
-	Thermal* th = checkThermal(L, 1);
-	if(!th) return 0;
+	LUA_PREAMBLE(Thermal, th, 1);
 
 	int s[3];
 	int r = lua_getNint(L, 3, s, 2, 1);
@@ -186,10 +155,9 @@ int l_thermal_scalesite(lua_State* L)
 	return 0;
 }
 
-int l_thermal_settemp(lua_State* L)
+static int l_settemp(lua_State* L)
 {
-	Thermal* th = checkThermal(L, 1);
-	if(!th) return 0;
+	LUA_PREAMBLE(Thermal, th, 1);
 
 	if(lua_isnil(L, 2))
 		return luaL_error(L, "set temp cannot be nil");
@@ -197,50 +165,16 @@ int l_thermal_settemp(lua_State* L)
 	th->temperature = lua_tonumber(L, 2);
 	return 0;
 }
-int l_thermal_gettemp(lua_State* L)
+static int l_gettemp(lua_State* L)
 {
-	Thermal* th = checkThermal(L, 1);
-	if(!th) return 0;
+	LUA_PREAMBLE(Thermal, th, 1);
 
 	lua_pushnumber(L, th->temperature);
 	return 1;
 }
 
-int l_thermal_member(lua_State* L)
-{
-	Thermal* th = checkThermal(L, 1);
-	if(!th) return 0;
-
-	int px = lua_tointeger(L, 2) - 1;
-	int py = lua_tointeger(L, 3) - 1;
-	int pz = lua_tointeger(L, 4) - 1;
-	
-	if(th->member(px, py, pz))
-		lua_pushboolean(L, 1);
-	else
-		lua_pushboolean(L, 0);
-
-	return 1;
-}
-
-static int l_thermal_tostring(lua_State* L)
-{
-	Thermal* th = checkThermal(L, 1);
-	if(!th) return 0;
-	
-	lua_pushfstring(L, "Thermal (%dx%dx%d)", th->nx, th->ny, th->nz);
-	
-	return 1;
-}
-
-
-static int l_thermal_mt(lua_State* L)
-{
-	luaL_getmetatable(L, "MERCER.thermal");
-	return 1;
-}
-
-static int l_thermal_help(lua_State* L)
+/*
+static int l_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
@@ -262,7 +196,7 @@ static int l_thermal_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-	if(func == l_thermal_new)
+	if(func == l_new)
 	{
 		lua_pushstring(L, "Create a new Thermal Operator.");
 		lua_pushstring(L, "1 *3Vector*: system size"); 
@@ -270,7 +204,7 @@ static int l_thermal_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_thermal_apply)
+	if(func == l_apply)
 	{
 		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
 		lua_pushstring(L, "1 *Random*, 1 *SpinSystem*: The first argument is a random number generator that is used as a source of random values. The second argument is the spin system which will receive the field.");
@@ -278,7 +212,7 @@ static int l_thermal_help(lua_State* L)
 		return 3;
 	}
 
-	if(func == l_thermal_scalesite)
+	if(func == l_scalesite)
 	{
 		lua_pushstring(L, "Scale the thermal field at a site. This allows non-uniform thermal effects over a lattice.");
 		lua_pushstring(L, "1 *3Vector*, 1 Number: The vectors define the lattice sites that will have a scaled thermal effect, the number is the how the thermal field is scaled.");
@@ -286,7 +220,7 @@ static int l_thermal_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_thermal_settemp)
+	if(func == l_settemp)
 	{
 		lua_pushstring(L, "Sets the base value of the temperature. ");
 		lua_pushstring(L, "1 number: temperature of the system.");
@@ -294,7 +228,7 @@ static int l_thermal_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_thermal_gettemp)
+	if(func == l_gettemp)
 	{
 		lua_pushstring(L, "Gets the base value of the temperature. ");
 		lua_pushstring(L, "");
@@ -302,58 +236,31 @@ static int l_thermal_help(lua_State* L)
 		return 3;
 	}
 	
-	
-	if(func == l_thermal_member)
-	{
-		lua_pushstring(L, "Determine if a lattice site is a member of the Operation.");
-		lua_pushstring(L, "3 Integers: lattics site x, y, z.");
-		lua_pushstring(L, "1 Boolean: True if x, y, z is part of the Operation, False otherwise.");
-		return 3;
-	}
-	
 	return 0;
 }
+*/
 
-
-static Encodable* newThing()
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* Thermal::luaMethods()
 {
-	return new Thermal;
-}
+	if(m[127].name)return m;
 
-void registerThermal(lua_State* L)
-{
-	static const struct luaL_reg methods [] = { //methods
-		{"__gc",         l_thermal_gc},
-		{"__tostring",   l_thermal_tostring},
-		{"apply",        l_thermal_apply},
-		{"member",       l_thermal_member},
-		{"scaleSite",    l_thermal_scalesite},
-		{"setTemperature", l_thermal_settemp},
-		{"set",          l_thermal_settemp},
-		{"get",          l_thermal_gettemp},
-		{"temperature",  l_thermal_gettemp},
+	merge_luaL_Reg(m, SpinOperation::luaMethods());
+	static const luaL_Reg _m[] =
+	{
+		{"apply",        l_apply},
+		{"scaleSite",    l_scalesite},
+		{"setTemperature", l_settemp},
+		{"set",          l_settemp},
+		{"get",          l_gettemp},
+		{"temperature",  l_gettemp},
 		{NULL, NULL}
 	};
-	
-	luaL_newmetatable(L, "MERCER.thermal");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-		
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_thermal_new},
-		{"help",                l_thermal_help},
-		{"metatable",           l_thermal_mt},
-		{NULL, NULL}
-	};
-		
-	luaL_register(L, "Thermal", functions);
-	lua_pop(L,1);	
-
-	Factory_registerItem(ENCODE_THERMAL, newThing, lua_pushThermal, "Thermal");
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
+
 
 
 #include "info.h"
@@ -367,7 +274,7 @@ THERMAL_API int lib_main(lua_State* L);
 
 THERMAL_API int lib_register(lua_State* L)
 {
-	registerThermal(L);
+	luaT_register<Thermal>(L);
 	return 0;
 }
 

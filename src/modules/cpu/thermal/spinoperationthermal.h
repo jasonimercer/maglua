@@ -37,6 +37,11 @@ public:
 	Thermal(int nx=32, int ny=32, int nz=1);
 	virtual ~Thermal();
 	
+	LINEAGE2("Thermal", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	
 	bool apply(RNG* rand, SpinSystem* ss);
 	bool apply(SpinSystem* ss) {return false;};
 
@@ -48,10 +53,5 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 };
-
-THERMAL_API Thermal* checkThermal(lua_State* L, int idx);
-THERMAL_API void registerThermal(lua_State* L);
-THERMAL_API void lua_pushThermal(lua_State* L, Encodable* th);
-
 
 #endif

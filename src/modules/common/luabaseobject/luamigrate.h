@@ -10,44 +10,15 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "luacommon.h"
-#include "info.h"
-#include "spinsystem.h"
-extern "C"
-{
+#include "luabaseobject.h"
+extern "C" {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-        
-CORE_API int lib_register(lua_State* L);
-CORE_API int lib_version(lua_State* L);
-CORE_API const char* lib_name(lua_State* L);
-CORE_API int lib_main(lua_State* L);
-}
 
-#include <stdio.h>
-CORE_API int lib_register(lua_State* L)
-{
-	//fftw_init_threads();
-	luaT_register<SpinSystem>(L);
-	return 0;
-}
+LUABASEOBJECT_API char* exportLuaVariable(lua_State* L, int index,   int* chunksize);
+LUABASEOBJECT_API int   importLuaVariable(lua_State* L, char* chunk, int  chunksize);
 
-CORE_API int lib_version(lua_State* L)
-{
-	return __revi;
-}
-
-const char* lib_name(lua_State* L)
-{
-#if defined NDEBUG || defined __OPTIMIZE__
-	return "Core";
-#else
-	return "Core-Debug";
-#endif
-}
-
-int lib_main(lua_State* L)
-{
-	return 0;
+LUABASEOBJECT_API void _exportLuaVariable(lua_State* L, int index, buffer* b);
+LUABASEOBJECT_API int _importLuaVariable(lua_State* L, buffer* b);
 }

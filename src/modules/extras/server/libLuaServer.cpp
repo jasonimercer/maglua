@@ -3,6 +3,7 @@
 #include "net_helpers.h"
 
 #include "main.h"
+#include "luabaseobject.h"
 #include "import.h"
 
 #include <stdio.h>
@@ -110,15 +111,19 @@ struct LuaThread
 };
 
 
-class LuaServer
+class LuaServer : public LuaBaseObject
 {
 public:
-	LuaServer(lua_State* host_state, int port=55000);
+	LuaServer(int port=55000);
 	~LuaServer();
 	
-// 	bool init(int argc, char** argv);
+	LINEAGE1("Server")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	
 	void serve();
-
+	void servebg();
 	void addComm(LuaComm* comm);
 	int removeComm(/*LuaComm* comm*/); //remove any dead comms (and pthread_join them)
 
@@ -138,12 +143,10 @@ public:
 	vector<string> share_list;
 	lua_State* server_L;
 	lua_State* holder_L;
-//	luafunc registerCallback;
-
-// 	static vector<pthread_t*> commThread;
 
 	pthread_t rootThread;
-
+	pthread_t bgThread;
+	
 	sem_t luaThreadSem;
 	int nextThreadID;
 	vector<LuaThread*> runningLuathreads;
@@ -158,7 +161,6 @@ public:
 	vector<LuaComm*> comms;
 	
 	jmp_buf root_env;
-	int refcount; //for lua
 };
 
 
@@ -203,7 +205,8 @@ void __main_kill(int)
 // 	}
 }
 
-LuaServer::LuaServer(lua_State* host_state, int default_port)
+LuaServer::LuaServer(int default_port)
+	: LuaBaseObject(hash32(LuaServer::typeName()))
 {
 #ifdef WIN32
 	if(!WSAStartupCalled)
@@ -226,48 +229,37 @@ LuaServer::LuaServer(lua_State* host_state, int default_port)
 	
 	refcount = 0;
 	port = default_port;
-	server_L = host_state;
+	server_L = 0;
 	rootThread = pthread_self();
 	
-	sem_init(&holderSem,   0, 1);
+	sem_init(&holderSem, 0, 1);
 	holder_L = lua_open();
 	registerMagLuaMain(holder_L);
 
 //	registerCallback = 0;
 }
 
-LuaServer::~LuaServer()
+
+int LuaServer::luaInit(lua_State* _L)
 {
-	lua_close(server_L);
+	L = _L;
+	if(lua_isnumber(L, 1))
+		port = lua_tointeger(L, 1);
 }
 
-// bool LuaServer::init(int argc, char** argv)
-// {
-// 	if(argc == 1 || argc > 3)
-// 	{
-// 		cerr << "Expected: " << argv[0] << " tagfile [port number]" << endl;
-// 		return false;
-// 	}
-// 
-// 	rootThread = pthread_self();
-// 
-// 	signal(SIGUSR1, __threadSignalHandler); //install sig handler
-// 	signal(SIGINT, __main_kill); //install sig handler
-// 
-// 	
-// 	if(argc == 2) 
-// 		port = atoi(argv[1]);
-// 	else
-// 		port = 55000;
-// 
-// 	sem_init(&addCommSem,   0, 1);
-// 	sem_init(&updateSem,    0, 1);
-// 	sem_init(&luaThreadSem, 0, 1);
-// 	
-// 	sem_init(&availableStates,  0, 10);
-// 
-// 	return true;
-// }
+
+void LuaServer::push(lua_State* L)
+{
+	luaT_push<LuaServer>(L, this);
+}
+
+	
+LuaServer::~LuaServer()
+{
+	//lua_close(server_L);
+	lua_close(holder_L);
+}
+
 
 void LuaServer::addError(string e, LuaComm* c)
 {
@@ -298,6 +290,22 @@ void LuaServer::addInfo(string e, LuaComm* c)
 	sem_post(&updateSem);
 }
 
+
+static void* __threadBG(void* args)
+{
+	LuaServer* ls = (LuaServer*)args;
+
+	ls->serve();
+	
+	pthread_exit(0);
+	return 0;
+}
+
+
+void LuaServer::servebg()
+{
+	pthread_create(&bgThread, NULL, __threadBG, (void *)this);
+}
 
 
 void LuaServer::serve()
@@ -642,7 +650,17 @@ void LuaServer::executeLuaFunction(LuaComm* comm, LuaVariableGroup& input, LuaVa
 	for(unsigned int i=0; i<share_list.size(); i++)
 	{
 		lua_getglobal(holder_L, share_list[i].c_str());
-		lua_xmove(holder_L, L, 1);
+		if(lua_isuserdata(holder_L, -1))
+		{
+			LuaBaseObject** p_lbo = (LuaBaseObject**)lua_touserdata(holder_L, -1);
+			LuaBaseObject* lbo = *p_lbo;
+			lbo->push(L);
+			lua_pop(holder_L, 1);
+		}
+		else
+		{
+			lua_xmove(holder_L, L, 1);
+		}
 		lua_setglobal(L, share_list[i].c_str());
 	}
 	sem_post(&holderSem);
@@ -797,58 +815,18 @@ void LuaComm::do_comm(int fd)
 
 
 
-LuaServer* checkLuaServer(lua_State* L, int idx)
-{
-	LuaServer** pp = (LuaServer**)luaL_checkudata(L, idx, "Server");
-	luaL_argcheck(L, pp != NULL, 1, "Server' expected");
-	return *pp;
-}
-
-void lua_pushLuaServer(lua_State* L, LuaServer* ls)
-{
-	ls->refcount++;
-	LuaServer** pp = (LuaServer**)lua_newuserdata(L, sizeof(LuaServer**));
-	ls->server_L = L;
-	*pp = ls;
-	luaL_getmetatable(L, "Server");
-	lua_setmetatable(L, -2);
-}
-
-
-static int l_gc(lua_State* L)
-{
-	LuaServer* ls = checkLuaServer(L, 1);
-	ls->refcount--;
-	if(ls->refcount <= 0)
-	{
-		delete ls;
-	}
-	return 0;
-}
-static int l_tostring(lua_State* L)
-{
-	lua_pushstring(L, "Server");
-	return 1;
-}
-
-static int l_new(lua_State* L)
-{
-	LuaServer* ls = new LuaServer(L);
-	
-	if(lua_isnumber(L, 1))
-	{
-		ls->port = lua_tointeger(L, 1);
-	}
-	
-	lua_pushLuaServer(L, ls);
-	return 1;
-}
-
 static int l_start(lua_State* L)
 {
-	LuaServer* ls = checkLuaServer(L, 1);
-	if(!ls) return 0;
+	LUA_PREAMBLE(LuaServer, ls, 1);
 	ls->serve();
+	return 0;
+}
+
+
+static int l_startbg(lua_State* L)
+{
+	LUA_PREAMBLE(LuaServer, ls, 1);
+	ls->servebg();
 	return 0;
 }
 
@@ -872,107 +850,54 @@ static int copy_registry(lua_State* src, lua_State* dest)
 
 static int l_share(lua_State* L)
 {
-	LuaServer* ls = checkLuaServer(L, 1);
-	if(!ls) return 0;
+	LUA_PREAMBLE(LuaServer, ls, 1);
 
 	sem_wait(&(ls->holderSem));
 
-	printf("(%s:%i) TTT %i\n", __FILE__, __LINE__, lua_gettop(ls->holder_L));
-	
 	copy_registry(L, ls->holder_L);
 
 	for(int i=2; i<=lua_gettop(L); i++)
 	{
+		int stack_size = lua_gettop(L);
 		const char* name = lua_tostring(L, i);
 		lua_getglobal(L, name);
-		lua_xmove(L, ls->holder_L, 1);
+		
+		if(lua_isuserdata(L, -1))
+		{
+			LuaBaseObject** p_lbo = (LuaBaseObject**)lua_touserdata(L, -1);
+			LuaBaseObject* lbo = *p_lbo;
+			lbo->push(ls->holder_L);
+			lua_pop(L, 1);
+		}
+		else
+		{
+			//printf("moving over %s\n", lua_typename(L, lua_type(L, -1)));
+			lua_xmove(L, ls->holder_L, 1);
+		}
 		lua_setglobal(ls->holder_L, name);
 		ls->share_list.push_back(name);
-	}
-	printf("(%s:%i) TTT %i\n", __FILE__, __LINE__, lua_gettop(ls->holder_L));
-#if 0
-// 	printf("lua_gettop: %i\n", lua_gettop(L));
-	for(int i=2; i<=lua_gettop(L); i++)
-	{
-		int base = lua_gettop(L);
-		if(lua_isstring(L, i))
-		{
-			string name = lua_tostring(L, 2);
-			lua_getglobal(L, name.c_str());
-			if(!lua_isnil(L, -1))
-			{
-				string metatable_name = "";
-				
-				if(lua_getmetatable(L, -1))
-				{
-					printf("%s has a metatable\n", name.c_str());
-					//lua_pop(L, 1);
-					
-					// iterate through the registry to find the metatable's name
-					lua_pushnil(L);
-					while(lua_next(L, LUA_REGISTRYINDEX) != 0)
-					{
-						if(lua_equal(L, -3,-1))
-						{
-							metatable_name = lua_tostring(L, -2);
-						}
-					
-						lua_pop(L, 1);
-					}
-				}
-				ls->share_list.push_back(name);
-				lua_xmove(L, ls->holder_L, 1);
-				
-				if(metatable_name.length())
-				{
-					luaL_getmetatable(ls->holder_L, metatable_name.c_str());
-					lua_setmetatable(ls->holder_L, -2);
-				}
-				
-				lua_setglobal(ls->holder_L, name.c_str());
-			}
-			else
-				lua_pop(L, 1);
-		}
-		while(lua_gettop(L) > base)
+		while(lua_gettop(L) > stack_size)
 			lua_pop(L, 1);
 	}
-	printf("lua_gettop: %i\n", lua_gettop(L));
-
-#endif
-
-	
-// 	lua_gettable(L, LUA_REGISTRYINDEX);
-// 	lua_xmove(L, ls->holder_L, 1);
-
 	sem_post(&(ls->holderSem));
 	return 0;
 }
 
-void registerLuaServer(lua_State* L)
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* LuaServer::luaMethods()
 {
-	static const struct luaL_reg methods [] = { //methods
-	{"__gc",         l_gc},
-	{"__tostring",   l_tostring},
-	{"start",        l_start},
-	{"share",        l_share},
-	{NULL, NULL}
-	};
-	
-	luaL_newmetatable(L, "Server");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-	
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_new},
+	if(m[127].name)return m;
+
+	static const luaL_Reg _m[] =
+	{
+		{"start",        l_start},
+		{"startBackground", l_startbg},
+		{"share",        l_share},
 		{NULL, NULL}
 	};
-	
-	luaL_register(L, "Server", functions);
-	lua_pop(L,1);
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
 
 
@@ -989,7 +914,7 @@ SERVER_API int lib_main(lua_State* L);
 
 SERVER_API int lib_register(lua_State* L)
 {
-	registerLuaServer(L);
+	luaT_register<LuaServer>(L);
 	return 0;
 }
 

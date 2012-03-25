@@ -67,11 +67,9 @@ static Quaternion qconjugate(Quaternion q)
 // -- = ---- S X (h + a S X H)
 // dt   1+aa
 LLGQuaternion::LLGQuaternion()
-	: LLG("Quaternion", ENCODE_LLGQUAT)
+	: LLG(hash32(LLGQuaternion::typeName()))
 {
 }
-
-
 
 
 #define CROSS(v, a, b) \

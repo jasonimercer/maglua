@@ -18,31 +18,36 @@
 #include <string.h>
 #include "spinsystem.h"
 
-LLG::LLG(const char* llgtype, int etype)
-: Encodable(etype), type(llgtype), refcount(0), disablePrecession(false)
+LLG::LLG(int encode_type)
+: LuaBaseObject(encode_type), disablePrecession(false)
 {
 	
 }
 
-void LLG::encode(buffer* b)
+int LLG::luaInit(lua_State* L)
 {
-	int len = type.length()+1;
-	encodeInteger( len, b);
-	encodeBuffer(type.c_str(), len, b);
-}
-
-int  LLG::decode(buffer* b)
-{
-	int len = decodeInteger(b);
-	
-	char* t = new char[len];
-	decodeBuffer(t, len, b);
-	
-	type = t;
-	delete [] t;
-	
 	return 0;
 }
+
+// void LLG::encode(buffer* b)
+// {
+// 	int len = type.length()+1;
+// 	encodeInteger( len, b);
+// 	encodeBuffer(type.c_str(), len, b);
+// }
+// 
+// int  LLG::decode(buffer* b)
+// {
+// 	int len = decodeInteger(b);
+// 	
+// 	char* t = new char[len];
+// 	decodeBuffer(t, len, b);
+// 	
+// 	type = t;
+// 	delete [] t;
+// 	
+// 	return 0;
+// }
 
 
 LLG::~LLG()
@@ -51,7 +56,7 @@ LLG::~LLG()
 }
 
 
-
+/*
 LLG* checkLLG(lua_State* L, int idx)
 {
 	LLG** pp = (LLG**)luaL_checkudata(L, idx, "MERCER.llg");
@@ -66,9 +71,9 @@ int  lua_isllg(lua_State* L, int idx)
 }
 
 
-void lua_pushLLG(lua_State* L, Encodable* _llg)
+void lua_pushLLG(lua_State* L, Encodable* )
 {
-	LLG* llg = dynamic_cast<LLG*>(_llg);
+	LLG* llg = dynamic_cast<LLG*>();
 	if(!llg) return;
 	llg->refcount++;
 	
@@ -80,7 +85,7 @@ void lua_pushLLG(lua_State* L, Encodable* _llg)
 }
 
 
-int l_llg_new(lua_State* L)
+int l_new(lua_State* L)
 {
 	LLG* llg = 0;
 	
@@ -107,6 +112,26 @@ int l_llg_new(lua_State* L)
 	
 	return 1;
 }
+*/
+
+
+
+int l_gettype(lua_State* L)
+{
+	LUA_PREAMBLE(LLG, llg, 1);
+	lua_pushstring(L, llg->lineage(0));
+	return 1;
+}
+
+
+
+// static int l_mt(lua_State* L)
+// {
+// 	luaL_getmetatable(L, "MERCER.llg");
+// 	return 1;
+// }
+
+
 
 
 
@@ -122,11 +147,9 @@ int l_llg_new(lua_State* L)
 // B = system that is used to calculate dx/dt. Also the souce of the timestep
 // C = "to system". This is where the result will get stored
 // yn = boolean, optional. default = true. If true, the time of x_new is updated, else, not updated.
-
-
-int l_llg_apply(lua_State* L)
+static int l_apply(lua_State* L)
 {
-	LLG* llg = checkLLG(L, 1);
+	LUA_PREAMBLE(LLG, llg, 1);
 				
 	bool advanceTime = true;
 	double scale_dmdt = 1.0;
@@ -145,7 +168,7 @@ int l_llg_apply(lua_State* L)
 	
 	SpinSystem* ss[3]; //from, dmdt, to
 	
-	ss[0] = checkSpinSystem(L, sys1_pos);
+	ss[0] = luaT_to<SpinSystem>(L, sys1_pos);
 	ss[1] = ss[0];
 	ss[2] = ss[0];
 	
@@ -153,8 +176,8 @@ int l_llg_apply(lua_State* L)
 	//get 2nd and 3rd systems if present
 	for(int i=0; i<2; i++)
 	{
-		if(lua_isSpinSystem(L, sys2_pos+i))
-			ss[1+i] = lua_toSpinSystem(L, sys2_pos+i);
+		if(luaT_is<SpinSystem>(L, sys2_pos+i))
+			ss[1+i] = luaT_to<SpinSystem>(L, sys2_pos+i);
 	}	
 
 	if(!llg || !ss[0])
@@ -168,45 +191,33 @@ int l_llg_apply(lua_State* L)
 }
 
 
-
-int l_llg_gettype(lua_State* L)
+static int l_type(lua_State* L)
 {
-	LLG* llg = checkLLG(L, 1);
-	if(!llg) return 0;
-	lua_pushstring(L, llg->type.c_str());
+	LUA_PREAMBLE(LLG, llg, 1);
+	lua_pushstring(L, llg->lineage(0));
 	return 1;
 }
 
-
-
-int l_llg_gc(lua_State* L)
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* LLG::luaMethods()
 {
-	LLG* llg = checkLLG(L, 1);
-	if(!llg) return 0;
-	
-	llg->refcount--;
-	if(llg->refcount == 0)
-		delete llg;
-	return 0;
-}
+	if(m[127].name)
+		return m;
 
-int l_llg_tostring(lua_State* L)
-{
-	LLG* llg = checkLLG(L, 1);
-	if(!llg) return 0;
-	
-	lua_pushfstring(L, "LLG(%s)", llg->type.c_str());
-	return 1;
+	static const luaL_Reg _m[] =
+	{
+		//{"__tostring",   l_tostring},
+		{"apply",        l_apply},
+		{"type",         l_type},
+		{NULL, NULL}
+	};
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
 
 
-static int l_llg_mt(lua_State* L)
-{
-	luaL_getmetatable(L, "MERCER.llg");
-	return 1;
-}
-
-static int l_llg_help(lua_State* L)
+static int l_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
@@ -228,15 +239,15 @@ static int l_llg_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-	if(func == l_llg_new)
-	{
-		lua_pushstring(L, "Create a new LLG object.");
-		lua_pushstring(L, "1 string: The string argument defines the LLG type. It may be one of the following:\n\"Cartesian\" - update the components of the spins indivifually.\n\"Quaternion\" - use rotation methods to update all components simultaneously.\n\"Fake\" - do nothing to spins, update the timestep.\n\"Align\" - align the spins with the local field.");
-		lua_pushstring(L, "1 LLG object");
-		return 3;
-	}
+// 	if(func == l_new)
+// 	{
+// 		lua_pushstring(L, "Create a new LLG object.");
+// 		lua_pushstring(L, "1 string: The string argument defines the LLG type. It may be one of the following:\n\"Cartesian\" - update the components of the spins indivifually.\n\"Quaternion\" - use rotation methods to update all components simultaneously.\n\"Fake\" - do nothing to spins, update the timestep.\n\"Align\" - align the spins with the local field.");
+// 		lua_pushstring(L, "1 LLG object");
+// 		return 3;
+// 	}
 	
-	if(func == l_llg_apply)
+	if(func == l_apply)
 	{
 		lua_pushstring(L, "Compute 1 LLG Euler Step.");
 		lua_pushstring(L, "1 *SpinSystem*, Oprional Number, Optional 2 *SpinSystem*s, Optional Boolean: " 
@@ -247,7 +258,7 @@ static int l_llg_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_llg_gettype)
+	if(func == l_gettype)
 	{
 		lua_pushstring(L, "Determine which type of the LLG object.");
 		lua_pushstring(L, "");
@@ -258,57 +269,6 @@ static int l_llg_help(lua_State* L)
 	return 0;
 }
 
-
-static Encodable* newLLGAlign()
-{
-	return new LLGAlign;
-}
-static Encodable* newLLGCart()
-{
-	return new LLGCartesian;
-}
-static Encodable* newLLGQuat()
-{
-	return new LLGQuaternion;
-}
-static Encodable* newLLGFake()
-{
-	return new LLGFake;
-}
-
-
-void registerLLG(lua_State* L)
-{
-	static const struct luaL_reg methods [] = { //methods
-	{"__gc",         l_llg_gc},
-	{"__tostring",   l_llg_tostring},
-	{"apply",        l_llg_apply},
-	{"type",         l_llg_gettype},
-	{NULL, NULL}
-	};
-	
-	luaL_newmetatable(L, "MERCER.llg");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-	
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_llg_new},
-		{"help",                l_llg_help},
-		{"metatable",           l_llg_mt},
-		{NULL, NULL}
-	};
-	
-	luaL_register(L, "LLG", functions);
-	lua_pop(L,1);
-	
-	Factory_registerItem(ENCODE_LLGALIGN, newLLGAlign, lua_pushLLG, "LLG Align");
-	Factory_registerItem(ENCODE_LLGCART, newLLGCart, lua_pushLLG, "LLG Cartesian");
-	Factory_registerItem(ENCODE_LLGQUAT, newLLGQuat, lua_pushLLG, "LLG Quaternion");
-	Factory_registerItem(ENCODE_LLGFAKE, newLLGFake, lua_pushLLG, "LLG Fake");
-}
 
 
 #include "info.h"
@@ -322,7 +282,9 @@ LLG_API int lib_main(lua_State* L);
 
 LLG_API int lib_register(lua_State* L)
 {
-	registerLLG(L);
+	luaT_register<LLG>(L);
+	luaT_register<LLGCartesian>(L);
+	luaT_register<LLGQuaternion>(L);
 	return 0;
 }
 

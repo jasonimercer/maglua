@@ -9,11 +9,10 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=luampi.o
-LIBNAME=MPI
+OBJECTS=luamigrate.o luabaseobject.o factory.o MurmurHash3.o
+LIBNAME=LuaBaseObject
 CATEGORY=common
-DEPEND=luabaseobject
 
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
-include $(BASEDIR)/makefile.common.mpi
+

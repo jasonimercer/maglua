@@ -102,6 +102,12 @@ public:
 	MTRand();  // auto-initialize with /dev/urandom or time() and clock()
 	MTRand( const MTRand& o );  // copy
 	
+	LINEAGE2("Random.MersenneTwister", "Random.Base")
+	static const luaL_Reg* luaMethods() {return RNG::luaMethods();}
+	virtual int luaInit(lua_State* L) {return RNG::luaInit(L);}
+	virtual void push(lua_State* L) {luaT_push<MTRand>(L, this);}
+
+	
 	// Do NOT use for CRYPTOGRAPHY without securely hashing several returned
 	// values together, otherwise the generator state can be learned after
 	// reading 624 consecutive values.
@@ -275,20 +281,20 @@ inline void MTRand::seed()
 }
 
 inline MTRand::MTRand( const uint32 oneSeed )
-	: RNG("`MersenneTwister")
+	: RNG()
 { seed(oneSeed); }
 
 inline MTRand::MTRand( uint32 *const bigSeed, const uint32 seedLength )
-	: RNG("`MersenneTwister")
+	: RNG()
 { seed(bigSeed,seedLength); }
 	
 
 inline MTRand::MTRand()
-	: RNG("`MersenneTwister")
+	: RNG()
 { seed(); }
 
 inline MTRand::MTRand( const MTRand& o )
-	: RNG("`MersenneTwister")
+	: RNG()
 {
 	register const uint32 *t = o.state;
 	register uint32 *s = state;

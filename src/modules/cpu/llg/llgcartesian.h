@@ -24,6 +24,10 @@ class LLG_API LLGCartesian : public LLG
 public:
 	LLGCartesian();
 
+	LINEAGE2("LLG.Cartesian", "LLG.Base")
+	static const luaL_Reg* luaMethods() {return LLG::luaMethods();}
+	
+	
 	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
 };
 

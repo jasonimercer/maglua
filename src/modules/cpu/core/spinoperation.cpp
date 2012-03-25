@@ -15,9 +15,10 @@
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
 using namespace std;
+int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);
 
 SpinOperation::SpinOperation(std::string Name, int Slot, int NX, int NY, int NZ, int etype)
-	: Encodable(etype), nx(NX), ny(NY), nz(NZ), refcount(0), operationName(Name), slot(Slot)
+	: LuaBaseObject(etype), nx(NX), ny(NY), nz(NZ), operationName(Name), slot(Slot)
 {
 	nxyz = nx * ny * nz;
 }
@@ -66,6 +67,34 @@ int  SpinOperation::getidx(int px, int py, int pz)
 	return px + nx * (py + ny * pz);
 }
 
+int SpinOperation::luaInit(lua_State* L)
+{
+	int n[3];
+	
+	if(luaT_is<SpinSystem>(L, 1))
+	{
+		SpinSystem* ss = luaT_to<SpinSystem>(L, 1);
+		n[0] = ss->nx;
+		n[1] = ss->ny;
+		n[2] = ss->nz;
+	}
+	else
+	{
+		lua_getNint(L, 3, n, 1, 1);
+	}
+	
+	nx = n[0];
+	ny = n[1];
+	nz = n[2];
+	nxyz = nx * ny * nz;
+	
+	return 0;
+}
+
+bool SpinOperation::apply(SpinSystem* ss)
+{
+	return 0;
+}
 
 
 int lua_getNint(lua_State* L, int N, int* vec, int pos, int def)
@@ -126,9 +155,9 @@ int lua_getnewargs(lua_State* L, int* vec, int pos)
 		return 1;
 	}
 	
-	if(lua_isSpinSystem(L, pos))
+	if(luaT_is<SpinSystem>(L, pos))
 	{
-		SpinSystem* ss = lua_toSpinSystem(L, pos);
+		SpinSystem* ss = luaT_to<SpinSystem>(L, pos);
 		vec[0] = ss->nx;
 		vec[1] = ss->ny;
 		vec[2] = ss->nz;
@@ -185,5 +214,57 @@ int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def)
 	}
 	
 	return N;
+}
+
+#include "spinsystem.h"
+static int l_apply(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	LUA_PREAMBLE(SpinSystem,ss,2);
+	
+	if(!so->apply(ss))
+		return luaL_error(L, so->errormsg.c_str());
+	return 0;
+}
+
+static int l_member(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+
+	int vec[3];
+	lua_getNint(L, 3, vec, 2, 1);
+	
+	if(so->member(vec[0]-1, vec[1]-1, vec[2]-1))
+		lua_pushboolean(L, 1);
+	else
+		lua_pushboolean(L, 0);
+
+	return 1;
+}
+
+static int l_tostring(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	lua_pushfstring(L, "%s (%dx%dx%d)", so->lineage(0), so->nx, so->ny, so->nz);
+	return 1;
+}
+
+
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* SpinOperation::luaMethods()
+{
+	if(m[127].name)
+		return m;
+
+	static const luaL_Reg _m[] =
+	{
+		{"__tostring",   l_tostring},
+		{"member",       l_member},
+		{"apply",        l_apply},
+		{NULL, NULL}
+	};
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
 

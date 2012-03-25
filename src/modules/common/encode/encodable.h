@@ -10,6 +10,8 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
+#if 0
+
 #ifndef ENCODABLE_H
 #define ENCODABLE_H
 #include "factory.h"
@@ -28,7 +30,6 @@
 #else
  #define ENCODE_API 
 #endif
-
 
 
 ENCODE_API typedef struct buffer
@@ -82,4 +83,6 @@ ENCODE_API    int decodeInteger(buffer* b);
 ENCODE_API double decodeDouble(buffer* b);
 ENCODE_API   void decodeBuffer(void* dest, const int len, buffer* b);
 }
+#endif
+
 #endif

@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include "luabaseobject.h"
 
 #include <sys/types.h>
 #ifndef WIN32
@@ -52,7 +53,7 @@ using namespace std;
 // typedef void(*pt2FuncVoidStar)(void*);
 // typedef void(*pt2FuncCharStar)(char*);
 
-class LuaClient
+class LuaClient : public LuaBaseObject
 {
 public:
 	LuaClient();
@@ -62,6 +63,11 @@ public:
 	const char* name() {return sourcename.c_str();};
 	void disconnect();
 
+	LINEAGE1("Client")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	
 	//void uploadLua(lua_State* L);
 	int  remoteExecuteLua(lua_State* L);
 	int refcount;

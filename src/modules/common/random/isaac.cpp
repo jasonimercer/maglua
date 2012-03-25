@@ -144,7 +144,7 @@ int main()
 
 
 Isaac::Isaac()
-	:RNG("Isaac")
+	:RNG()
 {
 	ctx.randa = 0;
 	ctx.randb = 0;

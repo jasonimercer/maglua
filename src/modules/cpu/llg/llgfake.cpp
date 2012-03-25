@@ -16,7 +16,7 @@
 #include "spinoperation.h"
 
 LLGFake::LLGFake()
-	: LLG("Fake", ENCODE_LLGFAKE)
+	: LLG(hash32(LLGFake::typeName()))
 {
 }
 

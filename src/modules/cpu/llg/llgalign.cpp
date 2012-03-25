@@ -16,7 +16,7 @@
 #include "spinoperation.h"
 
 LLGAlign::LLGAlign()
-	: LLG("Align", ENCODE_LLGALIGN)
+	: LLG(hash32(LLGAlign::typeName()))
 {
 }
 

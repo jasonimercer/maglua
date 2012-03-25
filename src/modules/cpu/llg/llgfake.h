@@ -13,9 +13,7 @@
 #ifndef LLGFAKE
 #define LLGFAKE
 
-#include "luacommon.h"
 #include "llg.h"
-#include <string>
 
 class SpinSystem;
 
@@ -23,6 +21,9 @@ class LLG_API LLGFake : public LLG
 {
 public:
 	LLGFake();
+
+	LINEAGE2("LLG.Fake", "LLG.Base")
+	static const luaL_Reg* luaMethods() {return LLG::luaMethods();}
 
 	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
 };

@@ -37,6 +37,12 @@ class RANDOM_API Isaac : public RNG
 public:
 	Isaac();
 	
+	LINEAGE2("Random.Isaac", "Random.Base")
+	static const luaL_Reg* luaMethods() {return RNG::luaMethods();}
+	virtual int luaInit(lua_State* L) {return RNG::luaInit(L);}
+	virtual void push(lua_State* L) {luaT_push<Isaac>(L, this);}
+
+	
 	uint32 randInt();                     // integer in [0,2^32-1]
 	uint32 randInt( const uint32 n );     // integer in [0,n] for n < 2^32
 

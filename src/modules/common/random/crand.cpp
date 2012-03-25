@@ -18,7 +18,7 @@
 static int (*globalRand)() = rand;
 
 CRand::CRand()
-	: RNG("CRandom")
+	: RNG()
 {
 	seed();
 }

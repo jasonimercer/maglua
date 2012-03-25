@@ -24,18 +24,22 @@
 //#include <omp.h>
 #include "luacommon.h"
 #include <string>
-#include "encodable.h"
+#include "luabaseobject.h"
 
 class SpinSystem;
 
-class CORE_API SpinOperation : public Encodable
+class CORE_API SpinOperation : public LuaBaseObject
 {
 public:
 	//encodetype will be phased out in favour of dynamic_cast<T>()
 	SpinOperation(std::string Name, int slot, int nx, int ny, int nz, int encodetype=0);
 	virtual ~SpinOperation();
 	
-	virtual bool apply(SpinSystem* ss) = 0;
+	LINEAGE1("SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	
+	virtual bool apply(SpinSystem* ss);
 	int getSite(int x, int y, int z);
 
 	bool member(int px, int py, int pz);
@@ -44,12 +48,11 @@ public:
 	int nx, ny, nz;
 	int nxyz;
 	const std::string& name();
-	int refcount;
 
 	std::string errormsg;
 	
-	virtual void encode(buffer* b) = 0;
-	virtual int  decode(buffer* b) = 0;
+// 	virtual void encode(buffer* b) = 0;
+// 	virtual int  decode(buffer* b) = 0;
 
 protected:
 	void markSlotUsed(SpinSystem* ss);

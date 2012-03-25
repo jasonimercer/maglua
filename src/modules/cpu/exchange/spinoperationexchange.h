@@ -35,6 +35,11 @@ public:
 	Exchange(int nx=32, int ny=32, int nz=1);
 	virtual ~Exchange();
 	
+	LINEAGE2("Exchange", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+
 	bool apply(SpinSystem* ss);
 
 	void addPath(int site1, int site2, double strength);
@@ -56,14 +61,10 @@ private:
 	int size;
 	int num;
 	sss* pathways;
-	
-// 	int* fromsite;
-// 	int* tosite;
-// 	double* strength;
 };
 
 EXCHANGE_API Exchange* checkExchange(lua_State* L, int idx);
 EXCHANGE_API void registerExchange(lua_State* L);
-EXCHANGE_API void lua_pushExchange(lua_State* L, Encodable* ex);
+EXCHANGE_API void lua_pushExchange(lua_State* L, LuaBaseObject* ex);
 
 #endif

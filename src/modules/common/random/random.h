@@ -51,18 +51,23 @@ typedef UINT64 ISAAC_INT;
  #define RANDOM_API 
 #endif
 
-
+#include "luabaseobject.h"
 #include <string>
 using namespace std;
 typedef unsigned long uint32;  // unsigned integer type, at least 32 bits
 
-class RANDOM_API RNG
+class RANDOM_API RNG : public LuaBaseObject
 {
 public:
-	RNG(const char* name);
+	RNG();
 	virtual ~RNG() {};
 	
-	virtual uint32 randInt() = 0;                 // integer in [0,2^32-1]
+	LINEAGE1("Random.Base")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	
+	virtual uint32 randInt() {return 0;}                 // integer in [0,2^32-1]
 	virtual double rand();                        // real number in [0,1]
 	virtual double rand( const double n );        // real number in [0,n]
 	virtual double randExc();                     // real number in [0,1)
@@ -73,10 +78,9 @@ public:
 	// Access to nonuniform random number distributions
 	virtual double randNorm( const double mean = 0.0, const double stddev = 1.0 );
 	
-	virtual void seed( const uint32 oneSeed ) = 0;
-	virtual void seed() = 0; //seed by time
+	virtual void seed( const uint32 oneSeed ) {};
+	virtual void seed() {}; //seed by time
 
-	string type;
 protected:
 	double gaussPair[2];
 	unsigned char __gaussStep;

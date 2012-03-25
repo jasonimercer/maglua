@@ -17,19 +17,23 @@
 #include "mersennetwister.h"
 #include "crand.h"
 
-RNG::RNG(const char* name)
+RNG::RNG()
+	: LuaBaseObject(hash32(lineage(0)))
 {
-	type = name;
 	__gaussStep = 1;
 }
 
-RNG* checkRandom(lua_State* L, int idx)
+int RNG::luaInit(lua_State* L)
 {
-	RNG** pp = (RNG**)luaL_checkudata(L, idx, "MERCER.rng");
-    luaL_argcheck(L, pp != NULL, 1, "`RNG' expected");
-    return *pp;
+	if(lua_isnumber(L, 1))
+		seed(lua_tointeger(L, 1));
 }
 
+void RNG::push(lua_State* L)
+{
+	luaT_push<RNG>(L, this);
+}
+	
 double RNG::rand()                        // real number in [0,1]
 {
 	return double(randInt()) * (1.0/4294967295.0);
@@ -92,68 +96,17 @@ double RNG::randNorm( const double mean, const double stddev )
 
 
 
-int l_rand_new(lua_State* L)
+
+static int l_seed(lua_State* L)
 {
-	RNG* r = 0;
-	const char* _error = "First argument of RNG.new must be `MersenneTwister', `Isaac' or `CRandom'";
-	if(!lua_isstring(L, 1))
-		return luaL_error(L, _error);
-	
-	const char* type = lua_tostring(L, 1);
-	
-	if(strcasecmp(type, "mersennetwister") == 0)
-	{
-		r = new MTRand;
-	}
-	else if(strcasecmp(type, "isaac") == 0)
-	{
-		r = new Isaac;
-	}
-	else if(strcasecmp(type, "crandom") == 0)
-	{
-		r = new CRand;
-	}
-	
-	if(!r)
-		return luaL_error(L, _error);
-
-	if(lua_isnumber(L, 2))
-		r->seed(lua_tointeger(L, 2));
-	else
-		r->seed();
-	
-	RNG** pp = (RNG**)lua_newuserdata(L, sizeof(RNG**));
-	
-	*pp = r;
-	luaL_getmetatable(L, "MERCER.rng");
-	lua_setmetatable(L, -2);
-	return 1;
-}
-
-
-int l_rand_gc(lua_State* L)
-{
-	RNG* r = checkRandom(L, 1);
-	delete r;
-	
-	return 0;
-}
-
-int l_rand_seed(lua_State* L)
-{
-	RNG* r = checkRandom(L, 1);
-	if(!r) return 0; 
-	
+	LUA_PREAMBLE(RNG, r, 1);	
 	r->seed(lua_tointeger(L, 2));
-
 	return 0;
 }
 
-int l_rand_uniform(lua_State* L)
+static int l_uniform(lua_State* L)
 {
-	RNG* r = checkRandom(L, 1);
-	if(!r) return 0; 
-	
+	LUA_PREAMBLE(RNG, r, 1);	
 	if(lua_isnumber(L, 2))
 		lua_pushnumber(L, r->rand(lua_tonumber(L, 2)));
 	else
@@ -162,23 +115,16 @@ int l_rand_uniform(lua_State* L)
 	return 1;
 }
 
-int l_rand_normal(lua_State* L)
+static int l_normal(lua_State* L)
 {
-	RNG* r = checkRandom(L, 1);
-	if(!r) return 0; 
-	
+	LUA_PREAMBLE(RNG, r, 1);	
 	lua_pushnumber(L, r->randNorm());
 	return 1;
 }
 
 
-static int l_rand_mt(lua_State* L)
-{
-	luaL_getmetatable(L, "MERCER.rng");
-	return 1;
-}
-
-static int l_rand_help(lua_State* L)
+/*
+static static int l_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
@@ -234,48 +180,25 @@ static int l_rand_help(lua_State* L)
 	
 	return 0;
 }
+*/
 
-
-// static Encodable* newMTRand()
-// {
-// 	return new MTRand;
-// }
-// static Encodable* newIsaac()
-// {
-// 	return new Isaac;
-// }
-// static Encodable* newCRand()
-// {
-// 	return new CRand;
-// }
-
-void registerRandom(lua_State* L)
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* RNG::luaMethods()
 {
-	static const struct luaL_reg methods [] = { //methods
-		{"__gc",         l_rand_gc},
-		{"setSeed",      l_rand_seed},
-		{"uniform",      l_rand_uniform},
-		{"normal",       l_rand_normal},
-		{"rand",         l_rand_uniform},
+	if(m[127].name)
+		return m;
+
+	static const luaL_Reg _m[] =
+	{
+		{"setSeed",      l_seed},
+		{"uniform",      l_uniform},
+		{"normal",       l_normal},
+		{"rand",         l_uniform},
 		{NULL, NULL}
 	};
-	
-	luaL_newmetatable(L, "MERCER.rng");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-	
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_rand_new},
-		{"help",                l_rand_help},
-		{"metatable",           l_rand_mt},
-		{NULL, NULL}
-	};
-	
-	luaL_register(L, "Random", functions);
-	lua_pop(L,1);
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
 
 
@@ -291,7 +214,10 @@ RANDOM_API int lib_main(lua_State* L);
 
 RANDOM_API int lib_register(lua_State* L)
 {
-	registerRandom(L);
+	luaT_register<RNG>(L);
+	luaT_register<CRand>(L);
+	luaT_register<MTRand>(L);
+	luaT_register<Isaac>(L);
 	return 0;
 }
 

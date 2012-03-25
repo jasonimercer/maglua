@@ -30,6 +30,7 @@ static char names[MAXHOSTCACHE][256];
 static int num_name_cache = 0;
 
 LuaClient::LuaClient()
+	: LuaBaseObject(hash32(LuaClient::typeName()))
 {
 #ifdef WIN32
 	if(!WSAStartupCalled)
@@ -52,7 +53,21 @@ LuaClient::~LuaClient()
 	disconnect();
 }
 
+int LuaClient::luaInit(lua_State* L)
+{
+	if(lua_isstring(L, 1))
+	{
+		if(!connectTo(lua_tostring(L, 1)))
+			return luaL_error(L, "Failed to connect to `%s'\n", lua_tostring(L, 1));
+	}
+	return 0;
+}
 
+void LuaClient::push(lua_State* L)
+{
+	luaT_push<LuaClient>(L, this);
+}
+	
 bool LuaClient::connectTo(const char* host_port)
 {
 	if(_connected)
@@ -259,114 +274,53 @@ int LuaClient::remoteExecuteLua(lua_State* L)
 
 
 
-LuaClient* checkLuaClient(lua_State* L, int idx)
+static int l_remote(lua_State* L)
 {
-	LuaClient** pp = (LuaClient**)luaL_checkudata(L, idx, "Client");
-	luaL_argcheck(L, pp != NULL, 1, "Client' expected");
-	return *pp;
-}
-
-void lua_pushLuaClient(lua_State* L, LuaClient* lc)
-{
-	lc->refcount++;
-	LuaClient** pp = (LuaClient**)lua_newuserdata(L, sizeof(LuaClient**));
-	*pp = lc;
-	luaL_getmetatable(L, "Client");
-	lua_setmetatable(L, -2);
-}
-
-
-static int l_client_remote(lua_State* L)
-{
-	LuaClient* lc = checkLuaClient(L, 1);
+	LUA_PREAMBLE(LuaClient, lc, 1);
 	lua_remove(L, 1); //get object off the stack
 	return lc->remoteExecuteLua(L);
 }
 
 
-static int l_client_gc(lua_State* L)
+static int l_connect(lua_State* L)
 {
-	LuaClient* lc = checkLuaClient(L, 1);
-	lc->refcount--;
-	if(lc->refcount <= 0)
-	{
-		delete lc;
-	}
-	return 0;
-}
-static int l_client_tostring(lua_State* L)
-{
-	LuaClient* lc = checkLuaClient(L, 1);
-	lua_pushstring(L, "Client");
-	return 1;
-}
-
-static int l_client_connect(lua_State* L)
-{
-	LuaClient* lc = checkLuaClient(L, 1);
+	LUA_PREAMBLE(LuaClient, lc, 1);
 	lua_pushboolean(L, lc->connectTo(lua_tostring(L, 2)));
 	return 1;
 }
 
-static int l_client_connected(lua_State* L)
+static int l_connected(lua_State* L)
 {
-	LuaClient* lc = checkLuaClient(L, 1);
+	LUA_PREAMBLE(LuaClient, lc, 1);
 	lua_pushboolean(L, lc->connected());
 	return 1;
 }
 
-static int l_client_disconnect(lua_State* L)
+static int l_disconnect(lua_State* L)
 {
-	LuaClient* lc = checkLuaClient(L, 1);
+	LUA_PREAMBLE(LuaClient, lc, 1);
 	lc->disconnect();
 	return 0;
 }
 
-static int l_client_new(lua_State* L)
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* LuaClient::luaMethods()
 {
-	LuaClient* lc = new LuaClient;
-	
-	if(lua_isstring(L, 1))
+	if(m[127].name)return m;
+
+	static const luaL_Reg _m[] =
 	{
-		if(!lc->connectTo(lua_tostring(L, 1)))
-		{
-			delete lc;
-			return luaL_error(L, "Failed to connect to `%s'", lua_tostring(L, 1));
-		}
-	}
-	
-	lua_pushLuaClient(L, lc);
-	return 1;
-}
-
-
-void registerLuaClient(lua_State* L)
-{
-	static const struct luaL_reg methods [] = { //methods
-	{"__gc",         l_client_gc},
-	{"__tostring",   l_client_tostring},
-	{"remote",       l_client_remote},
-	{"connect",      l_client_connect},
-	{"connected",    l_client_connected},
-	{"disconnect",   l_client_disconnect},
-	{NULL, NULL}
-	};
-	
-	luaL_newmetatable(L, "Client");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-	
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_client_new},
+		{"remote",       l_remote},
+		{"connect",      l_connect},
+		{"connected",    l_connected},
+		{"disconnect",   l_disconnect},
 		{NULL, NULL}
 	};
-	
-	luaL_register(L, "Client", functions);
-	lua_pop(L,1);
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
+
 
 #include "info.h"
 extern "C"
@@ -379,7 +333,7 @@ CLIENT_API int lib_main(lua_State* L);
 
 CLIENT_API int lib_register(lua_State* L)
 {
-	registerLuaClient(L);
+	luaT_register<LuaClient>(L);
 	return 0;
 }
 

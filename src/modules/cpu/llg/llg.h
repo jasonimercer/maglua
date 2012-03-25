@@ -14,7 +14,7 @@
 #define LLGDEF
 #include "luacommon.h"
 #include <string>
-#include "encodable.h"
+#include "luabaseobject.h"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -32,29 +32,31 @@
 
 class SpinSystem;
 
-class LLG_API LLG : public Encodable
+class LLG_API LLG : public LuaBaseObject
 {
 public:
-	LLG(const char* llgtype, int etype);
+	LLG(int encode_type=hash32("LLG.Base"));
 	virtual ~LLG();
 	
-	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime) = 0;
+	LINEAGE1("LLG.Base")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	
+	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime) {}
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
-	
-	std::string type;
-	
+		
 	int refcount;
 
 	bool disablePrecession;
 
-	void encode(buffer* b);
-	int  decode(buffer* b);
+// 	void encode(buffer* b);
+// 	int  decode(buffer* b);
 };
 
 
-LLG_API void registerLLG(lua_State* L);
-LLG_API LLG* checkLLG(lua_State* L, int idx);
-LLG_API void lua_pushLLG(lua_State* L, Encodable* llg);
-LLG_API int  lua_isllg(lua_State* L, int idx);
+// LLG_API void registerLLG(lua_State* L);
+// LLG_API LLG* checkLLG(lua_State* L, int idx);
+// LLG_API void lua_pushLLG(lua_State* L, Encodable* llg);
+// LLG_API int  lua_isllg(lua_State* L, int idx);
 
 #endif

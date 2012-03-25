@@ -30,12 +30,9 @@
 #define THERMAL_ONLY_FIRST_TERM 
 
 LLGCartesian::LLGCartesian()
-	: LLG("Cartesian", ENCODE_LLGCART)
+	: LLG(hash32(LLGCartesian::typeName()))
 {
 }
-
-
-
 
 #define CROSS(v, a, b) \
 	v[0] = a[1] * b[2] - a[2] * b[1]; \

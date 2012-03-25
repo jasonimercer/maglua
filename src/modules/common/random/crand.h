@@ -21,6 +21,12 @@ class RANDOM_API CRand : public RNG
 public:
 	CRand();
 	
+	LINEAGE2("Random.CRand", "Random.Base")
+	static const luaL_Reg* luaMethods() {return RNG::luaMethods();}
+	virtual int luaInit(lua_State* L) {return RNG::luaInit(L);}
+	virtual void push(lua_State* L) {luaT_push<CRand>(L, this);}
+	
+	
 	uint32 randInt();                     // integer in [0,2^32-1]
 	
 	void seed( const uint32 oneSeed );

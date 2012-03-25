@@ -23,6 +23,9 @@ class LLG_API LLGAlign : public LLG
 public:
 	LLGAlign();
 
+	LINEAGE2("LLG.Align", "LLG.Base")
+	static const luaL_Reg* luaMethods() {return LLG::luaMethods();}
+	
 	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
 };
 

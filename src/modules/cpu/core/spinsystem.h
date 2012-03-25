@@ -16,7 +16,7 @@
 #include <complex>
 #include <fftw3.h>
 #include "luacommon.h"
-#include "encodable.h"
+#include "luabaseobject.h"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -25,12 +25,18 @@
 
 using namespace std;
 
-class CORE_API SpinSystem : public Encodable
+class CORE_API SpinSystem : public LuaBaseObject
 {
 public:
 	SpinSystem(const int nx=32, const int ny=32, const int nz=32);
 	~SpinSystem();
 
+	LINEAGE1("SpinSystem")
+	static const luaL_Reg* luaMethods();
+	virtual void push(lua_State* L);
+	virtual int luaInit(lua_State* L);
+
+	
 	SpinSystem* copy(lua_State* L);
 	bool copyFrom(lua_State* L, SpinSystem* src);
 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
@@ -70,15 +76,11 @@ public:
 
 	double* ms; // spin length
 	
-// 	int start_thread(int idx, void *(*start_routine)(void*), void* arg);
-// 	JThread** jthreads;
-	
 	double alpha;
 	double gamma;
 	double dt;
 	
 	int nx, ny, nz;
-	int refcount;
 
 	int nxyz;
 	int nslots;
@@ -87,8 +89,7 @@ public:
 	double fft_time; //this is the time of the last fft
 	
 	void fft();
-	
-	
+		
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 
@@ -105,10 +106,10 @@ private:
 	
 };
 
-CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
-CORE_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
-CORE_API int lua_isSpinSystem(lua_State* L, int idx);
-CORE_API void lua_pushSpinSystem(lua_State* L, Encodable* ss);
-CORE_API void registerSpinSystem(lua_State* L);
+// CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
+// CORE_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
+// CORE_API int lua_isSpinSystem(lua_State* L, int idx);
+// CORE_API void lua_pushSpinSystem(lua_State* L, LuaBaseObject* ss);
+// CORE_API void registerSpinSystem(lua_State* L);
 
 #endif
