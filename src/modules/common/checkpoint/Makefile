@@ -13,6 +13,6 @@ OBJECTS=checkpoint.o
 LIBNAME=CheckPoint
 CATEGORY=common
 
-DEPEND=encode
+DEPEND=luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

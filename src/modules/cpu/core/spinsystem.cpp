@@ -1198,8 +1198,7 @@ static int l_getdiff(lua_State* L)
 	return 4;
 }
 
-
-static int l_help(lua_State* L)
+int SpinSystem::help(lua_State* L)
 {
 	int i = 0;
 	char buf[1024];
@@ -1217,7 +1216,7 @@ static int l_help(lua_State* L)
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Represents and contains a lattice of spins including orientation and resulting fields.");
-		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
@@ -1234,16 +1233,6 @@ static int l_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 
-	/*
-	if(func == l_new)
-	{
-		lua_pushstring(L, "Create a new Spin System.");
-		lua_pushstring(L, "1 *3Vector*: The width, depth and number of layers for a spin system. Omitted parameters are assumed to be 1."); 
-		lua_pushstring(L, "1 Spin System");
-		return 3;
-	}
-	*/
-	
 	if(func == l_netmag)
 	{
 		lua_pushstring(L, "Calculate and return net magnetization of a spin system");
@@ -1307,8 +1296,7 @@ static int l_help(lua_State* L)
 		lua_pushstring(L, "1 Integer: Size of the third dimension.");
 		return 3;
 	}
-	
-	
+		
 	if(func == l_sumfields)
 	{
 		lua_pushstring(L, "Sum all the fields into a single effective field.");
@@ -1484,10 +1472,7 @@ static int l_help(lua_State* L)
 		return 3;
 	}
 
-
-
-
-	return 0;
+	return LuaBaseObject::help(L);
 }
 
 

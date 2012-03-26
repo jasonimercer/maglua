@@ -35,6 +35,12 @@ public:
 	Anisotropy(int nx=32, int ny=32, int nz=1);
 	virtual ~Anisotropy();
 	
+	LINEAGE2("Anisotropy", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	static int help(lua_State* L);
+	
 	bool apply(SpinSystem* ss);
 	void addAnisotropy(int site, double nx, double ny, double nz, double K);
 
@@ -57,10 +63,6 @@ public:
 	void init();
 	void deinit();
 };
-
-void lua_pushAnisotropy(lua_State* L, Encodable* ani);
-Anisotropy* checkAnisotropy(lua_State* L, int idx);
-void registerAnisotropy(lua_State* L);
 
 
 #endif

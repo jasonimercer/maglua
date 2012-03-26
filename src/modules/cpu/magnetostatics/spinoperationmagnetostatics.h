@@ -44,6 +44,12 @@ public:
 	Magnetostatic(int nx=32, int ny=32, int nz=1);
 	virtual ~Magnetostatic();
 	
+	LINEAGE3("Magnetostatic", "LongRange", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	static int help(lua_State* L);
+	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
@@ -52,10 +58,6 @@ public:
 
 	void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ);
 };
-
-MAGNETOSTATICS_API void lua_pushMagnetostatic(lua_State* L, Encodable* d);
-MAGNETOSTATICS_API Magnetostatic* checkMagnetostatic(lua_State* L, int idx);
-MAGNETOSTATICS_API void registerMagnetostatic(lua_State* L);
 
 
 #endif

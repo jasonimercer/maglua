@@ -53,6 +53,18 @@ bool  LLGAlign::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, 
 	return true;
 }
 
+int LLGAlign::help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "LLG.Align dvances a *SpinSystem* through time aligning spins with local fields");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+		
+	return LLG::help(L);
+}
 
 
 

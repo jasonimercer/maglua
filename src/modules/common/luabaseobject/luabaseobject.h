@@ -343,7 +343,7 @@ inline void luaT_register(lua_State* L)
 			lua_setglobal(L, list[0].c_str());
 			lua_getglobal(L, list[0].c_str());
 		}
-		for(int i=1; i<list.size()-1; i++)
+		for(unsigned int i=1; i<list.size()-1; i++)
 		{
 			lua_getfield(L, -1, list[i].c_str());
 			if(lua_isnil(L, -1))
@@ -396,5 +396,24 @@ inline void luaT_register(lua_State* L)
 #define _NULLPAIR128 _NULLPAIR64,_NULLPAIR64
 
 void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals);
+
+
+// macros to create simple getter/setter functions
+#define LUAFUNC_SET_DOUBLE(T,var,func_name) \
+static int func_name(lua_State* L) \
+{ \
+	LUA_PREAMBLE(T, _x_, 1); \
+	(_x_)->var = lua_tonumber(L, 2); \
+	return 0; \
+}
+
+#define LUAFUNC_GET_DOUBLE(T,var,func_name) \
+static int func_name(lua_State* L) \
+{ \
+	LUA_PREAMBLE(T, _x_, 1); \
+	lua_pushnumber(L, (_x_)->var); \
+	return 1; \
+}
+
 
 #endif // LUABASEOBJECT_H

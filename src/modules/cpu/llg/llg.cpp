@@ -29,107 +29,13 @@ int LLG::luaInit(lua_State* L)
 	return 0;
 }
 
-// void LLG::encode(buffer* b)
-// {
-// 	int len = type.length()+1;
-// 	encodeInteger( len, b);
-// 	encodeBuffer(type.c_str(), len, b);
-// }
-// 
-// int  LLG::decode(buffer* b)
-// {
-// 	int len = decodeInteger(b);
-// 	
-// 	char* t = new char[len];
-// 	decodeBuffer(t, len, b);
-// 	
-// 	type = t;
-// 	delete [] t;
-// 	
-// 	return 0;
-// }
-
-
 LLG::~LLG()
 {
 	
 }
 
 
-/*
-LLG* checkLLG(lua_State* L, int idx)
-{
-	LLG** pp = (LLG**)luaL_checkudata(L, idx, "MERCER.llg");
-	luaL_argcheck(L, pp != NULL, 1, "`LLG' expected");
-	return *pp;
-}
 
-int  lua_isllg(lua_State* L, int idx)
-{
-	LLG** pp = (LLG**)luaL_checkudata(L, idx, "MERCER.llg");
-	return pp != 0;
-}
-
-
-void lua_pushLLG(lua_State* L, Encodable* )
-{
-	LLG* llg = dynamic_cast<LLG*>();
-	if(!llg) return;
-	llg->refcount++;
-	
-	LLG** pp = (LLG**)lua_newuserdata(L, sizeof(LLG**));
-	
-	*pp = llg;
-	luaL_getmetatable(L, "MERCER.llg");
-	lua_setmetatable(L, -2);
-}
-
-
-int l_new(lua_State* L)
-{
-	LLG* llg = 0;
-	
-	if(strcasecmp(lua_tostring(L, 1), "Cartesian") == 0)
-	{
-		llg = new LLGCartesian;
-	}
-	else if(strcasecmp(lua_tostring(L, 1), "Quaternion") == 0)
-	{
-		llg = new LLGQuaternion;
-	}
-	else if(strcasecmp(lua_tostring(L, 1), "Fake") == 0)
-	{
-		llg = new LLGFake;
-	}
-	else if(strcasecmp(lua_tostring(L, 1), "Align") == 0)
-	{
-		llg = new LLGAlign;
-	}
-	if(!llg)
-		return luaL_error(L, "Unknown LLG type `%s'", lua_tostring(L, 1));
-	
-	lua_pushLLG(L, llg);
-	
-	return 1;
-}
-*/
-
-
-
-int l_gettype(lua_State* L)
-{
-	LUA_PREAMBLE(LLG, llg, 1);
-	lua_pushstring(L, llg->lineage(0));
-	return 1;
-}
-
-
-
-// static int l_mt(lua_State* L)
-// {
-// 	luaL_getmetatable(L, "MERCER.llg");
-// 	return 1;
-// }
 
 
 
@@ -191,37 +97,20 @@ static int l_apply(lua_State* L)
 }
 
 
-static int l_type(lua_State* L)
-{
-	LUA_PREAMBLE(LLG, llg, 1);
-	lua_pushstring(L, llg->lineage(0));
-	return 1;
-}
-
-static luaL_Reg m[128] = {_NULLPAIR128};
-const luaL_Reg* LLG::luaMethods()
-{
-	if(m[127].name)
-		return m;
-
-	static const luaL_Reg _m[] =
-	{
-		//{"__tostring",   l_tostring},
-		{"apply",        l_apply},
-		{"type",         l_type},
-		{NULL, NULL}
-	};
-	merge_luaL_Reg(m, _m);
-	m[127].name = (char*)1;
-	return m;
-}
+// static int l_type(lua_State* L)
+// {
+// 	LUA_PREAMBLE(LLG, llg, 1);
+// 	lua_pushstring(L, llg->lineage(0));
+// 	return 1;
+// }
 
 
-static int l_help(lua_State* L)
+
+int LLG::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "LLG advances a *SpinSystem* through time using a form of the LLG equation.");
+		lua_pushstring(L, "LLG advances a *SpinSystem* through time using a form of the LLG equation. This is an abstract base class and is not intended to be used directly.");
 		lua_pushstring(L, ""); //input, empty
 		lua_pushstring(L, ""); //output, empty
 		return 3;
@@ -239,14 +128,6 @@ static int l_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-// 	if(func == l_new)
-// 	{
-// 		lua_pushstring(L, "Create a new LLG object.");
-// 		lua_pushstring(L, "1 string: The string argument defines the LLG type. It may be one of the following:\n\"Cartesian\" - update the components of the spins indivifually.\n\"Quaternion\" - use rotation methods to update all components simultaneously.\n\"Fake\" - do nothing to spins, update the timestep.\n\"Align\" - align the spins with the local field.");
-// 		lua_pushstring(L, "1 LLG object");
-// 		return 3;
-// 	}
-	
 	if(func == l_apply)
 	{
 		lua_pushstring(L, "Compute 1 LLG Euler Step.");
@@ -258,15 +139,33 @@ static int l_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_gettype)
-	{
-		lua_pushstring(L, "Determine which type of the LLG object.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 string: \"Cartesian\", \"Quaternion\", \"Fake\" or \"Align\"");
-		return 3;
-	}
+// 	if(func == l_gettype)
+// 	{
+// 		lua_pushstring(L, "Determine which type of the LLG object.");
+// 		lua_pushstring(L, "");
+// 		lua_pushstring(L, "1 string: \"Cartesian\", \"Quaternion\", \"Fake\" or \"Align\"");
+// 		return 3;
+// 	}
 	
-	return 0;
+	return LuaBaseObject::help(L);
+}
+
+
+
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* LLG::luaMethods()
+{
+	if(m[127].name)
+		return m;
+
+	static const luaL_Reg _m[] =
+	{
+		{"apply",        l_apply},
+		{NULL, NULL}
+	};
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
 
 
@@ -285,6 +184,8 @@ LLG_API int lib_register(lua_State* L)
 	luaT_register<LLG>(L);
 	luaT_register<LLGCartesian>(L);
 	luaT_register<LLGQuaternion>(L);
+	luaT_register<LLGAlign>(L);
+	luaT_register<LLGFake>(L);	
 	return 0;
 }
 

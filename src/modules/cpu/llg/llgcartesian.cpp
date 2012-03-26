@@ -119,6 +119,20 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 
 
 
+int LLGCartesian::help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "LLG.Cartesian advances a *SpinSystem* through time using the Cartesian formulation of the LLG equation.");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+		
+	return LLG::help(L);
+}
+
+
 
 
 

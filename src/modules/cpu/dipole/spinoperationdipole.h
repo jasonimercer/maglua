@@ -37,15 +37,17 @@ public:
 	Dipole(int nx=32, int ny=32, int nz=1);
 	virtual ~Dipole();
 	
+	LINEAGE3("Dipole", "LongRange", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	static int help(lua_State* L);
+
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
 	void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ);
- };
-
-DIPOLE_API void lua_pushDipole(lua_State* L, Encodable* d);
-DIPOLE_API Dipole* checkDipole(lua_State* L, int idx);
-DIPOLE_API void registerDipole(lua_State* L);
+};
 
 
 #endif

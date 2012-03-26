@@ -38,6 +38,7 @@ public:
 	LINEAGE1("SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
+	static int help(lua_State* L);
 	
 	virtual bool apply(SpinSystem* ss);
 	int getSite(int x, int y, int z);

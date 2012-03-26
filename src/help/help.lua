@@ -67,6 +67,13 @@ for k,v in pairs(_G) do
 		if type(v.help) == "function" then
 			table.insert(s, {k, v})
 		end
+		for x,y in pairs(v) do
+			if type(y) == "table" and k ~= "_G" then
+				if type(y.help) == "function" then
+					table.insert(s, {k .. "." .. x, y})
+				end
+			end
+		end
 	end
 end
 
@@ -81,14 +88,16 @@ table.sort(s, comp)
 for i,v in ipairs(s) do
 	t = v[2]
 	n = v[1]
-
 	a, b, c = t.help()
 	if a then
 		addsection(n, 2)
-		f:write("<p>\n" .. lp(a) .. "\n<hr>")
+		f:write("<p>\n" .. lp(a) .. "\n")
+		if b then
+			f:write("<p><dl><dt>" .. n .. ".new() takes the following arguments</dt><dd>" .. lp(b) .. "</dd></dl>\n")
+		end
+		f:write("<hr>\n");
 	end
 
-	
 	-- write documentation about all functions
 	local xx = {}
 	for k,v in pairs(t) do
@@ -103,13 +112,14 @@ for i,v in ipairs(s) do
 		dl(v[2], v[3], v[4])
 	end
 
-	
 	-- write documentation about all methods
 	local yy = {}
 	for k,v in pairs(t.metatable()) do
-		a, b, c = t.help(v)
-		if a then
-			table.insert(yy, {k, a, b, c})
+		if k ~= "__index" then
+			a, b, c = t.help(v)
+			if a then
+				table.insert(yy, {k, a, b, c})
+			end
 		end
 	end
 	table.sort(yy, comp)

@@ -19,7 +19,7 @@ extern "C" {
 #include <lauxlib.h>
 }
 #include <vector>
-#include "encodable.h"
+#include "luabaseobject.h"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -37,16 +37,21 @@ extern "C" {
 
 using namespace std;
 
-class InterpolatingFunction2D : public Encodable
+class InterpolatingFunction2D : public LuaBaseObject
 {
 public:
 	InterpolatingFunction2D();
 	~InterpolatingFunction2D();
 
+	LINEAGE1("Interpolate2D")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	
+	
 	void addData(const double inx, const double iny, const double out);
 	bool getValue(double inx, double iny, double* out);
 	bool compile();
-	int refcount;
 
 	void setInvalidValue(const double d);
 		
@@ -81,9 +86,6 @@ private:
 	vector < triple > rawdata;
 };
 
-InterpolatingFunction2D* checkInterpolatingFunction2D(lua_State* L, int idx);
-int registerInterpolatingFunction2D(lua_State* L);
-void lua_pushInterpolatingFunction2D(lua_State* L, Encodable* if2D);
 // 
 #endif
 

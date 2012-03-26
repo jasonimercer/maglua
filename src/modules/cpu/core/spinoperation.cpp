@@ -249,6 +249,40 @@ static int l_tostring(lua_State* L)
 	return 1;
 }
 
+int SpinOperation::help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "Abstruct base class for Spin Operations");
+		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+		
+	if(func == l_member)
+	{
+		lua_pushstring(L, "Test if the given site index is part of the operator");
+		lua_pushstring(L, "1 *3Vector* (Integers): Index of site to test");
+		lua_pushstring(L, "1 Boolean: Result of test");
+		return 3;
+	}
+	if(func == l_apply)
+	{
+		lua_pushstring(L, "Apply the operator to the SpinSystem");
+		lua_pushstring(L, "1 SpinSystem: System that will receive the resulting fields");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	return LuaBaseObject::help(L);
+}
 
 static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* SpinOperation::luaMethods()

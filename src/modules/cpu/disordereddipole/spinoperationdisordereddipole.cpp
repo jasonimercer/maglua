@@ -18,8 +18,21 @@
 #include <math.h>
 
 DisorderedDipole::DisorderedDipole(int nx, int ny, int nz)
-	: SpinOperation("DisorderedDipole", DIPOLE_SLOT, nx, ny, nz, ENCODE_DIPOLE)
+	: SpinOperation(DisorderedDipole::typeName(), DIPOLE_SLOT, nx, ny, nz, hash32(DisorderedDipole::typeName()))
 {
+	posx = 0;
+	init();
+}
+
+void DisorderedDipole::init()
+{
+	if(posx)
+	{
+		delete [] posx;
+		delete [] posy;
+		delete [] posz;
+	}
+	
 	posx = new double [nxyz];
 	posy = new double [nxyz];
 	posz = new double [nxyz];
@@ -32,13 +45,57 @@ DisorderedDipole::DisorderedDipole(int nx, int ny, int nz)
 	}
 }
 
+void DisorderedDipole::deinit()
+{
+	if(posx)
+	{
+		delete [] posx;
+		delete [] posy;
+		delete [] posz;
+	}
+	posx = 0;	
+}
+
+	
+int DisorderedDipole::luaInit(lua_State* L)
+{
+	deinit();
+	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
+	init();
+}
+
+void DisorderedDipole::push(lua_State* L)
+{
+	luaT_push<DisorderedDipole>(L, this);
+}
+
+
 void DisorderedDipole::encode(buffer* b)
 {
-	
+	encodeInteger(nx, b);
+	encodeInteger(ny, b);
+	encodeInteger(nz, b);
+	for(int i=0; i<nxyz; i++)
+	{
+		encodeDouble(posx[i], b);
+		encodeDouble(posy[i], b);
+		encodeDouble(posz[i], b);
+	}
 }
 
 int  DisorderedDipole::decode(buffer* b)
 {
+	deinit();
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
+	init();
+	for(int i=0; i<nxyz; i++)
+	{
+		posx[i] = decodeDouble(b);
+		posy[i] = decodeDouble(b);
+		posz[i] = decodeDouble(b);
+	}
 	return 0;
 }
 
@@ -120,80 +177,23 @@ bool DisorderedDipole::apply(SpinSystem* ss)
 
 
 
-DisorderedDipole* checkDisorderedDipole(lua_State* L, int idx)
+static int l_setstrength(lua_State* L)
 {
-	DisorderedDipole** pp = (DisorderedDipole**)luaL_checkudata(L, idx, "MERCER.disordereddipole");
-    luaL_argcheck(L, pp != NULL, 1, "`DisorderedDipole' expected");
-    return *pp;
-}
-
-void lua_pushDisorderedDipole(lua_State* L, DisorderedDipole* dip)
-{
-	dip->refcount++;
-	DisorderedDipole** pp = (DisorderedDipole**)lua_newuserdata(L, sizeof(DisorderedDipole**));
-	
-	*pp = dip;
-	luaL_getmetatable(L, "MERCER.disordereddipole");
-	lua_setmetatable(L, -2);
-}
-
-int l_dipdis_new(lua_State* L)
-{
-	int n[3];
-	lua_getnewargs(L, n, 1);
-
-	lua_pushDisorderedDipole(L, new DisorderedDipole(n[0], n[1], n[2]));
-	return 1;
-}
-
-
-int l_dipdis_setstrength(lua_State* L)
-{
-	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
-	if(!dip) return 0;
-
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
 	dip->g = lua_tonumber(L, 2);
 	return 0;
 }
 
-int l_dipdis_gc(lua_State* L)
+static int l_getstrength(lua_State* L)
 {
-	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
-	if(!dip) return 0;
-
-	dip->refcount--;
-	if(dip->refcount == 0)
-		delete dip;
-	
-	return 0;
-}
-
-int l_dipdis_apply(lua_State* L)
-{
-	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
-	if(!dip) return 0;
-	SpinSystem* ss = checkSpinSystem(L, 2);
-	
-	if(!dip->apply(ss))
-		return luaL_error(L, dip->errormsg.c_str());
-	
-	return 0;
-}
-
-int l_dipdis_getstrength(lua_State* L)
-{
-	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
-	if(!dip) return 0;
-
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
 	lua_pushnumber(L, dip->g);
-
 	return 1;
 }
 
-int l_dipdis_setsiteposition(lua_State* L)
+static int l_setsiteposition(lua_State* L)
 {
-	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
-	if(!dip) return 0;
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
 	
 	int r1;
 	int s[3];
@@ -215,10 +215,9 @@ int l_dipdis_setsiteposition(lua_State* L)
 	return 0;
 }
 
-int l_dipdis_siteposition(lua_State* L)
+static int l_siteposition(lua_State* L)
 {
-	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
-	if(!dip) return 0;
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
 	
 	int r1;
 	int s[3];
@@ -235,24 +234,8 @@ int l_dipdis_siteposition(lua_State* L)
 	return 3;
 }
 
-static int l_dipdis_mt(lua_State* L)
-{
-	luaL_getmetatable(L, "MERCER.disordereddipole");
-	return 1;
-}
-
-
-static int l_dipdis_tostring(lua_State* L)
-{
-	DisorderedDipole* dip = checkDisorderedDipole(L, 1);
-	if(!dip) return 0;
-	
-	lua_pushfstring(L, "DisorderedDipole (%dx%dx%d)", dip->nx, dip->ny, dip->nz);
-	
-	return 1;
-}
-
-static int l_dipdis_help(lua_State* L)
+#if 0
+static int l_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
@@ -274,7 +257,7 @@ static int l_dipdis_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-	if(func == l_dipdis_new)
+	if(func == l_new)
 	{
 		lua_pushstring(L, "Create a new DisorderedDipole Operator.");
 		lua_pushstring(L, ""); 
@@ -283,7 +266,7 @@ static int l_dipdis_help(lua_State* L)
 	}
 	
 	
-	if(func == l_dipdis_apply)
+	if(func == l_apply)
 	{
 		lua_pushstring(L, "Calculate the dipolar field of a *SpinSystem*");
 		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field");
@@ -291,7 +274,7 @@ static int l_dipdis_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_dipdis_setstrength)
+	if(func == l_setstrength)
 	{
 		lua_pushstring(L, "Set the strength of the Dipolar Field");
 		lua_pushstring(L, "1 number: strength of the field");
@@ -299,7 +282,7 @@ static int l_dipdis_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_dipdis_getstrength)
+	if(func == l_getstrength)
 	{
 		lua_pushstring(L, "Get the strength of the Dipolar Field");
 		lua_pushstring(L, "");
@@ -307,7 +290,7 @@ static int l_dipdis_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_dipdis_setsiteposition)
+	if(func == l_setsiteposition)
 	{
 		lua_pushstring(L, "Maps the lattice coordinate to a real world position");
 		lua_pushstring(L, "2 *3Vector*s: First is lattice site, second is real world position");
@@ -315,7 +298,7 @@ static int l_dipdis_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_dipdis_siteposition)
+	if(func == l_siteposition)
 	{
 		lua_pushstring(L, "Lookup the real world position from a lattice site");
 		lua_pushstring(L, "1 *3Vector*: Lattice site");
@@ -327,40 +310,27 @@ static int l_dipdis_help(lua_State* L)
 
 	return 0;
 }
+#endif
 
 
-void registerDisorderedDipole(lua_State* L)
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* DisorderedDipole::luaMethods()
 {
-	static const struct luaL_reg methods [] = { //methods
-		{"__gc",         l_dipdis_gc},
-		{"__tostring",   l_dipdis_tostring},
-		{"apply",        l_dipdis_apply},
-		{"setStrength",  l_dipdis_setstrength},
-		{"strength",     l_dipdis_getstrength},
-		{"setSitePosition", l_dipdis_setsiteposition},
-		{"sitePosition", l_dipdis_siteposition},
+	if(m[127].name)return m;
+
+	merge_luaL_Reg(m, SpinOperation::luaMethods());
+	static const luaL_Reg _m[] =
+	{
+		{"setStrength",  l_setstrength},
+		{"strength",     l_getstrength},
+		{"setSitePosition", l_setsiteposition},
+		{"sitePosition", l_siteposition},
 		{NULL, NULL}
 	};
-		
-	luaL_newmetatable(L, "MERCER.disordereddipole");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-		
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_dipdis_new},
-		{"help",                l_dipdis_help},
-		{"metatable",           l_dipdis_mt},
-		{NULL, NULL}
-	};
-		
-	luaL_register(L, "DisorderedDipole", functions);
-	lua_pop(L,1);	
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
-
-
 
 #ifdef WIN32
  #ifdef DISORDEREDDIPOLE_EXPORTS
@@ -383,7 +353,7 @@ DISORDEREDDIPOLE_API int lib_main(lua_State* L);
 
 DISORDEREDDIPOLE_API int lib_register(lua_State* L)
 {
-	registerDisorderedDipole(L);
+	luaT_register<DisorderedDipole>(L);
 	return 0;
 }
 

@@ -20,14 +20,21 @@ using namespace std;
 class DisorderedDipole : public SpinOperation
 {
 public:
-	DisorderedDipole(int nx, int ny, int nz);
+	DisorderedDipole(int nx=1, int ny=1, int nz=1);
 	virtual ~DisorderedDipole();
 	
-	bool apply(SpinSystem* ss);
+	LINEAGE2("DisorderedDipole", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
 	
+	bool apply(SpinSystem* ss);
 	double g;
 
 	void setPosition(int site, double px, double py, double pz);
+	
+	void init();
+	void deinit();
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
@@ -37,9 +44,5 @@ public:
 	double* posy;
 	double* posz;
 };
-
-void lua_pushDisorderedDipole(lua_State* L, DisorderedDipole* d);
-DisorderedDipole* checkDisorderedDipole(lua_State* L, int idx);
-void registerDisorderedDipole(lua_State* L);
 
 #endif

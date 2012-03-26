@@ -11,13 +11,18 @@
  #define TIMER_API 
 #endif
 
-#include "encodable.h"
+#include "luabaseobject.h"
 
-class TIMER_API Timer : public Encodable
+class TIMER_API Timer : public LuaBaseObject
 {
 public:
 	Timer();
 	virtual ~Timer();
+	
+	LINEAGE1("Timer")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
 	
 	void fixTime();
 	long get_seconds();
@@ -56,6 +61,5 @@ public:
 #endif
 	long nanoseconds;
 	int paused;
-	int refcount;
 };
 #endif

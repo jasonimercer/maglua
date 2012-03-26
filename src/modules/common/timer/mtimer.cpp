@@ -23,7 +23,7 @@
 
 
 Timer::Timer()
-	: Encodable(hash32("Timer"))
+	: LuaBaseObject(hash32("Timer"))
 {
 #ifdef WIN32
 	//not using structures
@@ -39,7 +39,6 @@ Timer::Timer()
 	seconds = 0;
 	nanoseconds = 0;
 	paused = 1;
-	refcount = 0;
 }
 
 
@@ -49,6 +48,17 @@ Timer::~Timer()
 	free(t0);
 	free(t1);
 #endif
+}
+
+int Timer::luaInit(lua_State* L)
+{
+	reset();
+	return 0;
+}
+
+void Timer::push(lua_State* L)
+{
+	luaT_push<Timer>(L, this);
 }
 
 
@@ -199,80 +209,9 @@ void Timer::pause()
 
 
 
-
-
-
-
-int lua_istimer(lua_State* L, int idx)
-{
-	if(!lua_isuserdata(L, idx))
-			return 0;
-	lua_getmetatable(L, idx);
-	luaL_getmetatable(L, "MERCER.timer");
-	int eq = lua_equal(L, -2, -1);
-	lua_pop(L, 2);
-	return eq;
-}
-
-Timer* lua_totimer(lua_State* L, int idx)
-{
-	if(!lua_istimer(L, idx))
-		return 0;
-	
-	Timer** pp = (Timer**)luaL_checkudata(L, idx, "MERCER.timer");
-	if(!pp)
-	{
-		luaL_error(L, "not a Timer");
-		return 0;
-	}
-	return *pp;
-}
-
-void lua_pushtimer(lua_State* L, Encodable* _t)
-{
-	Timer* t = dynamic_cast<Timer*>(_t);
-	if(!t) return;
-	t->refcount++;
-	
-	Timer** pp = (Timer**)lua_newuserdata(L, sizeof(Timer**));
-	
-	*pp = t;
-	luaL_getmetatable(L, "MERCER.timer");
-	lua_setmetatable(L, -2);
-}
-
-static int l_new(lua_State* L)
-{
-	lua_pushtimer(L, new Timer());
-	return 1;
-}
-
-static int l_gc(lua_State* L)
-{
-	Timer* timer = lua_totimer(L, 1);
-	if(!timer) return 0;
-
-	timer->refcount--;
-	if(timer->refcount == 0)
-		delete timer;
-	
-	return 0;
-}
-
-static int l_tostring(lua_State* L)
-{
-	Timer* timer = lua_totimer(L, 1);
-	if(!timer) return 0;
-	
-	lua_pushstring(L, "Timer");
-	return 1;
-}
-
 static int l_reset(lua_State* L)
 {
-	Timer* timer = lua_totimer(L, 1);
-	if(!timer) return 0;
-	
+	LUA_PREAMBLE(Timer, timer, 1);	
 	timer->reset();
 	return 0;
 }
@@ -280,65 +219,45 @@ static int l_reset(lua_State* L)
 
 static int l_start(lua_State* L)
 {
-	Timer* timer = lua_totimer(L, 1);
-	if(!timer) return 0;
-	
+	LUA_PREAMBLE(Timer, timer, 1);	
 	timer->start();
 	return 0;
 }
 
 static int l_pause(lua_State* L)
 {
-	Timer* timer = lua_totimer(L, 1);
-	if(!timer) return 0;
-	
+	LUA_PREAMBLE(Timer, timer, 1);	
 	timer->pause();
-	
 	return 0;
 }
 
 static int l_stop(lua_State* L)
 {
-	Timer* timer = lua_totimer(L, 1);
-	if(!timer) return 0;
-	
+	LUA_PREAMBLE(Timer, timer, 1);	
 	timer->stop();
-	
 	return 0;
 }
 
 static int l_getsec(lua_State* L)
 {
-	Timer* timer = lua_totimer(L, 1);
-	if(!timer) return 0;
-	
+	LUA_PREAMBLE(Timer, timer, 1);	
 	lua_pushinteger(L, timer->get_seconds());
 	return 1;
 }
 static int l_getnano(lua_State* L)
 {
-	Timer* timer = lua_totimer(L, 1);
-	if(!timer) return 0;
-	
+	LUA_PREAMBLE(Timer, timer, 1);	
 	lua_pushinteger(L, timer->get_nanoseconds());
 	return 1;
 }
 static int l_get(lua_State* L)
 {
-	Timer* timer = lua_totimer(L, 1);
-	if(!timer) return 0;
-	
+	LUA_PREAMBLE(Timer, timer, 1);	
 	lua_pushnumber(L, timer->get_time());
 	return 1;
 }
 
-static int l_mt(lua_State* L)
-{
-	luaL_getmetatable(L, "MERCER.timer");
-	return 1;
-}
-
-
+/*
 static int l_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -414,18 +333,16 @@ static int l_help(lua_State* L)
 	}
 
 	return 0;
-}
+}*/
 
-static Encodable* newThing()
-{
-	return new Timer;
-}
 
-void registerTimer(lua_State* L)
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* Timer::luaMethods()
 {
-	static const struct luaL_reg methods [] = { //methods
-		{"__gc",       l_gc},
-		{"__tostring", l_tostring},
+	if(m[127].name)return m;
+
+	static const luaL_Reg _m[] =
+	{
 		{"start",      l_start},
 		{"stop",       l_stop},
 		{"pause",      l_pause},
@@ -435,26 +352,12 @@ void registerTimer(lua_State* L)
 		{"elapsed",       l_get},
 		{NULL, NULL}
 	};
-		
-	luaL_newmetatable(L, "MERCER.timer");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-		
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_new},
-		{"help",                l_help},
-		{"metatable",           l_mt},
-		{NULL, NULL}
-	};
-		
-	luaL_register(L, "Timer", functions);
-	lua_pop(L,1);	
-
-	Factory_registerItem(hash32("Timer"), newThing, lua_pushtimer, "Timer");
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
+
+
 
 
 extern "C"
@@ -468,7 +371,7 @@ TIMER_API int lib_main(lua_State* L);
 
 TIMER_API int lib_register(lua_State* L)
 {
-	registerTimer(L);
+	luaT_register<Timer>(L);
 	return 0;
 }
 

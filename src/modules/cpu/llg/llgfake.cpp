@@ -31,3 +31,15 @@ bool LLGFake::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, Sp
 	return true;
 }
 
+int LLGFake::help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "LLG.Fake advances a *SpinSystem* through time without changing spin orientation");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+		
+	return LLG::help(L);
+}

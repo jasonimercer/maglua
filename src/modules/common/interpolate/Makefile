@@ -14,6 +14,6 @@ LIBNAME=Interpolate
 CATEGORY=common
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=encode
+DEPEND=luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

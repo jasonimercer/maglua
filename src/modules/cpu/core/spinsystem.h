@@ -35,7 +35,7 @@ public:
 	static const luaL_Reg* luaMethods();
 	virtual void push(lua_State* L);
 	virtual int luaInit(lua_State* L);
-
+	static int help(lua_State* L);
 	
 	SpinSystem* copy(lua_State* L);
 	bool copyFrom(lua_State* L, SpinSystem* src);

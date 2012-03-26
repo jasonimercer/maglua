@@ -14,7 +14,7 @@ LIBNAME=Timer
 CATEGORY=common
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=encode
+DEPEND=luabaseobject
 EXTRALIBS=-lrt
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

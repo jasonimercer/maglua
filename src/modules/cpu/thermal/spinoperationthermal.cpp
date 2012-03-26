@@ -173,13 +173,12 @@ static int l_gettemp(lua_State* L)
 	return 1;
 }
 
-/*
-static int l_help(lua_State* L)
+int Thermal::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
-		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
@@ -195,14 +194,6 @@ static int l_help(lua_State* L)
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
-	
-	if(func == l_new)
-	{
-		lua_pushstring(L, "Create a new Thermal Operator.");
-		lua_pushstring(L, "1 *3Vector*: system size"); 
-		lua_pushstring(L, "1 Thermal object");
-		return 3;
-	}
 	
 	if(func == l_apply)
 	{
@@ -235,10 +226,9 @@ static int l_help(lua_State* L)
 		lua_pushstring(L, "1 number: temperature of the system.");
 		return 3;
 	}
-	
-	return 0;
+
+	return SpinOperation::help(L);
 }
-*/
 
 static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* Thermal::luaMethods()

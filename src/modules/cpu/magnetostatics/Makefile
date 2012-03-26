@@ -14,6 +14,6 @@ LIBNAME=Magnetostatics
 CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core dipole encode longrange
+DEPEND=core dipole luabaseobject longrange
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

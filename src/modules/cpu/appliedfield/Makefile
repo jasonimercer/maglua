@@ -14,7 +14,7 @@ LIBNAME=AppliedField
 CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core encode
+DEPEND=core luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

@@ -41,6 +41,7 @@ public:
 	LINEAGE1("LLG.Base")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
+	static int help(lua_State* L);
 	
 	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime) {}
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);

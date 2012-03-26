@@ -16,13 +16,24 @@
 #include <stdlib.h>
 
 AppliedField::AppliedField(int nx, int ny, int nz)
-	: SpinOperation("AppliedField", APPLIEDFIELD_SLOT, nx, ny, nz, ENCODE_APPLIEDFIELD)
+	: SpinOperation(AppliedField::typeName(), APPLIEDFIELD_SLOT, nx, ny, nz, hash32(AppliedField::typeName()))
 {
 	B[0] = 0;
 	B[1] = 0;
 	B[2] = 0;
 }
 
+int AppliedField::luaInit(lua_State* L)
+{
+	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
+}
+
+void AppliedField::push(lua_State* L)
+{
+	luaT_push<AppliedField>(L, this);
+}
+	
+	
 void AppliedField::encode(buffer* b)
 {
 	encodeDouble(B[0], b);
@@ -64,144 +75,18 @@ bool AppliedField::apply(SpinSystem* ss)
 
 
 
+// generete canned functions for these simple get/set cases
+LUAFUNC_SET_DOUBLE(AppliedField, B[0], l_sx)
+LUAFUNC_SET_DOUBLE(AppliedField, B[1], l_sy)
+LUAFUNC_SET_DOUBLE(AppliedField, B[2], l_sz)
 
-int lua_isAppliedField(lua_State* L, int idx)
+LUAFUNC_GET_DOUBLE(AppliedField, B[0], l_gx)
+LUAFUNC_GET_DOUBLE(AppliedField, B[1], l_gy)
+LUAFUNC_GET_DOUBLE(AppliedField, B[2], l_gz)
+
+static int l_set(lua_State* L)
 {
-	if(!lua_isuserdata(L, idx))
-		return 0;
-	lua_getmetatable(L, idx);
-	luaL_getmetatable(L, "MERCER.appliedfield");
-	int eq = lua_equal(L, -2, -1);
-	lua_pop(L, 2);
-	return eq;
-}
-
-AppliedField* lua_toAppliedField(lua_State* L, int idx)
-{
-	AppliedField** pp = (AppliedField**)luaL_checkudata(L, idx, "MERCER.appliedfield");
-	luaL_argcheck(L, pp != NULL, idx, "`AppliedField' expected");
-	return *pp;
-}
-
-void lua_pushAppliedField(lua_State* L, Encodable* _ap)
-{
-	AppliedField* ap = dynamic_cast<AppliedField*>(_ap);
-	if(!ap) return;
-	ap->refcount++;
-	
-	AppliedField** pp = (AppliedField**)lua_newuserdata(L, sizeof(AppliedField**));
-	
-	*pp = ap;
-	luaL_getmetatable(L, "MERCER.appliedfield");
-	lua_setmetatable(L, -2);
-}
-
-int l_ap_new(lua_State* L)
-{
-	int n[3];
-	lua_getnewargs(L, n, 1);
-
-	lua_pushAppliedField(L, new AppliedField(n[0], n[1], n[2]));
-	
-	return 1;
-}
-
-int l_ap_gc(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-	
-	ap->refcount--;
-	if(ap->refcount == 0)
-		delete ap;
-	
-	return 0;
-}
-
-int l_x(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-	
-	lua_pushnumber(L, ap->B[0]);
-	return 1;
-}
-int l_y(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-	
-	lua_pushnumber(L, ap->B[1]);
-	return 1;
-}
-int l_z(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-	
-	lua_pushnumber(L, ap->B[2]);
-	return 1;
-}
-
-int l_sx(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-	
-	ap->B[0] = lua_tonumber(L, 2);
-	return 0;
-}
-int l_sy(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-	
-	ap->B[1] = lua_tonumber(L, 2);
-	return 0;
-}
-int l_sz(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-	
-	ap->B[2] = lua_tonumber(L, 2);
-	return 0;
-}
-
-
-
-int l_ap_apply(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	SpinSystem* ss = checkSpinSystem(L, 2);
-	
-	if(!ap->apply(ss))
-		return luaL_error(L, ap->errormsg.c_str());
-	
-	return 0;
-}
-
-int l_ap_member(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-
-	int px = lua_tointeger(L, 2) - 1;
-	int py = lua_tointeger(L, 3) - 1;
-	int pz = lua_tointeger(L, 4) - 1;
-	
-	if(ap->member(px, py, pz))
-		lua_pushboolean(L, 1);
-	else
-		lua_pushboolean(L, 0);
-
-	return 1;
-}
-
-int l_ap_set(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
+	LUA_PREAMBLE(AppliedField, ap, 1);
 	
 	double a[3];
 	int r = lua_getNdouble(L, 3, a, 2, 0);
@@ -215,10 +100,9 @@ int l_ap_set(lua_State* L)
 	return 0;
 }
 
-int l_ap_add(lua_State* L)
+static int l_add(lua_State* L)
 {
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
+	LUA_PREAMBLE(AppliedField, ap, 1);
 	
 	double a[3];
 	int r = lua_getNdouble(L, 3, a, 2, 0);
@@ -233,51 +117,23 @@ int l_ap_add(lua_State* L)
 }
 
 
-int l_ap_tostring(lua_State* L)
-{
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-	
-	lua_pushfstring(L, "AppliedField (%dx%dx%d)", ap->nx, ap->ny, ap->nz);
-	
-	return 1;
-}
 
-int l_ap_get(lua_State* L)
+static int l_get(lua_State* L)
 {
-	AppliedField* ap = lua_toAppliedField(L, 1);
-	if(!ap) return 0;
-	
-	lua_newtable(L);
+	LUA_PREAMBLE(AppliedField, ap, 1);
 	for(int i=0; i<3; i++)
-	{
-		lua_pushinteger(L, i+1);
 		lua_pushnumber(L, ap->B[i]);
-		lua_settable(L, -3);
-	}
-	
-	return 1;
+	return 3;
 }
 
-static int l_ap_mt(lua_State* L)
-{
-	luaL_getmetatable(L, "MERCER.appliedfield");
-	return 1;
-}
-
-static int l_ap_help(lua_State* L)
+int AppliedField::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Applies an external, global field to a *SpinSystem*");
-		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
-	}
-	
-	if(lua_istable(L, 1))
-	{
-		return 0;
 	}
 	
 	if(!lua_iscfunction(L, 1))
@@ -286,25 +142,8 @@ static int l_ap_help(lua_State* L)
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
-	
-	if(func == l_ap_new)
-	{
-		lua_pushstring(L, "Create a new Applied Field Operator.");
-		lua_pushstring(L, "1 *3Vector* system size"); 
-		lua_pushstring(L, "1 Applied Field object");
-		return 3;
-	}
-	
-	
-	if(func == l_ap_apply)
-	{
-		lua_pushstring(L, "Applies a field on to a *SpinSystem*");
-		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field");
-		lua_pushstring(L, "");
-		return 3;
-	}
-	
-	if(func == l_ap_set)
+		
+	if(func == l_set)
 	{
 		lua_pushstring(L, "Set the direction and strength of the Applied Field");
 		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines the strength and direction of the applied field");
@@ -312,7 +151,7 @@ static int l_ap_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_ap_add)
+	if(func == l_add)
 	{
 		lua_pushstring(L, "Add the direction and strength of the Applied Field");
 		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines the strength and direction of the applied field addition");
@@ -321,44 +160,35 @@ static int l_ap_help(lua_State* L)
 	}
 	
 	
-	if(func == l_ap_get)
+	if(func == l_get)
 	{
 		lua_pushstring(L, "Get the direction and strength of the Applied Field");
 		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Table: The table has the x, y and z of the field stored at indices 1, 2 and 3.");
+		lua_pushstring(L, "3 numbers: The x, y and z components of the field");
 		return 3;
 	}
 	
-	if(func == l_ap_member)
-	{
-		lua_pushstring(L, "Determine if a lattice site is a member of the Operation.");
-		lua_pushstring(L, "3 Integers: lattics site x, y, z.");
-		lua_pushstring(L, "1 Boolean: True if x, y, z is part of the Operation, False otherwise.");
-		return 3;
-	}
-	
-	if(func == l_x)
+	if(func == l_gx)
 	{
 		lua_pushstring(L, "Get the X component of the applied field.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Number: X component of the applied field");
 		return 3;
 	}
-	if(func == l_y)
+	if(func == l_gy)
 	{
 		lua_pushstring(L, "Get the Y component of the applied field.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Number: Y component of the applied field");
 		return 3;
 	}
-	if(func == l_z)
+	if(func == l_gz)
 	{
 		lua_pushstring(L, "Get the Z component of the applied field.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Number: Z component of the applied field");
 		return 3;
 	}
-	
 	
 
 	if(func == l_sx)
@@ -383,54 +213,33 @@ static int l_ap_help(lua_State* L)
 		return 3;
 	}
 
-
-		
-	return 0;
+	return SpinOperation::help(L);
 }
 
-static Encodable* newThing()
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* AppliedField::luaMethods()
 {
-	return new AppliedField;
-}
+	if(m[127].name)return m;
 
-void registerAppliedField(lua_State* L)
-{
-	static const struct luaL_reg methods [] = { //methods
-		{"__gc",         l_ap_gc},
-		{"__tostring",   l_ap_tostring},
-		{"apply",        l_ap_apply},
-		{"set",          l_ap_set},
-		{"get",          l_ap_get},
-		{"add",          l_ap_add},
-		{"x",            l_x},
-		{"y",            l_y},
-		{"z",            l_z},
+	merge_luaL_Reg(m, SpinOperation::luaMethods());
+	static const luaL_Reg _m[] =
+	{
+		{"set",          l_set},
+		{"get",          l_get},
+		{"add",          l_add},
+		{"x",            l_gx},
+		{"y",            l_gy},
+		{"z",            l_gz},
 		{"setX",         l_sx},
 		{"setY",         l_sy},
 		{"setZ",         l_sz},
-		{"member",       l_ap_member},
 		{NULL, NULL}
 	};
-		
-	luaL_newmetatable(L, "MERCER.appliedfield");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-		
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_ap_new},
-		{"help",                l_ap_help},
-		{"metatable",           l_ap_mt},
-		{NULL, NULL}
-	};
-		
-	luaL_register(L, "AppliedField", functions);
-	lua_pop(L,1);	
-	
-	Factory_registerItem(ENCODE_APPLIEDFIELD, newThing, lua_pushAppliedField, "AppliedField");
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
+
 
 
 #include "info.h"
@@ -444,7 +253,7 @@ APPLIEDFIELD_API int lib_main(lua_State* L);
 
 APPLIEDFIELD_API int lib_register(lua_State* L)
 {
-	registerAppliedField(L);
+	luaT_register<AppliedField>(L);
 	return 0;
 }
 

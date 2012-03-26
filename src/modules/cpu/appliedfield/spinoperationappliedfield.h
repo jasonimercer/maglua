@@ -36,6 +36,12 @@ public:
 	AppliedField(int nx=32, int ny=32, int nz=1);
 	virtual ~AppliedField();
 	
+	LINEAGE2("AppliedField", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	static int help(lua_State* L);
+	
 	bool apply(SpinSystem* ss);
 
 	double B[3];
@@ -43,10 +49,5 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 };
-
-APPLIEDFIELD_API void lua_pushAppliedField(lua_State* L, Encodable* ap);
-APPLIEDFIELD_API AppliedField* checkAppliedField(lua_State* L, int idx);
-APPLIEDFIELD_API void registerAppliedField(lua_State* L);
-
 
 #endif

@@ -34,14 +34,22 @@ using namespace std;
 class LONGRANGE_API LongRange : public SpinOperation
 {
 public:
-	LongRange(std::string Name, const int field_slot, int nx, int ny, int nz, const int encode_tag);
+	LongRange(const char* name="LongRange", const int field_slot=DIPOLE_SLOT, int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange"));
 	virtual ~LongRange();
+	
+	LINEAGE2("LongRange", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	static int help(lua_State* L);
+
+	
 	
 	bool apply(SpinSystem* ss);
 	void getMatrices();
 	
-	virtual void encode(buffer* b)=0;
-	virtual int  decode(buffer* b)=0;
+	virtual void encode(buffer* b) {}
+	virtual int  decode(buffer* b) {return 0;}
 
 	double ABC[9]; //unit cell vectors (not shape of sites)
 	double g; //scale
@@ -50,7 +58,7 @@ public:
 	virtual void init();
 	virtual void deinit();
 	
-	virtual void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ)=0;
+	virtual void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ) {};
 
 	double getXX(int ox, int oy, int oz);
 	void   setXX(int ox, int oy, int oz, double value);

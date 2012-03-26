@@ -17,14 +17,23 @@
 #include <math.h>
 
 InterpolatingFunction2D::InterpolatingFunction2D()
-	: Encodable(ENCODE_INTERP2D)
+	: LuaBaseObject(hash32(InterpolatingFunction2D::typeName()))
 {
 	data = 0;
 	compiled = false;
 	hasInvalidValue = false;
-	refcount = 0;
 }
 
+int InterpolatingFunction2D::luaInit(lua_State* L)
+{
+	return 0;
+}
+void InterpolatingFunction2D::push(lua_State* L)
+{
+	luaT_push<InterpolatingFunction2D>(L, this);
+}
+	
+	
 InterpolatingFunction2D::~InterpolatingFunction2D()
 {
 	if(data)
@@ -238,69 +247,23 @@ int  InterpolatingFunction2D::decode(buffer* b)
 
 
 
-InterpolatingFunction2D* checkInterpolatingFunction2D(lua_State* L, int idx)
+static int l_adddata(lua_State* L)
 {
-	InterpolatingFunction2D** pp = (InterpolatingFunction2D**)luaL_checkudata(L, idx, "MERCER.interpolate2d");
-    luaL_argcheck(L, pp != NULL, 1, "Interpolate2D' expected");
-    return *pp;
-}
-
-void lua_pushInterpolatingFunction2D(lua_State* L, Encodable* _if2D)
-{
-	InterpolatingFunction2D* if2D = dynamic_cast<InterpolatingFunction2D*>(_if2D);
-	if(!if2D) return;
-	if2D->refcount++;
-	
-	InterpolatingFunction2D** pp = (InterpolatingFunction2D**)lua_newuserdata(L, sizeof(InterpolatingFunction2D**));
-	
-	*pp = if2D;
-	luaL_getmetatable(L, "MERCER.interpolate2d");
-	lua_setmetatable(L, -2);
-}
-
-
-static int l_if_new(lua_State* L)
-{
-	lua_pushInterpolatingFunction2D(L, new InterpolatingFunction2D);
-
-	return 1;
-}
-
-static int l_if_gc(lua_State* L)
-{
-	InterpolatingFunction2D* in = checkInterpolatingFunction2D(L, 1);
-	if(!in) return 0;
-	
-	in->refcount--;
-	if(in->refcount == 0)
-		delete in;
-	
-	return 0;
-}
-
-static int l_if_adddata(lua_State* L)
-{
-	InterpolatingFunction2D* in = checkInterpolatingFunction2D(L, 1);
-	if(!in) return 0;
-
+	LUA_PREAMBLE(InterpolatingFunction2D, in, 1);
 	in->addData(lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4));
 	return 0;
 }
 
-static int l_if_compile(lua_State* L)
+static int l_compile(lua_State* L)
 {
-	InterpolatingFunction2D* in = checkInterpolatingFunction2D(L, 1);
-	if(!in) return 0;
-
+	LUA_PREAMBLE(InterpolatingFunction2D, in, 1);
 	in->compile();
 	return 0;
 }
 
-static int l_if_value(lua_State* L)
+static int l_value(lua_State* L)
 {
-	InterpolatingFunction2D* in = checkInterpolatingFunction2D(L, 1);
-	if(!in) return 0;
-
+	LUA_PREAMBLE(InterpolatingFunction2D, in, 1);
 	double d;
 	if(in->getValue(lua_tonumber(L, 2), lua_tonumber(L, 3), &d))
 	{
@@ -312,11 +275,9 @@ static int l_if_value(lua_State* L)
 }
 
 
-static int l_if_range(lua_State* L)
+static int l_range(lua_State* L)
 {
-	InterpolatingFunction2D* in = checkInterpolatingFunction2D(L, 1);
-	if(!in) return 0;
-
+	LUA_PREAMBLE(InterpolatingFunction2D, in, 1);
 	if(!in->compiled)
 		in->compile();
 
@@ -329,23 +290,21 @@ static int l_if_range(lua_State* L)
 	return 4;
 }
 
-static int l_if_setinvalidrange(lua_State* L)
+static int l_setinvalidrange(lua_State* L)
 {
-	InterpolatingFunction2D* in = checkInterpolatingFunction2D(L, 1);
-	if(!in) return 0;
-	
+	LUA_PREAMBLE(InterpolatingFunction2D, in, 1);
 	in->setInvalidValue(lua_tonumber(L, 2));
 	return 0;
 }
 
-
-static int l_if_mt(lua_State* L)
+#if 0
+static int l_mt(lua_State* L)
 {
 	luaL_getmetatable(L, "MERCER.interpolate2d");
 	return 1;
 }
 
-static int l_if_help(lua_State* L)
+static int l_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
@@ -367,7 +326,7 @@ static int l_if_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-	if(func == l_if_new)
+	if(func == l_new)
 	{
 		lua_pushstring(L, "Create a new Interpolate2D object.");
 		lua_pushstring(L, "");
@@ -375,7 +334,7 @@ static int l_if_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_if_adddata)
+	if(func == l_adddata)
 	{
 		lua_pushstring(L, "Add data to the 2D linear interpolator.");
 		lua_pushstring(L, "3 numbers: the x, y and z values where (x, y) is the data position and z is the data value.");
@@ -383,7 +342,7 @@ static int l_if_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_if_value)
+	if(func == l_value)
 	{
 		lua_pushstring(L, "Interpolate a value from the 2D linear interpolator.");
 		lua_pushstring(L, "2 numbers: the x and y value representing the data position which will have a value interpolated.");
@@ -391,7 +350,7 @@ static int l_if_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_if_compile)
+	if(func == l_compile)
 	{
 		lua_pushstring(L, "Compute all internal variables needed to interpolate a 2D value as well as data range. If this method is not called, it is done automatically when the first interpolated value is requested");
 		lua_pushstring(L, "");
@@ -399,7 +358,7 @@ static int l_if_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_if_range)
+	if(func == l_range)
 	{
 		lua_pushstring(L, "Compile the interpolating function if needed and return the valid data range of the interpolator.");
 		lua_pushstring(L, "");
@@ -407,7 +366,7 @@ static int l_if_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_if_setinvalidrange)
+	if(func == l_setinvalidrange)
 	{
 		lua_pushstring(L, "Set the value to return if a requested data point is outside the data range.");
 		lua_pushstring(L, "1 number: Value of data outside data range");
@@ -417,41 +376,23 @@ static int l_if_help(lua_State* L)
 	
 	return 0;
 }
+#endif
 
-
-static Encodable* newThing()
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* InterpolatingFunction2D::luaMethods()
 {
-	return new InterpolatingFunction2D;
-}
+	if(m[127].name)return m;
 
-int registerInterpolatingFunction2D(lua_State* L)
-{
-	static const struct luaL_reg methods [] = { //methods
-		{"__gc",         l_if_gc},
-		{"addData",      l_if_adddata},
-		{"value",        l_if_value},
-		{"compile",      l_if_compile},
-		{"validRange",   l_if_range},
-		{"setInvalidValue", l_if_setinvalidrange},
+	static const luaL_Reg _m[] =
+	{
+		{"addData",      l_adddata},
+		{"value",        l_value},
+		{"compile",      l_compile},
+		{"validRange",   l_range},
+		{"setInvalidValue", l_setinvalidrange},
 		{NULL, NULL}
 	};
-		
-	luaL_newmetatable(L, "MERCER.interpolate2d");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-		
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_if_new},
-		{"help",                l_if_help},
-		{"metatable",           l_if_mt},
-		{NULL, NULL}
-	};
-		
-	luaL_register(L, "Interpolate2D", functions);
-	lua_pop(L,1);	
-	
-	return Factory_registerItem(ENCODE_INTERP2D, newThing, lua_pushInterpolatingFunction2D, "Interpolate2D");
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }

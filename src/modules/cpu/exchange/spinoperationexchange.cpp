@@ -21,7 +21,7 @@
 #include <string.h>
 
 Exchange::Exchange(int nx, int ny, int nz)
-	: SpinOperation("Exchange", EXCHANGE_SLOT, nx, ny, nz, ENCODE_EXCHANGE)
+	: SpinOperation(Exchange::typeName(), EXCHANGE_SLOT, nx, ny, nz, hash32(Exchange::typeName()))
 {
 	size = 32;
 	num  = 0;
@@ -248,19 +248,18 @@ static int l_addpath(lua_State* L)
 
 static int l_opt(lua_State* L)
 {
-	Exchange* ex = checkExchange(L, 1);
-	if(!ex) return 0;
-	
+	LUA_PREAMBLE(Exchange, ex, 1);
 	ex->opt();
 	return 0;
 }
 
-static int l_help(lua_State* L)
+
+int Exchange::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Calculates the exchange field of a *SpinSystem*");
-		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
@@ -276,24 +275,7 @@ static int l_help(lua_State* L)
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
-	
-// 	if(func == l_new)
-// 	{
-// 		lua_pushstring(L, "Create a new Exchange Operator.");
-// 		lua_pushstring(L, "3 Integers: Defining the lattice dimensions"); 
-// 		lua_pushstring(L, "1 Exchange object");
-// 		return 3;
-// 	}
-	
-	
-// 	if(func == l_apply)
-// 	{
-// 		lua_pushstring(L, "Calculate the exchange field of a *SpinSystem*");
-// 		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field");
-// 		lua_pushstring(L, "");
-// 		return 3;
-// 	}
-	
+		
 	if(func == l_addpath)
 	{
 		lua_pushstring(L, "Add an exchange pathway between two sites.");
@@ -301,15 +283,7 @@ static int l_help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
-	
-// 	if(func == l_member)
-// 	{
-// 		lua_pushstring(L, "Determine if a lattice site is a member of the Operation.");
-// 		lua_pushstring(L, "3 Integers: lattics site x, y, z.");
-// 		lua_pushstring(L, "1 Boolean: True if x, y, z is part of the Operation, False otherwise.");
-// 		return 3;
-// 	}
-// 		
+
 	if(func == l_opt)
 	{
 		lua_pushstring(L, "Attempt to optimize the read/write patterns for exchange updates to minimize cache misses. Needs testing to see if it helps.");
@@ -318,7 +292,7 @@ static int l_help(lua_State* L)
 		return 3;
 	}
 	
-	return 0;
+	return SpinOperation::help(L);
 }
 
 
