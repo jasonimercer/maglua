@@ -12,6 +12,7 @@
 #include "Tube.h"
 //#include "VolumeLua.h"
 #include "luabaseobject.h"
+#include "Transformation.h"
 class Draw : public LuaBaseObject
 {
 public:
@@ -27,6 +28,7 @@ public:
 	virtual void draw(Light& light) {}
 	virtual void draw(Tube& tube) {}
 	virtual void draw(Group& group) {}
+	virtual void draw(Transformation& t) {}
 	//virtual void draw(VolumeLua& volumelua) {}
 	virtual void reset() {}
 	

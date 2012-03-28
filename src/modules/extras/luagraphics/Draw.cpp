@@ -12,47 +12,41 @@ static int l_draw(lua_State* L)
 {
 	LUA_PREAMBLE(Draw, d, 1);
 
-
-	if(luaT_is<Light>(L, 2))
+	for(int i=2; i<=lua_gettop(L); i++)
 	{
-		d->draw(* luaT_to<Light>(L, 2));
-		return 0;
+		if(luaT_is<Light>(L, i))
+		{
+			d->draw(* luaT_to<Light>(L, i));
+			continue;
+		}
+		if(luaT_is<Sphere>(L, i))
+		{
+			d->draw(* luaT_to<Sphere>(L, i));
+			continue;
+		}
+		if(luaT_is<Group>(L, i))
+		{
+			d->draw(* luaT_to<Group>(L, i));
+			continue;
+		}
+		if(luaT_is<Camera>(L, i))
+		{
+			d->draw(* luaT_to<Camera>(L, i));
+			continue;
+		}
+		if(luaT_is<Tube>(L, i))
+		{
+			d->draw(* luaT_to<Tube>(L, i));
+			continue;
+		}
+		if(luaT_is<Transformation>(L, i))
+		{
+			d->draw(* luaT_to<Transformation>(L, i));
+			continue;
+		}
+		return luaL_error(L, "Failed to draw object");
 	}
-
-	if(luaT_is<Sphere>(L, 2))
-	{
-		d->draw(* luaT_to<Sphere>(L, 2));
-		return 0;
-	}
-
-	if(luaT_is<Group>(L, 2))
-	{
-		d->draw(* luaT_to<Group>(L, 2));
-		return 0;
-	}
-
-	if(luaT_is<Camera>(L, 2))
-	{
-		d->draw(* luaT_to<Camera>(L, 2));
-		return 0;
-	}
-
-
-
-	if(luaT_is<Tube>(L, 2))
-	{
-		d->draw(* luaT_to<Tube>(L, 2));
-		return 0;
-	}
-
-/*
-	if(lua_isvolumelua(L, 2))
-	{
-		d->draw(*lua_tovolumelua(L, 2));
-		return 0;
-	}
-*/	
-	return luaL_error(L, "Failed to draw object");
+	return 0;
 }
 
 static luaL_Reg m[128] = {_NULLPAIR128};

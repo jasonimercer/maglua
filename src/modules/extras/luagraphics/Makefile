@@ -11,7 +11,8 @@
 
 OBJECTS=libLuaGraphics.o Vector.o Matrix.o Sphere.o Ray.o \
 	Volume.o Draw.o DrawPOVRay.o Color.o Light.o \
-	Tube.o AABB.o Group.o Camera.o Plane.o
+	Tube.o AABB.o Group.o Camera.o Plane.o Transformation.o \
+	TransformationScale.o TransformationTranslate.o TransformationRotate.o
 LIBNAME=LuaGraphics
 CATEGORY=extra
 

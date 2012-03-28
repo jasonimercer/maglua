@@ -196,6 +196,60 @@ void DrawPOVRay::draw(Camera& c)
 	out << "}" << endl;
 }
 
+void DrawPOVRay::draw(Transformation& t)
+{
+	out << "union {" << endl;
+
+	for(unsigned int i=0; i<t.volumes.size(); i++)
+	{
+		Volume* v = t.volumes[i];
+		{
+			Sphere* vv = dynamic_cast<Sphere*>(v);
+			if(vv)
+			{
+				draw(*vv);
+				continue;
+			}
+		}
+		{
+			Tube* vv = dynamic_cast<Tube*>(v);
+			if(vv)
+			{
+				draw(*vv);
+				continue;
+			}
+		}
+		{
+			Light* vv = dynamic_cast<Light*>(v);
+			if(vv)
+			{
+				Light(*vv);
+				continue;
+			}
+		}
+	}
+	
+	switch(t.type)
+	{
+		case Transformation::none:
+		break;
+		case Transformation::scale:
+			out << "scale <" << t.values[0] << ", " << t.values[1] << ", " << t.values[2] << ">" << endl;
+		break;
+		case Transformation::rotate:
+			out << "rotate <" << t.values[0] << ", 0, 0>" << endl;
+			out << "rotate <0, " << t.values[1] << ", 0>" << endl;
+			out << "rotate <0, 0, " << t.values[2] << ">" << endl;
+		break;
+		case Transformation::translate:
+			out << "translate <" << t.values[0] << ", " << t.values[1] << ", " << t.values[2] << ">" << endl;		break;	
+	}
+	if(t.nextTransform)
+	{
+		draw(* t.nextTransform);
+	}
+	out << "}" << endl;
+}
 
 
 static luaL_Reg m[128] = {_NULLPAIR128};

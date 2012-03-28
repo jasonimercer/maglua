@@ -36,6 +36,7 @@ public:
 	void draw(Light& light);
 	//void draw(VolumeLua& volumelua);
 	void draw(Group& group);
+	void draw(Transformation& t);
 
 	void setFileName(const char* filename);
 private:

@@ -44,6 +44,10 @@ extern "C" {
 #include "Volume.h"
 #include "Group.h"
 
+#include "Transformation.h"
+#include "TransformationScale.h"
+#include "TransformationRotate.h"
+#include "TransformationTranslate.h"
 
 
 extern "C"
@@ -74,6 +78,11 @@ LUAGRAPHICS_API int lib_register(lua_State* L)
 	luaT_register<Group>(L);
 	luaT_register<Draw>(L);
 	luaT_register<DrawPOVRay>(L);
+
+	luaT_register<Transformation>(L);
+	luaT_register<Scale>(L);
+	luaT_register<Rotate>(L);
+	luaT_register<Translate>(L);
 	return 0;
 }
 
