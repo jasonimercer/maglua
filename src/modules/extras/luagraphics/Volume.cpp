@@ -31,6 +31,14 @@ AABB* Volume::getBB()
 	return bb;
 }
 
+void Volume::setColor(Color* c)
+{
+	luaT_inc<Color>(c);
+	luaT_dec<Color>(color);
+	color = c;
+}
+
+
 
 	
 static int l_volume(lua_State* L)
@@ -87,7 +95,7 @@ static int l_setcolor(lua_State* L)
 	LUA_PREAMBLE(Volume, v, 1);
 	LUA_PREAMBLE(Color, col, 2);
 
-	v->color->set(col);
+	v->setColor(col);
 	return 0;
 }
 

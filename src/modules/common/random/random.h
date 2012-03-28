@@ -66,7 +66,8 @@ public:
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);
-	
+	static int help(lua_State* L);
+
 	virtual uint32 randInt() {return 0;}                 // integer in [0,2^32-1]
 	virtual double rand();                        // real number in [0,1]
 	virtual double rand( const double n );        // real number in [0,n]

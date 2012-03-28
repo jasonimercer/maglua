@@ -59,3 +59,18 @@ void CRand::seed()
 #endif
 	seed( time(0) );
 }
+
+int CRand::help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushfstring(L, "%s generates random variables using the %s RNG.", CRand::slineage(0), "C Library");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+		
+	return RNG::help(L);
+}
+
+

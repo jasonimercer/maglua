@@ -5,6 +5,13 @@
 #include <string.h>
 #include <fstream>
 #include <list>
+
+#include "Transformation.h"
+#include "TransformationScale.h"
+#include "TransformationRotate.h"
+#include "TransformationTranslate.h"
+
+
 using namespace std;
 
 DrawPOVRay::DrawPOVRay()
@@ -23,6 +30,13 @@ void DrawPOVRay::setFileName(const char* filename)
 	out.open(filename);
 	init();
 }
+
+void DrawPOVRay::close()
+{
+	out.flush();
+	out.close();
+}
+
 
 
 int DrawPOVRay::luaInit(lua_State* L)
@@ -64,7 +78,7 @@ void DrawPOVRay::init()
 	"#macro draw_solid_tube(pos1, rad1, pos2, rad2, tcolor)\n"
 	"cone\n"
 	"{\n"
-    "	pos1, rad1, pos2, rad1\n"
+    "	pos1, rad1, pos2, rad2\n"
 	"	set_solid_material( tcolor )\n"
 	"}\n"
 	"#end\n" << endl;
@@ -122,14 +136,15 @@ void DrawPOVRay::draw(VolumeLua& volumelua)
 void DrawPOVRay::draw(Sphere& s)
 {
 	out << "draw_solid_sphere( <" << *s.pos() << ">, "
-		<< s.radius() << ", rgbt<" << s.color->toVector() << ", " << s.color->t() << ">)" << endl;
+		<< s.radius() << ", rgbt<" 
+		<< s.color->toVector() << ", " << s.color->t() << ">)" << endl;
 }
 
 void DrawPOVRay::draw(Tube& t)
 {
 	out << "draw_solid_tube( <" << t.pos(0) << ">, " << t.radius(0) << ", <"
 		<< t.pos(1) << ">, " << t.radius(1) << ", rgbt<"
-		<< t.color.toVector() << ", " << t.color.t() << ">)" << endl;
+		<< t.color->toVector() << ", " << t.color->t() << ">)" << endl;
 }
 /*
 static void draw_gn(DrawPOVRay* d, GroupNode* gn)
@@ -204,14 +219,6 @@ void DrawPOVRay::draw(Transformation& t)
 	{
 		Volume* v = t.volumes[i];
 		{
-			Sphere* vv = dynamic_cast<Sphere*>(v);
-			if(vv)
-			{
-				draw(*vv);
-				continue;
-			}
-		}
-		{
 			Tube* vv = dynamic_cast<Tube*>(v);
 			if(vv)
 			{
@@ -220,37 +227,61 @@ void DrawPOVRay::draw(Transformation& t)
 			}
 		}
 		{
+			Sphere* vv = dynamic_cast<Sphere*>(v);
+			if(vv)
+			{
+				draw(*vv);
+				continue;
+			}
+		}
+
+		{
 			Light* vv = dynamic_cast<Light*>(v);
 			if(vv)
 			{
-				Light(*vv);
+				draw(*vv);
 				continue;
 			}
 		}
 	}
-	
-	switch(t.type)
+
+	for(unsigned int i=0; i<t.transformations.size(); i++)
 	{
-		case Transformation::none:
-		break;
-		case Transformation::scale:
+		draw(* t.transformations[i]);
+	}
+	
+	{
+		Scale* tt = dynamic_cast<Scale*>(&t);
+		if(tt)
+		{
 			out << "scale <" << t.values[0] << ", " << t.values[1] << ", " << t.values[2] << ">" << endl;
-		break;
-		case Transformation::rotate:
+		}
+	}
+	{
+		Rotate* tt = dynamic_cast<Rotate*>(&t);
+		if(tt)
+		{
 			out << "rotate <" << t.values[0] << ", 0, 0>" << endl;
 			out << "rotate <0, " << t.values[1] << ", 0>" << endl;
-			out << "rotate <0, 0, " << t.values[2] << ">" << endl;
-		break;
-		case Transformation::translate:
-			out << "translate <" << t.values[0] << ", " << t.values[1] << ", " << t.values[2] << ">" << endl;		break;	
+			out << "rotate <0, 0, " << t.values[2] << ">" << endl;		}
 	}
-	if(t.nextTransform)
 	{
-		draw(* t.nextTransform);
+		Translate* tt = dynamic_cast<Translate*>(&t);
+		if(tt)
+		{
+			out << "translate <" << t.values[0] << ", " << t.values[1] << ", " << t.values[2] << ">" << endl;	
+		}
 	}
+	
 	out << "}" << endl;
 }
 
+static int l_close(lua_State* L)
+{
+	LUA_PREAMBLE(DrawPOVRay, d, 1);
+	d->close();
+	return 0;
+}
 
 static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* DrawPOVRay::luaMethods()
@@ -260,6 +291,7 @@ const luaL_Reg* DrawPOVRay::luaMethods()
 	merge_luaL_Reg(m, Draw::luaMethods());
 	static const luaL_Reg _m[] =
 	{
+		{"close", l_close},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

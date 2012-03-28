@@ -15,6 +15,7 @@ public:
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);
 	
+	
 	double r() const {return rgba[0];};
 	double g() const {return rgba[1];};
 	double b() const {return rgba[2];};
@@ -23,6 +24,7 @@ public:
 	
 	void  setComponent(int i, double v);
 	double component(int i) const;
+	virtual void map(double theta, double phi);
 	
 	Color& operator =(const Color& rhs);
 	Color& operator =(const Vector& rhs);

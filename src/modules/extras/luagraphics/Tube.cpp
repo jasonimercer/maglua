@@ -4,6 +4,7 @@ static int clamp2(int& i)
 {
 	if(i < 0) i = 0;
 	if(i > 1) i = 1;
+	return i;
 }
 
 Tube::Tube()
@@ -148,6 +149,7 @@ static int l_tube_setpos(lua_State* L)
 	lua_makevector(L, 3, v);
 	
 	a->setPos(idx-1, v);
+ 	return 0;
 }
 
 
@@ -179,9 +181,9 @@ const luaL_Reg* Tube::luaMethods()
 	static const luaL_Reg _m[] =
 	{
 		{"__eq",         l_tube_eq},
-		{"setPos",       l_tube_setpos},
+		{"setPosition",       l_tube_setpos},
 		{"setRadius",    l_tube_setradius},
-		{"pos",          l_tube_getpos},
+		{"position",          l_tube_getpos},
 		{"radius",       l_tube_getradius},
 		{NULL, NULL}
 	};

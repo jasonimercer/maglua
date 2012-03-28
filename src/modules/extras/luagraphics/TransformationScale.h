@@ -14,7 +14,7 @@ extern "C" {
 class Scale : public Transformation
 {
 public:
-	Scale() : Transformation(hash32("Scale")) {type = scale;};
+	Scale() : Transformation(hash32("Scale")) {}
 	~Scale() {};
 
 	LINEAGE2("Scale", "Transformation")

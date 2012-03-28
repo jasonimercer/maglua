@@ -27,6 +27,7 @@ int RNG::luaInit(lua_State* L)
 {
 	if(lua_isnumber(L, 1))
 		seed(lua_tointeger(L, 1));
+	return 0;
 }
 
 void RNG::push(lua_State* L)
@@ -123,12 +124,11 @@ static int l_normal(lua_State* L)
 }
 
 
-/*
-static static int l_help(lua_State* L)
+int RNG::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "Random creates a random number generator using one of numerous algorithms.");
+		lua_pushstring(L, "Random number generator abstract base class");
 		lua_pushstring(L, ""); //input, empty
 		lua_pushstring(L, ""); //output, empty
 		return 3;
@@ -146,15 +146,8 @@ static static int l_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-	if(func == l_rand_new)
-	{
-		lua_pushstring(L, "Create a new Random object.");
-		lua_pushstring(L, "1 string: The string argument defines the Random type. It may be one of the following:\n\"MersenneTwister\" - use the Mersenne Twister RNG by Makoto Matsumoto.\n\"Isaac\" - ISAAC RNG by Robert Jenkins.\n\"CRandom\" - built in C random number (rand_r). CRandom does not suffer poor randomization on lower order bits as in older rand() implementations."); 
-		lua_pushstring(L, "1 Random object");
-		return 3;
-	}
-	
-	if(func == l_rand_seed)
+
+	if(func == l_seed)
 	{
 		lua_pushstring(L, "Set the seed for the random number generator");
 		lua_pushstring(L, "1 integer: This will be used as the seed for the RNG.");
@@ -162,7 +155,7 @@ static static int l_help(lua_State* L)
 		return 3;
 	}
 		
-	if(func == l_rand_uniform)
+	if(func == l_uniform)
 	{
 		lua_pushstring(L, "Return a value selected from a uniform distribution");
 		lua_pushstring(L, "1 Optional number:");
@@ -170,7 +163,7 @@ static static int l_help(lua_State* L)
 		return 3;
 	}
 
-	if(func == l_rand_normal)
+	if(func == l_normal)
 	{
 		lua_pushstring(L, "Return a value selected from a normal distribution");
 		lua_pushstring(L, "");
@@ -180,7 +173,6 @@ static static int l_help(lua_State* L)
 	
 	return 0;
 }
-*/
 
 static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* RNG::luaMethods()

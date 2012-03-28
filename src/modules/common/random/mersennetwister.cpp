@@ -12,3 +12,15 @@
 
 #include "mersennetwister.h"
 
+int MTRand::help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushfstring(L, "%s generates random variables using the Mersenne Twister. Mersenne Twister random number generator -- a C++ class MTRand. Based on code by Makoto Matsumoto, Takuji Nishimura, and Shawn Cokus. Richard J. Wagner  v1.1  28 September 2009  wagnerr@umich.edu", MTRand::slineage(0));
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+		
+	return RNG::help(L);
+}

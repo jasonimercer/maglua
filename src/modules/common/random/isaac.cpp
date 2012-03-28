@@ -212,3 +212,17 @@ uint32 Isaac::randInt()                     // integer in [0,2^32-1]
 	return t;
 }
 
+int Isaac::help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushfstring(L, "%s generates random variables using %s RNG.", Isaac::slineage(0), "Bob Jenkins's");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+		
+	return RNG::help(L);
+}
+
+

@@ -23,6 +23,7 @@ public:
 	virtual bool excludes(const Vector& v, double expand=0.0) {return true;};
 
 	virtual AABB* getBB();
+	virtual void setColor(Color* c);
 	
 	bool selected;
 	Color* color;

@@ -28,14 +28,12 @@ public:
 	virtual void push(lua_State* L);
 
 	void addVolume(Volume* v);
-	void setNextTransformation(Transformation* nt);
+	void addTransformation(Transformation* t);
+	void removeVolume(Volume* v);
+	void removeTransformation(Transformation* t);
 	
-	Transformation* nextTransform;
+	vector<Transformation*> transformations;
 	vector<Volume*> volumes;
-	
-	enum TransformationType{none, rotate, scale, translate};
-	TransformationType type;
-	
 	double values[3];
 };
 

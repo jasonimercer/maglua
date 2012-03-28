@@ -106,6 +106,7 @@ public:
 	static const luaL_Reg* luaMethods() {return RNG::luaMethods();}
 	virtual int luaInit(lua_State* L) {return RNG::luaInit(L);}
 	virtual void push(lua_State* L) {luaT_push<MTRand>(L, this);}
+	static int help(lua_State* L);
 
 	
 	// Do NOT use for CRYPTOGRAPHY without securely hashing several returned

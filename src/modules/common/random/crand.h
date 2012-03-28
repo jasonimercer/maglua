@@ -25,7 +25,7 @@ public:
 	static const luaL_Reg* luaMethods() {return RNG::luaMethods();}
 	virtual int luaInit(lua_State* L) {return RNG::luaInit(L);}
 	virtual void push(lua_State* L) {luaT_push<CRand>(L, this);}
-	
+	static int help(lua_State* L);
 	
 	uint32 randInt();                     // integer in [0,2^32-1]
 	

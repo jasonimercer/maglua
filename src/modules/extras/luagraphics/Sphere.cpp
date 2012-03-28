@@ -203,7 +203,7 @@ static int l_getpos(lua_State* L)
 static int l_setrad(lua_State* L)
 {
 	LUA_PREAMBLE(Sphere, s, 1);
-	s->setRadius(lua_tonumber(L, 1));
+	s->setRadius(lua_tonumber(L, 2));
 	return 0;
 }
 static int l_getrad(lua_State* L)

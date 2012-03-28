@@ -39,6 +39,7 @@ public:
 	void draw(Transformation& t);
 
 	void setFileName(const char* filename);
+	void close();
 private:
 	void init();
 	std::ofstream out;

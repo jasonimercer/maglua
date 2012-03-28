@@ -14,7 +14,7 @@ extern "C" {
 class Rotate : public Transformation
 {
 public:
-	Rotate() : Transformation(hash32("Rotate")) {type = rotate;};
+	Rotate() : Transformation(hash32("Rotate")) {}
 	~Rotate() {};
 
 	LINEAGE2("Rotate", "Transformation")

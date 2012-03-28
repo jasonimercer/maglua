@@ -106,7 +106,7 @@ static bool between(double m, double M, double x, double expand=0)
 
 bool AABB::excludes(const AABB& bb, double expand)
 {
-	double isect = true;
+	//double isect = true;
 	
 	for(int i=0; i<3; i++)
 	{

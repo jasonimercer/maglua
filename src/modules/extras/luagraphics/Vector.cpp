@@ -709,7 +709,7 @@ static double _vector_match(vector<Vector*>& v1, vector<Vector*>& v2, int* order
 	double best_match = 1e10;
 	
 	// order will hold all values
-	for(unsigned int i=0; i<n2; i++)
+	for(int i=0; i<n2; i++)
 	{
 		current_order[i] = i;
 	}
@@ -751,11 +751,11 @@ static int l_nearest_pairs(lua_State* L)
 	
 	vector<int> k[2];
 	vector<Vector*> v[2];
-	int* ordering;
+//	int* ordering;
 
 	int small = 0;
 	int big   = 1;
-	double fit;
+//	double fit;
 
 	for(int i=0; i<2; i++)
 	{

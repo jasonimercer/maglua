@@ -38,8 +38,6 @@ public:
 	
 	double volume();
 	
-	Color color;
-
 	virtual bool contains(const Vector& v, double expand=0.0);
 
 protected:
