@@ -909,7 +909,6 @@ const luaL_Reg* LuaServer::luaMethods()
 
 
 
-#include "info.h"
 extern "C"
 {
 SERVER_API int lib_register(lua_State* L);
@@ -926,7 +925,7 @@ SERVER_API int lib_register(lua_State* L)
 
 SERVER_API int lib_version(lua_State* L)
 {
-	return __revi;
+	return 999;
 }
 
 SERVER_API const char* lib_name(lua_State* L)

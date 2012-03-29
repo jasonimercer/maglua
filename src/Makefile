@@ -35,7 +35,7 @@ bootstrap.h: bootstrap.lua
 	lua hardcode.lua bootstrap.lua
 
 info.h:					#dev version
-	./premake.sh $(CXX) $(CFLAGS)	#dev version
+	lua premake.lua $(CXX) $(CFLAGS)	#dev version
 
 
 install: $(BIN)

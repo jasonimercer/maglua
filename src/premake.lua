@@ -52,6 +52,8 @@ if compiler == nil then --try err stream, can't combine without knowing platform
 end
 
 f = io.open("info.h", "w")
+f:write("#ifndef MAGLUA_VERSION_INFO\n")
+f:write("#define MAGLUA_VERSION_INFO\n")
 f:write("const char* __info =\"\\\n")
 f:write("MagLua Revision:     " .. revision .. [[\n\]] .. "\n")
 f:write(author .. [[\n\]] .. "\n")
@@ -61,4 +63,5 @@ f:write([[";]] .. "\n")
 f:write("const char* __rev  = \"" .. revision .. "\";\n")
 f:write("const int   __revi =  " .. revision .. ";\n")
 
+f:write("#endif\n")
 f:close()

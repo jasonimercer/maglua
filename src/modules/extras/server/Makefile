@@ -12,6 +12,7 @@
 OBJECTS=libLuaServer.o net_helpers.o
 LIBNAME=Server
 CATEGORY=extra
+EXTRALIBS=../../../libMagLua.a
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=pthreadVC2 luabaseobject wsock32

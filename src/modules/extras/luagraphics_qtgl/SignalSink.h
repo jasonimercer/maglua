@@ -1,0 +1,28 @@
+#ifndef SIGNALSINK_H
+#define SIGNALSINK_H
+
+#include <QObject>
+extern "C" {
+		#include <lua.h>
+		#include <lualib.h>
+		#include <lauxlib.h>
+}
+
+class SignalSink : public QObject
+{
+    Q_OBJECT
+public:
+	explicit SignalSink(lua_State* L = 0, int funcref = LUA_REFNIL, QObject *parent = 0);
+	~SignalSink();
+
+
+signals:
+
+public slots:
+	void activate();
+
+private:
+	int ref;
+};
+
+#endif // SIGNALSINK_H
