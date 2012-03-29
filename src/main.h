@@ -18,5 +18,4 @@ extern "C" {
 #include <lauxlib.h>
 }
 
-void MagLua_set_and_run(lua_State* L, int sub_process);
 

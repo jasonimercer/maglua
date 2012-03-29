@@ -11,17 +11,22 @@
 # When configuring fftw3: 
 # ./configure  --prefix=$HOME --with-pic --enable-shared
 
-CXX=mpicxx -D_MPI
+MPICXX=mpicxx -D_MPI
+CXX=g++
 CFLAGS=-ansi -O2 -g
 PKG=lua5.1 fftw3
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
 LIBS=`pkg-config --libs $(PKG)` -lpthread
-OBJECTS=main.o loader.o modules.o
-
+OBJECTS=libMagLua.o loader.o modules.o
+LIBNAME=libMagLua.a
 BIN=maglua
 
-$(BIN): $(OBJECTS) 
-	$(CXX) -rdynamic  $(CFLAGS) -o $(BIN) -Wl,--start-group  $(OBJECTS) $(LIBS) -Wl,--end-group
+
+$(BIN): main.o $(LIBNAME)
+	$(MPICXX) $(CFLAGS) -o $(BIN) -Wl,--start-group  main.o $(LIBNAME) $(LIBS) -Wl,--end-group
+
+$(LIBNAME) : $(OBJECTS)
+	ar cqs $(LIBNAME) $(OBJECTS)
 
 %.o : %.cpp  %.h info.h Makefile bootstrap.h
 	$(CXX) -fPIC $(INCLUDEPATH) $(CFLAGS) -c $*.cpp -o $*.o 
@@ -45,6 +50,7 @@ clena: clean
 clean:
 	rm -f *~
 	rm -f *.o
+	rm -f $(LIBNAME)
 
 pack:			#dev version
 	./pack.sh	#dev version

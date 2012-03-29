@@ -25,7 +25,7 @@ AppliedField::AppliedField(int nx, int ny, int nz)
 
 int AppliedField::luaInit(lua_State* L)
 {
-	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
+	return SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
 }
 
 void AppliedField::push(lua_State* L)
@@ -39,6 +39,7 @@ void AppliedField::encode(buffer* b)
 	encodeDouble(B[0], b);
 	encodeDouble(B[1], b);
 	encodeDouble(B[2], b);
+	encodeDouble(global_scale, b);
 }
 
 int  AppliedField::decode(buffer* b)
@@ -46,6 +47,7 @@ int  AppliedField::decode(buffer* b)
 	B[0] = decodeDouble(b);
 	B[1] = decodeDouble(b);
 	B[2] = decodeDouble(b);
+	global_scale = decodeDouble(b);
 	return 0;
 }
 
@@ -63,9 +65,9 @@ bool AppliedField::apply(SpinSystem* ss)
 	
 	for(int i=0; i<nxyz; i++)
 	{
-		hx[i] = B[0];
-		hy[i] = B[1];
-		hz[i] = B[2];
+		hx[i] = B[0] * global_scale;
+		hy[i] = B[1] * global_scale;
+		hz[i] = B[2] * global_scale;
 		
 		//printf("%g %g %g\n", hx[i], hy[i], hz[i]);
 	}

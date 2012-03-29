@@ -36,6 +36,7 @@ int Exchange::luaInit(lua_State* L)
 	pathways = (sss*)malloc(sizeof(sss) * size);
 	
 	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
+	return 0;	
 }
 
 void Exchange::push(lua_State* L)
@@ -49,6 +50,7 @@ void Exchange::encode(buffer* b)
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
+	encodeDouble(global_scale, b);
 	
 	encodeInteger(num, b);
 	
@@ -67,6 +69,7 @@ int  Exchange::decode(buffer* b)
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
+	global_scale = decodeDouble(b);
 	nxyz = nx * ny * nz;
 	
 	size = decodeInteger(b);
@@ -116,7 +119,7 @@ bool Exchange::apply(SpinSystem* ss)
 		const int f    = pathways[i].fromsite;
 		const double s = pathways[i].strength;
 		
-		hx[t] += sx[f] * s;
+		hx[t] += sx[f] * s * global_scale;
 	}
 	#pragma omp parallel for shared(hy,sy)
 	for(int i=0; i<num; i++)
@@ -125,7 +128,7 @@ bool Exchange::apply(SpinSystem* ss)
 		const int f    = pathways[i].fromsite;
 		const double s = pathways[i].strength;
 		
-		hy[t] += sy[f] * s;
+		hy[t] += sy[f] * s * global_scale;
 	}
 	#pragma omp parallel for shared(hz,sz)
 	for(int i=0; i<num; i++)
@@ -134,7 +137,7 @@ bool Exchange::apply(SpinSystem* ss)
 		const int f    = pathways[i].fromsite;
 		const double s = pathways[i].strength;
 		
-		hz[t] += sz[f] * s;
+		hz[t] += sz[f] * s * global_scale;
 	}
 	return true;
 }

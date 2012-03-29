@@ -94,6 +94,7 @@ void Anisotropy::encode(buffer* b)
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
 	encodeInteger(num, b);
+	encodeDouble(global_scale, b);
 	for(int i=0; i<num; i++)
 	{
 		encodeInteger(ops[i].site, b);
@@ -111,6 +112,7 @@ int Anisotropy::decode(buffer* b)
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
 	num = decodeInteger(b);
+	global_scale = decodeDouble(b);
 	size = num;
 	init();
 	
@@ -160,9 +162,9 @@ bool Anisotropy::apply(SpinSystem* ss)
 
 			const double v = 2.0 * op.strength * SpinDotEasyAxis / (ms * ms);
 
-			hx[i] += op.axis[0] * v;
-			hy[i] += op.axis[1] * v;
-			hz[i] += op.axis[2] * v;
+			hx[i] += op.axis[0] * v * global_scale;
+			hy[i] += op.axis[1] * v * global_scale;
+			hz[i] += op.axis[2] * v * global_scale;
 		}
 	}
 	return true;

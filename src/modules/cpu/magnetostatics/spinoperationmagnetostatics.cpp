@@ -56,7 +56,8 @@ void Magnetostatic::encode(buffer* b)
 	encodeInteger(nz, b);
 	encodeInteger(gmax, b);
 	encodeDouble(g, b);
-	
+	encodeDouble(global_scale, b);
+
 	for(int i=0; i<3; i++)
 		encodeDouble(volumeDimensions[i], b);
 	
@@ -76,7 +77,8 @@ int  Magnetostatic::decode(buffer* b)
 	gmax = decodeInteger(b);
 	nxyz = nx*ny*nz;
 	g = decodeDouble(b);
-	
+	global_scale = decodeDouble(b);
+
 	for(int i=0; i<3; i++)
 		volumeDimensions[i] = decodeDouble(b);
 	

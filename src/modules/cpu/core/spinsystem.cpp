@@ -60,6 +60,7 @@ int SpinSystem::luaInit(lua_State* L)
 	ny = n[1];
 	nz = n[2];
 	init();
+	return 0;
 }
 
 

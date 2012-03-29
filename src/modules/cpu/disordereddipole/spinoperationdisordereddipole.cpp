@@ -62,6 +62,7 @@ int DisorderedDipole::luaInit(lua_State* L)
 	deinit();
 	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
 	init();
+	return 0;	
 }
 
 void DisorderedDipole::push(lua_State* L)
@@ -75,6 +76,7 @@ void DisorderedDipole::encode(buffer* b)
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
+	encodeDouble(global_scale, b);
 	for(int i=0; i<nxyz; i++)
 	{
 		encodeDouble(posx[i], b);
@@ -89,6 +91,7 @@ int  DisorderedDipole::decode(buffer* b)
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
+	global_scale = decodeDouble(b);
 	init();
 	for(int i=0; i<nxyz; i++)
 	{
@@ -134,6 +137,7 @@ bool DisorderedDipole::apply(SpinSystem* ss)
 	double rij[3];
 	double lenr;
 	
+	double g_gs = g * global_scale;
 	for(int i=0; i<nxyz; i++)
 	{
 		hx[i] = 0;
@@ -159,9 +163,9 @@ bool DisorderedDipole::apply(SpinSystem* ss)
 				if(lenr > 0)
 				{
 					double sr = x[j]*rij[0] + y[j]*rij[1] + z[j]*rij[2];
-					hx[i] -= g * (x[j] / pow(lenr,3) - 3.0 * rij[0] * sr / pow(lenr,5));
-					hy[i] -= g * (y[j] / pow(lenr,3) - 3.0 * rij[1] * sr / pow(lenr,5));
-					hz[i] -= g * (z[j] / pow(lenr,3) - 3.0 * rij[2] * sr / pow(lenr,5));
+					hx[i] -= g_gs * (x[j] / pow(lenr,3) - 3.0 * rij[0] * sr / pow(lenr,5));
+					hy[i] -= g_gs * (y[j] / pow(lenr,3) - 3.0 * rij[1] * sr / pow(lenr,5));
+					hz[i] -= g_gs * (z[j] / pow(lenr,3) - 3.0 * rij[2] * sr / pow(lenr,5));
 				}
 			}
 		}

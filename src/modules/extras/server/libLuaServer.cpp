@@ -2,7 +2,8 @@
 #include "libLuaServer.h"
 #include "net_helpers.h"
 
-#include "main.h"
+// #include "main.h"
+#include "libMagLua.h"
 #include "luabaseobject.h"
 #include "import.h"
 
@@ -245,6 +246,7 @@ int LuaServer::luaInit(lua_State* _L)
 	L = _L;
 	if(lua_isnumber(L, 1))
 		port = lua_tointeger(L, 1);
+	return 0;
 }
 
 
@@ -609,8 +611,11 @@ int LuaServer::addLuaFunction(LuaComm* comm, LuaVariableGroup& group)
 static int registerMagLuaMain(lua_State* L)
 {
 	int sub_process = 1;
-	MagLua_set_and_run(L, sub_process);
+	int force_quiet = 1;
+	//MagLua_set_and_run(L, sub_process);
+	libMagLua(L, sub_process, force_quiet);
 
+	
 #if 0
 #ifndef WIN32
 	return registerMain(L);
@@ -846,6 +851,7 @@ static int copy_registry(lua_State* src, lua_State* dest)
 			
        lua_pop(src, 1);
      }
+     return 0;
 }
 
 static int l_share(lua_State* L)

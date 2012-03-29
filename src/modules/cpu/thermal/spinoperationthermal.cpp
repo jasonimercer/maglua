@@ -35,6 +35,7 @@ int Thermal::luaInit(lua_State* L)
 	for(int i=0; i<nxyz; i++)
 		scale[i] = 1.0;
 	temperature = 0;
+	return 0;
 }
 
 void Thermal::push(lua_State* L)
@@ -47,6 +48,7 @@ void Thermal::encode(buffer* b)
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
+	encodeDouble(global_scale, b);
 	
 	encodeDouble(temperature, b);
 	
@@ -60,6 +62,7 @@ int  Thermal::decode(buffer* b)
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
 	nxyz = nx * ny * nz;
+	global_scale = decodeDouble(b);
 
 	temperature = decodeDouble(b);
 	
@@ -96,7 +99,7 @@ bool Thermal::apply(RNG* rand, SpinSystem* ss)
 		if(ms != 0 && temperature != 0)
 		{
 // 			double stddev = sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma * (1+alpha*alpha)));
-			const double stddev = sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma));
+			const double stddev = global_scale * sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma));
 			
 			hx[i] = stddev * rand->randNorm(0, 1);
 			hy[i] = stddev * rand->randNorm(0, 1);

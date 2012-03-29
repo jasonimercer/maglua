@@ -44,6 +44,7 @@ void Dipole::encode(buffer* b)
 	encodeInteger(nz, b);
 	encodeInteger(gmax, b);
 	encodeDouble(g, b);
+	encodeDouble(global_scale, b);
 
 	for(int i=0; i<9; i++)
 	{
@@ -60,6 +61,7 @@ int  Dipole::decode(buffer* b)
 	nz = decodeInteger(b);
 	gmax = decodeInteger(b);
 	g = decodeDouble(b);
+	global_scale = decodeDouble(b);
 	nxyz = nx*ny*nz;
 
 	for(int i=0; i<9; i++)

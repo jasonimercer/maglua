@@ -52,6 +52,7 @@ public:
 
 	std::string errormsg;
 	
+	double global_scale;
 // 	virtual void encode(buffer* b) = 0;
 // 	virtual int  decode(buffer* b) = 0;
 

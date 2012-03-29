@@ -19,16 +19,16 @@ public:
 	LINEAGE1("Draw")
 	
 	static const luaL_Reg* luaMethods();
-	virtual int luaInit(lua_State* L) {return 0;}
+    virtual int luaInit(lua_State* ) {return 0;}
 	virtual void push(lua_State* L) {luaT_push<Draw>(L, this);}
 	
 	Draw(int etype=0) : LuaBaseObject(etype) {}
-	virtual void draw(Sphere& s) {}
-	virtual void draw(Camera& camera) {}
-	virtual void draw(Light& light) {}
-	virtual void draw(Tube& tube) {}
-	virtual void draw(Group& group) {}
-	virtual void draw(Transformation& t) {}
+    virtual void draw(Sphere& ) {}
+    virtual void draw(Camera& ) {}
+    virtual void draw(Light& ) {}
+    virtual void draw(Tube& ) {}
+    virtual void draw(Group& ) {}
+    virtual void draw(Transformation& ) {}
 	//virtual void draw(VolumeLua& volumelua) {}
 	virtual void reset() {}
 	

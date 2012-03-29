@@ -21,6 +21,7 @@ SpinOperation::SpinOperation(std::string Name, int Slot, int NX, int NY, int NZ,
 	: LuaBaseObject(etype), nx(NX), ny(NY), nz(NZ), operationName(Name), slot(Slot)
 {
 	nxyz = nx * ny * nz;
+	global_scale = 1.0;
 }
 
 SpinOperation::~SpinOperation()
@@ -242,6 +243,19 @@ static int l_member(lua_State* L)
 	return 1;
 }
 
+static int l_setscale(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	so->global_scale = lua_tonumber(L, 2);
+	return 0;
+}
+static int l_getscale(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	lua_pushnumber(L, so->global_scale);
+	return 0;
+}
+
 static int l_tostring(lua_State* L)
 {
 	LUA_PREAMBLE(SpinOperation,so,1);
@@ -278,6 +292,20 @@ int SpinOperation::help(lua_State* L)
 		lua_pushstring(L, "Apply the operator to the SpinSystem");
 		lua_pushstring(L, "1 SpinSystem: System that will receive the resulting fields");
 		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_setscale)
+	{
+		lua_pushstring(L, "Set a scale to field calculatons (default value is 1.0)");
+		lua_pushstring(L, "1 Number: The value of the new scale");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_getscale)
+	{
+		lua_pushstring(L, "Get the scale applied to field calculatons (default value is 1.0)");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: The scale");
 		return 3;
 	}
 

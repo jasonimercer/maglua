@@ -18,9 +18,9 @@ public:
 	virtual void push(lua_State* L);
 	
 	virtual double volume() {return 0;}
-	virtual bool rayIntersect(const Ray& ray, double& t) {return false;}
-	virtual bool contains(const Vector& v, double expand=0.0) {return false;}
-	virtual bool excludes(const Vector& v, double expand=0.0) {return true;};
+    virtual bool rayIntersect(const Ray& /*ray*/, double& /*t*/) {return false;}
+    virtual bool contains(const Vector& /*v*/, double /*expand=0.0*/) {return false;}
+    virtual bool excludes(const Vector& /*v*/, double /*expand=0.0*/) {return true;}
 
 	virtual AABB* getBB();
 	virtual void setColor(Color* c);

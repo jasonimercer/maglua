@@ -47,6 +47,7 @@ int LongRange::luaInit(lua_State* L)
 	deinit();
 	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
 	LongRange::init();
+	return 0;	
 }
 
 void LongRange::push(lua_State* L)
@@ -291,7 +292,7 @@ void LongRange::getMatrices()
 
 void LongRange::ifftAppliedForce(SpinSystem* ss)
 {
-	double d = g / (double)(nx*ny);
+	double d = g * global_scale / (double)(nx*ny);
 // 	printf("%g\n", d);
 	double* hx = ss->hx[slot];
 	double* hy = ss->hy[slot];
