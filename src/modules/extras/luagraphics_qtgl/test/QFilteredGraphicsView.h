@@ -22,6 +22,8 @@ public:
 	int wheelDelta;
 	float mx, my; /* mouse x, mouse y */
 
+
+	void registerFunctions(lua_State* L);
 	lua_State* L;
 
 	void setDrawFunction(int func);

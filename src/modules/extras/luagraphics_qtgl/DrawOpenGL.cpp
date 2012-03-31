@@ -17,6 +17,7 @@ DrawOpenGL::DrawOpenGL()
     : Draw(hash32("DrawOpenGL"))
 {
     q = 0;
+	next_light = 0;
 }
 
 DrawOpenGL::~DrawOpenGL()
@@ -59,8 +60,8 @@ void DrawOpenGL::reset()
 
     glShadeModel(GL_SMOOTH);
 
-    glClearColor( 1,1,1, 1.0f );
-    glClearDepth(1.0f);
+	//glClearColor( 1,1,1, 1.0f );
+	//glClearDepth(1.0f);
     next_light = 0;
 }
 
@@ -103,40 +104,45 @@ void DrawOpenGL::draw(Tube& tube)
     n.normalize();
 
     glPushMatrix();
-    glLoadIdentity();
+	//glLoadIdentity();
     const GLfloat mShininess[] = {128}; //set the shininess of the material
     const GLfloat whiteSpecularMaterial[] = {1.0, 1.0, 1.0};
 
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, whiteSpecularMaterial);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
+//    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, whiteSpecularMaterial);
+//    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
 
     glColor4dv(tube.color->rgba);
 
     glTranslatef(a.x(), a.y(), a.z());
     glRotatef(rz*180.0/3.14159265358979, n.x(), n.y(), n.z());
     gluCylinder(q, tube.radius(0), tube.radius(1), tubeHeight, 32, 16);
-    glPopMatrix();
+
+	gluQuadricOrientation(q, GLU_INSIDE);
+	gluDisk(q, 0, tube.radius(0), 32, 2);
+	gluQuadricOrientation(q, GLU_OUTSIDE);
+	//gluDisk(q, 0, tube.radius(1), 32, 2);
+	glPopMatrix();
 }
 
 void DrawOpenGL::draw(Light& light)
 {
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
-    glLoadIdentity();
+	//glLoadIdentity();
 
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0+next_light);
 
-    float s[4];
-    float d[4];
+	float s[4] = {1,1,1,1};
+	float d[4] = {0.5,0.5,0.5,1};
 
-    for(int i=0; i<3; i++)
-    {
-        s[i] = light.specular_color->rgba[i];
-         d[i] =light.diffuse_color->rgba[i];
-    }
-    s[3] = 1;
-    d[3] = 1;
+//    for(int i=0; i<3; i++)
+//    {
+//		s[i] = light.specular_color->rgba[i]*0.01;
+//		d[i] = light.diffuse_color->rgba[i]*0.01;
+//    }
+//	s[3] = 1;
+//	d[3] = 1;
 
     glLightfv(GL_LIGHT0+next_light, GL_SPECULAR, s);
     glLightfv(GL_LIGHT0+next_light, GL_DIFFUSE,  d);
@@ -161,15 +167,11 @@ void DrawOpenGL::draw(Camera& c)
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     const float ratio = c.ratio;// ((float)windowx)/((float)(windowy+1));
     const float FOV = c.FOV;// 45;
-    if(c.perspective)
+	if(c.perspective || 1)
     {
         gluPerspective(FOV, ratio, 0.1f, 10000.0f);
     }
@@ -184,70 +186,86 @@ void DrawOpenGL::draw(Camera& c)
               c.up->x(),  c.up->y(),  c.up->z());
 }
 
+void DrawOpenGL::inner_draw(Transformation& t)
+{
+	{
+		Scale* tt = dynamic_cast<Scale*>(&t);
+		if(tt)
+		{
+			glScalef(t.values[0], t.values[1], t.values[2]);
+		}
+	}
+	{
+		Rotate* tt = dynamic_cast<Rotate*>(&t);
+		if(tt)
+		{
+			glRotatef(t.values[0], 1, 0, 0);
+			glRotatef(t.values[1], 0, 1, 0);
+			glRotatef(t.values[2], 0, 0, 1);
+		}
+	}
+
+	{
+		Translate* tt = dynamic_cast<Translate*>(&t);
+		if(tt)
+		{
+			glTranslatef(t.values[0], t.values[1], t.values[2]);
+		}
+	}
+
+	for(unsigned int i=0; i<t.transformations.size(); i++)
+	{
+		glPushMatrix();
+		inner_draw(* t.transformations[i]);
+		glPopMatrix();
+	}
+
+	for(unsigned int i=0; i<t.volumes.size(); i++)
+	{
+		Volume* v = t.volumes[i];
+		{
+			Tube* vv = dynamic_cast<Tube*>(v);
+			if(vv)
+			{
+				draw(*vv);
+				continue;
+			}
+		}
+		{
+			Sphere* vv = dynamic_cast<Sphere*>(v);
+			if(vv)
+			{
+				draw(*vv);
+				continue;
+			}
+		}
+
+		{
+			Light* vv = dynamic_cast<Light*>(v);
+			if(vv)
+			{
+				draw(*vv);
+				continue;
+			}
+		}
+	}
+
+
+
+
+
+
+
+
+
+}
+
+
 void DrawOpenGL::draw(Transformation& t)
 {
-    glPushMatrix();
-
-    for(unsigned int i=0; i<t.volumes.size(); i++)
-    {
-        Volume* v = t.volumes[i];
-        {
-            Tube* vv = dynamic_cast<Tube*>(v);
-            if(vv)
-            {
-                draw(*vv);
-                continue;
-            }
-        }
-        {
-            Sphere* vv = dynamic_cast<Sphere*>(v);
-            if(vv)
-            {
-                draw(*vv);
-                continue;
-            }
-        }
-
-        {
-            Light* vv = dynamic_cast<Light*>(v);
-            if(vv)
-            {
-                draw(*vv);
-                continue;
-            }
-        }
-    }
-
-    for(unsigned int i=0; i<t.transformations.size(); i++)
-    {
-        draw(* t.transformations[i]);
-    }
-
-    {
-        Scale* tt = dynamic_cast<Scale*>(&t);
-        if(tt)
-        {
-            glScalef(t.values[0], t.values[1], t.values[2]);
-        }
-    }
-    {
-        Rotate* tt = dynamic_cast<Rotate*>(&t);
-        if(tt)
-        {
-            glRotatef(t.values[0], 1, 0, 0);
-            glRotatef(t.values[1], 0, 1, 0);
-            glRotatef(t.values[2], 0, 0, 1);
-        }
-    }
-    {
-        Translate* tt = dynamic_cast<Translate*>(&t);
-        if(tt)
-        {
-            glTranslatef(t.values[0], t.values[1], t.values[2]);
-        }
-    }
-
-    glPopMatrix();
+	glPushMatrix();
+	inner_draw(t);
+	glPopMatrix();
 }
 
 
@@ -270,6 +288,8 @@ const luaL_Reg* DrawOpenGL::luaMethods()
 
 
 
+
+
 extern "C"
 {
 #include <lua.h>
@@ -286,13 +306,14 @@ LUAGRAPHICS_QTGLSHARED_EXPORT int lib_main(lua_State* L);
 #include "QGraphicsItemLua.h"
 #include "QGraphicsSceneLua.h"
 #include "QTextEditItemLua.h"
-
+#include "QPushButtonItemLua.h"
 LUAGRAPHICS_QTGLSHARED_EXPORT int lib_register(lua_State* L)
 {
 	luaT_register<DrawOpenGL>(L);
 	luaT_register<QGraphicsItemLua>(L);
 	luaT_register<QGraphicsSceneLua>(L);
 	luaT_register<QTextEditItemLua>(L);
+	luaT_register<QPushButtonItemLua>(L);
 	return 0;
 }
 

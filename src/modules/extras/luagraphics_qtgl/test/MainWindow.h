@@ -25,6 +25,10 @@ public:
 
 	OpenGLScene scene;
 	lua_State* L;
+
+public slots:
+	void tick();
+
 private:
     Ui::MainWindow *ui;
 

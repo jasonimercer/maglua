@@ -26,6 +26,28 @@ QFilteredGraphicsView::QFilteredGraphicsView(QWidget *parent) :
 	mousePressInWidget = false;
 }
 
+
+static int l_centerOn(lua_State* L)
+{
+	void* v = lua_touserdata(L, lua_upvalueindex(1));
+	QFilteredGraphicsView* vv = (QFilteredGraphicsView*)v;
+	vv->centerOn(
+				lua_tonumber(L, 1),
+				lua_tonumber(L, 2)
+				);
+	return 0;
+}
+
+void QFilteredGraphicsView::registerFunctions(lua_State* _L)
+{
+	L = _L;
+	lua_pushlightuserdata(L, (void*)this);
+	lua_pushcclosure(L, l_centerOn, 1);
+	lua_setglobal(L, "centerOn");
+
+}
+
+
 QFilteredGraphicsView::~QFilteredGraphicsView()
 {
 	if(L)
@@ -59,7 +81,6 @@ bool QFilteredGraphicsView::eventFilter(QObject *ob, QEvent *e)
 					}
 				}
 			}
-
 		}
 
 		if(keyEvent)
@@ -125,7 +146,7 @@ void QFilteredGraphicsView::wheelEvent(QWheelEvent* event)
 void QFilteredGraphicsView::keyPressEvent(QKeyEvent* event )
 {
 	QGraphicsView::keyPressEvent(event);
-	bool passUp = false;
+//	bool passUp = false;
 #if 0
 	if(scene() && scene()->focusItem())
 	{
@@ -286,7 +307,7 @@ void QFilteredGraphicsView::mouseMoveEvent(QMouseEvent* event)
 
 void QFilteredGraphicsView::mousePressEvent(QMouseEvent* event)
 {
-	QGraphicsItem* item = itemAt(event->x(), event->y());
+//	QGraphicsItem* item = itemAt(event->x(), event->y());
 //	if(item)
 //	{
 //		QGraphicsView::mousePressEvent(event);

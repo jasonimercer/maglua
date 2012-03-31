@@ -2,29 +2,23 @@
 #define QPUSHBUTTONITEMLUA_H
 
 #include <QPushButton>
-#include "luabaseobject.h"
-#include "SignalSink.h"
+#include "QItemLua.h"
 
-class QPushButtonItemLua : public LuaBaseObject
+class QPushButtonItemLua : public QItemLua
 {
 public:
 	QPushButtonItemLua();
 	~QPushButtonItemLua();
 
-	LINEAGE1("QPushButtonItemLua")
+	LINEAGE2("QPushButtonItemLua", "QItemLua")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);
 
-	QGraphicsProxyWidget* item() {return proxy;}
 	QPushButton* widget() {return pushbutton;}
 
-private:
 	QPushButton* pushbutton;
-	QGraphicsProxyWidget* proxy;
-
 	SignalSink* pressFunc;
-
 };
 
 #endif // QPUSHBUTTONITEMLUA_H

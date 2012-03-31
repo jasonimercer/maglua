@@ -15,7 +15,7 @@ public:
 	explicit SignalSink(lua_State* L = 0, int funcref = LUA_REFNIL, QObject *parent = 0);
 	~SignalSink();
 
-
+	lua_State* L;
 signals:
 
 public slots:

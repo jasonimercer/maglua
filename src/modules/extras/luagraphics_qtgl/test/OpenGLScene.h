@@ -14,8 +14,11 @@ class OpenGLScene : public QGraphicsScene
     Q_OBJECT
 public:
     explicit OpenGLScene(QObject *parent = 0);
+	~OpenGLScene();
 
 	lua_State* L;
+	int draw_func;
+	void registerFunctions(lua_State* L);
 protected:
 	void drawBackground(QPainter *painter, const QRectF& );
 

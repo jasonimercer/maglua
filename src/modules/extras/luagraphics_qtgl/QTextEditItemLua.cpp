@@ -7,11 +7,10 @@
 using namespace std;
 
 QTextEditItemLua::QTextEditItemLua()
-	: LuaBaseObject(hash32("QTextEditItemLua"))
+	: QItemLua(hash32("QTextEditItemLua"))
 {
 
 	textedit = 0;
-	proxy = 0;
 	highlighter = 0;
 
 	setTransparentBackgound(1);
@@ -32,20 +31,19 @@ QTextEditItemLua::~QTextEditItemLua()
 
 int QTextEditItemLua::luaInit(lua_State* L)
 {
-	if(luaT_is<QGraphicsSceneLua>(L, 1))
-	{
-		QGraphicsSceneLua* s = luaT_to<QGraphicsSceneLua>(L, 1);
-		luaT_inc<QGraphicsSceneLua>(s);
-		textedit = new QTextEdit(QApplication::activeWindow());
-		textedit->show();
-		textedit->setTabStopWidth(40);
+	QItemLua::luaInit(L);
+	if(!scene) return 0;
 
-		proxy = s->scene->addWidget(textedit, 0);
-		proxy->setPos(0,0);
-		proxy->show();
+	textedit = new QTextEdit(QApplication::activeWindow());
+	textedit->show();
+	textedit->setTabStopWidth(40);
 
-		setTransparentBackgound(1);
-	}
+	proxy = scene->addWidget(textedit, 0);
+	proxy->setPos(0,0);
+	proxy->show();
+
+	setTransparentBackgound(1);
+
 	return 0;
 }
 
@@ -100,7 +98,9 @@ void QTextEditItemLua::pressed()
 
 static int l_settext(lua_State *L)
 {
+	printf("1\n");
 	LUA_PREAMBLE(QTextEditItemLua, d, 1);
+	printf("2\n");
 	if(!d->widget()) return 0;
 
 	d->widget()->setPlainText(lua_tostring(L, 2));
@@ -274,6 +274,33 @@ static int l_setfontfamily(lua_State* L)
 	return 0;
 }
 
+static int l_setsb(lua_State* L)
+{
+	LUA_PREAMBLE(QTextEditItemLua, d, 1);
+	if(!d->widget()) return 0;
+
+	int i = lua_tointeger(L, 2);
+
+	if(i == 0)
+	{
+		d->widget()->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+		d->widget()->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	}
+
+	if(i == 1)
+	{
+		d->widget()->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		d->widget()->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	}
+
+	if(i == 2)
+	{
+		d->widget()->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+		d->widget()->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+	}
+	return 0;
+}
+
 static int l_sethighlighter(lua_State* L)
 {
 	LUA_PREAMBLE(QTextEditItemLua, d, 1);
@@ -303,7 +330,7 @@ const luaL_Reg* QTextEditItemLua::luaMethods()
 {
 	if(m[127].name)return m;
 
-	merge_luaL_Reg(m, LuaBaseObject::luaMethods());
+	merge_luaL_Reg(m, QItemLua::luaMethods());
 	static const luaL_Reg _m[] =
 	{
 		{"setText",           l_settext},
@@ -320,6 +347,7 @@ const luaL_Reg* QTextEditItemLua::luaMethods()
 		{"setHighlighter",      l_sethighlighter},
 		{"setFontFamily",      l_setfontfamily},
 		{"setTransparentBackground", l_settbg},
+		{"setScrollBarPolicy", l_setsb},
 		//{"item",              l_item},
 	};
 	merge_luaL_Reg(m, _m);

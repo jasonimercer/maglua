@@ -4,6 +4,7 @@
 #include <QTextEdit>
 #include "QLuaHilighter.h"
 #include <QGraphicsProxyWidget>
+#include "QItemLua.h"
 
 #include "luabaseobject.h"
 extern "C" {
@@ -12,31 +13,25 @@ extern "C" {
 		#include <lauxlib.h>
 }
 
-class QTextEditItemLua : public LuaBaseObject
+class QTextEditItemLua : public QItemLua
 {
 public:
 	QTextEditItemLua();
 	~QTextEditItemLua();
 
-	LINEAGE1("QTextEditItemLua")
+	LINEAGE2("QTextEditItemLua", "QItemLua")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);
 
-	QGraphicsProxyWidget* item() {return proxy;}
 	QTextEdit* widget() {return textedit;}
 
 	void setTransparentBackgound(float t);
 
 	QLuaHilighter* highlighter;
-//signals:
-
-//public slots:
-//	void pressed();
 
 private:
 	QTextEdit* textedit;
-	QGraphicsProxyWidget* proxy;
 
 };
 

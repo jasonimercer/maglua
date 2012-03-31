@@ -1,12 +1,10 @@
 #include "QPushButtonItemLua.h"
 
 QPushButtonItemLua::QPushButtonItemLua()
-	: LuaBaseObject(hash32("QPushButtonItemLua"))
+	: QItemLua(hash32("QPushButtonItemLua"))
 {
-
 	pressFunc = 0;
 	pushbutton = 0;
-	proxy = 0;
 }
 
 
@@ -24,26 +22,44 @@ QPushButtonItemLua::~QPushButtonItemLua()
 	//	cout << "Deleting QTextEdit" << endl;
 }
 
+void QPushButtonItemLua::push(lua_State* L)
+{
+	luaT_push<QPushButtonItemLua>(L, this);
+}
+
+
 #include "QGraphicsSceneLua.h"
 #include <QApplication>
 int QPushButtonItemLua::luaInit(lua_State* L)
 {
-	if(luaT_is<QGraphicsSceneLua>(L, 1))
+	QItemLua::luaInit(L);
+	if(!scene) return 0;
+
+	pushbutton = new QPushButton(QApplication::activeWindow());
+	pushbutton->show();
+
+	proxy = scene->addWidget(pushbutton, 0);
+	proxy->setPos(0,0);
+	proxy->show();
+
+	if(pressFunc)
+		delete pressFunc;
+	pressFunc = 0;
+
+	for(int i=2; i<=3; i++)
 	{
-		QGraphicsSceneLua* s = luaT_to<QGraphicsSceneLua>(L, 1);
-		luaT_inc<QGraphicsSceneLua>(s);
-		pushbutton = new QPushButton(QApplication::activeWindow());
-		pushbutton->show();
-
-		proxy = s->scene->addWidget(pushbutton, 0);
-		proxy->setPos(0,0);
-		proxy->show();
-
-		if(lua_isfunction(L, 2))
+		if(lua_isfunction(L, i) && !pressFunc)
 		{
-			lua_pushvalue(L, 2);
+			lua_pushvalue(L, i);
 			pressFunc = new SignalSink(L, luaL_ref(L, LUA_REGISTRYINDEX), pushbutton);
-			QObject::connect(d->widget(), SIGNAL(pressed()), d->pressFunc, SLOT(activate()));
+			QObject::connect(widget(), SIGNAL(pressed()), pressFunc, SLOT(activate()));
+		}
+		else
+		{
+			if(lua_isstring(L, i))
+			{
+				pushbutton->setText(lua_tostring(L, i));
+			}
 		}
 	}
 	return 0;
@@ -68,17 +84,23 @@ static int l_pbil_setpressedfunction(lua_State *L)
 		delete d->pressFunc;
 	}
 
-	d->pressFunc = new SignalSink(L, luaL_ref(L, LUA_REGISTRYINDEX), pushbutton);
+	d->pressFunc = new SignalSink(L, luaL_ref(L, LUA_REGISTRYINDEX), d->widget());
 	QObject::connect(d->widget(), SIGNAL(pressed()), d->pressFunc, SLOT(activate()));
 
+	return 0;
+}
+
+static int l_pbil_setrepeat(lua_State *L)
+{
+	LUA_PREAMBLE(QPushButtonItemLua, d, 1);
+
+	d->widget()->setAutoRepeat(lua_toboolean(L, 2));
 	return 0;
 }
 
 static int l_pbil_settext(lua_State *L)
 {
 	LUA_PREAMBLE(QPushButtonItemLua, d, 1);
-
-
 	d->widget()->setText(lua_tostring(L, 2));
 	return 0;
 }
@@ -107,9 +129,10 @@ const luaL_Reg* QPushButtonItemLua::luaMethods()
 {
 	if(m[127].name)return m;
 
-	merge_luaL_Reg(m, LuaBaseObject::luaMethods());
+	merge_luaL_Reg(m, QItemLua::luaMethods());
 	static const luaL_Reg _m[] =
 	{
+		{"setRepeat",           l_pbil_setrepeat},
 		{"setText",           l_pbil_settext},
 		{"text",              l_pbil_gettext},
 		{"setPressedFunction", l_pbil_setpressedfunction},

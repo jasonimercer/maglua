@@ -26,6 +26,12 @@
       <property name="frameShape">
        <enum>QFrame::NoFrame</enum>
       </property>
+      <property name="verticalScrollBarPolicy">
+       <enum>Qt::ScrollBarAlwaysOn</enum>
+      </property>
+      <property name="horizontalScrollBarPolicy">
+       <enum>Qt::ScrollBarAlwaysOn</enum>
+      </property>
      </widget>
     </item>
    </layout>
@@ -77,8 +83,8 @@
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>199</x>
-     <y>149</y>
+     <x>-1</x>
+     <y>-1</y>
     </hint>
     <hint type="destinationlabel">
      <x>199</x>

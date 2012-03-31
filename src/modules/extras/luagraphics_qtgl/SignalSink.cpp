@@ -4,7 +4,7 @@ SignalSink::SignalSink(lua_State* _L, int funcref, QObject *parent) :
     QObject(parent)
 {
 	L = _L;
-	ref = funcref
+	ref = funcref;
 }
 
 SignalSink::~SignalSink()

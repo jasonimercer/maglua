@@ -25,7 +25,8 @@ SOURCES +=  DrawOpenGL.cpp \
     QGraphicsItemLua.cpp \
     QGraphicsSceneLua.cpp \
     QPushButtonItemLua.cpp \
-    SignalSink.cpp
+    SignalSink.cpp \
+    QItemLua.cpp
 
 HEADERS +=  luagraphics_qtgl_global.h \
             DrawOpenGL.h \
@@ -34,4 +35,5 @@ HEADERS +=  luagraphics_qtgl_global.h \
     QGraphicsItemLua.h \
     QGraphicsSceneLua.h \
     QPushButtonItemLua.h \
-    SignalSink.h
+    SignalSink.h \
+    QItemLua.h

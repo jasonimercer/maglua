@@ -31,6 +31,9 @@ public:
 
     virtual void reset();
 
+protected:
+	void inner_draw(Transformation& t);
+
 private:
     void init();
     GLUquadric* q;
