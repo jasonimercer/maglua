@@ -27,6 +27,8 @@ public:
 	lua_State* L;
 
 public slots:
+	void fullscreen(bool t);
+	void viewmenubar(bool t);
 	void tick();
 	void run_script();
 

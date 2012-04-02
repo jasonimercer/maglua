@@ -866,24 +866,27 @@ static int l_share(lua_State* L)
 	{
 		int stack_size = lua_gettop(L);
 		const char* name = lua_tostring(L, i);
-		lua_getglobal(L, name);
-		
-		if(lua_isuserdata(L, -1))
+		if(name)
 		{
-			LuaBaseObject** p_lbo = (LuaBaseObject**)lua_touserdata(L, -1);
-			LuaBaseObject* lbo = *p_lbo;
-			lbo->push(ls->holder_L);
-			lua_pop(L, 1);
+			lua_getglobal(L, name);
+
+			if(lua_isuserdata(L, -1))
+			{
+				LuaBaseObject** p_lbo = (LuaBaseObject**)lua_touserdata(L, -1);
+				LuaBaseObject* lbo = *p_lbo;
+				lbo->push(ls->holder_L);
+				lua_pop(L, 1);
+			}
+			else
+			{
+				//printf("moving over %s\n", lua_typename(L, lua_type(L, -1)));
+				lua_xmove(L, ls->holder_L, 1);
+			}
+			lua_setglobal(ls->holder_L, name);
+			ls->share_list.push_back(name);
+			while(lua_gettop(L) > stack_size)
+				lua_pop(L, 1);
 		}
-		else
-		{
-			//printf("moving over %s\n", lua_typename(L, lua_type(L, -1)));
-			lua_xmove(L, ls->holder_L, 1);
-		}
-		lua_setglobal(ls->holder_L, name);
-		ls->share_list.push_back(name);
-		while(lua_gettop(L) > stack_size)
-			lua_pop(L, 1);
 	}
 	sem_post(&(ls->holderSem));
 	return 0;

@@ -23,7 +23,6 @@ void Isaac::seed()
 	if( urandom )
 	{
 		ISAAC_INT v[3];
-		int i = 3;
 		bool success = true;
 		success = fread(v, sizeof(ISAAC_INT), 3, urandom );
 		fclose(urandom);

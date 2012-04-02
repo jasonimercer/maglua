@@ -35,6 +35,19 @@ MainWindow::MainWindow(QWidget *parent) :
 	//ui->view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	//ui->view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
+	//add the actions of the menus to the application so they are available when the menu is hidden
+	QList<QAction*> al = ui->menuBar->actions();
+	for(int i=0; i<al.size(); i++)
+	{
+		QAction* a = al.at(i);
+		addAction(a);
+	}
+
+	ui->action_Fullscreen->setChecked(isFullScreen());
+	ui->action_Menubar->setChecked(1);
+
+	connect(ui->action_Fullscreen,  SIGNAL(triggered(bool)), this, SLOT(fullscreen(bool)));
+	connect(ui->action_Menubar,    SIGNAL(triggered(bool)), this, SLOT(viewmenubar(bool)));
 
 	libMagLua(L, 1, 1);
 	lua_pushlightuserdata(L, &scene);
@@ -89,6 +102,21 @@ void MainWindow::tick()
 	scene.update();
 }
 
+void MainWindow::fullscreen(bool t)
+{
+	if(t)
+		showFullScreen();
+	else
+		showNormal();
+}
+
+void MainWindow::viewmenubar(bool t)
+{
+	if(t)
+		ui->menuBar->show();
+	else
+		ui->menuBar->hide();
+}
 
 MainWindow::~MainWindow()
 {

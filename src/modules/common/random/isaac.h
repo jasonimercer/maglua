@@ -1,4 +1,5 @@
 #include "random.h"
+#include <stdlib.h>
 
 #ifndef __ISAAC_HPP
 #define __ISAAC_HPP
@@ -40,7 +41,12 @@
    const UINT32 GOLDEN_RATIO = UINT32(0x9e3779b9);
    typedef UINT32 ISAAC_INT;
 #else   // __ISAAC64
+#ifndef WIN32
+#include <stdint.h>
+typedef uint64_t UINT64;
+#else
 typedef unsigned __int64 UINT64;
+#endif
 const UINT64 GOLDEN_RATIO = UINT64(0x9e3779b97f4a7c13);
 typedef UINT64 ISAAC_INT;
 #endif  // __ISAAC64
