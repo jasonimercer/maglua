@@ -18,7 +18,8 @@ extern "C" {
 }
 #include "luabaseobject.h"
 
-class GroupNode
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API GroupNode
 {
 public:
 	GroupNode(Volume* _v);
@@ -34,7 +35,7 @@ public:
 	GroupNode* n2;
 };
 
-class Group : public LuaBaseObject
+class LUAGRAPHICS_API Group : public LuaBaseObject
 {
 public:
 	Group();

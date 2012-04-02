@@ -7,18 +7,19 @@
 --     lua build.lua cpu exchange
 --
 
---configuration = "Release"
-configuration = "Debug"
+configuration = "Release"
+--configuration = "Debug"
 
 category = arg[1] or ""
   module = arg[2] or ""
 
-modules_common = {"encode","checkpoint","interpolate","random","timer"}
+modules_common = {"luabaseobject","checkpoint","interpolate","random","timer"}
+modules_extras = {"server", "client", "luagraphics"}
 modules_cpu    = {"core", "longrange", "anisotropy", "appliedfield", "dipole", "disordereddipole", "exchange", "llg", "magnetostatics", "thermal"}
 modules_cuda   = {"core_cuda", "longrange_cuda", "anisotropy_cuda", "appliedfield_cuda", "dipole_cuda", "exchange_cuda", "llg_cuda", "magnetostatics_cuda", "thermal_cuda"}
 
 mod_path = {}
-for k,v in pairs({"cpu", "cuda", "common"}) do
+for k,v in pairs({"cpu", "cuda", "common", "extra"}) do
 	os.execute("maglua --module_path " .. v .. " > temp.txt")
 	local f = io.open("temp.txt", "r")
 	mod_path[v] = f:read("*line")
@@ -30,7 +31,9 @@ for k,v in pairs(mod_path) do
 end
 
 function make_cmd(directory, module)
-	return string.format([[cd modules\%s\%s && lua ..\..\..\make_vcxproj.lua %s]], directory, module, configuration)
+	local i = string.format([[cd modules\%s\%s && lua ..\..\..\make_vcxproj.lua %s]], directory, module, configuration)
+	print(i)
+	return i
 end
 
 -- os.execute = print
@@ -43,6 +46,16 @@ if category == "" or category == "common" then
 		end
 	end
 end
+
+if category == "" or category == "extra" then
+	for k,v in pairs(modules_extras) do
+		if module == "" or module == v then
+			os.execute(make_cmd("extras", v))
+			os.execute("copy ..\\Common\\"..v..".dll \"" .. mod_path["extra"] .. "\"")
+		end
+	end
+end
+
 
 if category == "" or category == "cpu" then
 	for k,v in pairs(modules_cpu) do

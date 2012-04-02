@@ -19,6 +19,9 @@
  #define strcasecmp(A,B) _stricmp(A,B)
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
  #pragma warning(disable: 4251)
+ #pragma warning(disable: 4996)
+ #define snprintf _snprintf
+ #pragma warning(disable: 4251)
 
  #ifdef LUABASEOBJECT_EXPORTS
   #define LUABASEOBJECT_API __declspec(dllexport)
@@ -66,6 +69,7 @@ LUABASEOBJECT_API   void encodeInteger(const int i, buffer* b);
 LUABASEOBJECT_API    int decodeInteger(buffer* b);
 LUABASEOBJECT_API double decodeDouble(buffer* b);
 LUABASEOBJECT_API   void decodeBuffer(void* dest, const int len, buffer* b);
+LUABASEOBJECT_API   void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals);
 }
 
 #include <string.h>
@@ -395,7 +399,6 @@ inline void luaT_register(lua_State* L)
 #define _NULLPAIR64  _NULLPAIR32,_NULLPAIR32
 #define _NULLPAIR128 _NULLPAIR64,_NULLPAIR64
 
-void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals);
 
 
 // macros to create simple getter/setter functions

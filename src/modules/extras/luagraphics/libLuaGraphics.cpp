@@ -4,7 +4,9 @@ extern "C" {
 		#include <lauxlib.h>
 }
 
+#ifndef WIN32
 #include <unistd.h>
+#endif
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>

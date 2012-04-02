@@ -4,8 +4,9 @@
 #include "Vector.h"
 #include "Ray.h"
 #include "luabaseobject.h"
+#include "libLuaGraphics.h"
 
-class AABB : public LuaBaseObject
+class LUAGRAPHICS_API AABB : public LuaBaseObject
 {
 public:
 	AABB();

@@ -20,6 +20,7 @@ signals:
 
 public slots:
 	void activate();
+	void activateInt(int i);
 
 private:
 	int ref;

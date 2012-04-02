@@ -10,7 +10,9 @@ extern "C" {
 }
 #include "luabaseobject.h"
 
-class Camera : public LuaBaseObject
+#include "libLuaGraphics.h"
+
+class LUAGRAPHICS_API Camera : public LuaBaseObject
 {
 public:
 	Camera();

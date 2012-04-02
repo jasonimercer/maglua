@@ -6,7 +6,8 @@
 #include "luabaseobject.h"
 class AABB;
 
-class Volume : public LuaBaseObject
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Volume : public LuaBaseObject
 {
 public:
 	Volume(int etype=0);

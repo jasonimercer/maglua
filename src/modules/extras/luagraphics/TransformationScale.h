@@ -11,7 +11,8 @@ extern "C" {
 }
 #include "Transformation.h"
 
-class Scale : public Transformation
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Scale : public Transformation
 {
 public:
 	Scale() : Transformation(hash32("Scale")) {}

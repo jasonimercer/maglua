@@ -5,7 +5,8 @@
 #include "Ray.h"
 #include "Volume.h"
 
-class Sphere : public Volume
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Sphere : public Volume
 {
 public:
     Sphere();

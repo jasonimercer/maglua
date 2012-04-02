@@ -10,11 +10,9 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-
 #ifdef _MPI
  #include <mpi.h>
 #endif
-
 #include "libMagLua.h"
 
 int main(int argc, char** argv)

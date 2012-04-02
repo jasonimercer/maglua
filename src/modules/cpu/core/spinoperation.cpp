@@ -323,6 +323,8 @@ const luaL_Reg* SpinOperation::luaMethods()
 		{"__tostring",   l_tostring},
 		{"member",       l_member},
 		{"apply",        l_apply},
+		{"setScale",     l_setscale},
+		{"scale",        l_getscale},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

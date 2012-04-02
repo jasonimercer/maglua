@@ -21,6 +21,7 @@ public:
 	QGraphicsProxyWidget* item() {return proxy;}
 
 	void setGeometry(int x, int y, int w, int h);
+	virtual void setTransparent(float t=1.0);
 
 	QRect geometry();
 

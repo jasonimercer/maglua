@@ -13,7 +13,8 @@ extern "C" {
 }
 #include "luabaseobject.h"
 
-class Vector : public LuaBaseObject
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Vector : public LuaBaseObject
 {
 public:
 	Vector(double x=0, double y=0, double z=0);

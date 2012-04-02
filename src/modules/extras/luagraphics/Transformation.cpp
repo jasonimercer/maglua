@@ -10,6 +10,9 @@ Transformation::Transformation()
 	values[0] = 0;
 	values[1] = 0;
 	values[2] = 0;
+
+	transformations.clear();
+	volumes.clear();
 }
 
 Transformation::Transformation(int etype)
@@ -18,6 +21,9 @@ Transformation::Transformation(int etype)
 	values[0] = 0;
 	values[1] = 0;
 	values[2] = 0;
+
+	transformations.clear();
+	volumes.clear();
 }
 
 Transformation::~Transformation()

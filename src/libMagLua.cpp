@@ -10,10 +10,8 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
+#include "libMagLua.h"
 
-#ifdef _MPI
- #include <mpi.h>
-#endif
 
 #include "info.h"
 #include "main.h"
@@ -30,7 +28,6 @@ using namespace std;
 
 static vector<string> args;
 
-#include "libMagLua.h"
 
 static void lua_setupPreamble(lua_State* L, int sub_process)
 {

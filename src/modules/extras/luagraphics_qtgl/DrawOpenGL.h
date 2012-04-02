@@ -4,6 +4,10 @@
 #include "Draw.h"
 #include <QGLWidget>
 
+#ifdef WIN32
+#include <GL/GLU.h>
+#endif
+
 extern "C" {
         #include <lua.h>
         #include <lualib.h>

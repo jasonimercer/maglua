@@ -17,7 +17,8 @@ extern "C" {
 		#include <lauxlib.h>
 }
 
-class DrawPOVRay : public Draw
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API DrawPOVRay : public Draw
 {
 public:
 	DrawPOVRay();

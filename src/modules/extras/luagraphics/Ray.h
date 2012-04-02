@@ -3,7 +3,9 @@
 
 #include "Vector.h"
 #include "luabaseobject.h"
-class Ray : public LuaBaseObject
+
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Ray : public LuaBaseObject
 {
 public:
 	Ray();

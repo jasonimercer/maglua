@@ -17,6 +17,9 @@
 #include "mersennetwister.h"
 #include "crand.h"
 
+#define FALSE 0
+#define TRUE 1
+
 RNG::RNG()
 	: LuaBaseObject(hash32(lineage(0)))
 {

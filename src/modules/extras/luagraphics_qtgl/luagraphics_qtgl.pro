@@ -4,12 +4,20 @@
 #
 #-------------------------------------------------
 
-QT       += opengl
+QT       += core gui opengl svg
 
-#QT       -= gui
-
+unix {
 CONFIG += link_pkgconfig
 PKGCONFIG += lua5.1
+}
+win32 {
+INCLUDEPATH += ../../../../Common
+LIBS += -L../../../../Common
+LIBS += -lluabaseobject
+LIBS += ../../../../Common/luagraphics.lib
+LIBS += -lluagraphics
+LIBS += -llua-5.1_x86_64_compat
+}
 
 TARGET = luagraphics_qtgl
 TEMPLATE = lib
@@ -26,7 +34,8 @@ SOURCES +=  DrawOpenGL.cpp \
     QGraphicsSceneLua.cpp \
     QPushButtonItemLua.cpp \
     SignalSink.cpp \
-    QItemLua.cpp
+    QItemLua.cpp \
+    QSliderItemLua.cpp
 
 HEADERS +=  luagraphics_qtgl_global.h \
             DrawOpenGL.h \
@@ -36,4 +45,7 @@ HEADERS +=  luagraphics_qtgl_global.h \
     QGraphicsSceneLua.h \
     QPushButtonItemLua.h \
     SignalSink.h \
-    QItemLua.h
+    QItemLua.h \
+    QSliderItemLua.h
+
+

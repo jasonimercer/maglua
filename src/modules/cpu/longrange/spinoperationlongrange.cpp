@@ -704,6 +704,8 @@ LONGRANGE_API int lib_main(lua_State* L);
 
 LONGRANGE_API int lib_register(lua_State* L)
 {
+	fftw_init_threads();
+	fftw_plan_with_nthreads(1);
 	luaT_register<LongRange>(L);
 	return 0;
 }

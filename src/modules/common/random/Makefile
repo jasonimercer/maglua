@@ -13,6 +13,7 @@ OBJECTS=mersennetwister.o random.o isaac.o crand.o
 LIBNAME=Random
 CATEGORY=common
 
+DEPEND=luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

@@ -14,7 +14,8 @@ extern "C" {
 	#include <lauxlib.h>
 }
 
-class Light : public Sphere
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Light : public Sphere
 {
 public:
 	Light();

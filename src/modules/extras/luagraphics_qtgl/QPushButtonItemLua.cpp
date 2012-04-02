@@ -35,7 +35,8 @@ int QPushButtonItemLua::luaInit(lua_State* L)
 	QItemLua::luaInit(L);
 	if(!scene) return 0;
 
-	pushbutton = new QPushButton(QApplication::activeWindow());
+	//pushbutton = new QPushButton(QApplication::activeWindow());
+	pushbutton = new QPushButton(0);
 	pushbutton->show();
 
 	proxy = scene->addWidget(pushbutton, 0);

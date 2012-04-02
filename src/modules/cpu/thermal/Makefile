@@ -16,7 +16,7 @@ LIBNAME=Thermal
 CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core random encode
+DEPEND=core random luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

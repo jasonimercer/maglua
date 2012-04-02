@@ -8,7 +8,7 @@
 basedir=[[C:\programming\c\maglua\src]]
 aid = basedir .. ";"
 aid = aid .. basedir .. [[\..\Common;]]
-aid = aid .. basedir .. [[\modules\common\encode;]]
+aid = aid .. basedir .. [[\modules\common\luabaseobject;]]
 
 
 local compile_Configuration = nil

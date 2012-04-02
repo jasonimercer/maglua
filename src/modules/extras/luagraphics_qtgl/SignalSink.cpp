@@ -25,3 +25,14 @@ void SignalSink::activate()
 	lua_call(L, 0, 0);
 //	lua_gc(L, LUA_GCCOLLECT, 0);
 }
+
+void SignalSink::activateInt(int i)
+{
+	if(!L) return;
+	if(ref == LUA_REFNIL) return;
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+	lua_pushinteger(L, i);
+	lua_call(L, 1, 0);
+//	lua_gc(L, LUA_GCCOLLECT, 0);
+}

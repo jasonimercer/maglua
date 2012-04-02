@@ -1,14 +1,17 @@
-n = 8
+n = 16
 ss = SpinSystem.new(n,n)
 ex = Exchange.new(ss)
+--dip = Dipole.new(ss)
 zee = AppliedField.new(ss)
 llg = LLG.Quaternion.new()
 rng = Random.Isaac.new()
 thermal = Thermal.new(ss)
-thermal:set(5)
 
-ss:setTimeStep(0.01)
-zee:set(1,0,0)
+thermal:set(0.01)
+--dip:setTruncation(1000)
+
+ss:setTimeStep(0.05)
+zee:set(0,0,0)
 for i=1,n do
 	for j=1,n do
 		ss:setSpin({i,j}, {1,0,0}, 1)
@@ -23,6 +26,7 @@ function step()
 	ss:resetFields()
 	zee:apply(ss)
 	ex:apply(ss)
+	--dip:apply(ss)
 	thermal:apply(rng, ss)
 	ss:sumFields()
 	llg:apply(ss)

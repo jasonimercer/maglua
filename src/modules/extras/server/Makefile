@@ -15,6 +15,6 @@ CATEGORY=extra
 EXTRALIBS=../../../libMagLua.a
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=pthreadVC2 luabaseobject wsock32
+DEPEND=pthreadVC2 luabaseobject wsock32 libMagLua
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

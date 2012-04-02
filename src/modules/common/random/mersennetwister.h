@@ -108,7 +108,6 @@ public:
 	virtual void push(lua_State* L) {luaT_push<MTRand>(L, this);}
 	static int help(lua_State* L);
 
-	
 	// Do NOT use for CRYPTOGRAPHY without securely hashing several returned
 	// values together, otherwise the generator state can be learned after
 	// reading 624 consecutive values.

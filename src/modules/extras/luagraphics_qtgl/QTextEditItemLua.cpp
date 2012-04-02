@@ -12,8 +12,6 @@ QTextEditItemLua::QTextEditItemLua()
 
 	textedit = 0;
 	highlighter = 0;
-
-	setTransparentBackgound(1);
 }
 
 
@@ -34,7 +32,8 @@ int QTextEditItemLua::luaInit(lua_State* L)
 	QItemLua::luaInit(L);
 	if(!scene) return 0;
 
-	textedit = new QTextEdit(QApplication::activeWindow());
+	//textedit = new QTextEdit(QApplication::activeWindow());
+	textedit = new QTextEdit();
 	textedit->show();
 	textedit->setTabStopWidth(40);
 
@@ -42,7 +41,7 @@ int QTextEditItemLua::luaInit(lua_State* L)
 	proxy->setPos(0,0);
 	proxy->show();
 
-	setTransparentBackgound(1);
+	setTransparent(1);
 
 	return 0;
 }
@@ -52,10 +51,10 @@ void QTextEditItemLua::push(lua_State* L)
 	luaT_push<QTextEditItemLua>(L, this);
 }
 
-
-void QTextEditItemLua::setTransparentBackgound(float t)
+void QTextEditItemLua::setTransparent(float t)
 {
 	if(!textedit) return;
+
 	textedit->setAttribute(Qt::WA_NoSystemBackground, true);
 	QPalette pal = textedit->palette();
 	pal.setBrush(QPalette::Base, QColor(255,255,255,255*(1-t)));
@@ -98,9 +97,7 @@ void QTextEditItemLua::pressed()
 
 static int l_settext(lua_State *L)
 {
-	printf("1\n");
 	LUA_PREAMBLE(QTextEditItemLua, d, 1);
-	printf("2\n");
 	if(!d->widget()) return 0;
 
 	d->widget()->setPlainText(lua_tostring(L, 2));
@@ -222,28 +219,6 @@ static int l_setreadonly(lua_State* L)
 //	return 1;
 //}
 
-static int l_settbg(lua_State* L)
-{
-	LUA_PREAMBLE(QTextEditItemLua, d, 1);
-
-	if(lua_isboolean(L, 2))
-	{
-		if(lua_toboolean(L, 2))
-		{
-			d->setTransparentBackgound(1.0);
-		}
-		else
-		{
-			d->setTransparentBackgound(0.0);
-		}
-	}
-	else
-	{
-		d->setTransparentBackgound(lua_tonumber(L, 2));
-	}
-	return 0;
-
-}
 
 static int l_zoom(lua_State* L)
 {
@@ -346,7 +321,6 @@ const luaL_Reg* QTextEditItemLua::luaMethods()
 		{"zoom",              l_zoom},
 		{"setHighlighter",      l_sethighlighter},
 		{"setFontFamily",      l_setfontfamily},
-		{"setTransparentBackground", l_settbg},
 		{"setScrollBarPolicy", l_setsb},
 		//{"item",              l_item},
 	};

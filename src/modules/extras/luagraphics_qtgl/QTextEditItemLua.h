@@ -3,15 +3,7 @@
 
 #include <QTextEdit>
 #include "QLuaHilighter.h"
-#include <QGraphicsProxyWidget>
 #include "QItemLua.h"
-
-#include "luabaseobject.h"
-extern "C" {
-		#include <lua.h>
-		#include <lualib.h>
-		#include <lauxlib.h>
-}
 
 class QTextEditItemLua : public QItemLua
 {
@@ -24,9 +16,9 @@ public:
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);
 
-	QTextEdit* widget() {return textedit;}
+	virtual void setTransparent(float t=1.0);
 
-	void setTransparentBackgound(float t);
+	QTextEdit* widget() {return textedit;}
 
 	QLuaHilighter* highlighter;
 

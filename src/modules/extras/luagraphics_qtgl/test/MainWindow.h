@@ -28,6 +28,7 @@ public:
 
 public slots:
 	void tick();
+	void run_script();
 
 private:
     Ui::MainWindow *ui;

@@ -4,6 +4,7 @@
 #include <QGLWidget>
 #include <QTimer>
 #include <QSettings>
+#include <QFileDialog>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -15,7 +16,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     L = lua_open();
 	scene.registerFunctions(L);
-	scene.setSceneRect(-100000, -100000, 200000, 200000);
+	scene.setSceneRect(0, 0, 200000, 200000);
 	scene.setBackgroundBrush(Qt::white);
 
 	ui->view->setScene(&scene);
@@ -39,10 +40,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	lua_pushlightuserdata(L, &scene);
 	lua_setglobal(L, "scene_userdata");
 
-	if(luaL_dofile(L, "startup.lua"))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-	}
 
 	QSettings settings("Mercer", "MagLuaGUI");
 
@@ -53,6 +50,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	restoreState(settings.value("state").toByteArray());
 	settings.endGroup();
 
+	connect(ui->action_Run_Script, SIGNAL(triggered()), this, SLOT(run_script()));
 
 	QTimer* t = new QTimer(this);
 	t->setInterval(1000.0/24.0);
@@ -60,6 +58,30 @@ MainWindow::MainWindow(QWidget *parent) :
 	t->start();
 
 }
+
+void MainWindow::run_script()
+{
+	QSettings settings("Mercer", "MagLuaGUI");
+
+	QString lastFile = settings.value("lastFile", "").toString();
+
+	QString filename =
+		QFileDialog::getOpenFileName(this,
+		tr("Open SCript"), lastFile, tr("Script Files (*.lua)"));
+
+	if(filename.size())
+	{
+		settings.setValue("lastFile", filename);
+
+		if(luaL_dofile(L, filename.toStdString().c_str()))
+		{
+			fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		}
+
+	}
+
+}
+
 
 void MainWindow::tick()
 {

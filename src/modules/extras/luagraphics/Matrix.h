@@ -15,7 +15,8 @@ extern "C" {
 
 class Vector;
 
-class Matrix : public LuaBaseObject
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Matrix : public LuaBaseObject
 {
 public:
 	Matrix();

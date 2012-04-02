@@ -42,6 +42,12 @@ QRect	QItemLua::geometry ()
 	return proxy->widget()->geometry();
 }
 
+void QItemLua::setTransparent(float t)
+{
+	return;
+}
+
+
 
 
 static int l_setgeom(lua_State* L)
@@ -132,6 +138,28 @@ static int l_setheight(lua_State* L)
 				lua_tointeger(L, 2));
 	return 0;
 }
+static int l_settbg(lua_State* L)
+{
+	LUA_PREAMBLE(QItemLua, d, 1);
+
+	if(lua_isboolean(L, 2))
+	{
+		if(lua_toboolean(L, 2))
+		{
+			d->setTransparent(1.0);
+		}
+		else
+		{
+			d->setTransparent(0.0);
+		}
+	}
+	else
+	{
+		d->setTransparent(lua_tonumber(L, 2));
+	}
+	return 0;
+
+}
 
 
 static luaL_Reg m[128] = {_NULLPAIR128};
@@ -150,6 +178,7 @@ const luaL_Reg* QItemLua::luaMethods()
 		{"setHeight", l_setheight},
 		{"setGeometry", l_setgeom},
 		{"geometry", l_getgeom},
+		{"setTransparent", l_settbg},
 		{NULL,NULL}
 	};
 	merge_luaL_Reg(m, _m);

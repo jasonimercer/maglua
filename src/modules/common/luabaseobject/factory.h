@@ -31,6 +31,6 @@ LUABASEOBJECT_API LuaBaseObject* Factory_newItem(int id);
 LUABASEOBJECT_API void Factory_lua_pushItem(lua_State* L, LuaBaseObject* item, int id);
 LUABASEOBJECT_API int Factory_registerItem(int id, newFactoryFunction func, pushFunction Push, const char* name);
 LUABASEOBJECT_API void Factory_cleanup();
+LUABASEOBJECT_API int hash32(const char* string);
 }
 
-LUABASEOBJECT_API int hash32(const char* string);

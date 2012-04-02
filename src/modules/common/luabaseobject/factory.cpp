@@ -21,7 +21,7 @@ public:
 class Factory
 {
 public:
-    Factory() {};
+	Factory() {}
 
 	LuaBaseObject* newItem(int id);
 	void lua_pushItem(lua_State* L, LuaBaseObject* item, int id);

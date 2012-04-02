@@ -15,7 +15,8 @@ extern "C" {
 #include <vector>
 using namespace std;
 
-class Transformation : public LuaBaseObject
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Transformation : public LuaBaseObject
 {
 public:
 	Transformation();

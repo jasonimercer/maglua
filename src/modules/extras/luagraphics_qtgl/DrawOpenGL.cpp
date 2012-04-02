@@ -13,10 +13,15 @@
 
 using namespace std;
 
+
+//#define DD 	printf("(%s:%i)\n", __FILE__, __LINE__); fflush(stdout);
+#define DD
+
 DrawOpenGL::DrawOpenGL()
     : Draw(hash32("DrawOpenGL"))
 {
-    q = 0;
+DD;
+	   q = 0;
 	next_light = 0;
 }
 
@@ -26,22 +31,23 @@ DrawOpenGL::~DrawOpenGL()
         gluDeleteQuadric(q);
 }
 
-
-
 int DrawOpenGL::luaInit(lua_State*)
 {
-    return 0;
+	DD;
+	return 0;
 }
 
 void DrawOpenGL::push(lua_State* L)
 {
-    luaT_push<DrawOpenGL>(L, this);
+	DD;
+	luaT_push<DrawOpenGL>(L, this);
 }
-
 
 void DrawOpenGL::init()
 {
-    q = gluNewQuadric();
+	DD;
+	q = gluNewQuadric();
+	//printf("q %p\n", q);
 }
 
 void DrawOpenGL::reset()
@@ -50,6 +56,7 @@ void DrawOpenGL::reset()
     {
         glDisable(GL_LIGHT0+i);
     }
+	DD;
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -57,6 +64,7 @@ void DrawOpenGL::reset()
     glDepthFunc(GL_LEQUAL);
     //	glEnable(GL_MULTISAMPLE);
     glEnable(GL_COLOR_MATERIAL);
+	DD;
 
     glShadeModel(GL_SMOOTH);
 
@@ -68,7 +76,8 @@ void DrawOpenGL::reset()
 
 void DrawOpenGL::draw(Sphere& s)
 {
-    if(!q) init();
+	DD;
+	if(!q) init();
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
@@ -79,10 +88,12 @@ void DrawOpenGL::draw(Sphere& s)
     glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
 
 
-    glColor4dv(s.color->rgba);
+	DD;
+	glColor4dv(s.color->rgba);
 
     glTranslatef(s.pos()->x(), s.pos()->y(), s.pos()->z());
     gluSphere(q, s.radius(), 32, 16);
+	DD;
 }
 
 
@@ -91,9 +102,11 @@ void DrawOpenGL::draw(Tube& tube)
     if(!q) init();
     glMatrixMode(GL_MODELVIEW);
 
-    Vector a = tube.pos(0);
+	DD;
+	Vector a = tube.pos(0);
     Vector b = tube.pos(1);
     Vector c = b - a;
+	DD;
 
     float tubeHeight = c.length();
     Vector d(0,0, tubeHeight);
@@ -122,11 +135,13 @@ void DrawOpenGL::draw(Tube& tube)
 	gluQuadricOrientation(q, GLU_OUTSIDE);
 	//gluDisk(q, 0, tube.radius(1), 32, 2);
 	glPopMatrix();
+	DD;
 }
 
 void DrawOpenGL::draw(Light& light)
 {
-    glMatrixMode(GL_MODELVIEW);
+	DD;
+	glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
 	//glLoadIdentity();
 
@@ -157,6 +172,7 @@ void DrawOpenGL::draw(Light& light)
 
     next_light++;
     glPopMatrix();
+	DD;
 }
 
 void DrawOpenGL::draw(Camera& c)
@@ -165,7 +181,8 @@ void DrawOpenGL::draw(Camera& c)
     //int windowx = con->device()->width();
     //int windowy = con->device()->height();
 
-    glMatrixMode(GL_PROJECTION);
+	DD;
+	glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -184,10 +201,12 @@ void DrawOpenGL::draw(Camera& c)
     gluLookAt(c.pos->x(), c.pos->y(), c.pos->z(),
               c.at->x(),  c.at->y(),  c.at->z(),
               c.up->x(),  c.up->y(),  c.up->z());
+	DD;
 }
 
 void DrawOpenGL::inner_draw(Transformation& t)
 {
+	DD;
 	{
 		Scale* tt = dynamic_cast<Scale*>(&t);
 		if(tt)
@@ -205,6 +224,7 @@ void DrawOpenGL::inner_draw(Transformation& t)
 		}
 	}
 
+	DD;
 	{
 		Translate* tt = dynamic_cast<Translate*>(&t);
 		if(tt)
@@ -212,25 +232,36 @@ void DrawOpenGL::inner_draw(Transformation& t)
 			glTranslatef(t.values[0], t.values[1], t.values[2]);
 		}
 	}
+	DD;
 
 	for(unsigned int i=0; i<t.transformations.size(); i++)
 	{
-		glPushMatrix();
-		inner_draw(* t.transformations[i]);
-		glPopMatrix();
+		if(  t.transformations[i] )
+		{
+			glPushMatrix();
+			//printf("%i %p\n", i, t.transformations[i]);
+			inner_draw(* t.transformations[i]);
+			glPopMatrix();
+		}
 	}
 
+	DD;
 	for(unsigned int i=0; i<t.volumes.size(); i++)
 	{
+		DD;
 		Volume* v = t.volumes[i];
 		{
+			DD;
 			Tube* vv = dynamic_cast<Tube*>(v);
 			if(vv)
 			{
+				DD;
 				draw(*vv);
+				DD;
 				continue;
 			}
 		}
+		DD;
 		{
 			Sphere* vv = dynamic_cast<Sphere*>(v);
 			if(vv)
@@ -239,7 +270,7 @@ void DrawOpenGL::inner_draw(Transformation& t)
 				continue;
 			}
 		}
-
+		DD;
 		{
 			Light* vv = dynamic_cast<Light*>(v);
 			if(vv)
@@ -248,15 +279,10 @@ void DrawOpenGL::inner_draw(Transformation& t)
 				continue;
 			}
 		}
+		DD;
 	}
 
-
-
-
-
-
-
-
+	DD;
 
 }
 
@@ -307,6 +333,7 @@ LUAGRAPHICS_QTGLSHARED_EXPORT int lib_main(lua_State* L);
 #include "QGraphicsSceneLua.h"
 #include "QTextEditItemLua.h"
 #include "QPushButtonItemLua.h"
+#include "QSliderItemLua.h"
 LUAGRAPHICS_QTGLSHARED_EXPORT int lib_register(lua_State* L)
 {
 	luaT_register<DrawOpenGL>(L);
@@ -314,6 +341,7 @@ LUAGRAPHICS_QTGLSHARED_EXPORT int lib_register(lua_State* L)
 	luaT_register<QGraphicsSceneLua>(L);
 	luaT_register<QTextEditItemLua>(L);
 	luaT_register<QPushButtonItemLua>(L);
+	luaT_register<QSliderItemLua>(L);
 	return 0;
 }
 

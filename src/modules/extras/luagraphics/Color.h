@@ -3,7 +3,8 @@
 #include "Vector.h"
 #include "luabaseobject.h"
 
-class Color : public LuaBaseObject
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Color : public LuaBaseObject
 {
 public:
 	Color(double r=0.0, double g=0.0, double b=0.0, double a=1.0);

@@ -16,8 +16,8 @@ extern "C" {
 	#include <lauxlib.h>
 }
 
-
-class Tube : public Volume
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Tube : public Volume
 {
 public:
 	Tube();

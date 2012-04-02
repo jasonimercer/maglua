@@ -13,7 +13,9 @@
 //#include "VolumeLua.h"
 #include "luabaseobject.h"
 #include "Transformation.h"
-class Draw : public LuaBaseObject
+
+#include "libLuaGraphics.h"
+class LUAGRAPHICS_API Draw : public LuaBaseObject
 {
 public:
 	LINEAGE1("Draw")
