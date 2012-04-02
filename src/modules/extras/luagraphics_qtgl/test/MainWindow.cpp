@@ -80,7 +80,7 @@ void MainWindow::run_script()
 
 	QString filename =
 		QFileDialog::getOpenFileName(this,
-		tr("Open SCript"), lastFile, tr("Script Files (*.lua)"));
+        tr("Open Script"), lastFile, tr("Script Files (*.lua)"));
 
 	if(filename.size())
 	{

@@ -31,9 +31,9 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 		nx(NX), ny(NY), nz(NZ),
 		nslots(NSLOTS), time(0)
 {
-	init();
 	L = 0;
 	r2q = 0;
+    init();
 }
 
 void SpinSystem::push(lua_State* L)
@@ -198,10 +198,7 @@ void SpinSystem::deinit()
 		{
 			for(int i=0; i<nxyz; i++)
 			{
-				if(extra_data[i] != LUA_REFNIL)
-				{
-					lua_unref(L, extra_data[i]);
-				}
+                lua_unref(L, extra_data[i]);
 			}
 		}
 		
@@ -242,6 +239,8 @@ void SpinSystem::deinit()
 
 void SpinSystem::init()
 {
+    if(x) return;
+
 	nxyz = nx * ny * nz;
 
 	x = new double[nxyz];
@@ -284,10 +283,13 @@ void SpinSystem::init()
 	qx = new complex<double>[nxyz];
 	qy = new complex<double>[nxyz];
 	qz = new complex<double>[nxyz];
+
+    init_fft();
 }
 
 void SpinSystem::init_fft()
 {
+    if(r2q) return;
 	fftw_iodim dims[2];
 	dims[0].n = nx;
 	dims[0].is= 1;

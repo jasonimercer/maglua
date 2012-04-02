@@ -64,10 +64,10 @@ slider_ex:setGeometry(x,y,h,w)
 	
 function update_model()
 	step()
-	step()
-	step()
-	step()
-	step()
+-- 	step()
+-- 	step()
+-- 	step()
+-- 	step()
 
 	for i=1,n do
 		for j=1,n do

@@ -1,4 +1,4 @@
-n = 16
+n = 8
 ss = SpinSystem.new(n,n)
 ex = Exchange.new(ss)
 dip = Dipole.new(ss)
@@ -11,7 +11,7 @@ thermal:set(0.01)
 dip:setTruncation(1000)
 dip:setStrength(1)
 
-ss:setTimeStep(0.05)
+ss:setTimeStep(0.1)
 zee:set(0,0,0)
 ex:setScale(0)
 for i=1,n do

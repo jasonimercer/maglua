@@ -26,8 +26,9 @@
 LongRange::LongRange(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
 	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
 {
-	qXX = 0;
-	
+    qXX = 0;
+    XX = 0;
+
 	forward = 0;
     backward = 0;
 
@@ -58,14 +59,18 @@ void LongRange::push(lua_State* L)
 
 void LongRange::init()
 {
-	ABC[0] = 1; ABC[1] = 0; ABC[2] = 0;
-	ABC[3] = 0; ABC[4] = 1; ABC[5] = 0;
-	ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
-	
+    DDD
 	if(XX) return;
-	
+    DDD
+
+    ABC[0] = 1; ABC[1] = 0; ABC[2] = 0;
+    ABC[3] = 0; ABC[4] = 1; ABC[5] = 0;
+    ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
+
 	deinit();
-	int s = nx*ny * nz;
+    DDD
+    int s = nx*ny * nz;
+    DDD
 
 	hqx = new complex<double> [s];
 	hqy = new complex<double> [s];
@@ -274,8 +279,8 @@ void LongRange::getMatrices()
 		
 			fftw_complex* fr = reinterpret_cast<fftw_complex*>(r);
 			fftw_complex* fq = reinterpret_cast<fftw_complex*>(q);
-
-			fftw_execute_dft(forward, fr, fq);
+//            printf("%p %p %p %p %p\n", forward, r, q, fr, fq);
+            fftw_execute_dft(forward, fr, fq);
 
 			for(int i=0; i<nx*ny; i++)
 				qarrs[a][k*nx*ny + i] = q[i];
@@ -299,18 +304,25 @@ void LongRange::ifftAppliedForce(SpinSystem* ss)
 	double* hz = ss->hz[slot];
 	const int nxy = nx*ny;
 	
+    fftw_complex* q;
+    fftw_complex* r;
 	for(int i=0; i<nz; i++)
 	{
-		fftw_execute_dft(backward, 
-				reinterpret_cast<fftw_complex*>(&hqx[i*nxy]),
-				reinterpret_cast<fftw_complex*>(&hrx[i*nxy]));
-		fftw_execute_dft(backward, 
-				reinterpret_cast<fftw_complex*>(&hqy[i*nxy]),
-				reinterpret_cast<fftw_complex*>(&hry[i*nxy]));
-		fftw_execute_dft(backward, 
-				reinterpret_cast<fftw_complex*>(&hqz[i*nxy]),
-				reinterpret_cast<fftw_complex*>(&hrz[i*nxy]));
-	}
+        q = reinterpret_cast<fftw_complex*>(&hqx[i*nxy]);
+        r = reinterpret_cast<fftw_complex*>(&hrx[i*nxy]);
+        //printf("%p %p %p\n", backward, q, r);
+        fftw_execute_dft(backward, q, r);
+
+        q = reinterpret_cast<fftw_complex*>(&hqy[i*nxy]);
+        r = reinterpret_cast<fftw_complex*>(&hry[i*nxy]);
+        //printf("%p %p %p\n", backward, q, r);
+        fftw_execute_dft(backward, q, r);
+
+        q = reinterpret_cast<fftw_complex*>(&hqz[i*nxy]);
+        r = reinterpret_cast<fftw_complex*>(&hrz[i*nxy]);
+        //printf("%p %p %p\n", backward, q, r);
+        fftw_execute_dft(backward, q, r);
+    }
 
 	for(int i=0; i<nxyz; i++)
 		hx[i] = hrx[i].real() * d;
