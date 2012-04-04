@@ -247,14 +247,13 @@ static int l_add(lua_State* L)
 		return 0; //don't add ani
 	
 	double K = 0;
-	
+
 	if(lua_isnumber(L, 2+r1+r2))
 		K = lua_tonumber(L, 2+r1+r2);
 	else
 		return luaL_error(L, "anisotropy needs strength");
 	
 	ani->addAnisotropy(idx, a[0], a[1], a[2], K);
-
 	return 0;
 }
 

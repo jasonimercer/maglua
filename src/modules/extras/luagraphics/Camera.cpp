@@ -336,6 +336,19 @@ static int l_camera_getpose(lua_State* L)
 	return 1;
 }
 
+static int l_camera_getratio(lua_State* L)
+{
+	LUA_PREAMBLE(Camera, c, 1);
+	lua_pushnumber(L, c->ratio);
+	return 1;
+}
+
+static int l_camera_setratio(lua_State* L)
+{
+	LUA_PREAMBLE(Camera, c, 1);
+	c->ratio = lua_tonumber(L, 2);
+	return 0;
+}
 
 static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* Camera::luaMethods()
@@ -346,6 +359,8 @@ const luaL_Reg* Camera::luaMethods()
 	static const luaL_Reg _m[] =
 	{
 		{"reset",       l_camera_reset},
+		{"ratio",       l_camera_getratio},
+		{"setRatio",       l_camera_setratio},
 		{"at",          l_camera_at},
 		{"rotate",      l_camera_rotate},
 		{"rotateAbout", l_camera_rotateabout},

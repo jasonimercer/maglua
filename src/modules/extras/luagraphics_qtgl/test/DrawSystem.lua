@@ -1,4 +1,4 @@
-local function arrow(x,y)
+local function arrow(x,y,z)
 	local global_translate = Translate.new()
 	local local_phi = Rotate.new()
 	local local_theta = Rotate.new()
@@ -47,7 +47,7 @@ local function arrow(x,y)
 	local_theta:add(local_phi)
 
 	global_translate:add(local_theta)
-	global_translate:set(x,y,0)
+	global_translate:set(x,y,z)
 	
 	return {global_translate, local_theta, local_phi, color}
 end
@@ -55,17 +55,19 @@ end
 function makeSysetm(ss)
 	local ssg = {}
 	local all_arrows = Translate.new()
-	for i=1,n do
+	for i=1,ss:nx() do
 		ssg[i] = {}
-		for j=1,n do
+		for j=1,ss:ny() do
+		ssg[i][j] = {}
+		for k=1,ss:nz() do
 			
-			local x = arrow(i, j)
+			local x = arrow(i, j, k)
 			
-			ssg[i][j] = {}
-			ssg[i][j].translate = x[1]
-			ssg[i][j].theta = x[2]
-			ssg[i][j].phi = x[3]
-			ssg[i][j].color = x[4]
+			ssg[i][j][k] = {}
+			ssg[i][j][k].translate = x[1]
+			ssg[i][j][k].theta = x[2]
+			ssg[i][j][k].phi = x[3]
+			ssg[i][j][k].color = x[4]
 
 			local function makeSetter()
 				local y = x
@@ -75,9 +77,10 @@ function makeSysetm(ss)
 					y[4]:map(t,p)
 				end
 			end
-			ssg[i][j].set = makeSetter()
+			ssg[i][j][k].set = makeSetter()
 			
 			all_arrows:add(x[1])
+		end
 		end
 	end
 

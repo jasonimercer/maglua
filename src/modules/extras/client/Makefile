@@ -14,6 +14,6 @@ LIBNAME=Client
 CATEGORY=extra
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=pthreadVC2 luabaseobject wsock32
+DEPEND=luabaseobject pthreadVC2 wsock32
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

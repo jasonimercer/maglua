@@ -59,18 +59,14 @@ void LongRange::push(lua_State* L)
 
 void LongRange::init()
 {
-    DDD
 	if(XX) return;
-    DDD
 
     ABC[0] = 1; ABC[1] = 0; ABC[2] = 0;
     ABC[3] = 0; ABC[4] = 1; ABC[5] = 0;
     ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
 
 	deinit();
-    DDD
     int s = nx*ny * nz;
-    DDD
 
 	hqx = new complex<double> [s];
 	hqy = new complex<double> [s];

@@ -21,7 +21,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 	ui->view->setScene(&scene);
 
-	ui->view->setRenderHints(  QPainter::Antialiasing
+	ui->view->setRenderHints(    QPainter::Antialiasing
 							   | QPainter::SmoothPixmapTransform
 							   | QPainter::TextAntialiasing
 							   | QPainter::HighQualityAntialiasing);
@@ -32,8 +32,8 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui->view->setRenderHint(QPainter::Antialiasing, true);
 	ui->view->setRenderHint(QPainter::SmoothPixmapTransform, true);
 	ui->view->registerFunctions(L);
-	//ui->view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-	//ui->view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	ui->view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	ui->view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
 	//add the actions of the menus to the application so they are available when the menu is hidden
 	QList<QAction*> al = ui->menuBar->actions();
@@ -48,6 +48,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
 	connect(ui->action_Fullscreen,  SIGNAL(triggered(bool)), this, SLOT(fullscreen(bool)));
 	connect(ui->action_Menubar,    SIGNAL(triggered(bool)), this, SLOT(viewmenubar(bool)));
+
+	connect(ui->action_Next, SIGNAL(triggered()), this, SLOT(goNext()));
+	connect(ui->action_Previous, SIGNAL(triggered()), this, SLOT(goPrev()));
 
 	libMagLua(L, 1, 1);
 	lua_pushlightuserdata(L, &scene);
@@ -100,6 +103,36 @@ void MainWindow::tick()
 {
 	//ui->view->update();
 	scene.update();
+}
+
+void MainWindow::goNext()
+{
+	if(!L) return;
+	lua_getglobal(L, "next");
+	if(lua_isfunction(L, -1))
+	{
+		if(lua_pcall(L, 0, 0,0))
+		{
+			fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		}
+	}
+	else
+		lua_pop(L, 1);
+}
+
+void MainWindow::goPrev()
+{
+	if(!L) return;
+	lua_getglobal(L, "prev");
+	if(lua_isfunction(L, -1))
+	{
+		if(lua_pcall(L, 0, 0,0))
+		{
+			fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		}
+	}
+	else
+		lua_pop(L, 1);
 }
 
 void MainWindow::fullscreen(bool t)

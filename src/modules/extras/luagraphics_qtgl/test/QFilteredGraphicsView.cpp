@@ -1,21 +1,20 @@
 #include "QFilteredGraphicsView.h"
-//#include "QTextEditItemLua.h"
 #include "MainWindow.h"
 #include <QErrorMessage>
 #include <QDebug>
 #include <QGraphicsSvgItem>
+#include <QGraphicsProxyWidget>
+#include <QApplication>
 
 #include <math.h>
 #include <iostream>
 using namespace std;
 QFilteredGraphicsView::QFilteredGraphicsView(QWidget *parent) :
-		QGraphicsView(parent)
+	QGraphicsView(parent)
 {
 	//installEventFilter(this);
 	L = 0;
-	drawFunction = LUA_REFNIL;
-	clickFunction = LUA_REFNIL;
-	keyPressFunction = LUA_REFNIL;
+	key_func = LUA_REFNIL;
 
 	dragStartX  = 0;
 	dragStartY  = 0;
@@ -37,6 +36,24 @@ static int l_centerOn(lua_State* L)
 				);
 	return 0;
 }
+static int l_setkeyfunc(lua_State* L)
+{
+	void* v = lua_touserdata(L, lua_upvalueindex(1));
+	QFilteredGraphicsView* vv = (QFilteredGraphicsView*)v;
+
+	if(lua_isfunction(L, -1))
+	{
+		luaL_unref(L, LUA_REGISTRYINDEX, vv->key_func);
+		vv->key_func = luaL_ref(L, LUA_REGISTRYINDEX);
+	}
+	else
+	{
+		vv->key_func = LUA_REFNIL;
+	}
+
+	return 0;
+}
+
 
 void QFilteredGraphicsView::registerFunctions(lua_State* _L)
 {
@@ -45,6 +62,9 @@ void QFilteredGraphicsView::registerFunctions(lua_State* _L)
 	lua_pushcclosure(L, l_centerOn, 1);
 	lua_setglobal(L, "centerOn");
 
+	lua_pushlightuserdata(L, (void*)this);
+	lua_pushcclosure(L, l_setkeyfunc, 1);
+	lua_setglobal(L, "setKeyFunction");
 }
 
 
@@ -52,44 +72,12 @@ QFilteredGraphicsView::~QFilteredGraphicsView()
 {
 	if(L)
 	{
-		luaL_unref(L, LUA_REGISTRYINDEX, drawFunction);
-		luaL_unref(L, LUA_REGISTRYINDEX, clickFunction);
-		luaL_unref(L, LUA_REGISTRYINDEX, keyPressFunction);
+		luaL_unref(L, LUA_REGISTRYINDEX, key_func);
 	}
 }
 
 bool QFilteredGraphicsView::eventFilter(QObject *ob, QEvent *e)
 {
-#if 0
-	// is a text box active and editable?
-	if(e->type() == QEvent::KeyPress)
-	{
-		QKeyEvent *keyEvent = dynamic_cast<QKeyEvent*>(e);
-
-		if(scene() && scene()->focusItem())
-		{
-			QGraphicsProxyWidget* pw = dynamic_cast<QGraphicsProxyWidget*>(scene()->focusItem());
-
-			if(pw && pw->widget())
-			{
-				QTextEdit* te = dynamic_cast<QTextEdit*>(pw->widget());
-				if(te)
-				{
-					if(!te->isReadOnly())
-					{
-						return QGraphicsView::eventFilter(ob, e); //pass it up
-					}
-				}
-			}
-		}
-
-		if(keyEvent)
-		{
-			emit keyPress(keyEvent);
-			return true;
-		}
-	}
-#endif
 	return QGraphicsView::eventFilter(ob, e);
 }
 
@@ -102,75 +90,22 @@ bool QFilteredGraphicsView::eventFilter(QObject *ob, QEvent *e)
 void QFilteredGraphicsView::wheelEvent(QWheelEvent* event)
 {
 	QGraphicsView::wheelEvent(event);
-
-#if 0
-	QGraphicsItem* item = itemAt(event->x(), event->y());
-	if(item)
-	{
-		QGraphicsProxyWidget* qgpw = dynamic_cast<QGraphicsProxyWidget*>(item);
-		QGraphicsSvgItem* qgsi = dynamic_cast<QGraphicsSvgItem*>(item);
-
-		// allow writable text edits to scroll on mouse wheel
-		if(qgpw)
-		{
-			QTextEdit* te = dynamic_cast<QTextEdit*>(qgpw->widget());
-			if(te && !te->isReadOnly())
-			{
-				qgpw = 0;
-			}
-		}
-
-
-		//qDebug() << itemAt(event->x(), event->y()) << endl;
-
-		if(!qgpw && !qgsi)
-		{
-			QGraphicsView::wheelEvent(event);
-
-			if(event->isAccepted())
-				return;
-		}
-	}
-
-
-	Camera* cam = Singleton.mainWindow->cam;
-	if(!cam) return;
-
-	float roll = event->delta() / 360.0;
-
-	cam->zoom(roll*10.0);
-#endif
-	//update();
 }
 
 void QFilteredGraphicsView::keyPressEvent(QKeyEvent* event )
 {
-	QGraphicsView::keyPressEvent(event);
-//	bool passUp = false;
-#if 0
-	if(scene() && scene()->focusItem())
+	if(!scene())
+		return QGraphicsView::keyPressEvent(event);
+
+	QGraphicsItem* fi = scene()->focusItem();
+	QGraphicsProxyWidget* pw = dynamic_cast<QGraphicsProxyWidget*>(fi);
+//	if(!pw)
+//		return QGraphicsView::keyPressEvent(event);
+	//if(! scene()->focusItem() && key_func != LUA_REFNIL)
+	if(!pw && key_func != LUA_REFNIL)
 	{
-		QGraphicsProxyWidget* pw = dynamic_cast<QGraphicsProxyWidget*>(scene()->focusItem());
-
-		if(pw && pw->widget())
-		{
-			QTextEdit* te = dynamic_cast<QTextEdit*>(pw->widget());
-			if(te)
-			{
-				if(!te->isReadOnly())
-				{
-					passUp = true;
-					// return QGraphicsView::eventFilter(ob, e); //pass it up
-				}
-			}
-		}
-
-	}
-
-	if(!passUp && hasKeyPressFunction && L)
-	{
-		lua_rawgeti(L, LUA_REGISTRYINDEX, keyPressFunction);
-		QString t =event->text();
+		lua_rawgeti(L, LUA_REGISTRYINDEX, key_func);
+		QString t = event->text();
 
 		switch(event->key())
 		{
@@ -201,7 +136,7 @@ void QFilteredGraphicsView::keyPressEvent(QKeyEvent* event )
 		if(lua_pcall(L, 1, 1, 0))
 		{
 			cerr << lua_tostring(L, -1) << endl;
-			QErrorMessage* msg = new QErrorMessage(Singleton.mainWindow);
+			QErrorMessage* msg = new QErrorMessage(QApplication::activeWindow());
 			msg->showMessage( QString(lua_tostring(L, -1)).replace("\n", "<br>") );
 			lua_pop(L, lua_gettop(L));
 		}
@@ -216,7 +151,6 @@ void QFilteredGraphicsView::keyPressEvent(QKeyEvent* event )
 	{
 		QGraphicsView::keyPressEvent(event);
 	}
-#endif
 }
 
 static void clampf(float& val, float minimum, float maximum)
@@ -307,15 +241,15 @@ void QFilteredGraphicsView::mouseMoveEvent(QMouseEvent* event)
 
 void QFilteredGraphicsView::mousePressEvent(QMouseEvent* event)
 {
-//	QGraphicsItem* item = itemAt(event->x(), event->y());
-//	if(item)
-//	{
-//		QGraphicsView::mousePressEvent(event);
-//		//item->setFocus(Qt::MouseFocusReason);
+	//	QGraphicsItem* item = itemAt(event->x(), event->y());
+	//	if(item)
+	//	{
+	//		QGraphicsView::mousePressEvent(event);
+	//		//item->setFocus(Qt::MouseFocusReason);
 
-//		if(event->isAccepted())
-//			return;
-//	}
+	//		if(event->isAccepted())
+	//			return;
+	//	}
 
 #if 0
 	mousePressInWidget = false;
@@ -348,17 +282,17 @@ void QFilteredGraphicsView::mousePressEvent(QMouseEvent* event)
 	}
 
 
-//	cout << event->x() << ", " << event->y() << endl;
+	//	cout << event->x() << ", " << event->y() << endl;
 
 	// allow writable text edits to scroll on mouse wheel
-//	if(qgpw)
-//	{
-//		QTextEdit* te = dynamic_cast<QTextEdit*>(qgpw->widget());
-//		if(te && !te->isReadOnly())
-//		{
-//			qgpw = 0;
-//		}
-//	}
+	//	if(qgpw)
+	//	{
+	//		QTextEdit* te = dynamic_cast<QTextEdit*>(qgpw->widget());
+	//		if(te && !te->isReadOnly())
+	//		{
+	//			qgpw = 0;
+	//		}
+	//	}
 
 
 	dragStartX = event->x();
@@ -429,42 +363,15 @@ void QFilteredGraphicsView::resizeEvent(QResizeEvent* event)
 {
 	// setup viewport, projection etc.:
 	//glViewport(0, 0, (GLint)w, (GLint)h);
-#if 0
-	windowx = event->size().width();
-	windowy = event->size().height();
-
-	Camera* cam = Singleton.mainWindow->cam;
-	if(cam)
+	if(L)
 	{
-		if(windowy == 0)
-		{
-			cam->ratio = 1;
-		}
-		else
-		{
-			cam->ratio =  ((float)windowx)/((float)(windowy)) ;
-		}
+		lua_pushinteger(L, event->size().width());
+		lua_setglobal(L, "window_x");
+		lua_pushinteger(L, event->size().height());
+		lua_setglobal(L, "window_y");
 	}
-#endif
-	//update();
+
 	//QGraphicsView::resizeEvent(event);
 }
 
 
-void QFilteredGraphicsView::setDrawFunction(int func)
-{
-	luaL_unref(L, LUA_REGISTRYINDEX, drawFunction);
-	drawFunction = func;
-}
-
-void QFilteredGraphicsView::setClickFunction(int func)
-{
-	luaL_unref(L, LUA_REGISTRYINDEX, clickFunction);
-	clickFunction = func;
-}
-
-void QFilteredGraphicsView::setKeyPressFunction(int func)
-{
-	luaL_unref(L, LUA_REGISTRYINDEX, keyPressFunction);
-	keyPressFunction = func;
-}

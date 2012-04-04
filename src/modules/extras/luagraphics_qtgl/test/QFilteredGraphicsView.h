@@ -26,13 +26,9 @@ public:
 	void registerFunctions(lua_State* L);
 	lua_State* L;
 
-	void setDrawFunction(int func);
-	void setClickFunction(int func);
-	void setKeyPressFunction(int func);
-
-	int drawFunction;
-	int clickFunction;
-	int keyPressFunction;
+	int key_func;
+//	int clickFunction;
+//	int keyPressFunction;
 
 protected:
 	bool eventFilter(QObject *ob, QEvent *e);

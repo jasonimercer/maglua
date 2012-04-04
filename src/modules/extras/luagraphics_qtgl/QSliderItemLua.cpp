@@ -57,7 +57,8 @@ int QSliderItemLua::luaInit(lua_State* L)
 		lua_pushvalue(L, 2);
 		changeFunc = new SignalSink(L, luaL_ref(L, LUA_REGISTRYINDEX), slider);
 		QObject::disconnect(widget(), 0,0,0);
-		QObject::connect(widget(), SIGNAL(sliderMoved(int)), changeFunc, SLOT(activateInt(int)));
+		//QObject::connect(widget(), SIGNAL(sliderMoved(int)), changeFunc, SLOT(activateInt(int)));
+		QObject::connect(widget(), SIGNAL(valueChanged(int)), changeFunc, SLOT(activateInt(int)));
 	}
 
 	return 0;
@@ -84,7 +85,7 @@ static int l_setmovedfunction(lua_State *L)
 
 	d->changeFunc = new SignalSink(L, luaL_ref(L, LUA_REGISTRYINDEX), d->widget());
 	QObject::disconnect(d->widget(),0,0,0);
-	QObject::connect(d->widget(), SIGNAL(sliderMoved(int)), d->changeFunc, SLOT(activateInt(int)));
+	QObject::connect(d->widget(), SIGNAL(valueChanged(int)), d->changeFunc, SLOT(activateInt(int)));
 
 	return 0;
 }
