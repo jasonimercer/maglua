@@ -15,7 +15,7 @@ LIBNAME=MagnetostaticsCuda
 CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=encode corecuda dipolecuda longrangecuda
+DEPEND=luabaseobject corecuda dipolecuda longrangecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

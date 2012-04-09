@@ -14,7 +14,7 @@ LIBNAME=DipoleCuda
 CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=encode corecuda longrangecuda
+DEPEND=luabaseobject corecuda longrangecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

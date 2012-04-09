@@ -36,18 +36,18 @@ void AppliedField::push(lua_State* L)
 	
 void AppliedField::encode(buffer* b)
 {
+	SpinOperation::encode(b);
 	encodeDouble(B[0], b);
 	encodeDouble(B[1], b);
 	encodeDouble(B[2], b);
-	encodeDouble(global_scale, b);
 }
 
 int  AppliedField::decode(buffer* b)
 {
+	SpinOperation::decode(b);
 	B[0] = decodeDouble(b);
 	B[1] = decodeDouble(b);
 	B[2] = decodeDouble(b);
-	global_scale = decodeDouble(b);
 	return 0;
 }
 

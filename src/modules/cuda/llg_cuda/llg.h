@@ -12,49 +12,30 @@
 
 #ifndef LLGDEF
 #define LLGDEF
-#include "luacommon.h"
-#include <string>
-#include "encodable.h"
-
-#ifdef WIN32
- #define strcasecmp(A,B) _stricmp(A,B)
- #define strncasecmp(A,B,C) _strnicmp(A,B,C)
- #pragma warning(disable: 4251)
-
- #ifdef LLGCUDA_EXPORTS
-  #define LLGCUDA_API __declspec(dllexport)
- #else
-  #define LLGCUDA_API __declspec(dllimport)
- #endif
-#else
- #define LLGCUDA_API 
-#endif
+#include "maglua.h"
+#include "luabaseobject.h"
 
 class SpinSystem;
 
-class LLG : public Encodable
+class LLG : public LuaBaseObject
 {
 public:
-	LLG(const char* llgtype, int etype);
+	LLG(int encode_type=hash32("LLG.Base"));
 	virtual ~LLG();
 	
-	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime) = 0;
+	LINEAGE1("LLG.Base")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	static int help(lua_State* L);
+	
+	
+	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)  {return true;}
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 	
-	std::string type;
-	
-	int refcount;
-
 	bool disablePrecession;
 
 	void encode(buffer* b);
 	int  decode(buffer* b);
 };
-
-
-void registerLLG(lua_State* L);
-LLG* checkLLG(lua_State* L, int idx);
-void lua_pushLLG(lua_State* L, LLG* llg);
-int  lua_isllg(lua_State* L, int idx);
 
 #endif

@@ -69,7 +69,7 @@ public:
 	virtual double randNorm( const double mean = 0.0, const double stddev = 1.0 );
 	
 	virtual void seed( const uint32 oneSeed ) {};
-	virtual void seed() {}; //seed by time
+	virtual void seed(); //seed by time
 
 protected:
 	double gaussPair[2];

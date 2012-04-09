@@ -22,7 +22,7 @@
 #define NSLOTS            6
 
 //#include <omp.h>
-#include "luacommon.h"
+#include "maglua.h"
 #include <string>
 #include "luabaseobject.h"
 
@@ -39,6 +39,9 @@ public:
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
+	
+	virtual void encode(buffer* b);
+	virtual int  decode(buffer* b);
 	
 	virtual bool apply(SpinSystem* ss);
 	int getSite(int x, int y, int z);

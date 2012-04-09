@@ -1,5 +1,4 @@
 #include "spinsystem.hpp"
-#include "hybridtaus.hpp"
 
 // i = 0: take 1st 3 number of 6
 // i = 1: take 2nd 3 number of 6

@@ -4,7 +4,7 @@
 Isaac::Isaac()
 	:RNG()
 {
-	seed();
+	RNG::seed();
 }
 
 void Isaac::seed( const uint32 oneSeed )
@@ -12,30 +12,6 @@ void Isaac::seed( const uint32 oneSeed )
 	qtisaac.srand(oneSeed, oneSeed+1, oneSeed+2);
 
 }
-
-void Isaac::seed()
-{
-	// Seed the generator with an array from /dev/urandom if available
-	// Otherwise use a hash of time() and clock() values
-	
-	// First try getting an array from /dev/urandom
-	FILE* urandom = fopen( "/dev/urandom", "rb" );
-	if( urandom )
-	{
-		ISAAC_INT v[3];
-		bool success = true;
-		success = fread(v, sizeof(ISAAC_INT), 3, urandom );
-		fclose(urandom);
-		if(success)
-		{
-			qtisaac.srand(v[0], v[1], v[2]);
-			return;
-		}
-	}
-	
-	//seed( time(0) );
-}
-
 
 uint32 Isaac::randInt()                     // integer in [0,2^32-1]
 {

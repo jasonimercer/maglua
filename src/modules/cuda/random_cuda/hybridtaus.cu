@@ -3,7 +3,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-static int (*globalRand)() = rand;
 
 #define CHECK \
 { \
@@ -129,33 +128,22 @@ void HybridTausSeed(state_t* d_state, int nx, int ny, int nz, const int i)
 	cudaError_t err = cudaHostAlloc(&h_state, sz, 0);
 	CHECK
 
-	#ifndef _WIN32
-	char randstate[4096];
-	#define STATELEN 4096
-	for(int j=0; j<STATELEN; j++)
-	{
-	    randstate[j] = 0;
-	}
-	random_data buf;
-	memset( &buf, 0, sizeof( random_data ) );
-	initstate_r(i, randstate, 4096, &buf);
-	#else
-	srand( i );
-	#endif
+	int seed = i;
 
+	while(seed < 128)
+	{
+		seed += 12761;
+	}
+	
 	for(int i=0; i<4*nx*ny*nz; i++)
 	{
-		int32_t a;
-		do
-		{
-			#ifndef _WIN32
-			random_r(&buf, &a);
-			#else
-			a = 0xFFFFFFFF & (globalRand() ^ (globalRand() << 16));
-			#endif
-		}while(a < 128); // restriction on tausworth init state: > 128
-
-		h_state[i] = a;
+		seed++;
+		seed ^= seed >> 1;
+		seed ^= seed << 9;
+		seed ^= seed >> 5;
+		seed ^= seed << 16;
+		seed ^= seed >> 18;
+		h_state[i] = seed;
 	}
 	
 	err = cudaMemcpy(d_state, h_state, sz, cudaMemcpyHostToDevice);

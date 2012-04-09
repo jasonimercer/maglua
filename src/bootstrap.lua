@@ -137,6 +137,7 @@ if setup_module_path then
 	f:write("module_path[\"common\"] = \"" .. escape(setup_module_path .. module_dir_sep .. "common")  .. "\"\n")
 	f:write("module_path[\"cpu\"]    = \"" .. escape(setup_module_path .. module_dir_sep .. "cpu")     .. "\"\n")
 	f:write("module_path[\"cuda\"]   = \"" .. escape(setup_module_path .. module_dir_sep .. "cuda")    .. "\"\n")
+	f:write("module_path[\"cuda32\"] = \"" .. escape(setup_module_path .. module_dir_sep .. "cuda32")  .. "\"\n")
 	f:write("module_path[\"extra\"]  = \"" .. escape(setup_module_path .. module_dir_sep .. "extra")   .. "\"\n\n")
 	
 	f:write("-- Modules in the following categories will be loaded\n")
@@ -148,7 +149,7 @@ if setup_module_path then
 	f:write([[  Example:
   if arg[2] == "gpu" then
   	table.remove(arg, 2)
-  	use_modules = {"common", "cuda", "extra"} 
+  	use_modules = {"common", "cuda", "cuda32", "extra"} 
   else
   	use_modules = {"common", "cpu", "extra"} 
   end

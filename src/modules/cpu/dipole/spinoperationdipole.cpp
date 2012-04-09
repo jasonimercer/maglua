@@ -39,41 +39,20 @@ void Dipole::push(lua_State* L)
 
 void Dipole::encode(buffer* b)
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
-	encodeInteger(gmax, b);
-	encodeDouble(g, b);
-	encodeDouble(global_scale, b);
-
-	for(int i=0; i<9; i++)
-	{
-		encodeDouble(ABC[i], b);
-	}
+	LongRange::encode(b);
 }
 
 int  Dipole::decode(buffer* b)
 {
 	deinit();
+	LongRange::decode(b);
 	
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	gmax = decodeInteger(b);
-	g = decodeDouble(b);
-	global_scale = decodeDouble(b);
-	nxyz = nx*ny*nz;
-
-	for(int i=0; i<9; i++)
-	{
-		ABC[i] = decodeDouble(b);
-	}
-
 	return 0;
 }
 
 Dipole::~Dipole()
 {
+	deinit();
 }
 
 void Dipole::loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ)

@@ -30,7 +30,6 @@ public:
 	uint32 randInt();                     // integer in [0,2^32-1]
 	
 	void seed( const uint32 oneSeed );
-	void seed(); //seed by time
 
 private:
 	unsigned int _seed;

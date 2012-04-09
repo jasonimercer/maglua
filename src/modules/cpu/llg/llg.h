@@ -54,10 +54,4 @@ public:
 // 	int  decode(buffer* b);
 };
 
-
-// LLG_API void registerLLG(lua_State* L);
-// LLG_API LLG* checkLLG(lua_State* L, int idx);
-// LLG_API void lua_pushLLG(lua_State* L, Encodable* llg);
-// LLG_API int  lua_isllg(lua_State* L, int idx);
-
 #endif

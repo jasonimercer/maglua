@@ -1,96 +1,72 @@
--- t = loadModule("../../release/luagraphics_qtgl.dll")
-
+--t = loadModule("../../debug/luagraphics_qtgl.dll")
 t = loadModule("../libluagraphics_qtgl.so")
-
 for k,v in pairs(t) do
 	print(k,v)
 end
+scene = QGraphicsSceneLua.new(scene_userdata)
+
+drawOpenGL = DrawOpenGL.new()
 
 dofile("DrawSystem.lua")
 dofile("Draw.lua")
 
-scene = QGraphicsSceneLua.new(scene_userdata)
+slides = {}
+widgets = {}
 
-te_x = QTextEditItemLua.new(scene)
-te_x:setText("0")
-te_x:resize(32, 24)
-te_x:move(0,0)
-te_x:setScrollBarPolicy(1)
+dofile("helper_function.lua")
+dofile("slide01.lua")
+dofile("slide02.lua")
+dofile("slide03.lua")
+dofile("slide04.lua")
+dofile("slide05.lua")
+dofile("slide06.lua")
+dofile("slide07.lua")
+dofile("slide08.lua")
 
-te_y = QTextEditItemLua.new(scene)
-te_y:setText("0")
-te_y:resize(32, 24)
-te_y:move(48,0)
-te_y:setScrollBarPolicy(1)
-
-
-function f()
-	centerOn( te_x:text(), te_y:text() ) 
-end
-pb = QPushButtonItemLua.new(scene, "centerOn", f)
-pb:move(96,0)
-pb:setWidth(128)
-pb:setRepeat(true)
-
-
-function change_x(i)
-	local field_x = (i-500)/100
-	zee:set(field_x,0,0)
-end
-
-slider_x = QSliderItemLua.new(scene, change_x)
-slider_x:setRange(0,1000)
-slider_x:setValue(500)
-slider_x:move(0,100)
-slider_x:setTransparent(0.5)
-x,y,w,h = slider_x:geometry()
-slider_x:setHorizontal()
-slider_x:setGeometry(x,y,h,w)
+drawfunc = {}
+centerfunc = {}
+current_slide = 1
+slide_x = 2000
+drawfunc[1], centerfunc[1] = makeSlide01(slide_x,0)slide_x=slide_x+2000
+drawfunc[2], centerfunc[2] = makeSlide02(slide_x,0)slide_x=slide_x+2000
+drawfunc[3], centerfunc[3], ss = makeSlide03(slide_x,0)slide_x=slide_x+2000
+drawfunc[4], centerfunc[4] = makeSlide04(slide_x,0, ss)slide_x=slide_x+2000
+drawfunc[5], centerfunc[5] = makeSlide05(slide_x,0, ss)slide_x=slide_x+2000
+drawfunc[6], centerfunc[6] = makeSlide06(slide_x,0, ss)slide_x=slide_x+2000
+drawfunc[7], centerfunc[7] = makeSlide07(slide_x,0, ss)slide_x=slide_x+2000
+drawfunc[8], centerfunc[8] = makeSlide08(slide_x,0, ss)slide_x=slide_x+2000
 
 
-
-function change_ex(i)
-	local ex_str = i/100
-	ex:setScale(ex_str)
-end
-slider_ex = QSliderItemLua.new(scene, change_ex)
-slider_ex:setRange(0,100)
-slider_ex:setValue(0)
-slider_ex:move(0,200)
-slider_ex:setTransparent(0.5)
-x,y,w,h = slider_ex:geometry()
-slider_ex:setHorizontal()
-slider_ex:setGeometry(x,y,h,w)
-	
-function update_model()
-	step()
--- 	step()
--- 	step()
--- 	step()
--- 	step()
-
-	for i=1,n do
-		for j=1,n do
-			local x, y, z = ss:spin({i,j})
-			theta = math.atan2(y, x)
-			phi = math.acos(z)
-			
-			ssg[i][j].set(theta,phi)
-		end
+function showSlide(i)
+	if drawfunc[i] then
+		setSceneDrawFunction(drawfunc[i])
 	end
-
+	if centerfunc[i] then
+		centerfunc[i]()
+	end
 end
 
-
-d = DrawOpenGL.new()
-
-function draw_opengl()
-	update_model()
-	d:reset()
-	d:draw(c, l, all_arrows)
+function next()
+	current_slide = current_slide + 1
+	if drawfunc[current_slide] == nil then
+		current_slide = 1
+	end
+	showSlide(current_slide)
 end
 
-setSceneDrawFunction(draw_opengl)
-centerOn(50,50)
+function prev()
+	current_slide = current_slide - 1
+	if drawfunc[current_slide] == nil then
+		current_slide = table.maxn(drawfunc)
+	end
+	showSlide(current_slide)
+end
+
+showSlide(current_slide)
 
 
+
+function key_func(abc)
+end
+
+setKeyFunction(key_func)

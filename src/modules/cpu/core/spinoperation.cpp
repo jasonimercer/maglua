@@ -29,6 +29,48 @@ SpinOperation::~SpinOperation()
 	
 }
 
+int SpinOperation::luaInit(lua_State* L)
+{
+	int n[3];
+	
+	if(luaT_is<SpinSystem>(L, 1))
+	{
+		SpinSystem* ss = luaT_to<SpinSystem>(L, 1);
+		n[0] = ss->nx;
+		n[1] = ss->ny;
+		n[2] = ss->nz;
+	}
+	else
+	{
+		lua_getNint(L, 3, n, 1, 1);
+	}
+	
+	nx = n[0];
+	ny = n[1];
+	nz = n[2];
+	nxyz = nx * ny * nz;
+	return 0;
+}
+
+
+void SpinOperation::encode(buffer* b)
+{
+	encodeInteger(nx, b);
+	encodeInteger(ny, b);
+	encodeInteger(nz, b);
+	encodeDouble(global_scale, b);
+}
+
+int SpinOperation::decode(buffer* b)
+{
+	nx = decodeInteger(b);
+	ny = decodeInteger(b);
+	nz = decodeInteger(b);
+	global_scale = decodeDouble(b);
+	return 0;
+}
+
+
 const string& SpinOperation::name()
 {
 	return operationName;
@@ -66,30 +108,6 @@ int  SpinOperation::getidx(int px, int py, int pz)
 	pz = CLAMP(pz, nz);
 	
 	return px + nx * (py + ny * pz);
-}
-
-int SpinOperation::luaInit(lua_State* L)
-{
-	int n[3];
-	
-	if(luaT_is<SpinSystem>(L, 1))
-	{
-		SpinSystem* ss = luaT_to<SpinSystem>(L, 1);
-		n[0] = ss->nx;
-		n[1] = ss->ny;
-		n[2] = ss->nz;
-	}
-	else
-	{
-		lua_getNint(L, 3, n, 1, 1);
-	}
-	
-	nx = n[0];
-	ny = n[1];
-	nz = n[2];
-	nxyz = nx * ny * nz;
-	
-	return 0;
 }
 
 bool SpinOperation::apply(SpinSystem* ss)

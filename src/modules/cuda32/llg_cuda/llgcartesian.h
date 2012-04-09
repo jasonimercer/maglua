@@ -10,26 +10,24 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
+#ifndef LLGCARTESIAN
+#define LLGCARTESIAN
 
-extern "C" {
-        #include <lua.h>
-        #include <lualib.h>
-        #include <lauxlib.h>
-}
+#include "llg.h"
 
-#include "factory.h"
+class SpinSystem;
 
-#ifdef WIN32
- #define strcasecmp(A,B) _stricmp(A,B)
- #define strncasecmp(A,B,C) _strnicmp(A,B,C)
- #pragma warning(disable: 4251)
+class LLGCartesian : public LLG
+{
+public:
+	LLGCartesian();
+	~LLGCartesian();
 
- #ifdef CORECUDA_EXPORTS
-  #define CORECUDA_API __declspec(dllexport)
- #else
-  #define CORECUDA_API __declspec(dllimport)
- #endif
-#else
- #define CORECUDA_API 
+	LINEAGE2("LLG.Cartesian", "LLG.Base")
+	static const luaL_Reg* luaMethods() {return LLG::luaMethods();}
+	static int help(lua_State* L);
+
+	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
+};
+
 #endif
-

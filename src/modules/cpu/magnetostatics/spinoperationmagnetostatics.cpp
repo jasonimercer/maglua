@@ -51,12 +51,7 @@ void Magnetostatic::push(lua_State* L)
 
 void Magnetostatic::encode(buffer* b)
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
-	encodeInteger(gmax, b);
-	encodeDouble(g, b);
-	encodeDouble(global_scale, b);
+	LongRange::encode(b);
 
 	for(int i=0; i<3; i++)
 		encodeDouble(volumeDimensions[i], b);
@@ -70,14 +65,7 @@ void Magnetostatic::encode(buffer* b)
 int  Magnetostatic::decode(buffer* b)
 {
 	deinit();
-
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	gmax = decodeInteger(b);
-	nxyz = nx*ny*nz;
-	g = decodeDouble(b);
-	global_scale = decodeDouble(b);
+	LongRange::decode(b);
 
 	for(int i=0; i<3; i++)
 		volumeDimensions[i] = decodeDouble(b);

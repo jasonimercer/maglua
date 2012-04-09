@@ -15,12 +15,12 @@
 #include <stdlib.h>
 
 
-static int (*globalRand)() = rand;
+//static int (*globalRand)() = rand;
 
 CRand::CRand()
 	: RNG()
 {
-	seed();
+	RNG::seed();
 }
 
 void CRand::seed( const uint32 oneSeed )
@@ -41,7 +41,7 @@ uint32 CRand::randInt()
 	return t;
 }
 
-
+#if 0
 void CRand::seed()
 {
 	// First try getting an array from /dev/urandom
@@ -59,6 +59,7 @@ void CRand::seed()
 #endif
 	seed( time(0) );
 }
+#endif
 
 int CRand::help(lua_State* L)
 {

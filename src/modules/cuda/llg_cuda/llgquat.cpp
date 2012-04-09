@@ -31,7 +31,7 @@
 // -- = ---- S X (h + a S X H)
 // dt   1+aa
 LLGQuaternion::LLGQuaternion()
-	: LLG("Quaternion", ENCODE_LLGQUAT)
+	: LLG(hash32(LLGQuaternion::typeName()))
 {
 	registerWS();
 }
@@ -43,7 +43,6 @@ LLGQuaternion::~LLGQuaternion()
 
 
 bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
-// bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
     // if new spins/fields exist on the host copy them to the device
     dmdt->ensureSlotExists(SUM_SLOT);
@@ -96,6 +95,18 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 
 
 
+int LLGQuaternion::help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "LLG.Quaternion advances a *SpinSystem* through time using the Quaternion formulation of the LLG equation.");
+		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+		
+	return LLG::help(L);
+}
 
 
 

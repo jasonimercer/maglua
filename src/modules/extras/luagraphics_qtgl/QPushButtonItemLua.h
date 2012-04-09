@@ -4,6 +4,7 @@
 #include <QPushButton>
 #include "QItemLua.h"
 
+
 class QPushButtonItemLua : public QItemLua
 {
 public:
@@ -14,6 +15,8 @@ public:
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);
+
+	virtual void setTransparent(float t=1.0);
 
 	QPushButton* widget() {return pushbutton;}
 

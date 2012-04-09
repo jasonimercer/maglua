@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperation.o luacommon.o maglua.o spinsystem.o
+OBJECTS=spinoperation.o maglua.o spinsystem.o
 LIBNAME=Core
 CATEGORY=cpu
 

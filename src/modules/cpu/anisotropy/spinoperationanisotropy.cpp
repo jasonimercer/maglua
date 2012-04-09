@@ -50,7 +50,7 @@ void Anisotropy::deinit()
 {
 	if(ops)
 	{
-		delete [] ops;
+		free(ops);
 	}
 	size = 0;
 	ops = 0;
@@ -90,11 +90,9 @@ void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double
 
 void Anisotropy::encode(buffer* b)
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
+	SpinOperation::encode(b); //nx,ny,nz,global_scale
+
 	encodeInteger(num, b);
-	encodeDouble(global_scale, b);
 	for(int i=0; i<num; i++)
 	{
 		encodeInteger(ops[i].site, b);
@@ -108,11 +106,9 @@ void Anisotropy::encode(buffer* b)
 int Anisotropy::decode(buffer* b)
 {
 	deinit();
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
+	SpinOperation::decode(b); //nx,ny,nz,global_scale
+	
 	num = decodeInteger(b);
-	global_scale = decodeDouble(b);
 	size = num;
 	init();
 	

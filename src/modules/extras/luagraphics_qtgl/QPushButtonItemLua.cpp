@@ -1,7 +1,7 @@
 #include "QPushButtonItemLua.h"
 
 QPushButtonItemLua::QPushButtonItemLua()
-	: QItemLua(hash32("QPushButtonItemLua"))
+	: QItemLua(hash32(lineage(0)))
 {
 	pressFunc = 0;
 	pushbutton = 0;
@@ -28,6 +28,18 @@ void QPushButtonItemLua::push(lua_State* L)
 }
 
 
+void QPushButtonItemLua::setTransparent(float t)
+{
+	if(!pushbutton) return;
+
+	//slider->setAttribute(Qt::WA_NoSystemBackground, true);
+	QPalette pal = pushbutton->palette();
+	pal.setBrush(QPalette::Background, QColor(255,255,255,255*(1-t)));
+	pushbutton->setPalette(pal);
+}
+
+
+
 #include "QGraphicsSceneLua.h"
 #include <QApplication>
 int QPushButtonItemLua::luaInit(lua_State* L)
@@ -38,6 +50,7 @@ int QPushButtonItemLua::luaInit(lua_State* L)
 	//pushbutton = new QPushButton(QApplication::activeWindow());
 	pushbutton = new QPushButton(0);
 	pushbutton->show();
+	setTransparent();
 
 	proxy = scene->addWidget(pushbutton, 0);
 	proxy->setPos(0,0);
@@ -73,7 +86,7 @@ int QPushButtonItemLua::luaInit(lua_State* L)
 
 
 
-static int l_pbil_setpressedfunction(lua_State *L)
+static int l_setpressedfunction(lua_State *L)
 {
 	LUA_PREAMBLE(QPushButtonItemLua, d, 1);
 
@@ -91,7 +104,7 @@ static int l_pbil_setpressedfunction(lua_State *L)
 	return 0;
 }
 
-static int l_pbil_setrepeat(lua_State *L)
+static int l_setrepeat(lua_State *L)
 {
 	LUA_PREAMBLE(QPushButtonItemLua, d, 1);
 
@@ -99,14 +112,14 @@ static int l_pbil_setrepeat(lua_State *L)
 	return 0;
 }
 
-static int l_pbil_settext(lua_State *L)
+static int l_settext(lua_State *L)
 {
 	LUA_PREAMBLE(QPushButtonItemLua, d, 1);
 	d->widget()->setText(lua_tostring(L, 2));
 	return 0;
 }
 
-static int l_pbil_gettext(lua_State *L)
+static int l_gettext(lua_State *L)
 {
 	LUA_PREAMBLE(QPushButtonItemLua, d, 1);
 
@@ -114,30 +127,19 @@ static int l_pbil_gettext(lua_State *L)
 	return 1;
 }
 
-#if 0
-#include "QGraphicsItemLua.h"
-static int l_pbil_item(lua_State* L)
-{
-	LUA_PREAMBLE(QPushButtonItemLua, d, 1);
-	luaT_push<QGraphicsItemLua>(L, new QGraphicsItemLua(d->item()));
-	return 1;
-}
-#endif
-
-
-static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* QPushButtonItemLua::luaMethods()
 {
+	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)return m;
 
 	merge_luaL_Reg(m, QItemLua::luaMethods());
 	static const luaL_Reg _m[] =
 	{
-		{"setRepeat",           l_pbil_setrepeat},
-		{"setText",           l_pbil_settext},
-		{"text",              l_pbil_gettext},
-		{"setPressedFunction", l_pbil_setpressedfunction},
-		//{"item",              l_pbil_item},
+		{"setRepeat",           l_setrepeat},
+		{"setText",             l_settext},
+		{"text",                l_gettext},
+		{"setPressedFunction",  l_setpressedfunction},
+		{NULL,NULL}
 	};
 	merge_luaL_Reg(m, _m);
 	m[127].name = (char*)1;

@@ -29,9 +29,38 @@ RNG::RNG()
 int RNG::luaInit(lua_State* L)
 {
 	if(lua_isnumber(L, 1))
-		seed(lua_tointeger(L, 1));
+	{
+		int s = lua_tointeger(L, 1);
+		if(s)
+		{
+			seed(s);
+			return 0;
+		}
+	}
+	seed();
 	return 0;
 }
+
+void RNG::seed()
+{
+    // First try getting an array from /dev/urandom
+#ifndef WIN32
+	long _seed;
+    FILE* urandom = fopen( "/dev/urandom", "rb" );
+    if( urandom )
+    {
+        if(fread(&_seed, sizeof(_seed), 1, urandom))
+        {
+            fclose(urandom);
+			seed(_seed);
+            return;
+        }
+        fclose(urandom);
+    }
+#endif
+    seed( time(0) );
+}
+
 
 void RNG::push(lua_State* L)
 {

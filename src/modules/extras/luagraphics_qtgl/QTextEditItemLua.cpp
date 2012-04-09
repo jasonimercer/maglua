@@ -7,9 +7,8 @@
 using namespace std;
 
 QTextEditItemLua::QTextEditItemLua()
-	: QItemLua(hash32("QTextEditItemLua"))
+	: QItemLua(hash32(lineage(0)))
 {
-
 	textedit = 0;
 	highlighter = 0;
 }
@@ -32,8 +31,8 @@ int QTextEditItemLua::luaInit(lua_State* L)
 	QItemLua::luaInit(L);
 	if(!scene) return 0;
 
-	//textedit = new QTextEdit(QApplication::activeWindow());
-	textedit = new QTextEdit();
+	textedit = new QTextEdit(QApplication::activeWindow());
+	//textedit = new QTextEdit();
 	textedit->show();
 	textedit->setTabStopWidth(40);
 
@@ -60,29 +59,6 @@ void QTextEditItemLua::setTransparent(float t)
 	pal.setBrush(QPalette::Base, QColor(255,255,255,255*(1-t)));
 	textedit->setPalette(pal);
 }
-
-#if 0
-void QTextEditItemLua::pressed()
-{
-	//	if(hasPressedFunction)
-	//	{
-	//		lua_rawgeti(L, LUA_REGISTRYINDEX, pressedFunction);
-
-	//		if(lua_pcall(L, 0, 0, 0))
-	//		{
-	//			cerr << lua_tostring(L, -1) << endl;
-	//			QErrorMessage* msg = new QErrorMessage(Singleton.mainWindow);
-	//			msg->showMessage( QString(lua_tostring(L, -1)).replace("\n", "<br>") );
-	//			lua_pop(L, lua_gettop(L));
-	//		}
-	//		lua_gc(L, LUA_GCCOLLECT, 0);
-	//	}
-}
-#endif
-
-
-
-
 
 
 
@@ -151,42 +127,6 @@ static int l_setframe(lua_State *L)
 	return 0;
 }
 
-static int l_setsize(lua_State *L)
-{
-	LUA_PREAMBLE(QTextEditItemLua, d, 1);
-	if(!d->item()) return 0;
-
-	int x = lua_tointeger(L, 2);
-	int y = lua_tointeger(L, 3);
-
-	d->item()->setMinimumWidth(x);
-	d->item()->setMaximumWidth(x);
-
-	d->item()->setMinimumHeight(y);
-	d->item()->setMaximumHeight(y);
-	return 0;
-}
-
-static int l_setwidth(lua_State *L)
-{
-	LUA_PREAMBLE(QTextEditItemLua, d, 1);
-	if(!d->item()) return 0;
-
-	int v = lua_tointeger(L, 2);
-	d->item()->setMinimumWidth(v);
-	d->item()->setMaximumWidth(v);
-	return 0;
-}
-static int l_setheight(lua_State *L)
-{
-	LUA_PREAMBLE(QTextEditItemLua, d, 1);
-	if(!d->item()) return 0;
-
-	int v = lua_tointeger(L, 2);
-	d->item()->setMinimumHeight(v);
-	d->item()->setMaximumHeight(v);
-	return 0;
-}
 
 static int l_setreadonly(lua_State* L)
 {
@@ -210,14 +150,6 @@ static int l_setreadonly(lua_State* L)
 
 	return 0;
 }
-
-#include "QGraphicsItemLua.h"
-//static int l_item(lua_State* L)
-//{
-//	LUA_PREAMBLE(QTextEditItemLua, d, 1);
-//	luaT_push<QGraphicsItemLua>(L, new QGraphicsItemLua(d->item()));
-//	return 1;
-//}
 
 
 static int l_zoom(lua_State* L)
@@ -299,10 +231,9 @@ static int l_sethighlighter(lua_State* L)
 	return 0;
 }
 
-
-static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* QTextEditItemLua::luaMethods()
 {
+	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)return m;
 
 	merge_luaL_Reg(m, QItemLua::luaMethods());
@@ -314,15 +245,12 @@ const luaL_Reg* QTextEditItemLua::luaMethods()
 		{"addHTML",           l_addhtml},
 		{"text",              l_gettext},
 		{"setFrame",          l_setframe},
-		{"setSize",           l_setsize},
-		{"setWidth",          l_setwidth},
-		{"setHeight",         l_setheight},
 		{"setReadOnly",       l_setreadonly},
 		{"zoom",              l_zoom},
-		{"setHighlighter",      l_sethighlighter},
-		{"setFontFamily",      l_setfontfamily},
-		{"setScrollBarPolicy", l_setsb},
-		//{"item",              l_item},
+		{"setHighlighter",    l_sethighlighter},
+		{"setFontFamily",     l_setfontfamily},
+		{"setScrollBarPolicy",l_setsb},
+		{NULL,NULL}
 	};
 	merge_luaL_Reg(m, _m);
 	m[127].name = (char*)1;

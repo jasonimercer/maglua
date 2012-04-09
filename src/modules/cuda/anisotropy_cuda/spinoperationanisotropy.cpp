@@ -21,7 +21,7 @@
 using namespace std;
 
 Anisotropy::Anisotropy(int nx, int ny, int nz)
-	: SpinOperation("Anisotropy", ANISOTROPY_SLOT, nx, ny, nz, ENCODE_ANISOTROPY)
+	: SpinOperation(Anisotropy::typeName(), ANISOTROPY_SLOT, nx, ny, nz, hash32(Anisotropy::typeName()))
 {
 	d_nx = 0;
 	d_ny = 0;
@@ -37,6 +37,20 @@ Anisotropy::Anisotropy(int nx, int ny, int nz)
 	
 	init();
 }
+
+int Anisotropy::luaInit(lua_State* L)
+{
+	deinit();
+	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
+	init();
+	return 0;
+}
+
+void Anisotropy::push(lua_State* L)
+{
+	luaT_push<Anisotropy>(L, this);
+}
+
 
 Anisotropy::~Anisotropy()
 {
@@ -170,7 +184,7 @@ bool Anisotropy::make_compressed()
 	uu.push_back(0);
 	aa[0].id = 0;
 	
-	for(unsigned int i=1; i<nxyz; i++)
+	for(int i=1; i<nxyz; i++)
 	{
 		if(!sani_same(aa[i], aa[last_one]))
 		{
@@ -204,7 +218,7 @@ bool Anisotropy::make_compressed()
 		h_LUT[i*4+3] = q.K;
 	}
 	
-	for(unsigned int i=0; i<nxyz; i++)
+	for(int i=0; i<nxyz; i++)
 	{
 		h_idx[i] = aa[i].id;
 	}
@@ -322,9 +336,7 @@ void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double
 
 void Anisotropy::encode(buffer* b)
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
+	SpinOperation::encode(b); //x y z global_scale
 	encodeInteger(nxyz, b);
 	for(int i=0; i<nxyz; i++)
 	{
@@ -341,9 +353,7 @@ int Anisotropy::decode(buffer* b)
 	// some of the following seems like garbage. It's to
 	// ensure compatibility with CPU version
 	deinit();
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
+	SpinOperation::decode(b);
 	int num = decodeInteger(b);
 	nxyz = nx*ny*nz;
 	init();
@@ -381,6 +391,7 @@ bool Anisotropy::apply(SpinSystem* ss)
 	{
 		// d_LUT is non-null (since compressed)
 		cuda_anisotropy_compressed(
+			global_scale,
 			ss->d_x, ss->d_y, ss->d_z,
 			d_LUT, d_idx, 
 			d_hx, d_hy, d_hz,
@@ -392,6 +403,7 @@ bool Anisotropy::apply(SpinSystem* ss)
 			make_uncompressed();
 		
 		cuda_anisotropy(
+			global_scale,
 			ss->d_x, ss->d_y, ss->d_z, 
 			d_nx, d_ny, d_nz, d_k,
 			d_hx, d_hy, d_hz,
@@ -431,6 +443,7 @@ bool Anisotropy::applyToSum(SpinSystem* ss)
 	{
 		// d_LUT is non-null (since compressed)
 		cuda_anisotropy_compressed(
+			global_scale,
 			ss->d_x, ss->d_y, ss->d_z,
 			d_LUT, d_idx, 
 			d_wsx, d_wsy, d_wsz,
@@ -442,6 +455,7 @@ bool Anisotropy::applyToSum(SpinSystem* ss)
 			make_uncompressed();
 		
 		cuda_anisotropy(
+			global_scale,
 			ss->d_x, ss->d_y, ss->d_z, 
 			d_nx, d_ny, d_nz, d_k,
 			d_wsx, d_wsy, d_wsz,
@@ -462,94 +476,9 @@ bool Anisotropy::applyToSum(SpinSystem* ss)
 
 
 
-
-
-Anisotropy* checkAnisotropy(lua_State* L, int idx)
+static int l_get(lua_State* L)
 {
-	Anisotropy** pp = (Anisotropy**)luaL_checkudata(L, idx, "MERCER.anisotropy");
-    luaL_argcheck(L, pp != NULL, 1, "`Anisotropy' expected");
-    return *pp;
-}
-
-void lua_pushAnisotropy(lua_State* L, Encodable* _ani)
-{
-	Anisotropy* ani = dynamic_cast<Anisotropy*>(_ani);
-	ani->refcount++;
-	
-	Anisotropy** pp = (Anisotropy**)lua_newuserdata(L, sizeof(Anisotropy**));
-	
-	*pp = ani;
-	luaL_getmetatable(L, "MERCER.anisotropy");
-	lua_setmetatable(L, -2);
-}
-
-int l_ani_new(lua_State* L)
-{
-	int n[3];
-	lua_getnewargs(L, n, 1);
-
-	Anisotropy* ani = new Anisotropy(
-			n[0], n[1], n[2]);
-			
-	lua_pushAnisotropy(L, ani);
-	return 1;
-}
-
-int l_ani_gc(lua_State* L)
-{
-	Anisotropy* ani = checkAnisotropy(L, 1);
-	if(!ani) return 0;
-	
-	ani->refcount--;
-	if(ani->refcount == 0)
-		delete ani;
-	
-	return 0;
-}
-
-int l_ani_apply(lua_State* L)
-{
-	Anisotropy* ani = checkAnisotropy(L, 1);
-	SpinSystem* ss = checkSpinSystem(L, 2);
-	
-	if(!ani->apply(ss))
-		return luaL_error(L, ani->errormsg.c_str());
-	
-	return 0;
-}
-
-int l_ani_applytosum(lua_State* L)
-{
-	Anisotropy* ani = checkAnisotropy(L, 1);
-	SpinSystem* ss = checkSpinSystem(L, 2);
-	
-	if(!ani->applyToSum(ss))
-		return luaL_error(L, ani->errormsg.c_str());
-	
-	return 0;
-}
-
-int l_ani_member(lua_State* L)
-{
-	Anisotropy* ani = checkAnisotropy(L, 1);
-	if(!ani) return 0;
-
-	int px = lua_tointeger(L, 2) - 1;
-	int py = lua_tointeger(L, 3) - 1;
-	int pz = lua_tointeger(L, 4) - 1;
-	
-	if(ani->member(px, py, pz))
-		lua_pushboolean(L, 1);
-	else
-		lua_pushboolean(L, 0);
-
-	return 1;
-}
-
-static int l_ani_get(lua_State* L)
-{
-    Anisotropy* ani = checkAnisotropy(L, 1);
-    if(!ani) return 0;
+	LUA_PREAMBLE(Anisotropy, ani, 1);
 
     double nx, ny, nz, K;
 
@@ -563,7 +492,6 @@ static int l_ani_get(lua_State* L)
         return luaL_error(L, "site is not part of system");
 
     int idx = ani->getidx(p[0]-1, p[1]-1, p[2]-1);
-
 
     if(!ani->getAnisotropy(idx, nx, ny, nz, K))
     {
@@ -583,10 +511,9 @@ static int l_ani_get(lua_State* L)
 }
 
 
-int l_ani_add(lua_State* L)
+static int l_add(lua_State* L)
 {
-	Anisotropy* ani = checkAnisotropy(L, 1);
-	if(!ani) return 0;
+	LUA_PREAMBLE(Anisotropy, ani, 1);
 
 	int p[3];
 	
@@ -605,26 +532,14 @@ int l_ani_add(lua_State* L)
 	if(r2<0)
 		return luaL_error(L, "invalid anisotropy direction");
 	
-	
-	
-// 	ani->ax[idx] = a[0];
-// 	ani->ay[idx] = a[1];
-// 	ani->az[idx] = a[2];
-
 	/* anisotropy axis is a unit vector */
 	const double lena = sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-// 		ani->ax[idx]*ani->ax[idx] +
-// 		ani->ay[idx]*ani->ay[idx] +
-// 		ani->az[idx]*ani->az[idx];
 	
 	if(lena > 0)
 	{
 		a[0] /= lena;
 		a[1] /= lena;
 		a[2] /= lena;
-// 		ani->ax[idx] /= sqrt(lena);
-// 		ani->ay[idx] /= sqrt(lena);
-// 		ani->az[idx] /= sqrt(lena);
 	}
 	else
 		return 0; //don't add ani
@@ -642,35 +557,14 @@ int l_ani_add(lua_State* L)
 }
 
 
-int l_ani_tostring(lua_State* L)
-{
-	Anisotropy* ani = checkAnisotropy(L, 1);
-	if(!ani) return 0;
-	
-	lua_pushfstring(L, "Anisotropy (%dx%dx%d)", ani->nx, ani->ny, ani->nz);
-	
-	return 1;
-}
-
-static int l_ani_mt(lua_State* L)
-{
-	luaL_getmetatable(L, "MERCER.anisotropy");
-	return 1;
-}
-
-static int l_ani_help(lua_State* L)
+int Anisotropy::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Computes the single ion anisotropy fields for a *SpinSystem*");
-		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
-	}
-	
-	if(lua_istable(L, 1))
-	{
-		return 0;
 	}
 	
 	if(!lua_iscfunction(L, 1))
@@ -679,41 +573,8 @@ static int l_ani_help(lua_State* L)
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
-	
-	if(func == l_ani_new)
-	{
-		lua_pushstring(L, "Create a new Anisotropy Operator.");
-		lua_pushstring(L, "1 *3Vector*: system nxyz"); 
-		lua_pushstring(L, "1 Anisotropy object");
-		return 3;
-	}
-	
-
-	if(func == l_ani_apply)
-	{
-		lua_pushstring(L, "Calculate the anisotropy of a *SpinSystem*");
-		lua_pushstring(L, "1 *SpinSystem*: This system's Anisotropy field will be calculated based on the sites with Anisotropy.");
-		lua_pushstring(L, "");
-		return 3;
-	}
-
-	if(func == l_ani_applytosum)
-	{
-		lua_pushstring(L, "Calculate the anisotropy of a *SpinSystem*");
-		lua_pushstring(L, "1 *SpinSystem*: This system's Anisotropy field will be calculated based on the sites with Anisotropy and added to the total field slot.");
-		lua_pushstring(L, "");
-		return 3;
-	}
-
-    if(func == l_ani_get)
-    {
-        lua_pushstring(L, "Fetch the anisotropy direction and magnitude at a given site.");
-        lua_pushstring(L, "1 *3Vector*: The *3Vector* defines a lattice site.");
-        lua_pushstring(L, "4 Numbers: The first 3 numbers define the normal axis, the 4th number is the magnitude.");
-        return 3;
-    }
-	
-	if(func == l_ani_add)
+		
+	if(func == l_add)
 	{
 		lua_pushstring(L, "Add a lattice site to the anisotropy calculation");
 		lua_pushstring(L, "2 *3Vector*s, 1 number: The first *3Vector* defines a lattice site, the second defines an easy axis and is normalized. The number defines the strength of the Anisotropy.");
@@ -721,53 +582,35 @@ static int l_ani_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_ani_member)
+	if(func == l_get)
 	{
-		lua_pushstring(L, "Determine if a lattice site is a member of the Operation.");
-		lua_pushstring(L, "3 Integers: lattics site x, y, z.");
-		lua_pushstring(L, "1 Boolean: True if x, y, z is part of the Operation, False otherwise.");
+		lua_pushstring(L, "Fetch the anisotropy direction and magnitude at a given site.");
+		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines a lattice site.");
+		lua_pushstring(L, "4 Numbers: The first 3 numbers define the normal axis, the 4th number is the magnitude.");
 		return 3;
 	}
 	
-	return 0;
+	return SpinOperation::help(L);
 }
 
-static Encodable* newThing()
+
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* Anisotropy::luaMethods()
 {
-	return new Anisotropy;
+	if(m[127].name)return m;
+
+	merge_luaL_Reg(m, SpinOperation::luaMethods());
+	static const luaL_Reg _m[] =
+	{
+		{"add",          l_add},
+		{"get",          l_get},
+		{NULL, NULL}
+	};
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
 
-void registerAnisotropy(lua_State* L)
-{
-	static const struct luaL_reg methods [] = { //methods
-		{"__gc",         l_ani_gc},
-		{"__tostring",   l_ani_tostring},
-		{"apply",        l_ani_apply},
-		{"applyToSum",   l_ani_applytosum},
-		{"add",          l_ani_add},
-		{"get",          l_ani_get},
-		{"member",       l_ani_member},
-		{NULL, NULL}
-	};
-		
-	luaL_newmetatable(L, "MERCER.anisotropy");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-		
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_ani_new},
-		{"help",                l_ani_help},
-		{"metatable",           l_ani_mt},
-		{NULL, NULL}
-	};
-		
-	luaL_register(L, "Anisotropy", functions);
-	lua_pop(L,1);	
-	Factory_registerItem(ENCODE_ANISOTROPY, newThing, lua_pushAnisotropy, "Anisotropy");
-}
 
 
 #include "info.h"
@@ -781,7 +624,7 @@ ANISOTROPYCUDA_API int lib_main(lua_State* L);
 
 ANISOTROPYCUDA_API int lib_register(lua_State* L)
 {
-	registerAnisotropy(L);
+	luaT_register<Anisotropy>(L);
 	return 0;
 }
 

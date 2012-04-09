@@ -15,7 +15,7 @@ LIBNAME=LLGCuda
 CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=encode corecuda
+DEPEND=luabaseobject corecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

@@ -10,7 +10,7 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "luacommon.h"
+#include "maglua.h"
 #include "magnetostaticssupport.h"
 #include "gamma_ab_v.h"
 #include <stdlib.h>

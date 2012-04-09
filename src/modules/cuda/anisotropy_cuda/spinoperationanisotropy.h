@@ -35,6 +35,12 @@ public:
 	Anisotropy(int nx=32, int ny=32, int nz=1);
 	virtual ~Anisotropy();
 	
+	LINEAGE2("Anisotropy", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	static int help(lua_State* L);
+	
 	bool apply(SpinSystem* ss);
 	bool applyToSum(SpinSystem* ss);
 	void addAnisotropy(int site, double nx, double ny, double nz, double K);
@@ -56,11 +62,7 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
-// 	void sync_dh(bool force=false);
-// 	void sync_hd(bool force=false);
-
 	bool new_host; // if host data is most recent
-// 	bool new_device;
 
 	void init();
 	void deinit();
@@ -75,10 +77,6 @@ public:
 private:
 	int unique; //number of LUT entries
 };
-
-ANISOTROPYCUDA_API void lua_pushAnisotropy(lua_State* L, Encodable* _ani);
-ANISOTROPYCUDA_API Anisotropy* checkAnisotropy(lua_State* L, int idx);
-ANISOTROPYCUDA_API void registerAnisotropy(lua_State* L);
 
 
 #endif

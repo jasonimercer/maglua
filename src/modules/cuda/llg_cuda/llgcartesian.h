@@ -13,9 +13,7 @@
 #ifndef LLGCARTESIAN
 #define LLGCARTESIAN
 
-#include "luacommon.h"
 #include "llg.h"
-#include <string>
 
 class SpinSystem;
 
@@ -23,6 +21,11 @@ class LLGCartesian : public LLG
 {
 public:
 	LLGCartesian();
+	~LLGCartesian();
+
+	LINEAGE2("LLG.Cartesian", "LLG.Base")
+	static const luaL_Reg* luaMethods() {return LLG::luaMethods();}
+	static int help(lua_State* L);
 
 	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
 };

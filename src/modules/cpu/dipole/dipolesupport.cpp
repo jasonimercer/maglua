@@ -10,7 +10,7 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "luacommon.h"
+#include "maglua.h"
 #include "dipolesupport.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -550,7 +550,6 @@ static void loadXYZ(
 	    }
 	}
 
-	const int nxyz = nx*ny*nz;
 	for(int a=0; a<6; a++)
 	{
 		int c = 0;

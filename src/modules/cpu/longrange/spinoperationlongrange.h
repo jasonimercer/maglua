@@ -48,8 +48,8 @@ public:
 	bool apply(SpinSystem* ss);
 	void getMatrices();
 	
-	virtual void encode(buffer* b) {}
-	virtual int  decode(buffer* b) {return 0;}
+	virtual void encode(buffer* b);
+	virtual int  decode(buffer* b);
 
 	double ABC[9]; //unit cell vectors (not shape of sites)
 	double g; //scale

@@ -14,7 +14,7 @@ LIBNAME=LongRangeCuda
 CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=encode corecuda
+DEPEND=luabaseobject corecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 EXTRA_CUDA_DEP=longrange.h

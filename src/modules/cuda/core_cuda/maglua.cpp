@@ -10,7 +10,7 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "luacommon.h"
+#include "maglua.h"
 #include <cuda.h>
 #include <cuda_runtime.h>
 
@@ -34,7 +34,7 @@ CORECUDA_API int lib_main(lua_State* L);
 
 CORECUDA_API int lib_register(lua_State* L)
 {
-	registerSpinSystem(L);
+	luaT_register<SpinSystem>(L);
 
 	return 0;
 }
@@ -53,6 +53,7 @@ CORECUDA_API const char* lib_name(lua_State* L)
 #endif
 }
 
+#if 0
 #ifndef WIN32
 #if CUDART_VERSION >= 2000
 static int ConvertSMVer2Cores(int major, int minor)
@@ -85,6 +86,7 @@ static int ConvertSMVer2Cores(int major, int minor)
 	printf("MapSMtoCores undefined SMversion %d.%d!\n", major, minor);
 	return -1;
 }
+#endif
 #endif
 
 // This function wraps the CUDA Driver API into a template function

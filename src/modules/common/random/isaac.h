@@ -324,7 +324,6 @@ public:
 	uint32 randInt( const uint32 n );     // integer in [0,n] for n < 2^32
 
 	void seed( const uint32 oneSeed );
-	void seed(); //seed by time
 
 private:
 	QTIsaac<> qtisaac;

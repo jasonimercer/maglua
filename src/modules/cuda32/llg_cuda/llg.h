@@ -10,25 +10,32 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
+#ifndef LLGDEF
+#define LLGDEF
+#include "maglua.h"
+#include "luabaseobject.h"
 
-extern "C" {
-        #include <lua.h>
-        #include <lualib.h>
-        #include <lauxlib.h>
-}
+class SpinSystem;
 
-#ifdef WIN32
- #define strcasecmp(A,B) _stricmp(A,B)
- #define strncasecmp(A,B,C) _strnicmp(A,B,C)
- #pragma warning(disable: 4251)
+class LLG : public LuaBaseObject
+{
+public:
+	LLG(int encode_type=hash32("LLG.Base"));
+	virtual ~LLG();
+	
+	LINEAGE1("LLG.Base")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	static int help(lua_State* L);
+	
+	
+	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)  {return true;}
+	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
+	
+	bool disablePrecession;
 
- #ifdef CORE_EXPORTS
-  #define CORE_API __declspec(dllexport)
- #else
-  #define CORE_API __declspec(dllimport)
- #endif
-#else
- #define CORE_API 
+	void encode(buffer* b);
+	int  decode(buffer* b);
+};
+
 #endif
-
-

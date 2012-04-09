@@ -15,21 +15,91 @@ function lp(txt) -- Link Process, change *TEXT* into <a href="#TEXT">TEXT</a>
 	return txt
 end
 
-f:write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n" ..
-	"<html>\n" ..
- 	"\n" ..
-	"<head>\n" ..
-	"<title>MagLua Reference Manual</title>\n" ..
-	"<link rel=\"stylesheet\" type=\"text/css\" href=\"maglua.css\">\n" ..
-	"<META HTTP-EQUIV=\"content-type\" CONTENT=\"text/html; charset=iso-8859-1\">\n" .. 
-	"</head>\n" ..
- 	"\n" ..
-	"<body>\n")
+f:write([[
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<style media="screen" type="text/css">
+body {
+	color: #000000 ;
+	background-color: #FFFFFF ;
+	font-family: sans-serif ;
+	text-align: justify ;
+	margin-right: 20px ;
+	margin-left: 20px ;
+}
 
-f:write("<H1>MagLua</H1>\n")
-f:write("<p>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations in the Lua scripting language.\n")
-f:write(lp("<p>MagLua is composed of 3 conceptual parts\n<ul>\n<li>Data - Spin vectors and fields, these are held in a *SpinSystem*.\n<li>Operators - Objects which calculate fields based on spins or external influences such as *Anisotropy*, *Dipole*, *Thermal*, etc.\n<li>Integrators - Objects which update spin orientations based on calculated effective fields. Different integrators can be created using *LLG*.\n</ul>\n"))
-f:write("<p>The following is a list of the objects and functions which may be combined to create a simulation.\n")
+h1, h2, h3, h4 {
+	font-weight: normal ;
+	font-style: italic ;
+}
+
+h2 {
+	padding-top: 0.4em ;
+	padding-bottom: 0.4em ;
+	padding-left: 20px ;
+	margin-left: -20px ;
+	background-color: #E0E0FF ;
+}
+
+h3 {
+	padding-left: 8px ;
+	border-left: solid #E0E0FF 1em ;
+}
+
+table h3 {
+	padding-left: 0px ;
+	border-left: none ; 
+}
+
+a:link {
+	color: #000080 ;
+	background-color: inherit ;
+	text-decoration: none ;
+}
+
+a:visited {
+	background-color: inherit ;
+	text-decoration: none ;
+}
+
+a:link:hover, a:visited:hover {
+	color: #000080 ;
+	background-color: #E0E0FF ;
+}
+
+a:link:active, a:visited:active {
+	color: #FF0000 ;
+}
+
+hr {
+	border: 0 ;
+	height: 1px ;
+	color: #a0a0a0 ;
+	background-color: #a0a0a0 ;
+}
+
+:target {
+	background-color: #F8F8F8 ;
+	padding: 8px ;
+	border: solid #a0a0a0 2px ;
+}
+</style>
+
+<title>MagLua Reference Manual</title>
+<META HTTP-EQUIV="content-type" CONTENT="text/html; charset=iso-8859-1">
+</head>
+<body>
+
+<H1>MagLua</H1>
+<p>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations in the Lua scripting language.
+<p>MagLua is composed of 3 conceptual parts
+<ul>
+	<li>Data - Spin vectors and fields, these are held in a *SpinSystem*.
+	<li>Operators - Objects which calculate fields based on spins or external influences such as *Anisotropy*, *Dipole*, *Thermal*, etc.
+	<li>Integrators - Objects which update spin orientations based on calculated effective fields. Different integrators can be created using *LLG*.
+</ul>
+<p>The following is a list of the objects and functions which may be combined to create a simulation.]])
 
 -- Add a section heading
 function addsection(name, level, effect, noadd)
@@ -43,9 +113,6 @@ function addsection(name, level, effect, noadd)
 		f:write("<p>\n<h" .. level .. "><a name=\"" .. name .. "\">" .. name .. "</a></h" .. level .. ">\n")
 	end
 end
-
-
-
 
 -- write desc, input and output of a function/method
 function dl(a, b, c)

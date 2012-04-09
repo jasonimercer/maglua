@@ -25,8 +25,8 @@ public:
 
 	QRect geometry();
 
-protected:
 	QGraphicsProxyWidget* proxy;
+protected:
 	QGraphicsScene* scene;
 
 private:

@@ -132,7 +132,6 @@ public:
 	// Re-seeding functions with same behavior as initializers
 	void seed( const uint32 oneSeed );
 	void seed( uint32 *const bigSeed, const uint32 seedLength = N );
-	void seed();
 	
 	// Saving and loading generator state
 	void save( uint32* saveArray ) const;  // to array of size SAVE
@@ -256,29 +255,6 @@ inline void MTRand::seed( uint32 *const bigSeed, const uint32 seedLength )
 	reload();
 }
 
-inline void MTRand::seed()
-{
-	// Seed the generator with an array from /dev/urandom if available
-	// Otherwise use a hash of time() and clock() values
-	
-	// First try getting an array from /dev/urandom
-#ifndef WIN32
-	FILE* urandom = fopen( "/dev/urandom", "rb" );
-	if( urandom )
-	{
-		uint32 bigSeed[N];
-		register uint32 *s = bigSeed;
-		register int i = N;
-		register bool success = true;
-		while( success && i-- )
-			success = fread( s++, sizeof(uint32), 1, urandom );
-		fclose(urandom);
-		if( success ) { seed( bigSeed, N );  return; }
-	}
-#endif
-	// Was not successful, so use time() and clock() instead
-	seed( hash( time(NULL), clock() ) );
-}
 
 inline MTRand::MTRand( const uint32 oneSeed )
 	: RNG()
@@ -291,7 +267,7 @@ inline MTRand::MTRand( uint32 *const bigSeed, const uint32 seedLength )
 
 inline MTRand::MTRand()
 	: RNG()
-{ seed(); }
+{ RNG::seed(); }
 
 inline MTRand::MTRand( const MTRand& o )
 	: RNG()

@@ -45,10 +45,7 @@ void Thermal::push(lua_State* L)
 
 void Thermal::encode(buffer* b)
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
-	encodeDouble(global_scale, b);
+	SpinOperation::encode(b);
 	
 	encodeDouble(temperature, b);
 	
@@ -58,12 +55,8 @@ void Thermal::encode(buffer* b)
 
 int  Thermal::decode(buffer* b)
 {
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	nxyz = nx * ny * nz;
-	global_scale = decodeDouble(b);
-
+	SpinOperation::decode(b);
+	
 	temperature = decodeDouble(b);
 	
 	if(scale)

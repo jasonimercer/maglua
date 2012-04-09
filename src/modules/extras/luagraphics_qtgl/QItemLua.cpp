@@ -58,6 +58,7 @@ static int l_setgeom(lua_State* L)
 				lua_tointeger(L, 3),
 				lua_tointeger(L, 4),
 				lua_tointeger(L, 5));
+	i->proxy->update();
 	return 0;
 }
 
@@ -162,9 +163,9 @@ static int l_settbg(lua_State* L)
 }
 
 
-static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* QItemLua::luaMethods()
 {
+	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)return m;
 
 	merge_luaL_Reg(m, LuaBaseObject::luaMethods());

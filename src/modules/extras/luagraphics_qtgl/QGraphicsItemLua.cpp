@@ -61,9 +61,9 @@ static int l_qgil_setparent(lua_State* L)
 }
 
 
-static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* QGraphicsItemLua::luaMethods()
 {
+	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)return m;
 
 	merge_luaL_Reg(m, LuaBaseObject::luaMethods());

@@ -36,6 +36,12 @@ public:
 	Exchange(int nx=32, int ny=32, int nz=1);
 	virtual ~Exchange();
 	
+	LINEAGE2("Exchange", "SpinOperation")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L);
+	static int help(lua_State* L);
+	
 	bool apply(SpinSystem* ss);
 	bool applyToSum(SpinSystem* ss);
 
@@ -63,7 +69,6 @@ public:
 private:
 	void deinit();
 	void init();
-// 	void sync();
  	bool new_host;
 	
 	int size;
@@ -78,14 +83,7 @@ private:
 	int compress_max_neighbours;
 	ex_compressed_struct* d_LUT;
 	unsigned char* d_idx;
-	
-// 	int* fromsite;
-// 	int* tosite;
-// 	double* strength;
 };
 
-Exchange* checkExchange(lua_State* L, int idx);
-void registerExchange(lua_State* L);
-void lua_pushExchange(lua_State* L, Encodable* _ex);
 
 #endif

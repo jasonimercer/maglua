@@ -14,7 +14,6 @@
 #define SPINOPERATIONTHERMAL
 
 #include "spinoperation.h"
-#include "hybridtaus.hpp"
 #include <stdint.h>
 
 #ifdef WIN32
@@ -32,12 +31,19 @@
 #endif
 
 class RNG;
-class LLG;
-class Thermal : public SpinOperation
+
+class THERMALCUDA_API Thermal : public SpinOperation
 {
 public:
 	Thermal(int nx=32, int ny=32, int nz=1);
 	virtual ~Thermal();
+
+	LINEAGE2("Thermal", "SpinOperation")
+    static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+	virtual void push(lua_State* L) {luaT_push<Thermal>(L, this);}
+	static int help(lua_State* L);
+
 	
 	bool apply(RNG* rand, SpinSystem* ss);
 	bool applyToSum(RNG* rand, SpinSystem* ss);
@@ -51,10 +57,6 @@ public:
 	
 	double temperature;
 
-
-	state_t* d_state;
-	float* d_rngs;
-	
 	void sync_dh(bool force=false);
 	void sync_hd(bool force=false);
 	
@@ -66,13 +68,7 @@ public:
 private:
 	double* d_scale;
 	double* h_scale;
-
-	int twiddle;
 };
-
-Thermal* checkThermal(lua_State* L, int idx);
-void registerThermal(lua_State* L);
-void lua_pushThermal(lua_State* L, Encodable* th);
 
 
 #endif

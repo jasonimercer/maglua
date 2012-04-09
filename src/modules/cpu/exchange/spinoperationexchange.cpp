@@ -47,11 +47,8 @@ void Exchange::push(lua_State* L)
 
 void Exchange::encode(buffer* b)
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
-	encodeDouble(global_scale, b);
-	
+	SpinOperation::encode(b);
+
 	encodeInteger(num, b);
 	
 	for(int i=0; i<num; i++)
@@ -66,10 +63,8 @@ int  Exchange::decode(buffer* b)
 {
 	deinit();
 
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	global_scale = decodeDouble(b);
+	SpinOperation::decode(b);
+
 	nxyz = nx * ny * nz;
 	
 	size = decodeInteger(b);

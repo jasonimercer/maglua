@@ -26,9 +26,9 @@ void QGraphicsSceneLua::push(lua_State* L)
 	luaT_push<QGraphicsSceneLua>(L, this);
 }
 
-static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* QGraphicsSceneLua::luaMethods()
 {
+	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)return m;
 
 	merge_luaL_Reg(m, LuaBaseObject::luaMethods());

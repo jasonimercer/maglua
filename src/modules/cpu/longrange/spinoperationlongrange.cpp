@@ -57,6 +57,33 @@ void LongRange::push(lua_State* L)
 }
 
 
+void LongRange::encode(buffer* b)
+{
+	SpinOperation::encode(b);
+	encodeInteger(gmax, b);
+	encodeDouble(g, b);
+	for(int i=0; i<9; i++)
+	{
+		encodeDouble(ABC[i], b);
+	}
+}
+
+int  LongRange::decode(buffer* b)
+{
+	SpinOperation::decode(b);
+
+	gmax = decodeInteger(b);
+	g = decodeDouble(b);
+
+	for(int i=0; i<9; i++)
+	{
+		ABC[i] = decodeDouble(b);
+	}
+	return 0;
+}
+
+
+
 void LongRange::init()
 {
 	if(XX) return;
@@ -293,7 +320,8 @@ void LongRange::getMatrices()
 
 void LongRange::ifftAppliedForce(SpinSystem* ss)
 {
-	double d = g * global_scale / (double)(nx*ny);
+	//double d = g * global_scale / (double)(nx*ny);
+	double d = g  / (double)(nx*ny);
 // 	printf("%g\n", d);
 	double* hx = ss->hx[slot];
 	double* hy = ss->hy[slot];
@@ -390,20 +418,14 @@ void LongRange::collectIForces(SpinSystem* ss)
 
 bool LongRange::apply(SpinSystem* ss)
 {
-//	DDD
 	markSlotUsed(ss);
 
-//	DDD
 	if(newdata)
 		getMatrices();
 	
-//	DDD
 	ss->fft();
-//	DDD
 	collectIForces(ss);
-//	DDD
 	ifftAppliedForce(ss);
-//	DDD
 
 	return true;
 }
@@ -438,7 +460,7 @@ static int l_setunitcell(lua_State* L)
 	
 	int r1 = lua_getNdouble(L, 3, A, 2, 0);
 	int r2 = lua_getNdouble(L, 3, B, 2+r1, 0);
-	int r3 = lua_getNdouble(L, 3, C, 2+r1+r2, 0);
+	/*int r3 =*/ lua_getNdouble(L, 3, C, 2+r1+r2, 0);
 	
 	for(int i=0; i<3; i++)
 	{

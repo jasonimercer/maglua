@@ -6,7 +6,7 @@
 #include "spinoperationanisotropy.hpp"
 
 
-__global__ void do_anisotropy(
+__global__ void do_anisotropy(const double global_scale,
 	const double* d_sx, const double* d_sy, const double* d_sz,
 	const double* d_nx, const double* d_ny, const double* d_nz, const double* d_k,
 	double* d_hx, double* d_hy, double* d_hz, 
@@ -28,7 +28,7 @@ __global__ void do_anisotropy(
 		const double SpinDotEasyAxis = 
 			d_sx[i]*d_nx[i] + d_sy[i]*d_ny[i] + d_sz[i]*d_nz[i];
 	
-		const double v = 2.0 * d_k[i] * SpinDotEasyAxis / ms2;
+		const double v = global_scale * 2.0 * d_k[i] * SpinDotEasyAxis / ms2;
 		
 		d_hx[i] = d_nx[i] * v;
 		d_hy[i] = d_ny[i] * v;
@@ -42,7 +42,7 @@ __global__ void do_anisotropy(
 	}
 }
 
-void cuda_anisotropy(
+void cuda_anisotropy(const double global_scale,
 	const double* d_sx, const double* d_sy, const double* d_sz,
 	const double* d_nx, const double* d_ny, const double* d_nz, const double* d_k,
 	double* d_hx, double* d_hy, double* d_hz,
@@ -58,7 +58,9 @@ void cuda_anisotropy(
 	for(int z=0; z<nz; z++)
 	{
 		const int offset = z * nx * ny;
-		do_anisotropy<<<blocks, threads>>>(	d_sx, d_sy, d_sz,
+		do_anisotropy<<<blocks, threads>>>(
+				global_scale,
+				d_sx, d_sy, d_sz,
 				d_nx, d_ny, d_nz, d_k,
 				d_hx, d_hy, d_hz, 
 				nx, ny, offset);
@@ -69,7 +71,7 @@ void cuda_anisotropy(
 
 
 
-__global__ void do_anisotropy_compressed(
+__global__ void do_anisotropy_compressed(const double global_scale,
 	const double* d_sx, const double* d_sy, const double* d_sz,
 	const double* d_LUT, const char* d_idx,
 	double* d_hx, double* d_hy, double* d_hz, 
@@ -92,7 +94,7 @@ __global__ void do_anisotropy_compressed(
 		const double SpinDotEasyAxis = 
 			d_sx[i]*nx + d_sy[i]*ny + d_sz[i]*nz;
 	
-		const double v = 2.0 * k * SpinDotEasyAxis / ms2;
+		const double v = global_scale * 2.0 * k * SpinDotEasyAxis / ms2;
 		
 		d_hx[i] = nx * v;
 		d_hy[i] = ny * v;
@@ -107,7 +109,7 @@ __global__ void do_anisotropy_compressed(
 }
 
 
-void cuda_anisotropy_compressed(
+void cuda_anisotropy_compressed(const double global_scale,
 	const double* d_sx, const double* d_sy, const double* d_sz,
 	const double* d_LUT, const char* d_idx,
 	double* d_hx, double* d_hy, double* d_hz,
@@ -117,6 +119,7 @@ void cuda_anisotropy_compressed(
 	const int threads = 1024;
 
 	do_anisotropy_compressed<<<blocks, threads>>>(
+		    global_scale,
 			d_sx, d_sy, d_sz,
 			d_LUT, d_idx,
 			d_hx, d_hy, d_hz, 

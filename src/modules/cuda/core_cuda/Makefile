@@ -9,12 +9,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinsystem.o spinoperation.o luacommon.o maglua.o spinsystem.cuo 
+OBJECTS=spinsystem.o spinoperation.o maglua.o spinsystem.cuo 
 LIBNAME=CoreCUDA
 CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=encode
+DEPEND=luabaseobject
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

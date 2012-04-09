@@ -32,34 +32,34 @@ MagnetostaticCuda::MagnetostaticCuda(int nx, int ny, int nz)
 	volumeDimensions[2] = 1;
 }
 
+int MagnetostaticCuda::luaInit(lua_State* L)
+{
+	return LongRangeCuda::luaInit(L); //gets nx, ny, nz, nxyz
+}
+
+void MagnetostaticCuda::push(lua_State* L)
+{
+	luaT_push<MagnetostaticCuda>(L, this);
+}
+
 void MagnetostaticCuda::encode(buffer* b)
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
-	encodeInteger(gmax, b);
-	encodeDouble(g, b);
-	
+	LongRangeCuda::encode(b);
+
 	for(int i=0; i<3; i++)
 		encodeDouble(volumeDimensions[i], b);
 	
 	for(int i=0; i<9; i++)
 		encodeDouble(ABC[i], b);
 	
-	encodeDouble(crossover_tolerance, b);
+	encodeDouble(crossover_tolerance, b);	
 }
 
 int  MagnetostaticCuda::decode(buffer* b)
 {
 	deinit();
+	LongRangeCuda::decode(b);
 
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	gmax = decodeInteger(b);
-	nxyz = nx*ny*nz;
-	g = decodeDouble(b);
-	
 	for(int i=0; i<3; i++)
 		volumeDimensions[i] = decodeDouble(b);
 	
@@ -71,6 +71,8 @@ int  MagnetostaticCuda::decode(buffer* b)
 	crossover_tolerance = decodeDouble(b);
 	return 0;
 }
+
+
 
 MagnetostaticCuda::~MagnetostaticCuda()
 {
@@ -92,155 +94,11 @@ void MagnetostaticCuda::loadMatrixFunction(double* XX, double* XY, double* XZ, d
 
 
 
-MagnetostaticCuda* checkMagnetostatic(lua_State* L, int idx)
+
+
+static int l_setcelldims(lua_State* L)
 {
-	MagnetostaticCuda** pp = (MagnetostaticCuda**)luaL_checkudata(L, idx, "MERCER.magnetostatics");
-    luaL_argcheck(L, pp != NULL, 1, "`Magnetostatic' expected");
-    return *pp;
-}
-
-void lua_pushMagnetostatic(lua_State* L, Encodable* _mag)
-{
-	MagnetostaticCuda* mag = dynamic_cast<MagnetostaticCuda*>(_mag);
-	if(!mag) return;
-	
-	mag->refcount++;
-	MagnetostaticCuda** pp = (MagnetostaticCuda**)lua_newuserdata(L, sizeof(MagnetostaticCuda**));
-	
-	*pp = mag;
-	luaL_getmetatable(L, "MERCER.magnetostatics");
-	lua_setmetatable(L, -2);
-}
-
-int l_mag_new(lua_State* L)
-{
-	int n[3];
-	lua_getnewargs(L, n, 1);
-
-	lua_pushMagnetostatic(L, new MagnetostaticCuda(n[0], n[1], n[2]));
-	return 1;
-}
-
-
-int l_mag_setstrength(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-
-	mag->g = lua_tonumber(L, 2);
-	return 0;
-}
-
-int l_mag_gc(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-
-	mag->refcount--;
-	if(mag->refcount == 0)
-		delete mag;
-	
-	return 0;
-}
-
-int l_mag_apply(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-	SpinSystem* ss = checkSpinSystem(L, 2);
-	
-	if(!mag->apply(ss))
-		return luaL_error(L, mag->errormsg.c_str());
-	
-	return 0;
-}
-
-int l_mag_applytosum(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-	SpinSystem* ss = checkSpinSystem(L, 2);
-	
-	if(!mag->applyToSum(ss))
-		return luaL_error(L, mag->errormsg.c_str());
-	
-	return 0;
-}
-
-int l_mag_getstrength(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-
-	lua_pushnumber(L, mag->g);
-
-	return 1;
-}
-int l_mag_setunitcell(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-
-	double A[3];
-	double B[3];
-	double C[3];
-	
-	int r1 = lua_getNdouble(L, 3, A, 2, 0);
-	int r2 = lua_getNdouble(L, 3, B, 2+r1, 0);
-	int r3 = lua_getNdouble(L, 3, C, 2+r1+r2, 0);
-	
-	for(int i=0; i<3; i++)
-	{
-		mag->ABC[i+0] = A[i];
-		mag->ABC[i+3] = B[i];
-		mag->ABC[i+6] = C[i];
-	}
-
-	return 0;
-}
-int l_mag_getunitcell(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-
-	for(int i=0; i<9; i++)
-		lua_pushnumber(L, mag->ABC[i]);
-
-	return 9;
-}
-int l_mag_settrunc(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-
-	mag->gmax = lua_tointeger(L, 2);
-
-	return 0;
-}
-int l_mag_gettrunc(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-
-	lua_pushnumber(L, mag->gmax);
-
-	return 1;
-}
-
-static int l_mag_tostring(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-	
-	lua_pushfstring(L, "Magnetostatic (%dx%dx%d)", mag->nx, mag->ny, mag->nz);
-	
-	return 1;
-}
-
-static int l_mag_setcelldims(lua_State* L)
-{
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
+	LUA_PREAMBLE(MagnetostaticCuda, mag, 1);
 
 	if(lua_getNdouble(L, 3, mag->volumeDimensions, 2, 1) < 0)
 		return luaL_error(L, "Magnetostatic.setCellDimensions requires 3 values");
@@ -248,10 +106,9 @@ static int l_mag_setcelldims(lua_State* L)
 	return 0;
 }
 
-static int l_mag_getcelldims(lua_State* L)
+static int l_getcelldims(lua_State* L)
 {
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
+	LUA_PREAMBLE(MagnetostaticCuda, mag, 1);
 	
 	for(int i=0; i<3; i++)
 		lua_pushnumber(L, mag->volumeDimensions[i]);
@@ -259,115 +116,31 @@ static int l_mag_getcelldims(lua_State* L)
 	return 3;
 }
 
-static int l_mag_setcrossover(lua_State* L)
+static int l_setcrossover(lua_State* L)
 {
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-	
+	LUA_PREAMBLE(MagnetostaticCuda, mag, 1);
 	mag->crossover_tolerance = lua_tonumber(L, 2);
 	return 0;
 }
 
-static int l_mag_getcrossover(lua_State* L)
+static int l_getcrossover(lua_State* L)
 {
-	MagnetostaticCuda* mag = checkMagnetostatic(L, 1);
-	if(!mag) return 0;
-	
+	LUA_PREAMBLE(MagnetostaticCuda, mag, 1);
 	lua_pushnumber(L, mag->crossover_tolerance);
 	return 1;
 }
 
-static int l_setmatrix(lua_State* L)
-{
-	MagnetostaticCuda* p = checkMagnetostatic(L, 1);
-	if(!p) return 0;
-	const char* badname = "1st argument must be matrix name: XX, XY, XZ, YY, YZ or ZZ";
-	
-	if(!lua_isstring(L, 2))
-	    return luaL_error(L, badname);
 
-	const char* type = lua_tostring(L, 2);
-
-	const char* names[6] = {"XX", "XY", "XZ", "YY", "YZ", "ZZ"};
-	int mat = -1;
-	for(int i=0; i<6; i++)
-	{
-	    if(strcasecmp(type, names[i]) == 0)
-	    {
-		mat = i;
-	    }
-	}
-
-	if(mat < 0)
-	    return luaL_error(L, badname);
-
-	int offset[3];
-
-	int r1 = lua_getNint(L, 3, offset, 3, 0);
-        if(r1<0)
-	    return luaL_error(L, "invalid offset");
-
-	double val = lua_tonumber(L, 3+r1);
-
-	// not altering zero base here:
-	p->setAB(mat, offset[0], offset[1], offset[2], val);
-
-	return 0;
-}
-
-static int l_getmatrix(lua_State* L)
-{
-	MagnetostaticCuda* p = checkMagnetostatic(L, 1);
-	if(!p) return 0;
-	const char* badname = "1st argument must be matrix name: XX, XY, XZ, YY, YZ or ZZ";
-	
-	if(!lua_isstring(L, 2))
-	    return luaL_error(L, badname);
-
-	const char* type = lua_tostring(L, 2);
-
-	const char* names[6] = {"XX", "XY", "XZ", "YY", "YZ", "ZZ"};
-	int mat = -1;
-	for(int i=0; i<6; i++)
-	{
-	    if(strcasecmp(type, names[i]) == 0)
-	    {
-		mat = i;
-	    }
-	}
-
-	if(mat < 0)
-	    return luaL_error(L, badname);
-
-	int offset[3];
-
-	int r1 = lua_getNint(L, 3, offset, 3, 0);
-        if(r1<0)
-	    return luaL_error(L, "invalid offset");
-
-	// not altering zero base here:
-	double val = p->getAB(mat, offset[0], offset[1], offset[2]);
-
-	lua_pushnumber(L, val);
-	return 1;
-}
-
-static int l_mag_mt(lua_State* L)
-{
-	luaL_getmetatable(L, "MERCER.magnetostatics");
-	return 1;
-}
-
-static int l_mag_help(lua_State* L)
+int MagnetostaticCuda::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "Calculates the Magnetostatic field of a *SpinSystem*");
-		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, "Calculates the magnetostatic field of a *SpinSystem*");
+		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
-	
+
 	if(lua_istable(L, 1))
 	{
 		return 0;
@@ -375,85 +148,11 @@ static int l_mag_help(lua_State* L)
 	
 	if(!lua_iscfunction(L, 1))
 	{
-		return luaL_error(L, "help expect zero arguments or 1 function.");
+		return luaL_error(L, "help expects zero arguments or 1 function.");
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
-	
-	if(func == l_mag_new)
-	{
-		lua_pushstring(L, "Create a new Magnetostatic Operator.");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 Magnetostatic object");
-		return 3;
-	}
-	
-	
-	if(func == l_mag_apply)
-	{
-		lua_pushstring(L, "Calculate the Magnetostatic field of a *SpinSystem*");
-		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field");
-		lua_pushstring(L, "");
-		return 3;
-	}
-		
-	if(func == l_mag_applytosum)
-	{
-		lua_pushstring(L, "Calculate the Magnetostatic field of a *SpinSystem*");
-		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field, added the total field");
-		lua_pushstring(L, "");
-		return 3;
-	}
-	
-	if(func == l_mag_setstrength)
-	{
-		lua_pushstring(L, "Set the strength of the Dipolar Field");
-		lua_pushstring(L, "1 number: strength of the field");
-		lua_pushstring(L, "");
-		return 3;
-	}
-	
-	if(func == l_mag_getstrength)
-	{
-		lua_pushstring(L, "Get the strength of the Dipolar Field");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 number: strength of the field");
-		return 3;
-	}
-	
-	if(func == l_mag_setunitcell)
-	{
-		lua_pushstring(L, "Set the unit cell of a lattice site");
-		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. By default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
-		lua_pushstring(L, "");
-		return 3;
-	}
-
-	if(func == l_mag_getunitcell)
-	{
-		lua_pushstring(L, "Get the unit cell of a lattice site");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "9 numbers: The A, B and C vectors defining the unit cell. By default, this is (1,0,0,0,1,0,0,0,1) or a cubic system.");
-		return 3;
-	}
-
-	if(func == l_mag_settrunc)
-	{
-		lua_pushstring(L, "Set the truncation distance in spins of the Magnetostatic sum.");
-		lua_pushstring(L, "1 Integers: Radius of spins to sum out to.");
-		lua_pushstring(L, "");
-		return 3;
-	}
-	
-	if(func == l_mag_gettrunc)
-	{
-		lua_pushstring(L, "Get the truncation distance in spins of the Magnetostatic sum.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Integers: Radius of spins to sum out to.");
-		return 3;
-	}
-	
-	if(func == l_mag_setcelldims)
+	if(func == l_setcelldims)
 	{
 		lua_pushstring(L, "Set the dimension of each Rectangular Prism");
 		lua_pushstring(L, "1 *3Vector*: The x, y and z lengths of the prism");
@@ -461,7 +160,7 @@ static int l_mag_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_mag_getcelldims)
+	if(func == l_getcelldims)
 	{
 		lua_pushstring(L, "Get the dimension of each Rectangular Prism");
 		lua_pushstring(L, "");
@@ -469,7 +168,7 @@ static int l_mag_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_mag_setcrossover)
+	if(func == l_setcrossover)
 	{
 		lua_pushstring(L, "Set the relative error to define the crossover from magnetostatics to dipole calculations in the interaction matrix generation. Initial value is 0.0001.");
 		lua_pushstring(L, "1 Number: The relative error for the crossover");
@@ -477,7 +176,7 @@ static int l_mag_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_mag_getcrossover)
+	if(func == l_getcrossover)
 	{
 		lua_pushstring(L, "Get the relative error to define the crossover from magnetostatics to dipole calculations in the interaction matrix generation. Initial value is 0.0001.");
 		lua_pushstring(L, "");
@@ -485,91 +184,63 @@ static int l_mag_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_getmatrix)
-	{
-		lua_pushstring(L, "Get an element of an interaction matrix");
-		lua_pushstring(L, "1 string, 1 *3Vector*: The string indicates which AB matrix to access. Can be XX, XY, XZ, YY, YZ or ZZ. The *3Vector* indexes into the matrix. Note: indexes are zero-based and are interpreted as offsets.");
-		lua_pushstring(L, "1 number: The fetched value.");
-		return 3;
-	}
-
-	if(func == l_setmatrix)
-	{
-		lua_pushstring(L, "Set an element of an interaction matrix");
-		lua_pushstring(L, "1 string, 1 *3Vector*, 1 number: The string indicates which AB matrix to access. Can be XX, XY, XZ, YY, YZ or ZZ. The *3Vector* indexes into the matrix. The number is the value that is set at the index. Note: indexes are zero-based and are interpreted as offsets.");
-		lua_pushstring(L, "");
-		return 3;
-	}
-	return 0;
+	return LongRangeCuda::help(L);
 }
 
-static Encodable* newThing()
+
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* MagnetostaticCuda::luaMethods()
 {
-	return new MagnetostaticCuda;
-}
+	if(m[127].name)return m;
 
-void registerMagnetostatic(lua_State* L)
-{
-	static const struct luaL_reg methods [] = { //methods
-		{"__gc",         l_mag_gc},
-		{"__tostring",   l_mag_tostring},
-		{"apply",        l_mag_apply},
-		{"applyToSum",   l_mag_applytosum},
-		{"setStrength",  l_mag_setstrength},
-		{"strength",     l_mag_getstrength},
-
-		{"setCellDimensions", l_mag_setcelldims},
-		{"cellDimensions",    l_mag_getcelldims},
-
-		{"setUnitCell",  l_mag_setunitcell},
-		{"unitCell",     l_mag_getunitcell},
-		
-		{"setTruncation",l_mag_settrunc},
-		{"truncation",   l_mag_gettrunc},
-		
-		{"setCrossoverTolerance", l_mag_setcrossover},
-		{"crossoverTolerance", l_mag_setcrossover},
-		{"getMatrix",    l_getmatrix},
-		{"setMatrix",    l_setmatrix},
+	merge_luaL_Reg(m, LongRangeCuda::luaMethods());
+	static const luaL_Reg _m[] =
+	{
+		{"setCellDimensions", l_setcelldims},
+		{"cellDimensions",    l_getcelldims},
+		{"setCrossoverTolerance", l_setcrossover},
+		{"crossoverTolerance", l_setcrossover},
 		{NULL, NULL}
 	};
-		
-	luaL_newmetatable(L, "MERCER.magnetostatics");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);  /* pushes the metatable */
-	lua_settable(L, -3);  /* metatable.__index = metatable */
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-		
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_mag_new},
-		{"help",                l_mag_help},
-		{"metatable",           l_mag_mt},
-		{NULL, NULL}
-	};
-		
-	luaL_register(L, "Magnetostatic", functions);
-	lua_pop(L,1);	
-	
-	Factory_registerItem(ENCODE_MAGNETOSTATIC, newThing, lua_pushMagnetostatic, "Magnetostatic");
-
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
+
+
+
+#ifdef WIN32
+ #ifdef MAGNETOSTATICSCUDA_EXPORTS
+  #define MAGNETOSTATICSCUDA_API __declspec(dllexport)
+ #else
+  #define MAGNETOSTATICSCUDA_API __declspec(dllimport)
+ #endif
+#else
+ #define MAGNETOSTATICSCUDA_API 
+#endif
 
 
 extern "C"
 {
-MAGNETOSTATICSCUDA_API int lib_register(lua_State* L)
+MAGNETOSTATICSCUDA_API int lib_register(lua_State* L);
+MAGNETOSTATICSCUDA_API int lib_version(lua_State* L);
+MAGNETOSTATICSCUDA_API const char* lib_name(lua_State* L);
+MAGNETOSTATICSCUDA_API int lib_main(lua_State* L);
+	
+}
+
+int lib_register(lua_State* L)
 {
-	registerMagnetostatic(L);
+	luaT_register<MagnetostaticCuda>(L);
 	return 0;
 }
 
-MAGNETOSTATICSCUDA_API int lib_version(lua_State* L)
+int lib_version(lua_State* L)
 {
 	return __revi;
 }
 
-MAGNETOSTATICSCUDA_API const char* lib_name(lua_State* L)
+const char* lib_name(lua_State* L)
 {
 #if defined NDEBUG || defined __OPTIMIZE__
 	return "Magnetostatics-Cuda";
@@ -578,13 +249,9 @@ MAGNETOSTATICSCUDA_API const char* lib_name(lua_State* L)
 #endif
 }
 
-MAGNETOSTATICSCUDA_API int lib_main(lua_State* L, int argc, char** argv)
+int lib_main(lua_State* L)
 {
 	return 0;
 }
-}
-
-
-
 
 

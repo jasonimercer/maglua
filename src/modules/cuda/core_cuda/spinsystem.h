@@ -13,8 +13,7 @@
 #ifndef SPINSYSTEM
 #define SPINSYSTEM
 
-#include "luacommon.h"
-#include "encodable.h"
+#include "maglua.h"
 
 using namespace std;
 
@@ -40,12 +39,18 @@ CORECUDA_API void  getWSMem(double** ptr1,   size_t size1,
 			   double** ptr5=0, size_t size5=0);
 
 
-class CORECUDA_API SpinSystem : public Encodable
+class CORECUDA_API SpinSystem : public LuaBaseObject
 {
 public:
 	SpinSystem(const int nx=32, const int ny=32, const int nz=1);
 	~SpinSystem();
 
+	LINEAGE1("SpinSystem")
+	static const luaL_Reg* luaMethods();
+	virtual void push(lua_State* L);
+	virtual int luaInit(lua_State* L);
+	static int help(lua_State* L);
+	
 	SpinSystem* copy(lua_State* L);
 	bool copyFrom(lua_State* L, SpinSystem* src);
 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
@@ -81,23 +86,6 @@ public:
 	double* h_y;
 	double* h_z;
 	double* h_ms; // spin length
-	
-// 	double* h_x;
-// 	double* h_y;
-// 	double* h_z;
-
-
-	// temporary workspaces on the device
-	// these are used when kernels need to
-	// split into multiple parts to
-	// keep register counts down.
-// 	double* d_wsAll; //this is the real one. 
-// 
-// 	double* d_ws1; //these index into it
-// 	double* d_ws2;
-// 	double* d_ws3;
-// 	double* d_ws4;
-
 
 	
 	double* h_ws1;
@@ -113,15 +101,11 @@ public:
 	bool* slot_used;
 	int* extra_data; //used for site specific lua data
 	
-// 	int start_thread(int idx, void *(*start_routine)(void*), void* arg);
-// 	JThread** jthreads;
-	
-	double alpha;
 	double gamma;
+	double alpha;
 	double dt;
 	
 	int nx, ny, nz;
-	int refcount;
 
 	int nxyz;
 
@@ -148,12 +132,5 @@ private:
 	void init();
 	void deinit();
 };
-
-CORECUDA_API int         lua_isSpinSystem(lua_State* L, int idx);
-CORECUDA_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
-
-CORECUDA_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
-CORECUDA_API void lua_pushSpinSystem(lua_State* L, Encodable* ss);
-CORECUDA_API void registerSpinSystem(lua_State* L);
 
 #endif

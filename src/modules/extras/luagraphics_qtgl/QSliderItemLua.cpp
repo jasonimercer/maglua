@@ -94,6 +94,7 @@ static int l_setv(lua_State *L)
 {
 	LUA_PREAMBLE(QSliderItemLua, d, 1);
 	d->widget()->setOrientation(Qt::Vertical);
+	d->proxy->update();
 	return 0;
 }
 
@@ -101,6 +102,7 @@ static int l_seth(lua_State *L)
 {
 	LUA_PREAMBLE(QSliderItemLua, d, 1);
 	d->widget()->setOrientation(Qt::Horizontal);
+	d->proxy->update();
 	return 0;
 }
 
@@ -133,9 +135,9 @@ static int l_getvalue(lua_State *L)
 	return 1;
 }
 
-static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* QSliderItemLua::luaMethods()
 {
+	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)return m;
 
 	merge_luaL_Reg(m, QItemLua::luaMethods());
@@ -147,6 +149,7 @@ const luaL_Reg* QSliderItemLua::luaMethods()
 		{"setHorizontal", l_seth},
 		{"value", l_getvalue},
 		{"setValue", l_setvalue},
+		{NULL,NULL}
 	};
 	merge_luaL_Reg(m, _m);
 	m[127].name = (char*)1;

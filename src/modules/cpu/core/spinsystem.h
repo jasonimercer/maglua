@@ -15,7 +15,7 @@
 
 #include <complex>
 #include <fftw3.h>
-#include "luacommon.h"
+#include "maglua.h"
 #include "luabaseobject.h"
 
 #ifdef WIN32
