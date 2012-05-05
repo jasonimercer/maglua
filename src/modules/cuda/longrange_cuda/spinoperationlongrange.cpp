@@ -77,15 +77,26 @@ void LongRangeCuda::init()
 {
     if(XX) return;
 	deinit();
-	int s = nx*ny * (nz);// *2-1);
-	XX = new double[s];
-	XY = new double[s];
-	XZ = new double[s];
-	YY = new double[s];
-	YZ = new double[s];
-	ZZ = new double[s];
+	
+	XX = new dArray(nx,ny,nz);
+	XY = new dArray(nx,ny,nz);
+	XZ = new dArray(nx,ny,nz);
 
-// 	getPlan();
+	YY = new dArray(nx,ny,nz);
+	YZ = new dArray(nx,ny,nz);
+	ZZ = new dArray(nx,ny,nz);
+	
+	
+	qXX = new dcArray(nx,ny,nz);
+	qXY = new dcArray(nx,ny,nz);
+	qXZ = new dcArray(nx,ny,nz);
+
+	qYY = new dcArray(nx,ny,nz);
+	qYZ = new dcArray(nx,ny,nz);
+	qZZ = new dcArray(nx,ny,nz);
+
+	ws1 = new dcArray(nx,ny,nz);
+
 }
 
 static int offsetOK(int nx, int ny, int nz,  int x, int y, int z, int& offset)
@@ -106,7 +117,7 @@ double LongRangeCuda::get##AB (int ox, int oy, int oz) \
     loadMatrix(); \
 	int offset; \
 	if(offsetOK(nx,ny,nz, ox,oy,oz, offset)) \
-		return AB [offset]; \
+		return AB->data() [offset]; \
 	return 0; \
 } \
  \
@@ -118,7 +129,7 @@ void   LongRangeCuda::set##AB (int ox, int oy, int oz, double value) \
 	int offset; \
 	if(offsetOK(nx,ny,nz, ox,oy,oz, offset)) \
 	{ \
-		AB [offset] = value; \
+		AB->data() [offset] = value; \
 		newHostData = true; \
 	} \
 } 
@@ -158,19 +169,25 @@ void  LongRangeCuda::setAB(int matrix, int ox, int oy, int oz, double value)
 }
 void LongRangeCuda::deinit()
 {
-	if(plan)
-	{
-		free_JM_LONGRANGE_PLAN(plan);
-		plan = 0;
-	}	
+	
 	if(XX)
 	{
-		delete [] XX;
-		delete [] XY;
-		delete [] XZ;
-		delete [] YY;
-		delete [] YZ;
-		delete [] ZZ;
+		delete XX;
+		delete XY;
+		delete XZ;
+		delete YY;
+		delete YZ;
+		delete ZZ;
+
+		delete qXX;
+		delete qXY;
+		delete qXZ;
+		delete qYY;
+		delete qYZ;
+		delete qZZ;
+		
+		delete ws1;
+		
 		XX = 0;
 	}
 }
@@ -183,62 +200,51 @@ LongRangeCuda::~LongRangeCuda()
 
 void LongRangeCuda::loadMatrix()
 {
-	if(matrixLoaded) return;
-	init();
-	loadMatrixFunction(XX, XY, XZ, YY, YZ, ZZ); //implemented by child
-
-	matrixLoaded = true;
-}
-
-	
-bool LongRangeCuda::getPlan()
-{
-// 	deinit();
-/*	int s = nx*ny * (nz);// *2-1);
-	double* XX = new double[s];
-	double* XY = new double[s];
-	double* XZ = new double[s];
-	double* YY = new double[s];
-	double* YZ = new double[s];
-	double* ZZ = new double[s];*/
-
-	loadMatrix(); //only fires once
-
-// 	loadMatrixFunction(XX, XY, XZ, YY, YZ, ZZ); //implemented by child
-	
-	if(plan)
+	if(newHostData)
 	{
-		free_JM_LONGRANGE_PLAN(plan);
-		plan = 0;
-	}	
-	
-	const int sz = JM_LONGRANGE_PLAN_ws_size(nx, ny, nz);
-	
-	void* ws_d_A;
-	void* ws_d_B;
-	
-	getWSMem(&ws_d_A, sz, &ws_d_B, sz);
-	
-
-	
-	plan = make_JM_LONGRANGE_PLAN(nx, ny, nz,
-								  XX, XY, XZ,
-									  YY, YZ,
-									      ZZ, ws_d_A, ws_d_B);
-
-// 	delete [] XX;
-// 	delete [] XY;
-// 	delete [] XZ;
-// 	delete [] YY;
-// 	delete [] YZ;
-// 	delete [] ZZ;
-	
-	if(!plan)
-	{
-		errormsg = "Failed to factor system into small primes\n";
+		matrixLoaded = true; //user made a custom matrix
+		return;
 	}
 	
-	return plan != 0;
+	if(matrixLoaded) return;
+	init();
+	loadMatrixFunction(XX->data(), XY->data(), XZ->data(), YY->data(), YZ->data(), ZZ->data()); //implemented by child
+
+	matrixLoaded = true;
+	newHostData = true;
+}
+
+static void r2c(const dArray* src, dcArray* dest)
+{
+	cuDoubleComplex* dd = dest->data();
+	double* ss = src->data();
+	for(int i=0; i<src->array->nxyz; i++)
+	{
+		dd[i].x = ss[i];
+		dd[i].y = 0;
+	}
+}
+	
+bool LongRangeCuda::updateData()
+{
+	if(!matrixLoaded)
+		loadMatrix();
+	
+	if(!newHostData)
+		return true;
+	newHostData = true;
+	
+	void* ws_d;
+	const int sz = sizeof(cuDoubleComplex)*nx*ny*nz;
+	getWSMem(&ws_d_A, sz);
+	
+	//got new host data, need to FT it and have it on the GPU
+	r2c(XX, ws1);        ws1->array->fft2DTo(qXX->array, ws_d);
+	r2c(XY, ws1);        ws1->array->fft2DTo(qXY->array, ws_d);
+	r2c(XZ, ws1);        ws1->array->fft2DTo(qXZ->array, ws_d);
+	r2c(YY, ws1);        ws1->array->fft2DTo(qYY->array, ws_d);
+	r2c(YZ, ws1);        ws1->array->fft2DTo(qYZ->array, ws_d);
+	r2c(ZZ, ws1); return ws1->array->fft2DTo(qZZ->array, ws_d);
 }
 
 bool LongRangeCuda::applyToSum(SpinSystem* ss)

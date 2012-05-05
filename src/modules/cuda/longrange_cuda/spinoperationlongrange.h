@@ -14,8 +14,7 @@
 #define SPINOPERATIONLONGRANGECUDA
 
 #include "spinoperation.h"
-#include "longrange_kernel.hpp"
-
+#include "array.h"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -87,14 +86,29 @@ private:
 	bool newHostData;
 	bool matrixLoaded;
 	
-	JM_LONGRANGE_PLAN* plan;
+	
+	// these are the real components
+	// the aim here will be to not trigger 
+	// the GPU memory of these arrays
+	dArray* XX;
+	dArray* XY;
+	dArray* XZ;
 
-	double* XX;
-	double* XY;
-	double* XZ;
-	double* YY;
-	double* YZ;
-	double* ZZ;
+	dArray* YY;
+	dArray* YZ;
+	dArray* ZZ;
+	
+	//these are the FT'd components
+	dcArray* qXX;
+	dcArray* qXY;
+	dcArray* qXZ;
+
+	dcArray* qYY;
+	dcArray* qYZ;
+	dcArray* qZZ;
+
+	dcArray* ws1;
+	
 };
 
 

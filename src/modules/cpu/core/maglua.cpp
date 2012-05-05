@@ -12,6 +12,7 @@
 
 #include "maglua.h"
 #include "info.h"
+#include "array.h"
 #include "spinsystem.h"
 extern "C"
 {
@@ -28,7 +29,6 @@ CORE_API int lib_main(lua_State* L);
 #include <stdio.h>
 CORE_API int lib_register(lua_State* L)
 {
-	//fftw_init_threads();
 	luaT_register<SpinSystem>(L);
 	return 0;
 }

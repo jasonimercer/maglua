@@ -10,7 +10,7 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "luacommon.h"
+#include "maglua.h"
 
 #ifndef LLGQUATDEF
 #define LLGQUATDEF

@@ -14,6 +14,7 @@
 #define SPINOPERATIONLONGRANGE
 
 #include "spinoperation.h"
+#include "array.h"
 
 #ifdef WIN32
  #ifdef LONGRANGE_EXPORTS
@@ -25,9 +26,6 @@
  #define LONGRANGE_API 
 #endif
 
-
-#include <complex>
-#include <fftw3.h>
 
 using namespace std;
 
@@ -91,36 +89,33 @@ private:
 	bool hasMatrices;
 	bool matrixLoaded;
 
-	complex<double>* srx;
-	complex<double>* sry;
-	complex<double>* srz;
+	dcArray* srx;
+	dcArray* sry;
+	dcArray* srz;
 
-	complex<double>* hqx;
-	complex<double>* hqy;
-	complex<double>* hqz;
+	dcArray* hqx;
+	dcArray* hqy;
+	dcArray* hqz;
 
-	complex<double>* hrx;
-	complex<double>* hry;
-	complex<double>* hrz;
+	dcArray* hrx;
+	dcArray* hry;
+	dcArray* hrz;
 
 
-	complex<double>* qXX;
-	complex<double>* qXY;
-	complex<double>* qXZ;
+	dcArray* qXX;
+	dcArray* qXY;
+	dcArray* qXZ;
 
-	complex<double>* qYY;
-	complex<double>* qYZ;
-	complex<double>* qZZ;
+	dcArray* qYY;
+	dcArray* qYZ;
+	dcArray* qZZ;
 
-	double* XX;
-	double* XY;
-	double* XZ;
-	double* YY;
-	double* YZ;
-	double* ZZ;
-
-	fftw_plan forward;
-	fftw_plan backward;
+	dArray* XX;
+	dArray* XY;
+	dArray* XZ;
+	dArray* YY;
+	dArray* YZ;
+	dArray* ZZ;
 };
 
 

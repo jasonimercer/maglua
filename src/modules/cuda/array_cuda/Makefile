@@ -9,17 +9,19 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=llg.o llgquat.o llgfake.o llgalign.o llgcartesian.o llg_wrapper.o
-LIBNAME=LLG
-CATEGORY=cpu
+OBJECTS=array.o memory.cuo array_ops.cuo fourier.o fourier_kernel.cuo  array_core_cuda.o
+LIBNAME=ArrayCUDA
+CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core luabaseobject
+DEPEND=luabaseobject
 BASEDIR=../../..
+EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
+include $(BASEDIR)/makefile.common.gpu
 
-llg_wrapper.h: llg_wrapper.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua llg_wrapper.lua
+fourier.h: fourier.lua $(BASEDIR)/hardcode.lua
+	lua $(BASEDIR)/hardcode.lua fourier.lua
 
-llg_wrapper.cpp: llg_wrapper.lua
-	touch llg_wrapper.cpp
+fourier.cpp: fourier.lua
+	touch fourier.cpp

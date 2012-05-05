@@ -213,7 +213,10 @@ void DrawPOVRay::draw(Camera& c)
 
 void DrawPOVRay::draw(Transformation& t)
 {
-	out << "union {" << endl;
+// 	if(t.volumes.size() < 2)
+// 		out << "merge {" << endl;
+// 	else
+ 	out << "union {" << endl;
 
 	for(unsigned int i=0; i<t.volumes.size(); i++)
 	{

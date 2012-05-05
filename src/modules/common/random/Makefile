@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=mersennetwister.o random.o isaac.o crand.o
+OBJECTS=mersennetwister.o random.o isaac.o crand.o random_wrapper.o
 LIBNAME=Random
 CATEGORY=common
 
@@ -17,3 +17,8 @@ DEPEND=luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 
+random_wrapper.h: random_wrapper.lua $(BASEDIR)/hardcode.lua
+	lua $(BASEDIR)/hardcode.lua random_wrapper.lua
+
+random_wrapper.cpp: random_wrapper.lua
+	touch random_wrapper.cpp

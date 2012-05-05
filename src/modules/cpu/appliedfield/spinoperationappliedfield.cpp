@@ -57,9 +57,9 @@ AppliedField::~AppliedField()
 
 bool AppliedField::apply(SpinSystem* ss)
 {
-	double* hx = ss->hx[slot];
-	double* hy = ss->hy[slot];
-	double* hz = ss->hz[slot];
+	dArray& hx = (*ss->hx[slot]);
+	dArray& hy = (*ss->hy[slot]);
+	dArray& hz = (*ss->hz[slot]);
 
 	const int nxyz = ss->nx * ss->ny * ss->nz; //these are not imported
 	

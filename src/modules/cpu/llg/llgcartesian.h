@@ -13,7 +13,7 @@
 #ifndef LLGCARTESIAN
 #define LLGCARTESIAN
 
-#include "luacommon.h"
+#include "maglua.h"
 #include "llg.h"
 #include <string>
 

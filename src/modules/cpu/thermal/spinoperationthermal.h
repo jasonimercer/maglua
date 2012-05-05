@@ -14,6 +14,7 @@
 #define SPINOPERATIONTHERMAL
 
 #include "spinoperation.h"
+#include "array.h"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -49,7 +50,7 @@ public:
 	void scaleSite(int px, int py, int pz, double strength);
 
 	double temperature;
-	double* scale;
+	dArray* scale;
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);

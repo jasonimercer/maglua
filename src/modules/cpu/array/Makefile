@@ -9,17 +9,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=llg.o llgquat.o llgfake.o llgalign.o llgcartesian.o llg_wrapper.o
-LIBNAME=LLG
+OBJECTS=array.o array_ops.o fourier.o  array_core_cpu.o
+LIBNAME=Array
 CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core luabaseobject
+DEPEND=luabaseobject
 BASEDIR=../../..
+EXTRA_PKG=fftw3f
 include $(BASEDIR)/makefile.common.cpu
-
-llg_wrapper.h: llg_wrapper.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua llg_wrapper.lua
-
-llg_wrapper.cpp: llg_wrapper.lua
-	touch llg_wrapper.cpp

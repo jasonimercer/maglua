@@ -22,19 +22,19 @@ LLGAlign::LLGAlign()
 
 bool  LLGAlign::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
-	const double* sx = spinfrom->x;
-	const double* sy = spinfrom->y;
-	const double* sz = spinfrom->z;
-	const double* ms = spinfrom->ms;
-	      double* mt = spinto->ms;
+// 	const double* sx = spinfrom->x->data;
+// 	const double* sy = spinfrom->y->data;
+// 	const double* sz = spinfrom->z->data;
+	const double* ms = spinfrom->ms->data;
+	      double* mt = spinto->ms->data;
 
-	const double* hx = dmdt->hx[SUM_SLOT];
-	const double* hy = dmdt->hy[SUM_SLOT];
-	const double* hz = dmdt->hz[SUM_SLOT];
+	const double* hx = dmdt->hx[SUM_SLOT]->data;
+	const double* hy = dmdt->hy[SUM_SLOT]->data;
+	const double* hz = dmdt->hz[SUM_SLOT]->data;
 
-	      double* x  = spinto->x;
-	      double* y  = spinto->y;
-	      double* z  = spinto->z;
+	      double* x  = spinto->x->data;
+	      double* y  = spinto->y->data;
+	      double* z  = spinto->z->data;
 
 	for(int i=0; i<spinfrom->nxyz; i++)
 	{

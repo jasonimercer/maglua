@@ -99,13 +99,13 @@ bool Exchange::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
 
-	double* hx = ss->hx[slot];
-	double* hy = ss->hy[slot];
-	double* hz = ss->hz[slot];
+	dArray& hx = (*ss->hx[slot]);
+	dArray& hy = (*ss->hy[slot]);
+	dArray& hz = (*ss->hz[slot]);
 
-	const double* sx = ss->x;
-	const double* sy = ss->y;
-	const double* sz = ss->z;
+	dArray& sx = (*ss->x);
+	dArray& sy = (*ss->y);
+	dArray& sz = (*ss->z);
 
 	#pragma omp parallel for shared(hx,sx)
 	for(int i=0; i<num; i++)

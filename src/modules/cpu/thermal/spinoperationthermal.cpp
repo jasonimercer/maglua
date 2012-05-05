@@ -19,21 +19,19 @@
 Thermal::Thermal(int nx, int ny, int nz)
 	: SpinOperation(Thermal::typeName(), THERMAL_SLOT, nx, ny, nz, hash32(Thermal::typeName()))
 {
-	scale = new double[nxyz];
-	for(int i=0; i<nxyz; i++)
-		scale[i] = 1.0;
+	scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	scale->setAll(1.0);
 	temperature = 0;
 }
 
 int Thermal::luaInit(lua_State* L)
 {
-	if(scale)
-		delete [] scale;
+	luaT_dec<dArray>(scale);
+
 	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
 
-	scale = new double[nxyz];
-	for(int i=0; i<nxyz; i++)
-		scale[i] = 1.0;
+	scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	scale->setAll(1.0);
 	temperature = 0;
 	return 0;
 }
@@ -49,8 +47,7 @@ void Thermal::encode(buffer* b)
 	
 	encodeDouble(temperature, b);
 	
-	for(int i=0; i<nxyz; i++)
-		encodeDouble(scale[i], b);
+	scale->encode(b);
 }
 
 int  Thermal::decode(buffer* b)
@@ -59,19 +56,16 @@ int  Thermal::decode(buffer* b)
 	
 	temperature = decodeDouble(b);
 	
-	if(scale)
-		delete [] scale;
-	
-	scale = new double[nxyz];
-	
-	for(int i=0; i<nxyz; i++)
-		scale[i] = decodeDouble(b);
+	luaT_dec<dArray>(scale);
+	scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	scale->decode(b);
 	return 0;
 }
 
 Thermal::~Thermal()
 {
-	delete [] scale;
+	luaT_dec<dArray>(scale);
+
 }
 
 bool Thermal::apply(RNG* rand, SpinSystem* ss)
@@ -82,17 +76,17 @@ bool Thermal::apply(RNG* rand, SpinSystem* ss)
 	const double dt    = ss->dt;
 	const double gamma = ss->gamma;
 
-	double* hx = ss->hx[slot];
-	double* hy = ss->hy[slot];
-	double* hz = ss->hz[slot];
+	double* hx = ss->hx[slot]->data;
+	double* hy = ss->hy[slot]->data;
+	double* hz = ss->hz[slot]->data;
 	
 	for(int i=0; i<ss->nxyz; i++)
 	{
-		const double ms = ss->ms[i];
+		const double ms = ss->ms->data[i];
 		if(ms != 0 && temperature != 0)
 		{
 // 			double stddev = sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma * (1+alpha*alpha)));
-			const double stddev = global_scale * sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma));
+			const double stddev = global_scale * sqrt((2.0 * alpha * temperature * (*scale)[i]) / (ms * dt * gamma));
 			
 			hx[i] = stddev * rand->randNorm(0, 1);
 			hy[i] = stddev * rand->randNorm(0, 1);
@@ -110,10 +104,11 @@ bool Thermal::apply(RNG* rand, SpinSystem* ss)
 
 void Thermal::scaleSite(int px, int py, int pz, double strength)
 {
-	if(member(px, py, pz))
+	int idx;
+
+	if(scale->member(px,py,pz, idx))
 	{
-		int idx = getidx(px, py, pz);
-		scale[idx] = strength;
+		(*scale)[idx] = strength;
 	}
 }
 
@@ -169,6 +164,30 @@ static int l_gettemp(lua_State* L)
 	return 1;
 }
 
+
+static int l_getscalearray(lua_State* L)
+{
+	LUA_PREAMBLE(Thermal, th, 1);
+	luaT_push<dArray>(L, th->scale);
+	return 1;
+}
+static int l_setscalearray(lua_State* L)
+{
+	LUA_PREAMBLE(Thermal, th, 1);
+	LUA_PREAMBLE(dArray, s, 1);
+	if(th->scale->sameSize(s))
+	{
+		luaT_inc<dArray>(s);
+		luaT_dec<dArray>(th->scale);
+		th->scale = s;
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+	return 0;
+}
+
 int Thermal::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -222,6 +241,21 @@ int Thermal::help(lua_State* L)
 		lua_pushstring(L, "1 number: temperature of the system.");
 		return 3;
 	}
+	
+	if(func == l_getscalearray)
+	{
+		lua_pushstring(L, "Get an array representing the thermal scale at each site. This array is connected to the Operator so changes to the returned array will change the Operator.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: The thermal scale of the sites.");
+		return 3;
+	}
+	if(func == l_setscalearray)
+	{
+		lua_pushstring(L, "Set an array representing the new thermal scale at each site.");
+		lua_pushstring(L, "1 Array: The thermal scale of the sites.");
+		lua_pushstring(L, "");
+		return 3;
+	}
 
 	return SpinOperation::help(L);
 }
@@ -240,6 +274,8 @@ const luaL_Reg* Thermal::luaMethods()
 		{"set",          l_settemp},
 		{"get",          l_gettemp},
 		{"temperature",  l_gettemp},
+		{"arrayScale",  l_getscalearray},
+		{"setArrayScale",  l_setscalearray},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

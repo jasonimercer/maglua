@@ -135,26 +135,29 @@ bool Anisotropy::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
 
-	double* hx = ss->hx[slot];
-	double* hy = ss->hy[slot];
-	double* hz = ss->hz[slot];
+	dArray& hx = (*ss->hx[slot]);
+	dArray& hy = (*ss->hy[slot]);
+	dArray& hz = (*ss->hz[slot]);
 
-	for(int i=0; i<nxyz; i++) hx[i] = 0;
-	for(int i=0; i<nxyz; i++) hy[i] = 0;
-	for(int i=0; i<nxyz; i++) hz[i] = 0;
-	
-	#pragma omp parallel for shared(hx,hy,hz)
+	dArray& x = (*ss->x);
+	dArray& y = (*ss->y);
+	dArray& z = (*ss->z);
+
+	hx.zero();
+	hy.zero();
+	hz.zero();
+
 	for(int j=0; j<num; j++)
 	{
 		const ani& op = ops[j];
 		const int i = op.site;
-		const double ms = ss->ms[i];
+		const double ms = (*ss->ms)[i];
 		if(ms > 0)
 		{
 			const double SpinDotEasyAxis = 
-								ss->x[i] * op.axis[0] +
-								ss->y[i] * op.axis[1] +
-								ss->z[i] * op.axis[2];
+								x[i] * op.axis[0] +
+								y[i] * op.axis[1] +
+								z[i] * op.axis[2];
 
 			const double v = 2.0 * op.strength * SpinDotEasyAxis / (ms * ms);
 
@@ -214,14 +217,14 @@ static int l_add(lua_State* L)
 	LUA_PREAMBLE(Anisotropy, ani, 1);
 
 	int p[3];
-	
+
 	int r1 = lua_getNint(L, 3, p, 2, 1);
 	
 	if(r1<0)
 		return luaL_error(L, "invalid site format");
 	
 	if(!ani->member(p[0]-1, p[1]-1, p[2]-1))
-		return luaL_error(L, "site is not part of system");
+		return luaL_error(L, "site (%d, %d, %d) is not part of operator (%dx%dx%d)", p[0], p[1], p[2], ani->nx, ani->ny, ani->nz);
 
 	int idx = ani->getidx(p[0]-1, p[1]-1, p[2]-1);
 

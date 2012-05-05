@@ -13,10 +13,9 @@
 #ifndef SPINSYSTEM
 #define SPINSYSTEM
 
-#include <complex>
-#include <fftw3.h>
 #include "maglua.h"
 #include "luabaseobject.h"
+#include "array.h"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -59,22 +58,23 @@ public:
 	void getNetMag(double* v4);
 	
 	void diff(SpinSystem* other, double* v4);
-	
-	double* x;
-	double* y;
-	double* z;
-	
-	complex<double>* qx;
-	complex<double>* qy;
-	complex<double>* qz;
 
-	double** hx;
-	double** hy;
-	double** hz;
+	dArray* x;
+	dArray* y;
+	dArray* z;
+	
+	dcArray* qx;
+	dcArray* qy;
+	dcArray* qz;
+
+	dArray** hx;
+	dArray** hy;
+	dArray** hz;
+
 	bool* slot_used;
 	int* extra_data; //used for site specific lua data
 
-	double* ms; // spin length
+	dArray* ms; // spin length
 	
 	double alpha;
 	double gamma;
@@ -86,24 +86,21 @@ public:
 	int nslots;
 
 	double time;
-	double fft_time; //this is the time of the last fft
+	double fft_timeC[3]; //last time for fft of component i (x,y,z)
 	
 	void fft();
+	void fft(int component);
 		
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 
 private:
-	void init_fft();
-	
 	void init();
 	void deinit();
-	fftw_plan r2q;
 
-	complex<double>* rx;
-	complex<double>* ry;
-	complex<double>* rz;
-	
+	dcArray* rx;
+	dcArray* ry;
+	dcArray* rz;
 };
 
 // CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);

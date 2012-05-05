@@ -21,39 +21,36 @@ DisorderedDipole::DisorderedDipole(int nx, int ny, int nz)
 	: SpinOperation(DisorderedDipole::typeName(), DIPOLE_SLOT, nx, ny, nz, hash32(DisorderedDipole::typeName()))
 {
 	posx = 0;
+	posy = 0;
+	posz = 0;
 	init();
 }
 
 void DisorderedDipole::init()
 {
-	if(posx)
-	{
-		delete [] posx;
-		delete [] posy;
-		delete [] posz;
-	}
+	luaT_dec<dArray>(posx);
+	luaT_dec<dArray>(posy);
+	luaT_dec<dArray>(posz);
 	
-	posx = new double [nxyz];
-	posy = new double [nxyz];
-	posz = new double [nxyz];
+	posx = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	posy = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	posz = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	
-	for(int i=0; i<nxyz; i++)
-	{
-		posx[i] = 0;
-		posy[i] = 0;
-		posz[i] = 0;
-	}
+	posx->zero();
+	posy->zero();
+	posz->zero();
+	
 }
 
 void DisorderedDipole::deinit()
 {
-	if(posx)
-	{
-		delete [] posx;
-		delete [] posy;
-		delete [] posz;
-	}
-	posx = 0;	
+	luaT_dec<dArray>(posx);
+	luaT_dec<dArray>(posy);
+	luaT_dec<dArray>(posz);
+	
+	posx = 0;
+	posy = 0;
+	posz = 0;
 }
 
 	
@@ -77,12 +74,10 @@ void DisorderedDipole::encode(buffer* b)
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
 	encodeDouble(global_scale, b);
-	for(int i=0; i<nxyz; i++)
-	{
-		encodeDouble(posx[i], b);
-		encodeDouble(posy[i], b);
-		encodeDouble(posz[i], b);
-	}
+	
+	posx->encode(b);
+	posy->encode(b);
+	posz->encode(b);
 }
 
 int  DisorderedDipole::decode(buffer* b)
@@ -93,29 +88,26 @@ int  DisorderedDipole::decode(buffer* b)
 	nz = decodeInteger(b);
 	global_scale = decodeDouble(b);
 	init();
-	for(int i=0; i<nxyz; i++)
-	{
-		posx[i] = decodeDouble(b);
-		posy[i] = decodeDouble(b);
-		posz[i] = decodeDouble(b);
-	}
+	
+	posx->decode(b);
+	posy->decode(b);
+	posz->decode(b);
+
 	return 0;
 }
 
 DisorderedDipole::~DisorderedDipole()
 {
-	delete [] posx;
-	delete [] posy;
-	delete [] posz;
+	deinit();
 }
 
 void DisorderedDipole::setPosition(int site, double px, double py, double pz)
 {
 	if(site >= 0 && site <= nxyz)
 	{
-		posx[site] = px;
-		posy[site] = py;
-		posz[site] = pz;
+		(*posx)[site] = px;
+		(*posy)[site] = py;
+		(*posz)[site] = pz;
 	}
 }
 
@@ -125,13 +117,13 @@ bool DisorderedDipole::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
 
-	double* x = ss->x;
-	double* y = ss->y;
-	double* z = ss->z;
+	double* x = ss->x->data;
+	double* y = ss->y->data;
+	double* z = ss->z->data;
 	
-	double* hx = ss->hx[DIPOLE_SLOT];
-	double* hy = ss->hy[DIPOLE_SLOT];
-	double* hz = ss->hz[DIPOLE_SLOT];
+	double* hx = ss->hx[DIPOLE_SLOT]->data;
+	double* hy = ss->hy[DIPOLE_SLOT]->data;
+	double* hz = ss->hz[DIPOLE_SLOT]->data;
 	
 	double r1[3], r2[3];
 	double rij[3];
@@ -143,17 +135,17 @@ bool DisorderedDipole::apply(SpinSystem* ss)
 		hx[i] = 0;
 		hy[i] = 0;
 		hz[i] = 0;
-		r1[0] = posx[i];
-		r1[1] = posy[i];
-		r1[2] = posz[i];
+		r1[0] = posx->data[i];
+		r1[1] = posy->data[i];
+		r1[2] = posz->data[i];
 		
 		for(int j=0; j<nxyz; j++)
 		{
 			if(i != j)
 			{
-				r2[0] = posx[j];
-				r2[1] = posy[j];
-				r2[2] = posz[j];
+				r2[0] = posx->data[j];
+				r2[1] = posy->data[j];
+				r2[2] = posz->data[j];
 				
 				for(int k=0; k<3; k++)
 					rij[k] = r2[k] - r1[k];
@@ -232,14 +224,84 @@ static int l_siteposition(lua_State* L)
 	
 	int site = dip->getSite(s[0]-1, s[1]-1, s[2]-1);
 	
-	lua_pushnumber(L, dip->posx[site]);
-	lua_pushnumber(L, dip->posy[site]);
-	lua_pushnumber(L, dip->posz[site]);
+	lua_pushnumber(L, dip->posx->data[site]);
+	lua_pushnumber(L, dip->posy->data[site]);
+	lua_pushnumber(L, dip->posz->data[site]);
 	return 3;
 }
 
-#if 0
-static int l_help(lua_State* L)
+
+static int l_getarrayx(lua_State* L)
+{
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
+	luaT_push<dArray>(L, dip->posx);
+	return 1;
+}
+static int l_getarrayy(lua_State* L)
+{
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
+	luaT_push<dArray>(L, dip->posy);
+	return 1;
+}
+static int l_getarrayz(lua_State* L)
+{
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
+	luaT_push<dArray>(L, dip->posz);
+	return 1;
+}
+
+static int l_setarrayx(lua_State* L)
+{
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
+	LUA_PREAMBLE(dArray, a, 2);
+	if(dip->posx->sameSize(a))
+	{
+		luaT_inc<dArray>(a);
+		luaT_dec<dArray>(dip->posx);
+		dip->posx = a;
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+	return 0;
+}
+static int l_setarrayy(lua_State* L)
+{
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
+	LUA_PREAMBLE(dArray, a, 2);
+	if(dip->posy->sameSize(a))
+	{
+		luaT_inc<dArray>(a);
+		luaT_dec<dArray>(dip->posx);
+		dip->posy = a;
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+	return 0;
+}
+static int l_setarrayz(lua_State* L)
+{
+	LUA_PREAMBLE(DisorderedDipole, dip, 1);
+	LUA_PREAMBLE(dArray, a, 2);
+	if(dip->posz->sameSize(a))
+	{
+		luaT_inc<dArray>(a);
+		luaT_dec<dArray>(dip->posx);
+		dip->posz = a;
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+	return 0;
+}
+
+
+
+int DisorderedDipole::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
@@ -261,22 +323,6 @@ static int l_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-	if(func == l_new)
-	{
-		lua_pushstring(L, "Create a new DisorderedDipole Operator.");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 DisorderedDipole object");
-		return 3;
-	}
-	
-	
-	if(func == l_apply)
-	{
-		lua_pushstring(L, "Calculate the dipolar field of a *SpinSystem*");
-		lua_pushstring(L, "1 *SpinSystem*: This spin system will receive the field");
-		lua_pushstring(L, "");
-		return 3;
-	}
 	
 	if(func == l_setstrength)
 	{
@@ -310,11 +356,47 @@ static int l_help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_getarrayx)
+	{
+		lua_pushstring(L, "Get an array representing the X components site positions. This array is connected to the Operator so changes to the returned array will change operator.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: The X components of the positions.");
+	}
+	if(func == l_getarrayy)
+	{
+		lua_pushstring(L, "Get an array representing the Y components site positions. This array is connected to the Operator so changes to the returned array will change operator.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: The Y components of the positions.");
+	}
+	if(func == l_getarrayz)
+	{
+		lua_pushstring(L, "Get an array representing the Z components site positions. This array is connected to the Operator so changes to the returned array will change operator.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: The Z components of the positions.");
+	}
 	
-
-	return 0;
+		
+	if(func == l_setarrayx)
+	{
+		lua_pushstring(L, "Set an array representing the X components site positions.");
+		lua_pushstring(L, "1 Array: The X components of the positions.");
+		lua_pushstring(L, "");
+	}
+	if(func == l_setarrayy)
+	{
+		lua_pushstring(L, "Set an array representing the Y components site positions.");
+		lua_pushstring(L, "1 Array: The Y components of the positions.");
+		lua_pushstring(L, "");
+	}
+	if(func == l_setarrayz)
+	{
+		lua_pushstring(L, "Set an array representing the Z components site positions.");
+		lua_pushstring(L, "1 Array: The Z components of the positions.");
+		lua_pushstring(L, "");
+	}
+	
+	return SpinOperation::help(L);
 }
-#endif
 
 
 static luaL_Reg m[128] = {_NULLPAIR128};
@@ -329,6 +411,12 @@ const luaL_Reg* DisorderedDipole::luaMethods()
 		{"strength",     l_getstrength},
 		{"setSitePosition", l_setsiteposition},
 		{"sitePosition", l_siteposition},
+		{"arrayX", l_getarrayx},
+		{"arrayY", l_getarrayy},
+		{"arrayZ", l_getarrayz},
+		{"setArrayX", l_getarrayx},
+		{"setArrayY", l_getarrayy},
+		{"setArrayZ", l_getarrayz},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

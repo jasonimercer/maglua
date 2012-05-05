@@ -78,7 +78,6 @@ static int l_apply(lua_State* L)
 	ss[1] = ss[0];
 	ss[2] = ss[0];
 	
-	SpinSystem* t;
 	//get 2nd and 3rd systems if present
 	for(int i=0; i<2; i++)
 	{
@@ -179,6 +178,7 @@ LLG_API const char* lib_name(lua_State* L);
 LLG_API int lib_main(lua_State* L);
 }
 
+#include "llg_wrapper.h"
 LLG_API int lib_register(lua_State* L)
 {
 	luaT_register<LLG>(L);
@@ -186,6 +186,11 @@ LLG_API int lib_register(lua_State* L)
 	luaT_register<LLGQuaternion>(L);
 	luaT_register<LLGAlign>(L);
 	luaT_register<LLGFake>(L);	
+	
+	if(luaL_dostring(L, __llg_wrapper))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+	}
 	return 0;
 }
 

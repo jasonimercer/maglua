@@ -15,6 +15,7 @@ PKG=lua5.1 fftw3 $(EXTRA_PKG)
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
 		-I$(BASEDIR) \
 		-I$(BASEDIR)/modules/common/luabaseobject \
+		-I$(BASEDIR)/modules/cpu/array \
 		-I$(BASEDIR)/modules/cpu/core $(EXTRA_INCLUDE)
 
 LIBS=`pkg-config --libs $(PKG)` -lpthread $(EXTRALIBS)

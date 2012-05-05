@@ -21,86 +21,18 @@
 #include <string.h>
 #include <vector>
 #include "luamigrate.h"
-#include "spinsystem.hpp"
 
 using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
-void  getWSMem(double** ptr0, size_t size0, 
-			   double** ptr1, size_t size1, 
-			   double** ptr2, size_t size2,
-			   double** ptr3, size_t size3,
-			   double** ptr4, size_t size4)
-{
-	getWSMem( (void**) ptr0, size0, 
-			  (void**) ptr1, size1, 
-			  (void**) ptr2, size2, 
-			  (void**) ptr3, size3, 
-			  (void**) ptr4, size4 );
-}
-
-void  getWSMem(void** ptr0, size_t size0, 
-			   void** ptr1, size_t size1, 
-			   void** ptr2, size_t size2,
-			   void** ptr3, size_t size3,
-			   void** ptr4, size_t size4)
-{
-	void** ptr[5]  = {ptr0, ptr1, ptr2, ptr3, ptr4};
-	size_t size[5] = {size0, size1, size2, size3, size4};
-	
-	for(int i=0; i<5; i++)
-	{
-		if(!ptr[i]) return;
-		if(size[i] > WS_MEM.size[i]) 
-		{
-			free_device(WS_MEM.d_memory[i]);
-			malloc_device(&(WS_MEM.d_memory[i]), size[i]);
-			WS_MEM.size[i] = size[i];
-		}
-		*ptr[i] = WS_MEM.d_memory[i];
-	}
-}
-
-
-
-void registerWS()
-{
-	if(!WS_MEM.refcount)
-	{
-		for(int i=0; i<5; i++)
-		{
-				WS_MEM.d_memory[i] = 0;
-				WS_MEM.size[i] = 0;
-		}
-	}
-	WS_MEM.refcount++;
-}
-
-void  unregisterWS()
-{
-	WS_MEM.refcount--;
-	
-	if(!WS_MEM.refcount)
-	{
-		for(int i=0; i<5; i++)
-		{
-			free_device(WS_MEM.d_memory[i]);
-			WS_MEM.d_memory[i] = 0;
-			WS_MEM.size[i] = 0;
-		}
-	}
-}
-
-
 SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
-	: LuaBaseObject(ENCODE_SPINSYSTEM), d_x(0), d_y(0), d_z(0), 
-		d_ms(0), gamma(1.0), alpha(1.0), dt(1.0),
+	: LuaBaseObject(ENCODE_SPINSYSTEM), x(0), y(0), z(0), 
+		ms(0), gamma(1.0), alpha(1.0), dt(1.0),
 		nx(NX), ny(NY), nz(NZ),
-		time(0)
+		nslots(NSLOTS), time(0)
 {
-	d_x = 0;
-	init();
 	L = 0;
+    init();
 }
 
 void SpinSystem::push(lua_State* L)
@@ -131,80 +63,6 @@ int SpinSystem::luaInit(lua_State* L)
 }
 
 
-void SpinSystem::sync_spins_dh(bool force)
-{
-	if(new_device_spins || force)
-	{
-		if(new_host_spins)
-		{
-			printf("(%s:%i) overwriting new host spins\n", __FILE__, __LINE__);
-		}
-		
-		const size_t dxyz = sizeof(double) * nxyz;
-
-		memcpy_d2h(h_x, d_x, dxyz);
-		memcpy_d2h(h_y, d_y, dxyz);
-		memcpy_d2h(h_z, d_z, dxyz);
-		memcpy_d2h(h_ms,d_ms,dxyz);
-
-		new_device_spins = false;
-		new_host_spins = false;
-	}
-}
-
-void SpinSystem::sync_fields_dh(int field, bool force)
-{
-	ensureSlotExists(field);
-
-	if(new_device_fields[field] || force)
-	{
-		const size_t dxyz = sizeof(double) * nxyz;
-// 	  printf("(%s:%i) sync_fields_dh(%i)\n", __FILE__, __LINE__, field);
-		memcpy_d2h(h_hx[field], d_hx[field], dxyz);
-		memcpy_d2h(h_hy[field], d_hy[field], dxyz);
-		memcpy_d2h(h_hz[field], d_hz[field], dxyz);
-		
-		new_device_fields[field] = false;
-		new_host_fields[field] = false;
-	}
-}
-
-void SpinSystem::sync_spins_hd(bool force)
-{
-	if(new_host_spins || force)
-	{
-		const size_t dxyz = sizeof(double) * nxyz;
-
-// 	  printf("(%s:%i) sync_spins_hd\n", __FILE__, __LINE__);
-		memcpy_h2d(d_x, h_x, dxyz);
-		memcpy_h2d(d_y, h_y, dxyz);
-		memcpy_h2d(d_z, h_z, dxyz);
-		memcpy_h2d(d_ms,h_ms,dxyz);
-		
-		new_host_spins = false;
-		new_device_spins = false;
-	}
-}
-
-void SpinSystem::sync_fields_hd(int field, bool force)
-{
-	ensureSlotExists(field);
-	if(new_host_fields[field] || force)
-	{
-		const size_t dxyz = sizeof(double) * nxyz;
-
-// 	  printf("(%s:%i) sync_fields_hd(%i)\n", __FILE__, __LINE__, field);
-		memcpy_h2d(d_hx[field], h_hx[field], dxyz);
-		memcpy_h2d(d_hy[field], h_hy[field], dxyz);
-		memcpy_h2d(d_hz[field], h_hz[field], dxyz);
-
-		new_host_fields[field] = false;
-		new_device_fields[field] = false;
-	}
-}
-
-
-
 SpinSystem::~SpinSystem()
 {
 	deinit();
@@ -221,40 +79,9 @@ SpinSystem* SpinSystem::copy(lua_State* L)
 
 void SpinSystem::diff(SpinSystem* other, double* v4)
 {
-	if(	nx != other->nx ||
-		ny != other->ny ||
-		nz != other->nz)
-	{
-		v4[0] = 1e8;
-		v4[1] = 1e8;
-		v4[2] = 1e8;
-		v4[3] = 1e8;
-		return;
-	}
-	
-	v4[0] = 0;
-	v4[1] = 0;
-	v4[2] = 0;
-	
-	//ensure spins are on the device
-	sync_spins_hd();
-	other->sync_spins_hd();
-
-	double* d_ws1;
-	double* d_ws2;
-	
-	const int sz = sizeof(double)*nxyz;
-	getWSMem(&d_ws1, sz, &d_ws2, sz);//, &d_ws3, sz, &d_ws4, sz);
-	
-	ss_d_absDiffArrays(d_ws1, d_x, other->d_x, nxyz);
-	v4[0] = ss_reduce3DArray_sum(d_ws1, d_ws2, h_ws1, nx, ny, nz);
-
-	ss_d_absDiffArrays(d_ws1, d_y, other->d_y, nxyz);
-	v4[1] = ss_reduce3DArray_sum(d_ws1, d_ws2, h_ws1, nx, ny, nz);
-
-	ss_d_absDiffArrays(d_ws1, d_z, other->d_z, nxyz);
-	v4[2] = ss_reduce3DArray_sum(d_ws1, d_ws2, h_ws1, nx, ny, nz);
-	
+	v4[0] = x->diff(other->x);
+	v4[1] = y->diff(other->y);
+	v4[2] = z->diff(other->z);
 	v4[3] = sqrt(v4[0]*v4[0] + v4[1]*v4[1] + v4[2]*v4[2]);
 }
 
@@ -265,14 +92,24 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 	
-	copySpinsFrom(L, src);
-	copyFieldsFrom(L, src);
+	hx[SUM_SLOT]->copyFrom(src->hx[SUM_SLOT]);
+	hy[SUM_SLOT]->copyFrom(src->hy[SUM_SLOT]);
+	hz[SUM_SLOT]->copyFrom(src->hz[SUM_SLOT]);
+
+	x->copyFrom(src->x);
+	y->copyFrom(src->y);
+	z->copyFrom(src->z);
+	ms->copyFrom(src->ms);
 	
 	alpha = src->alpha;
 	gamma = src->gamma;
 	dt = src->dt;
 	time = src->time;
 	
+	fft_timeC[0] = time - 1.0;
+	fft_timeC[1] = time - 1.0;
+	fft_timeC[2] = time - 1.0;
+		
 	// unref data - if exists
 	for(int i=0; i<nxyz; i++)
 	{
@@ -299,17 +136,16 @@ bool SpinSystem::copySpinsFrom(lua_State* L, SpinSystem* src)
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
-	
-	src->sync_spins_hd();
-	
-	ss_d_copyArray(d_x,  src->d_x,  nxyz);
-	ss_d_copyArray(d_y,  src->d_y,  nxyz);
-	ss_d_copyArray(d_z,  src->d_z,  nxyz);
-	ss_d_copyArray(d_ms, src->d_ms, nxyz);
-	
-	new_host_spins = false;
-	new_device_spins = true;
 
+	x->copyFrom(src->x);
+	y->copyFrom(src->y);
+	z->copyFrom(src->z);
+	ms->copyFrom(src->ms);
+	
+	fft_timeC[0] = time - 1.0;
+	fft_timeC[1] = time - 1.0;
+	fft_timeC[2] = time - 1.0;
+	
 	return true;
 }
 
@@ -318,204 +154,118 @@ bool SpinSystem::copyFieldFrom(lua_State* L, SpinSystem* src, int slot)
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
+	
+	hx[slot]->copyFrom(src->hx[slot]);
+	hy[slot]->copyFrom(src->hy[slot]);
+	hz[slot]->copyFrom(src->hz[slot]);
 
-	if(slot < 0 || slot >= NSLOTS)
-		return false;
-	
-	src->ensureSlotExists(slot);
-	ensureSlotExists(slot);
-	
-	src->sync_fields_hd(slot);
-	ss_d_copyArray(d_hx[slot], src->d_hx[slot], nxyz);
-	ss_d_copyArray(d_hy[slot], src->d_hy[slot], nxyz);
-	ss_d_copyArray(d_hz[slot], src->d_hz[slot], nxyz);
-
-	slot_used[slot] = true;
-	new_host_fields[slot] = false;
-	new_device_fields[slot] = true;
-	
+	fft_timeC[0] = time - 1.0;
+	fft_timeC[1] = time - 1.0;
+	fft_timeC[2] = time - 1.0;
 	return true;
 }
 
 bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
 {
-	return copyFieldFrom(L, src, SUM_SLOT);
+    return copyFieldFrom(L, src, SUM_SLOT);
 }
 
 
 void SpinSystem::deinit()
 {
-	if(d_x)
+	if(x)
 	{
 		if(L)
 		{
 			for(int i=0; i<nxyz; i++)
 			{
-				if(extra_data[i] != LUA_REFNIL)
-				{
-					lua_unref(L, extra_data[i]);
-				}
+                lua_unref(L, extra_data[i]);
 			}
 		}
-		
-		free_device(d_x);
-		free_device(d_y);
-		free_device(d_z);
-		free_device(d_ms);
-		
-		unregisterWS();
-		
-		free_host(h_ws1);
-			
-		free_host(h_x);
-		free_host(h_y);
-		free_host(h_z);
-		free_host(h_ms);
-		
+
+		luaT_dec<dArray>(x); x = 0;
+		luaT_dec<dArray>(y);
+		luaT_dec<dArray>(z);
+		luaT_dec<dArray>(ms);
+
 		delete [] slot_used;
 		
-		for(int i=0; i<NSLOTS; i++)
+		for(int i=0; i<nslots; i++)
 		{
-			if(d_hx[i])
-			{
-				free_device(d_hx[i]);
-				free_device(d_hy[i]);
-				free_device(d_hz[i]);
-			}
-
-			if(d_hx[i])
-			{
-				free_host(h_hx[i]);
-				free_host(h_hy[i]);
-				free_host(h_hz[i]);
-			}
+			luaT_dec<dArray>(hx[i]);
+			luaT_dec<dArray>(hy[i]);
+			luaT_dec<dArray>(hz[i]);
 		}
 
-		delete [] d_hx;
-		delete [] d_hy;
-		delete [] d_hz;
-		
-		delete [] h_hx;
-		delete [] h_hy;
-		delete [] h_hz;
+		delete [] hx;
+		delete [] hy;
+		delete [] hz;
+
+		luaT_dec<dcArray>(rx);
+		luaT_dec<dcArray>(ry);
+		luaT_dec<dcArray>(rz);
+
+		luaT_dec<dcArray>(qx);
+		luaT_dec<dcArray>(qy);
+		luaT_dec<dcArray>(qz);
 		
 		delete [] extra_data;
-		
-		delete [] new_host_fields;
-		delete [] new_device_fields;
-		d_x = 0;
 	}
 }
 
 
 void SpinSystem::init()
 {
+    if(x) return;
+
 	nxyz = nx * ny * nz;
-	if(d_x)
-		deinit();
 
-	new_host_spins = false;
-	new_device_spins = false;
+	x = luaT_inc<dArray>(new dArray(nx, ny, nz));
+	y = luaT_inc<dArray>(new dArray(nx, ny, nz));
+	z = luaT_inc<dArray>(new dArray(nx, ny, nz));
+	ms= luaT_inc<dArray>(new dArray(nx, ny, nz));
+	
+	x->setAll(0);
+	y->setAll(0);
+	z->setAll(0);
+	ms->setAll(0);
+	
+// 	for(int i=0; i<nxyz; i++)
+// 		set(i, 0, 0, 0);
 
+	hx = new dArray* [nslots];
+	hy = new dArray* [nslots];
+	hz = new dArray* [nslots];
 	
-	new_host_fields = new bool[NSLOTS]; 
-	new_device_fields = new bool[NSLOTS]; 
-
-	for(int i=0; i<NSLOTS; i++)
-	{
-		new_host_fields[i] = false;
-		new_device_fields[i] = false;
-	}
-
-
-	malloc_device(&d_x,  nx*ny*nz*sizeof(double));
-	malloc_device(&d_y,  nx*ny*nz*sizeof(double));
-	malloc_device(&d_z,  nx*ny*nz*sizeof(double));
-	malloc_device(&d_ms, nx*ny*nz*sizeof(double));
-
-	malloc_host(&h_x,  nx*ny*nz*sizeof(double));
-	malloc_host(&h_y,  nx*ny*nz*sizeof(double));
-	malloc_host(&h_z,  nx*ny*nz*sizeof(double));
-	malloc_host(&h_ms, nx*ny*nz*sizeof(double));
-
-	for(int i=0; i<nx*ny*nz; i++)
-	{
-		h_x[i] = 0;
-		h_y[i] = 0;
-		h_z[i] = 0;
-		h_ms[i] = 0;
-	}
-
-	//set spins to (0,0,0)
-	// setting them on the device
-	ss_d_set3DArray(d_x, nx, ny, nz, 0);
-	ss_d_set3DArray(d_y, nx, ny, nz, 0);
-	ss_d_set3DArray(d_z, nx, ny, nz, 0);
-	ss_d_set3DArray(d_ms, nx, ny, nz, 0);
-	new_device_spins = true;
-	sync_spins_dh();
+	slot_used = new bool[nslots];
 	
-	
-	registerWS();
-	
-	const int min_size = (nx*ny*nz) / 64 + 1;
-	
-	if(nx*ny*nz < min_size)
-	{
-		malloc_host(&h_ws1, sizeof(double)*min_size);
-	}
-	else
-		malloc_host(&h_ws1, sizeof(double)*nx*ny*nz);
-	
-	
-	d_hx = new double* [NSLOTS];
-	d_hy = new double* [NSLOTS];
-	d_hz = new double* [NSLOTS];
-	
-	h_hx = new double* [NSLOTS];
-	h_hy = new double* [NSLOTS];
-	h_hz = new double* [NSLOTS];
-	
-	slot_used = new bool[NSLOTS];
-
 	extra_data = new int[nxyz];
 	for(int i=0; i<nxyz; i++)
 		extra_data[i] = LUA_REFNIL;
-
-	for(int i=0; i<NSLOTS; i++)
+	
+	for(int i=0; i<nslots; i++)
 	{
-		d_hx[i] = 0;
-		d_hy[i] = 0;
-		d_hz[i] = 0;
+		hx[i] = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		hy[i] = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		hz[i] = luaT_inc<dArray>(new dArray(nx,ny,nz));
 		
-		h_hx[i] = 0;
-		h_hy[i] = 0;
-		h_hz[i] = 0;
-
-		slot_used[i] = false;
+		hx[i]->zero();
+		hy[i]->zero();
+		hz[i]->zero();
 	}
-}
+	zeroFields();
+	
+	rx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	ry = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	rz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
-void SpinSystem::ensureSlotExists(int slot)
-{
-	if(d_hx[slot]) return;
-
-	const int nn = sizeof(double) * nx*ny*nz;
-	malloc_device(&(d_hx[slot]), nn);
-	malloc_device(&(d_hy[slot]), nn);
-	malloc_device(&(d_hz[slot]), nn);
-
-	ss_d_set3DArray(d_hx[slot], nx, ny, nz, 0);
-	ss_d_set3DArray(d_hy[slot], nx, ny, nz, 0);
-	ss_d_set3DArray(d_hz[slot], nx, ny, nz, 0);
-
-	malloc_host(&(h_hx[slot]), nn);
-	malloc_host(&(h_hy[slot]), nn);
-	malloc_host(&(h_hz[slot]), nn);
-		
-	memcpy_d2h(h_hx[slot], d_hx[slot], nn);
-	memcpy_d2h(h_hy[slot], d_hy[slot], nn);
-	memcpy_d2h(h_hz[slot], d_hz[slot], nn);
+	qx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qy = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	
+	fft_timeC[0] = -1;
+	fft_timeC[1] = -1;
+	fft_timeC[2] = -1;
 }
 
 
@@ -531,15 +281,11 @@ void SpinSystem::encode(buffer* b)
 
 	encodeDouble(time, b);
 	
-	sync_spins_dh();
-	for(int i=0; i<nxyz; i++)
-	{
-		encodeDouble(h_x[i], b);
-		encodeDouble(h_y[i], b);
-		encodeDouble(h_z[i], b);
-	}
-	
-	
+	x->encode(b);
+	y->encode(b);
+	z->encode(b);
+	ms->encode(b);
+
 	int numExtraData = 0;
 	
 	for(int i=0; i<nxyz; i++)
@@ -584,12 +330,14 @@ void SpinSystem::encode(buffer* b)
 
 int  SpinSystem::decode(buffer* b)
 {
+//	double r, i;
+	
 	deinit();
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
 	nxyz = nx*ny*nz;
-	
+
 	alpha = decodeDouble(b);
 	dt = decodeDouble(b);
 	gamma = decodeDouble(b);
@@ -597,17 +345,11 @@ int  SpinSystem::decode(buffer* b)
 	time = decodeDouble(b);
 	init();
 
-	for(int j=0; j<nxyz; j++)
-	{
-		h_x[j] = decodeDouble(b);
-		h_y[j] = decodeDouble(b);
-		h_z[j] = decodeDouble(b);
-		h_ms[j] = sqrt(h_x[j]*h_x[j]+h_y[j]*h_y[j]+h_z[j]*h_z[j]);
-	}
-	new_host_spins = true;
-	new_device_spins = false;
-
-
+	x->decode(b);
+	y->decode(b);
+	z->decode(b);
+	ms->decode(b);
+	
 	int numPartialData = decodeInteger(b);
 	if(numPartialData < 0) //then all, implicitly
 	{
@@ -634,25 +376,17 @@ int  SpinSystem::decode(buffer* b)
 
 void SpinSystem::sumFields()
 {
-	ensureSlotExists(SUM_SLOT);
-	sync_fields_hd(SUM_SLOT);
-	//ss_d_set3DArray(d_hx[SUM_SLOT], nx, ny, nz, 0);
-	//ss_d_set3DArray(d_hy[SUM_SLOT], nx, ny, nz, 0);
-	//ss_d_set3DArray(d_hz[SUM_SLOT], nx, ny, nz, 0);
+	hx[SUM_SLOT]->copyFrom(hx[1]);
+	for(int i=2; i<NSLOTS; i++)
+		(*hx[SUM_SLOT]) += (*hx[i]);
 
-	for(int i=0; i<NSLOTS; i++)
-	{
-		if(slot_used[i])
-		{
-			sync_fields_hd(i);
-			ss_d_add3DArray(d_hx[SUM_SLOT], nx, ny, nz, d_hx[SUM_SLOT], d_hx[i]);
-			ss_d_add3DArray(d_hy[SUM_SLOT], nx, ny, nz, d_hy[SUM_SLOT], d_hy[i]);
-			ss_d_add3DArray(d_hz[SUM_SLOT], nx, ny, nz, d_hz[SUM_SLOT], d_hz[i]);
-		}
-	}
+	hy[SUM_SLOT]->copyFrom(hy[1]);
+	for(int i=2; i<NSLOTS; i++)
+		(*hy[SUM_SLOT]) += (*hy[i]);
 
-	slot_used[SUM_SLOT] = true;
-	new_device_fields[SUM_SLOT] = true;
+	hz[SUM_SLOT]->copyFrom(hz[1]);
+	for(int i=2; i<NSLOTS; i++)
+		(*hz[SUM_SLOT]) += (*hz[i]);
 }
 
 bool SpinSystem::addFields(double mult, SpinSystem* addThis)
@@ -661,20 +395,12 @@ bool SpinSystem::addFields(double mult, SpinSystem* addThis)
 	if(ny != addThis->ny) return false;
 	if(nz != addThis->nz) return false;
 	
-	sync_fields_hd(SUM_SLOT);
-	addThis->sync_fields_hd(SUM_SLOT);
-
-	ss_d_scaleadd3DArray(d_hx[SUM_SLOT], nxyz, 1.0, d_hx[SUM_SLOT], mult, addThis->d_hx[SUM_SLOT]);
-	ss_d_scaleadd3DArray(d_hy[SUM_SLOT], nxyz, 1.0, d_hy[SUM_SLOT], mult, addThis->d_hy[SUM_SLOT]);
-	ss_d_scaleadd3DArray(d_hz[SUM_SLOT], nxyz, 1.0, d_hz[SUM_SLOT], mult, addThis->d_hz[SUM_SLOT]);
-
-	
-// 	for(int j=0; j<nxyz; j++)
-// 	{
-// 		hx[SUM_SLOT][j] += mult * addThis->hx[SUM_SLOT][j];
-// 		hy[SUM_SLOT][j] += mult * addThis->hy[SUM_SLOT][j];
-// 		hz[SUM_SLOT][j] += mult * addThis->hz[SUM_SLOT][j];
-// 	}
+	for(int j=0; j<nxyz; j++)
+	{
+		(*hx[SUM_SLOT])[j] += mult * (*addThis->hx[SUM_SLOT])[j];
+		(*hy[SUM_SLOT])[j] += mult * (*addThis->hy[SUM_SLOT])[j];
+		(*hz[SUM_SLOT])[j] += mult * (*addThis->hz[SUM_SLOT])[j];
+	}
 	return true;
 }
 
@@ -692,8 +418,6 @@ const char* SpinSystem::slotName(int index)
 		return "Applied";
 	if(index == SUM_SLOT)
 		return "Total";
-	if(index == SHORTRANGE_SLOT)
-		return "ShortRange";
 	return 0;
 }
 
@@ -705,10 +429,8 @@ int SpinSystem::getSlot(const char* name)
 		return ANISOTROPY_SLOT;
 	if(strcasecmp(name, "thermal") == 0 || strcasecmp(name, "stochastic") == 0 || strcasecmp(name, "temperature") == 0)
 		return THERMAL_SLOT;
-	if(strcasecmp(name, "dipole") == 0 || strcasecmp(name, "magnetostatic") == 0  || strcasecmp(name, "magnetostatics") == 0)
+	if(strcasecmp(name, "dipole") == 0)
 		return DIPOLE_SLOT;
-	if(strcasecmp(name, "short") == 0 || strcasecmp(name, "shortrange") == 0)
-		return SHORTRANGE_SLOT;
 	if(strcasecmp(name, "applied") == 0 || strcasecmp(name, "zeeman") == 0)
 		return APPLIEDFIELD_SLOT;
 	if(strcasecmp(name, "total") == 0 || strcasecmp(name, "sum") == 0)
@@ -716,47 +438,36 @@ int SpinSystem::getSlot(const char* name)
 	return -1;
 }
 
-// void SpinSystem::fft()
-// {
-// 	for(int i=0; i<nxyz; i++) rx[i] = x[i];
-// 	for(int i=0; i<nxyz; i++) ry[i] = y[i];
-// 	for(int i=0; i<nxyz; i++) rz[i] = z[i];
-// 	
-// 	for(int k=0; k<nz; k++)
-// 	{
-// 		fftw_execute_dft(r2q, 
-// 			reinterpret_cast<fftw_complex*>(&rx[k*nx*ny]),
-// 			reinterpret_cast<fftw_complex*>(&qx[k*nx*ny]));
-// 		fftw_execute_dft(r2q, 
-// 			reinterpret_cast<fftw_complex*>(&ry[k*nx*ny]),
-// 			reinterpret_cast<fftw_complex*>(&qy[k*nx*ny]));
-// 		fftw_execute_dft(r2q, 
-// 			reinterpret_cast<fftw_complex*>(&rz[k*nx*ny]),
-// 			reinterpret_cast<fftw_complex*>(&qz[k*nx*ny]));
-// 	}
-// 
-// 	fft_time = time;
-// }
-
-void SpinSystem::zeroField(int i)
+void SpinSystem::fft()
 {
-	slot_used[i] = false;
-	
-	ss_d_set3DArray(d_hx[i], nx, ny, nz, 0);
-	ss_d_set3DArray(d_hy[i], nx, ny, nz, 0);
-	ss_d_set3DArray(d_hz[i], nx, ny, nz, 0);
-
-	//will need to fetch fields from device before we can use them here
-	new_device_fields[i] = true;
-
+	fft(0);
+	fft(1);
+	fft(2);
 }
+
+void SpinSystem::fft(int component)
+{
+	if(fft_timeC[component] == time)
+		return;
+	fft_timeC[component] = time;
+	
+	switch(component)
+	{
+	case 0:	rx->zero(); rx->setReal(x); rx->fft2D(qx); break;
+	case 1:	ry->zero(); ry->setReal(y); ry->fft2D(qy); break;
+	case 2:	rz->zero(); rz->setReal(z); rz->fft2D(qz); break;
+	}
+}
+
 
 void SpinSystem::zeroFields()
 {
 	for(int i=0; i<NSLOTS; i++)
 	{
-		if(slot_used[i])
-			zeroField(i);
+		slot_used[i] = false;
+		hx[i]->zero();
+		hy[i]->zero();
+		hz[i]->zero();
 	}
 }
 
@@ -771,29 +482,25 @@ bool SpinSystem::member(const int px, const int py, const int pz) const
 	return true;
 }
 
-void  SpinSystem::set(const int idx, double sx, double sy, double sz)
+void  SpinSystem::set(const int i, double sx, double sy, double sz)
 {
-	sync_spins_dh();
-	h_x[idx] = sx;
-	h_y[idx] = sy;
-	h_z[idx] = sz;
+	(*x)[i] = sx;
+	(*y)[i] = sy;
+	(*z)[i] = sz;
 
-	h_ms[idx] = sqrt(sx*sx+sy*sy+sz*sz);
-	
-	new_host_spins = true;
+	(*ms)[i]= sqrt(sx*sx+sy*sy+sz*sz);
 }
 
 
 void SpinSystem::set(const int px, const int py, const int pz, const double sx, const double sy, const double sz)
 {
-	if(!member(px, py, pz))
+	const int i = getidx(px, py, pz);
+	set(i, sx, sy, sz);
+	if(i < 0 || i >= nxyz)
 	{
-		return; //out of bounds
+		int* i = 0;
+		*i = 4;
 	}
-	
-	const int idx = px + py*nx + pz*nx*ny;
-	
-	set(idx, sx, sy, sz);
 }
 
 int  SpinSystem::getidx(const int px, const int py, const int pz) const
@@ -810,70 +517,31 @@ int  SpinSystem::getidx(const int px, const int py, const int pz) const
 	while(y < 0) y+=ny;
 	while(z < 0) z+=nz;
 	
-// 	const int x = CLAMP(px, nx-1);
-// 	const int y = CLAMP(py, ny-1);
-// 	const int z = CLAMP(pz, nz-1);
-	
 	return x + y*nx + z*nx*ny;
 }
-
-
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <math.h>
-#include <cuComplex.h>
 
 // return numspins * {<x>, <y>, <z>, <M>, <x^2>, <y^2>, <z^2>, <M^2>}
 void SpinSystem::getNetMag(double* v8)
 {
-
-#if 1
-
-	double* d_ws1;// = (double*)getWSMem(sizeof(double)*nxyz);
-
-	const int sz = sizeof(double)*nxyz;
-	getWSMem(&d_ws1, sz);
-
-	
-	sync_spins_hd();
-	v8[0] = ss_reduce3DArray_sum(d_x, d_ws1, h_ws1, nx, ny, nz);
-	v8[1] = ss_reduce3DArray_sum(d_y, d_ws1, h_ws1, nx, ny, nz);
-	v8[2] = ss_reduce3DArray_sum(d_z, d_ws1, h_ws1, nx, ny, nz);
-
-	v8[3] = sqrt(v8[0]*v8[0] + v8[1]*v8[1] + v8[2]*v8[2]);
-
-	v8[4] = v8[0];
-	v8[5] = v8[1];
-	v8[6] = v8[2];
-	v8[7] = v8[3];
-	
-	return;
-#else
-	sync_spins_dh();
-
 	for(int i=0; i<8; i++)
 		v8[i] = 0;
 	
 	for(int i=0; i<nxyz; i++)
 	{
-		v8[0] += h_x[i];
-		v8[4] += h_x[i]*h_x[i];
-	}
-	for(int i=0; i<nxyz; i++)
-	{
-		v8[1] += h_y[i];
-		v8[5] += h_y[i]*h_y[i];
-	}
-	for(int i=0; i<nxyz; i++)
-	{
-		v8[2] += h_z[i];
-		v8[6] += h_z[i]*h_z[i];
+		v8[0] += (*x)[i];
+		v8[4] += (*x)[i] * (*x)[i];
+		v8[1] += (*y)[i];
+		v8[5] += (*y)[i] * (*y)[i];
+		v8[2] += (*z)[i];
+		v8[6] += (*z)[i] * (*z)[i];
 	}
 
 	v8[3] = sqrt(v8[0]*v8[0] + v8[1]*v8[1] + v8[2]*v8[2]);
 	v8[7] = sqrt(v8[4]*v8[4] + v8[5]*v8[5] + v8[6]*v8[6]);
-#endif
 }
+
+
+
 
 
 
@@ -890,14 +558,12 @@ void SpinSystem::getNetMag(double* v8)
 static int l_settimestep(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	ss->dt = lua_tonumber(L, 2);
 	return 0;
 }
 static int l_gettimestep(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	lua_pushnumber(L, ss->dt);
 	return 1;
 }
@@ -905,14 +571,12 @@ static int l_gettimestep(lua_State* L)
 static int l_setalpha(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	ss->alpha = lua_tonumber(L, 2);
 	return 0;
 }
 static int l_getalpha(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	lua_pushnumber(L, ss->alpha);
 	return 1;
 }
@@ -920,14 +584,12 @@ static int l_getalpha(lua_State* L)
 static int l_setgamma(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	ss->gamma = lua_tonumber(L, 2);
 	return 0;
 }
 static int l_getgamma(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	lua_pushnumber(L, ss->gamma);
 	return 1;
 }
@@ -936,8 +598,6 @@ static int l_getgamma(lua_State* L)
 static int l_netmag(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
-	
 	double m = 1;
 	if(lua_isnumber(L, 2))
 		m = lua_tonumber(L, 2);
@@ -957,7 +617,6 @@ static int l_netmag(lua_State* L)
 static int l_setspin(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	
 	int r1, r2;
 	int site[3];
@@ -971,7 +630,7 @@ static int l_setspin(lua_State* L)
 	if(r2 < 0)
 		return luaL_error(L, "invalid spin");
 	
-	bool n = lua_isnumber(L, 2+r1+r2);
+	int n = lua_isnumber(L, 2+r1+r2);
 	
 	
 	int px = site[0] - 1;
@@ -1039,14 +698,13 @@ static int l_getspin(lua_State* L)
 	
 	int idx = ss->getidx(px, py, pz);
 	
-	ss->sync_spins_dh();
-	lua_pushnumber(L, ss->h_x[idx]);
-	lua_pushnumber(L, ss->h_y[idx]);
-	lua_pushnumber(L, ss->h_z[idx]);
+	lua_pushnumber(L, (*ss->x)[idx]);
+	lua_pushnumber(L, (*ss->y)[idx]);
+	lua_pushnumber(L, (*ss->z)[idx]);
 	
-	double len2 = ss->h_x[idx]*ss->h_x[idx] 
-				+ ss->h_y[idx]*ss->h_y[idx]
-				+ ss->h_z[idx]*ss->h_z[idx];
+	double len2 = (*ss->x)[idx]*(*ss->x)[idx] 
+		+ (*ss->y)[idx]*(*ss->y)[idx]
+		+ (*ss->z)[idx]*(*ss->z)[idx];
 	
 	lua_pushnumber(L, sqrt(len2));
 	
@@ -1056,7 +714,6 @@ static int l_getspin(lua_State* L)
 static int l_getunitspin(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	
 	int site[3];
 	
@@ -1075,8 +732,7 @@ static int l_getunitspin(lua_State* L)
 
 	int idx = ss->getidx(px, py, pz);
 
-	ss->sync_spins_dh();
-	if(ss->h_ms[idx] == 0)
+	if((*ss->ms)[idx] == 0)
 	{
 		lua_pushnumber(L, 1);
 		lua_pushnumber(L, 0);
@@ -1084,11 +740,11 @@ static int l_getunitspin(lua_State* L)
 		return 3;
 	}
 	
-	double im = 1.0 / ss->h_ms[idx];
+	double im = 1.0 / (*ss->ms)[idx];
 
-	lua_pushnumber(L, ss->h_x[idx]*im);
-	lua_pushnumber(L, ss->h_y[idx]*im);
-	lua_pushnumber(L, ss->h_z[idx]*im);
+	lua_pushnumber(L, (*ss->x)[idx]*im);
+	lua_pushnumber(L, (*ss->y)[idx]*im);
+	lua_pushnumber(L, (*ss->z)[idx]*im);
 	
 	return 3;
 }
@@ -1096,21 +752,18 @@ static int l_getunitspin(lua_State* L)
 static int l_nx(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	lua_pushnumber(L, ss->nx);
 	return 1;
 }
 static int l_ny(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	lua_pushnumber(L, ss->ny);
 	return 1;
 }
 static int l_nz(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	lua_pushnumber(L, ss->nz);
 	return 1;
 }
@@ -1118,10 +771,8 @@ static int l_nz(lua_State* L)
 static int l_sumfields(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	
-	ss->sumFields();
-	
+	ss->sumFields();	
 	return 0;
 }
 
@@ -1130,7 +781,6 @@ static int l_zerofields(lua_State* L)
 	LUA_PREAMBLE(SpinSystem, ss, 1);
 
 	ss->zeroFields();
-
 	return 0;
 }
 
@@ -1139,7 +789,6 @@ static int l_settime(lua_State* L)
 	LUA_PREAMBLE(SpinSystem, ss, 1);
 
 	ss->time = lua_tonumber(L, 2);
-
 	return 0;
 }
 static int l_gettime(lua_State* L)
@@ -1147,7 +796,6 @@ static int l_gettime(lua_State* L)
 	LUA_PREAMBLE(SpinSystem, ss, 1);
 
 	lua_pushnumber(L, ss->time);
-
 	return 1;
 }
 
@@ -1159,11 +807,9 @@ static int l_tostring(lua_State* L)
 	return 1;
 }
 
-
 static int l_netfield(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-
 	
 	const char* name = lua_tostring(L, 2);
 	
@@ -1176,14 +822,9 @@ static int l_netfield(lua_State* L)
 	double xyz[3] = {0,0,0};
 	const int nxyz = ss->nxyz;
 	
-	ss->sync_fields_dh(slot); //from dev
-	for(int i=0; i<nxyz; i++)
-	{
-		xyz[0] += ss->h_hx[slot][i];
-		xyz[1] += ss->h_hy[slot][i];
-		xyz[2] += ss->h_hz[slot][i];
-	}
-	
+	xyz[0] = ss->hx[slot]->sum();
+	xyz[1] = ss->hy[slot]->sum();
+	xyz[2] = ss->hz[slot]->sum();
 	
 	lua_pushnumber(L, xyz[0] / ((double)nxyz));
 	lua_pushnumber(L, xyz[1] / ((double)nxyz));
@@ -1191,6 +832,109 @@ static int l_netfield(lua_State* L)
 	
 	return 3;
 }
+
+
+
+#define FA_HEADER \
+	LUA_PREAMBLE(SpinSystem, ss, 1);       \
+	const char* name = lua_tostring(L, 2); \
+	if(!name)                              \
+		return luaL_error(L, "Argument must a string"); \
+	int slot = ss->getSlot(name);                       \
+	if(slot < 0)                                        \
+		return luaL_error(L, "Unknown field type`%s'", name); 
+#define GET_FA_BODY(C) \
+	dArray* h = ss->h##C [slot]; \
+	if(!h)                       \
+		lua_pushnil(L);          \
+	else \
+		luaT_push<dArray>(L, h); \
+	return 1;
+
+	
+static int l_getfieldarrayx(lua_State* L)
+{
+	FA_HEADER;
+	GET_FA_BODY(x);
+}
+static int l_getfieldarrayy(lua_State* L)
+{
+	FA_HEADER;
+	GET_FA_BODY(y);
+}
+static int l_getfieldarrayz(lua_State* L)
+{
+	FA_HEADER;
+	GET_FA_BODY(z);
+}
+
+#define SET_FA_BODY(C) \
+	if(!ss->h##C [slot]) return 0; \
+	dArray* h = luaT_to<dArray>(L, 2); \
+	if(!h) return 0; \
+	if(!ss->h##C [slot]->sameSize(h)) return 0; \
+	luaT_inc<dArray>(h); luaT_dec<dArray>(ss->h##C[slot]); ss->h##C[slot] = h; \
+	return 0;
+static int l_setfieldarrayx(lua_State* L)
+{
+	FA_HEADER;
+	SET_FA_BODY(x);
+}
+static int l_setfieldarrayy(lua_State* L)
+{
+	FA_HEADER;
+	SET_FA_BODY(y);
+}
+static int l_setfieldarrayz(lua_State* L)
+{
+	FA_HEADER;
+	SET_FA_BODY(z);
+}
+
+
+#if 0
+static int l_spindotfield(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+
+	const char* name = lua_tostring(L, 2);
+
+	if(!name)
+		return luaL_error(L, "Argument must a string");
+	
+	int slot = ss->getSlot(name);
+
+	if(slot < 0)
+		return luaL_error(L, "Unknown field type`%s'", name);
+
+	dArray* hx = ss->hx[slot];
+	dArray* hy = ss->hy[slot];
+	dArray* hz = ss->hz[slot];
+	
+	dArray* sx = ss->x;
+	dArray* sy = ss->y;
+	dArray* sz = ss->z;
+	
+	if(!hx || !hy || !hz)
+		return luaL_error(L, "Field not computed");
+	if(!sx || !sy || !sz)
+		return luaL_error(L, "Spins not defined");
+
+	bool bx, by, bz;
+	double dx, dy, dz;
+	
+	bx = sx->dot(hx, dx);
+	by = sy->dot(hy, dy);
+	bz = sz->dot(hz, dz);
+	
+	if(!bx || !by || !bz)
+		return luaL_error(L, "Size mismatch in dot products");
+	
+	lua_pushnumber(L, dx+dy+dz);
+
+	return 1;
+}
+#endif
 
 static int l_getfield(lua_State* L)
 {
@@ -1217,10 +961,9 @@ static int l_getfield(lua_State* L)
 		return luaL_error(L, "Unknown field type`%s'", name);
 
 
-	ss->sync_fields_dh(slot);
-	lua_pushnumber(L, ss->h_hx[slot][idx]);
-	lua_pushnumber(L, ss->h_hy[slot][idx]);
-	lua_pushnumber(L, ss->h_hz[slot][idx]);
+	lua_pushnumber(L, (*ss->hx[slot])[idx]);
+	lua_pushnumber(L, (*ss->hy[slot])[idx]);
+	lua_pushnumber(L, (*ss->hz[slot])[idx]);
 
 	return 3;
 }
@@ -1315,7 +1058,8 @@ static int l_copyspinsto(lua_State* L)
 
 static int l_getextradata(lua_State* L)
 {
-	LUA_PREAMBLE(SpinSystem, ss, 1);
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+
 
 	int site[3];
 	int r = lua_getNint(L, 3, site, 2, 1);
@@ -1337,7 +1081,7 @@ static int l_getextradata(lua_State* L)
 
 static int l_setextradata(lua_State* L)
 {
-	LUA_PREAMBLE(SpinSystem, ss, 1);
+	LUA_PREAMBLE(SpinSystem, ss,  1);
 
 	int site[3];
 	int r = lua_getNint(L, 3, site, 2, 1);
@@ -1363,6 +1107,139 @@ static int l_setextradata(lua_State* L)
 	return 0;
 }
 
+static int l_getinversespinX(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+	ss->fft(0); //0 == X
+	
+	int site[3];
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	const int px = site[0] - 1;
+	const int py = site[1] - 1;
+	const int pz = site[2] - 1;
+	
+	if(!ss->member(px, py, pz))
+		return luaL_error(L, "(%d %d %d) is not a member of the system", px+1, py+1, pz+1);
+	
+	int idx = ss->getidx(px, py, pz);
+
+	lua_newtable(L);
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, real((*ss->qx)[idx]));
+	lua_settable(L, -3);
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, imag((*ss->qx)[idx]));
+	lua_settable(L, -3);
+	return 1;
+}
+
+static int l_getinversespinY(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+	ss->fft(1); //1 == Y
+	
+	int site[3];
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	const int px = site[0] - 1;
+	const int py = site[1] - 1;
+	const int pz = site[2] - 1;
+	
+	if(!ss->member(px, py, pz))
+		return luaL_error(L, "(%d %d %d) is not a member of the system", px+1, py+1, pz+1);
+	
+	int idx = ss->getidx(px, py, pz);
+
+	lua_newtable(L);
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, real((*ss->qy)[idx]));
+	lua_settable(L, -3);
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, imag((*ss->qy)[idx]));
+	lua_settable(L, -3);
+	return 1;
+}
+
+static int l_getinversespinZ(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+	ss->fft(2); //2 == Z
+	
+	int site[3];
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	const int px = site[0] - 1;
+	const int py = site[1] - 1;
+	const int pz = site[2] - 1;
+	
+	if(!ss->member(px, py, pz))
+		return luaL_error(L, "(%d %d %d) is not a member of the system", px+1, py+1, pz+1);
+	
+	int idx = ss->getidx(px, py, pz);
+
+	lua_newtable(L);
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, real((*ss->qz)[idx]));
+	lua_settable(L, -3);
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, imag((*ss->qz)[idx]));
+	lua_settable(L, -3);
+	return 1;
+}
+
+static int l_getinversespin(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+	ss->fft();
+
+	int site[3];
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+		return luaL_error(L, "invalid site");
+	
+	const int px = site[0] - 1;
+	const int py = site[1] - 1;
+	const int pz = site[2] - 1;
+	
+	if(!ss->member(px, py, pz))
+		return luaL_error(L, "(%d %d %d) is not a member of the system", px+1, py+1, pz+1);
+	
+	int idx = ss->getidx(px, py, pz);
+	
+	lua_newtable(L);
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, real((*ss->qx)[idx]));
+	lua_settable(L, -3);
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, imag((*ss->qx)[idx]));
+	lua_settable(L, -3);
+	
+	lua_newtable(L);
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, real((*ss->qy)[idx]));
+	lua_settable(L, -3);
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, imag((*ss->qy)[idx]));
+	lua_settable(L, -3);
+	
+	lua_newtable(L);
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, real((*ss->qz)[idx]));
+	lua_settable(L, -3);
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, imag((*ss->qz)[idx]));
+	lua_settable(L, -3);
+	
+	return 3;
+}
+
 static int l_getdiff(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, sa,  1);
@@ -1378,6 +1255,108 @@ static int l_getdiff(lua_State* L)
 
 	return 4;
 }
+
+
+
+
+static int l_setarrayx(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	LUA_PREAMBLE(dArray, a, 2);
+	
+	if(s->x->sameSize(a))
+	{
+		luaT_inc<dArray>(a);
+		luaT_dec<dArray>(s->x);
+		s->x = a;
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+	return 0;
+}
+static int l_setarrayy(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	LUA_PREAMBLE(dArray, a, 2);
+	
+	if(s->y->sameSize(a))
+	{
+		luaT_inc<dArray>(a);
+		luaT_dec<dArray>(s->y);
+		s->y = a;
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+	return 0;	
+}
+static int l_setarrayz(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	LUA_PREAMBLE(dArray, a, 2);
+	
+	if(s->z->sameSize(a))
+	{
+		luaT_inc<dArray>(a);
+		luaT_dec<dArray>(s->z);
+		s->z = a;
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+	return 0;	
+}
+static int l_setarraym(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	LUA_PREAMBLE(dArray, a, 2);
+	
+	if(s->ms->sameSize(a))
+	{
+		luaT_inc<dArray>(a);
+		luaT_dec<dArray>(s->ms);
+		s->ms = a;
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+	return 0;
+}
+
+static int l_getarrayx(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	luaT_push<dArray>(L, s->x);
+	return 1;
+	return 0;	
+}
+static int l_getarrayy(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	luaT_push<dArray>(L, s->y);
+	return 1;
+	return 0;	
+}
+static int l_getarrayz(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	luaT_push<dArray>(L, s->z);
+	return 1;
+	return 0;	
+}
+static int l_getarraym(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	luaT_push<dArray>(L, s->ms);
+	return 1;
+	return 0;	
+}
+
 
 
 int SpinSystem::help(lua_State* L)
@@ -1520,15 +1499,37 @@ int SpinSystem::help(lua_State* L)
 		return 3;
 	}
 	
-	/*
 	if(func == l_getinversespin)
 	{
-		lua_pushstring(L, "Return the an element of the Fourier Transform of the lattice.");
+		lua_pushstring(L, "Return an element of the Fourier Transform of the lattice.");
 		lua_pushstring(L, "1 *3Vector*: The lattice site");
-		lua_pushstring(L, "Table of Pairs: The s(q) value represented as a table of pairs. The table has 3 components representing x, y and z. Each component has 2 values representing the real and imaginary value. For example, the imaginary part of the x component would be at [1][2].");
+		lua_pushstring(L, "3 tables: The s(q) value represented as a triplet of tables. Each table represents the x, y or z component and the table values [1] and [2] are the real and imaginary parts");
 		return 3;
-	}*/
-		
+	}
+	
+	if(func == l_getinversespinX)
+	{
+		lua_pushstring(L, "Return a component of an element of the Fourier Transform of the lattice.");
+		lua_pushstring(L, "1 *3Vector*: The lattice site");
+		lua_pushstring(L, "1 table: The sx(q) value represented a tables with values [1] and [2] as the real and imaginary parts");
+		return 3;
+	}	
+	if(func == l_getinversespinY)
+	{
+		lua_pushstring(L, "Return a component of an element of the Fourier Transform of the lattice.");
+		lua_pushstring(L, "1 *3Vector*: The lattice site");
+		lua_pushstring(L, "1 table: The sy(q) value represented a tables with values [1] and [2] as the real and imaginary parts");
+		return 3;
+	}	
+	if(func == l_getinversespinZ)
+	{
+		lua_pushstring(L, "Return a component of an element of the Fourier Transform of the lattice.");
+		lua_pushstring(L, "1 *3Vector*: The lattice site");
+		lua_pushstring(L, "1 table: The sz(q) value represented a tables with values [1] and [2] as the real and imaginary parts");
+		return 3;
+	}
+	
+	
 	if(func == l_addfields)
 	{
 		lua_pushstring(L, "Add fields from one *SpinSystem* to the current one, optionally scaling the field.");
@@ -1654,15 +1655,124 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "4 Numbers: The differences in the x, y and z components and the length of the difference vector.");
 		return 3;
 	}
+	
+	if(func == l_getarrayx)
+	{
+		lua_pushstring(L, "Get an array representing the X components of all sites. This array is connected to the SpinSystem so changes to the returned array will change the SpinSystem.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: The X components of the sites.");
+		return 3;
+	}
+	if(func == l_getarrayy)
+	{
+		lua_pushstring(L, "Get an array representing the Y components of all sites. This array is connected to the SpinSystem so changes to the returned array will change the SpinSystem.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: The Y components of the sites.");
+		return 3;
+	}
+	if(func == l_getarrayz)
+	{
+		lua_pushstring(L, "Get an array representing the Z components of all sites. This array is connected to the SpinSystem so changes to the returned array will change the SpinSystem.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: The Z components of the sites.");
+		return 3;
+	}
+	if(func == l_getarraym)
+	{
+		lua_pushstring(L, "Get an array representing the magnitude of all sites. This array is connected to the SpinSystem so changes to the returned array will change the SpinSystem.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: The magnitude of the sites.");
+		return 3;
+	}
+	
+	if(func == l_setarrayx)
+	{
+		lua_pushstring(L, "Set the entire array representing the X components of the sites to the given array.");
+		lua_pushstring(L, "1 Array: The new X components of the sites.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_setarrayy)
+	{
+		lua_pushstring(L, "Set the entire array representing the Y components of the sites to the given array.");
+		lua_pushstring(L, "1 Array: The new Y components of the sites.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_setarrayz)
+	{
+		lua_pushstring(L, "Set the entire array representing the Z components of the sites to the given array.");
+		lua_pushstring(L, "1 Array: The new Z components of the sites.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_setarraym)
+	{
+		lua_pushstring(L, "Set the entire array representing the magnitude of the sites to the given array.");
+		lua_pushstring(L, "1 Array: The new magnitude of the sites.");
+		lua_pushstring(L, "");
+		return 3;
+	}
 
+	if(func == l_getfieldarrayx)
+	{
+		lua_pushstring(L, "Get the X components of the field vectors for a given type");
+		lua_pushstring(L, "1 String: The name of the field");
+		lua_pushstring(L, "1 Array: The X components of the field for each sites.");
+		return 3;
+	}
+	if(func == l_getfieldarrayy)
+	{
+		lua_pushstring(L, "Get the Y components of the field vectors for a given type");
+		lua_pushstring(L, "1 String: The name of the field");
+		lua_pushstring(L, "1 Array: The Y components of the field for each sites.");
+		return 3;
+	}
+	if(func == l_getfieldarrayz)
+	{
+		lua_pushstring(L, "Get the Z components of the field vectors for a given type");
+		lua_pushstring(L, "1 String: The name of the field");
+		lua_pushstring(L, "1 Array: The Z components of the field for each sites.");
+		return 3;
+	}
+	
+	if(func == l_setfieldarrayx)
+	{
+		lua_pushstring(L, "Set the X components of the field vectors for a given type");
+		lua_pushstring(L, "1 String, 1 Array: The name of the field, the new X components of the field for each sites.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_setfieldarrayy)
+	{
+		lua_pushstring(L, "Set the Y components of the field vectors for a given type");
+		lua_pushstring(L, "1 String, 1 Array: The name of the field, the new Y components of the field for each sites.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_setfieldarrayz)
+	{
+		lua_pushstring(L, "Set the Z components of the field vectors for a given type");
+		lua_pushstring(L, "1 String, 1 Array: The name of the field, the new Z components of the field for each sites.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+#if 0
+	if(func == l_spindotfield)
+	{
+		lua_pushstring(L, "Computed the dot product of each moment with the given field");
+		lua_pushstring(L, "1 String: The name of the field");
+		lua_pushstring(L, "1 Number: The dot product");
+		return 3;
+	}
+#endif
 	return LuaBaseObject::help(L);
 }
 
 
-
+static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* SpinSystem::luaMethods()
 {
-	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)
 		return m;
 
@@ -1682,7 +1792,11 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"setTime",      l_settime},
 		{"time",         l_gettime},
 		{"field",        l_getfield},
-		//{"inverseSpin",  l_getinversespin},
+// 		{"spinDotField", l_spindotfield},
+		{"inverseSpin",  l_getinversespin},
+		{"inverseSpinX",  l_getinversespinX},
+		{"inverseSpinY",  l_getinversespinY},
+		{"inverseSpinZ",  l_getinversespinZ},
 		{"addFields",    l_addfields},
 		{"copy",         l_copy},
 		{"copyTo",       l_copyto},
@@ -1698,9 +1812,30 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"setExtraData", l_setextradata},
 		{"extraData",    l_getextradata},
 		{"diff",         l_getdiff},
+		
+		{"spinArrayX",  l_getarrayx},
+		{"spinArrayY",  l_getarrayy},
+		{"spinArrayZ",  l_getarrayz},
+		{"spinArrayM",  l_getarraym},
+	
+		{"setSpinArrayX",  l_setarrayx},
+		{"setSpinArrayY",  l_setarrayy},
+		{"setSpinArrayZ",  l_setarrayz},
+		{"setSpinArrayM",  l_setarraym},
+
+		{"fieldArrayX",  l_getfieldarrayx},
+		{"fieldArrayY",  l_getfieldarrayy},
+		{"fieldArrayZ",  l_getfieldarrayz},
+
+		{"setFieldArrayX",  l_setfieldarrayx},
+		{"setFieldArrayY",  l_setfieldarrayy},
+		{"setFieldArrayZ",  l_setfieldarrayz},
+
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
 	m[127].name = (char*)1;
 	return m;
 }
+
+

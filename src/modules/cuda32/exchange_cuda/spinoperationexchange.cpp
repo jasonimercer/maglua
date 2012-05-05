@@ -317,10 +317,10 @@ bool Exchange::make_compressed()
 	ex_compressed_struct* h_LUT;
 	unsigned char* h_idx;
 	
-	malloc_host(&h_LUT, sizeof(ex_compressed_struct) * uniques.size()*compress_max_neighbours);
+	malloc_host(&h_LUT, sizeof(ex_compressed_struct) * uniques.size()*compress_max_neighbours + 1);
 	malloc_host(&h_idx, sizeof(unsigned char) * nxyz);
 	
-	malloc_device(&d_LUT, sizeof(ex_compressed_struct) * uniques.size()*compress_max_neighbours);
+	malloc_device(&d_LUT, sizeof(ex_compressed_struct) * uniques.size()*compress_max_neighbours  + 1);
 	malloc_device(&d_idx, sizeof(unsigned char) * nxyz);
 	
 	// build LUT

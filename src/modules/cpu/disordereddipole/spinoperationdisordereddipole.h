@@ -13,6 +13,7 @@
 #ifndef SPINOPERATIONDIPOLEDISORDERED
 #define SPINOPERATIONDIPOLEDISORDERED
 
+#include "array.h"
 #include "spinoperation.h"
 
 using namespace std;
@@ -27,7 +28,8 @@ public:
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);
-	
+	static int help(lua_State* L);
+
 	bool apply(SpinSystem* ss);
 	double g;
 
@@ -40,9 +42,9 @@ public:
 	virtual int  decode(buffer* b);
 
 //private:
-	double* posx;
-	double* posy;
-	double* posz;
+	dArray* posx;
+	dArray* posy;
+	dArray* posz;
 };
 
 #endif

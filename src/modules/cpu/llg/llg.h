@@ -12,7 +12,7 @@
 
 #ifndef LLGDEF
 #define LLGDEF
-#include "luacommon.h"
+#include "maglua.h"
 #include <string>
 #include "luabaseobject.h"
 
@@ -46,8 +46,6 @@ public:
 	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime) {return true;}
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 		
-	int refcount;
-
 	bool disablePrecession;
 
 // 	void encode(buffer* b);

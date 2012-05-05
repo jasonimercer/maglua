@@ -29,9 +29,6 @@ LongRange::LongRange(const char* Name, const int field_slot, int nx, int ny, int
     qXX = 0;
     XX = 0;
 
-	forward = 0;
-    backward = 0;
-
 	g = 1;
 	gmax = 2000;
 	matrixLoaded = false;
@@ -93,49 +90,30 @@ void LongRange::init()
     ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
 
 	deinit();
-    int s = nx*ny * nz;
 
-	hqx = new complex<double> [s];
-	hqy = new complex<double> [s];
-	hqz = new complex<double> [s];
+	hqx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	hqy = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	hqz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
-	hrx = new complex<double> [s];
-	hry = new complex<double> [s];
-	hrz = new complex<double> [s];
+	hrx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	hry = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	hrz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
-	qXX = new complex<double>[s];
-	qXY = new complex<double>[s];
-	qXZ = new complex<double>[s];
+	qXX = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qXY = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qXZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
-	qYY = new complex<double>[s];
-	qYZ = new complex<double>[s];
-	qZZ = new complex<double>[s];
-	
-	fftw_iodim dims[2];
-	dims[0].n = nx;
-	dims[0].is= 1;
-	dims[0].os= 1;
-	dims[1].n = ny;
-	dims[1].is= nx;
-	dims[1].os= nx;
+	qYY = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qYZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qZZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
-	forward = fftw_plan_guru_dft(2, dims, 0, dims,
-								reinterpret_cast<fftw_complex*>(qXX),
-								reinterpret_cast<fftw_complex*>(qYY),
-								FFTW_FORWARD, FFTW_PATIENT);
+	XX = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	XY = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	XZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	YY = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	YZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	ZZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
 
-	backward= fftw_plan_guru_dft(2, dims, 0, dims,
-								reinterpret_cast<fftw_complex*>(qXX),
-								reinterpret_cast<fftw_complex*>(qYY),
-								FFTW_BACKWARD, FFTW_PATIENT);
-								
- 	XX = new double[s];
-	XY = new double[s];
-	XZ = new double[s];
-	YY = new double[s];
-	YZ = new double[s];
-	ZZ = new double[s];
-	
 	hasMatrices = false;
 }
 
@@ -157,7 +135,7 @@ double LongRange::get##AB (int ox, int oy, int oz) \
     loadMatrix(); \
 	int offset; \
 	if(offsetOK(nx,ny,nz, ox,oy,oz, offset)) \
-		return AB [offset]; \
+		return (*AB) [offset]; \
 	return 0; \
 } \
  \
@@ -169,7 +147,7 @@ void   LongRange::set##AB (int ox, int oy, int oz, double value) \
 	int offset; \
 	if(offsetOK(nx,ny,nz, ox,oy,oz, offset)) \
 	{ \
-		AB [offset] = value; \
+		(*AB) [offset] = value; \
 		newdata = true; \
 	} \
 } 
@@ -212,7 +190,7 @@ void LongRange::loadMatrix()
 {
 	if(matrixLoaded) return;
 	init();
-	loadMatrixFunction(XX, XY, XZ, YY, YZ, ZZ); //implemented by child
+	loadMatrixFunction(XX->data, XY->data, XZ->data, YY->data, YZ->data, ZZ->data); //implemented by child
 	newdata = true;
 	matrixLoaded = true;
 }
@@ -221,36 +199,31 @@ void LongRange::deinit()
 {
 	if(qXX)
 	{
-		delete [] qXX;
-		delete [] qXY;
-		delete [] qXZ;
+		luaT_dec<dcArray>(qXX); qXX=0;
+		luaT_dec<dcArray>(qXY);
+		luaT_dec<dcArray>(qXZ);
 
-		delete [] qYY;
-		delete [] qYZ;
+		luaT_dec<dcArray>(qYY);
+		luaT_dec<dcArray>(qYZ);
 
-		delete [] qZZ;
+		luaT_dec<dcArray>(qZZ);
 
-		delete [] hqx;
-		delete [] hqy;
-		delete [] hqz;
+		luaT_dec<dcArray>(hqx);
+		luaT_dec<dcArray>(hqy);
+		luaT_dec<dcArray>(hqz);
 
-		delete [] hrx;
-		delete [] hry;
-		delete [] hrz;
-
-		fftw_destroy_plan(forward);
-		fftw_destroy_plan(backward);
-		qXX = 0;
+		luaT_dec<dcArray>(hrx);
+		luaT_dec<dcArray>(hry);
+		luaT_dec<dcArray>(hrz);
 	}
 	if(XX)
 	{
-		delete [] XX;
-		delete [] XY;
-		delete [] XZ;
-		delete [] YY;
-		delete [] YZ;
-		delete [] ZZ;
-		XX = 0;
+		luaT_dec<dArray>(XX); XX=0;
+		luaT_dec<dArray>(XY);
+		luaT_dec<dArray>(XZ);
+		luaT_dec<dArray>(YY);
+		luaT_dec<dArray>(YZ);
+		luaT_dec<dArray>(ZZ);
 	}
 	
 	hasMatrices = false;
@@ -266,19 +239,8 @@ void LongRange::getMatrices()
 	init();
 	
 	loadMatrix();
-
-	fftw_iodim dims[2];
-	dims[0].n = nx;
-	dims[0].is= 1;
-	dims[0].os= 1;
-	dims[1].n = ny;
-	dims[1].is= nx;
-	dims[1].os= nx;
-
-	complex<double>* r = new complex<double>[nx*ny];
-	complex<double>* q = new complex<double>[nx*ny];
 	
-	double* arrs[6];
+	dArray* arrs[6];
 	arrs[0] = XX;
 	arrs[1] = XY;
 	arrs[2] = XZ;
@@ -286,7 +248,7 @@ void LongRange::getMatrices()
 	arrs[4] = YZ;
 	arrs[5] = ZZ;
 	
-	complex<double>* qarrs[6];
+	dcArray* qarrs[6];
 	qarrs[0] = qXX;
 	qarrs[1] = qXY;
 	qarrs[2] = qXZ;
@@ -294,25 +256,14 @@ void LongRange::getMatrices()
 	qarrs[4] = qYZ;
 	qarrs[5] = qZZ;
 	
-	for(int a=0; a<6; a++)
-		for(int k=0; k<nz; k++)
-		{
-			for(int i=0; i<nx*ny; i++)
-				r[i] = complex<double>(arrs[a][k*nx*ny + i],0);
-		
-			fftw_complex* fr = reinterpret_cast<fftw_complex*>(r);
-			fftw_complex* fq = reinterpret_cast<fftw_complex*>(q);
-//            printf("%p %p %p %p %p\n", forward, r, q, fr, fq);
-            fftw_execute_dft(forward, fr, fq);
+	dcArray rrr(nx,ny,nz);
 
-			for(int i=0; i<nx*ny; i++)
-				qarrs[a][k*nx*ny + i] = q[i];
-		}
-	
-	
-	
-	delete [] q;
-	delete [] r;
+	for(int a=0; a<6; a++)
+	{
+		rrr.zero();
+		rrr.setReal(arrs[a]);
+		rrr.fft2D(qarrs[a]);
+	}
 
 	newdata = false;
 	hasMatrices = true;
@@ -320,42 +271,20 @@ void LongRange::getMatrices()
 
 void LongRange::ifftAppliedForce(SpinSystem* ss)
 {
-	//double d = g * global_scale / (double)(nx*ny);
-	double d = g  / (double)(nx*ny);
-// 	printf("%g\n", d);
-	double* hx = ss->hx[slot];
-	double* hy = ss->hy[slot];
-	double* hz = ss->hz[slot];
-	const int nxy = nx*ny;
+	//The nx*ny is for fftw
+	double d = g * global_scale / (double)(nx*ny);
 	
-    fftw_complex* q;
-    fftw_complex* r;
-	for(int i=0; i<nz; i++)
-	{
-        q = reinterpret_cast<fftw_complex*>(&hqx[i*nxy]);
-        r = reinterpret_cast<fftw_complex*>(&hrx[i*nxy]);
-        //printf("%p %p %p\n", backward, q, r);
-        fftw_execute_dft(backward, q, r);
+	hqx->ifft2D(hrx);
+	hqy->ifft2D(hry);
+	hqz->ifft2D(hrz);
 
-        q = reinterpret_cast<fftw_complex*>(&hqy[i*nxy]);
-        r = reinterpret_cast<fftw_complex*>(&hry[i*nxy]);
-        //printf("%p %p %p\n", backward, q, r);
-        fftw_execute_dft(backward, q, r);
-
-        q = reinterpret_cast<fftw_complex*>(&hqz[i*nxy]);
-        r = reinterpret_cast<fftw_complex*>(&hrz[i*nxy]);
-        //printf("%p %p %p\n", backward, q, r);
-        fftw_execute_dft(backward, q, r);
-    }
-
-	for(int i=0; i<nxyz; i++)
-		hx[i] = hrx[i].real() * d;
-
-	for(int i=0; i<nxyz; i++)
-		hy[i] = hry[i].real() * d;
-
-	for(int i=0; i<nxyz; i++)
-		hz[i] = hrz[i].real() * d;
+	hrx->getReal(ss->hx[slot]);
+	hry->getReal(ss->hy[slot]);
+	hrz->getReal(ss->hz[slot]);
+	
+	ss->hx[slot]->scale(d);
+	ss->hy[slot]->scale(d);
+	ss->hz[slot]->scale(d);
 }
 
 
@@ -367,19 +296,13 @@ void LongRange::collectIForces(SpinSystem* ss)
 	int targetOffset;
 	int demagOffset;
 	const int nxy = nx*ny;
-	
-	complex<double>* sqx = ss->qx;
-	complex<double>* sqy = ss->qy;
-	complex<double>* sqz = ss->qz;
+	dcArray& sqx = (*ss->qx);
+	dcArray& sqy = (*ss->qy);
+	dcArray& sqz = (*ss->qz);
 
-// 	if(!hasMatrices)
-// 		getMatrices();
-	
-	const complex<double> cz(0,0);
-	for(c=0; c<nxyz; c++) hqx[c] = cz;
-	for(c=0; c<nxyz; c++) hqy[c] = cz;
-	for(c=0; c<nxyz; c++) hqz[c] = cz;
-
+	hqx->zero();
+	hqy->zero();
+	hqz->zero();
 	
 # define cSo c+sourceOffset
 # define cDo c+ demagOffset
@@ -401,17 +324,17 @@ void LongRange::collectIForces(SpinSystem* ss)
 		sourceOffset = sourceLayer * nxy;
 		demagOffset  = offset * nxy;
 		//these are complex multiplies and adds
-		for(c=0; c<nxy; c++) hqx[cTo]+=qXX[cDo]*sqx[cSo];
-		for(c=0; c<nxy; c++) hqx[cTo]+=qXY[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) hqx[cTo]+=qXZ[cDo]*sqz[cSo]*sign;
+		for(c=0; c<nxy; c++) (*hqx)[cTo]+=(*qXX)[cDo]*sqx[cSo];
+		for(c=0; c<nxy; c++) (*hqx)[cTo]+=(*qXY)[cDo]*sqy[cSo];
+		for(c=0; c<nxy; c++) (*hqx)[cTo]+=(*qXZ)[cDo]*sqz[cSo]*sign;
 
-		for(c=0; c<nxy; c++) hqy[cTo]+=qXY[cDo]*sqx[cSo];
-		for(c=0; c<nxy; c++) hqy[cTo]+=qYY[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) hqy[cTo]+=qYZ[cDo]*sqz[cSo]*sign;
+		for(c=0; c<nxy; c++) (*hqy)[cTo]+=(*qXY)[cDo]*sqx[cSo];
+		for(c=0; c<nxy; c++) (*hqy)[cTo]+=(*qYY)[cDo]*sqy[cSo];
+		for(c=0; c<nxy; c++) (*hqy)[cTo]+=(*qYZ)[cDo]*sqz[cSo]*sign;
 
-		for(c=0; c<nxy; c++) hqz[cTo]+=qXZ[cDo]*sqx[cSo]*sign;
-		for(c=0; c<nxy; c++) hqz[cTo]+=qYZ[cDo]*sqy[cSo]*sign;
-		for(c=0; c<nxy; c++) hqz[cTo]+=qZZ[cDo]*sqz[cSo];
+		for(c=0; c<nxy; c++) (*hqz)[cTo]+=(*qXZ)[cDo]*sqx[cSo]*sign;
+		for(c=0; c<nxy; c++) (*hqz)[cTo]+=(*qYZ)[cDo]*sqy[cSo]*sign;
+		for(c=0; c<nxy; c++) (*hqz)[cTo]+=(*qZZ)[cDo]*sqz[cSo];
 	}
 }
 

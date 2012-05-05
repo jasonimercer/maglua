@@ -71,66 +71,49 @@ public:
 	static const char* slotName(int index);
 	
 	void getNetMag(double* v4);
-	
 	void diff(SpinSystem* other, double* v4);
-	void ensureSlotExists(int slot);
-	/* d_ = device (GPU) 
-	 * h_ = host (CPU)
-	 */
-	double* d_x;
-	double* d_y;
-	double* d_z;
-	double* d_ms; // spin length
 	
-	double* h_x;
-	double* h_y;
-	double* h_z;
-	double* h_ms; // spin length
+	dArray* x;
+	dArray* y;
+	dArray* z;
+	
+	dcArray* qx;
+	dcArray* qy;
+	dcArray* qz;
 
-	
-	double* h_ws1;
-	
-	double** d_hx;
-	double** d_hy;
-	double** d_hz;
-
-	double** h_hx;
-	double** h_hy;
-	double** h_hz;
+	dArray** hx;
+	dArray** hy;
+	dArray** hz;
 
 	bool* slot_used;
 	int* extra_data; //used for site specific lua data
+
+	dArray* ms; // spin length
 	
-	double gamma;
 	double alpha;
+	double gamma;
 	double dt;
 	
 	int nx, ny, nz;
 
 	int nxyz;
+	int nslots;
 
 	double time;
+	double fft_timeC[3]; //last time for fft of component i (x,y,z)
 	
-	void encode(buffer* b);
-	int  decode(buffer* b);
+	void fft();
+	void fft(int component);
+		
+	virtual void encode(buffer* b);
+	virtual int  decode(buffer* b);
 
-	lua_State* L;
-
-	void sync_spins_dh(bool force=false);
-	void sync_spins_hd(bool force=false);
-
-	void sync_fields_dh(int field,bool force=false);
-	void sync_fields_hd(int field,bool force=false);
-
-	bool  new_host_spins;   // if host data is most recent
-	bool* new_host_fields; 
-
-	bool  new_device_spins;
-	bool* new_device_fields;
-	
 private:
 	void init();
 	void deinit();
+
+	dcArray* rx;
+	dcArray* ry;
 };
 
 #endif

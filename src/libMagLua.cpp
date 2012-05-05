@@ -18,6 +18,7 @@
 #include "loader.h"
 #include "import.h"
 #include "modules.h"
+#include <string.h>
 
 #include "bootstrap.h"
 
@@ -70,13 +71,65 @@ static void lua_setupPreamble(lua_State* L, int sub_process)
 	lua_setglobal(L, "__info"); //make info(x) in bootstrap
 }
 
+static int pushtraceback(lua_State* L)
+{
+	lua_getglobal(L, "debug");
+	if (!lua_istable(L, -1)) {
+		lua_pop(L, 1);
+		return 1;
+	}
+	lua_getfield(L, -1, "traceback");
+	if (!lua_isfunction(L, -1)) {
+		lua_pop(L, 2);
+		return 1;
+	}
+	lua_remove(L, 1); //remove debug table
+	return 0;
+}
+
+static void trim_err(const char* e, char* b)
+{
+	int n = strlen(e)+1;
+	if(n > 2048)
+		n = 2048;
+	
+	memcpy(b, e, n);
+	b[2048] = 0;
+	for(int i=n-1; i>0; i--)
+	{
+		if(strncmp(b+i, "\t[C]: in function 'dofile'", 26) == 0)
+		{
+			b[i] = 0;
+			if(i && b[i-1] == '\n')
+				b[i-1] = 0;
+			return;
+		}
+	}
+	
+}
+	
+
 void libMagLua(lua_State* L, int sub_process, int force_quiet)
 {
 	lua_setupPreamble(L, sub_process);
 	
-	if(luaL_dostring(L, __bootstrap))
+	pushtraceback(L);
+	
+	if(luaL_loadstring(L, __bootstrap))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		return;
+	}
+	
+	if(lua_pcall(L, 0, 0, -2))
+	{
+		const char* err = lua_tostring(L, -1);
+		char err_buf[2048];
+		if(err)
+		{
+			trim_err(err, err_buf);
+			fprintf(stderr, "%s\n", err_buf);
+		}
 	}
 }
 
