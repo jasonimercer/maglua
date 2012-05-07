@@ -27,7 +27,7 @@ using namespace std;
 
 SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 	: LuaBaseObject(ENCODE_SPINSYSTEM), x(0), y(0), z(0), 
-		ms(0), gamma(1.0), alpha(1.0), dt(1.0),
+		ms(0),alpha(1.0),  gamma(1.0), dt(1.0),
 		nx(NX), ny(NY), nz(NZ),
 		nslots(NSLOTS), time(0)
 {
@@ -79,9 +79,9 @@ SpinSystem* SpinSystem::copy(lua_State* L)
 
 void SpinSystem::diff(SpinSystem* other, double* v4)
 {
-	v4[0] = x->diff(other->x);
-	v4[1] = y->diff(other->y);
-	v4[2] = z->diff(other->z);
+	v4[0] = x->diffSum(other->x);
+	v4[1] = y->diffSum(other->y);
+	v4[2] = z->diffSum(other->z);
 	v4[3] = sqrt(v4[0]*v4[0] + v4[1]*v4[1] + v4[2]*v4[2]);
 }
 
@@ -395,12 +395,18 @@ bool SpinSystem::addFields(double mult, SpinSystem* addThis)
 	if(ny != addThis->ny) return false;
 	if(nz != addThis->nz) return false;
 	
+	dArray::pairwiseScaleAdd(hx[SUM_SLOT], 1.0, hx[SUM_SLOT], mult, addThis->hx[SUM_SLOT]);
+	dArray::pairwiseScaleAdd(hy[SUM_SLOT], 1.0, hy[SUM_SLOT], mult, addThis->hy[SUM_SLOT]);
+	dArray::pairwiseScaleAdd(hz[SUM_SLOT], 1.0, hz[SUM_SLOT], mult, addThis->hz[SUM_SLOT]);
+
+	/*
 	for(int j=0; j<nxyz; j++)
 	{
 		(*hx[SUM_SLOT])[j] += mult * (*addThis->hx[SUM_SLOT])[j];
 		(*hy[SUM_SLOT])[j] += mult * (*addThis->hy[SUM_SLOT])[j];
 		(*hz[SUM_SLOT])[j] += mult * (*addThis->hz[SUM_SLOT])[j];
 	}
+	*/
 	return true;
 }
 
@@ -453,9 +459,18 @@ void SpinSystem::fft(int component)
 	
 	switch(component)
 	{
-	case 0:	rx->zero(); rx->setReal(x); rx->fft2D(qx); break;
-	case 1:	ry->zero(); ry->setReal(y); ry->fft2D(qy); break;
-	case 2:	rz->zero(); rz->setReal(z); rz->fft2D(qz); break;
+	case 0:	
+		rx->zero();
+		arraySetRealPart(rx->data(), x->data(), x->nxyz);
+		rx->fft2DTo(qx,0); break;
+	case 1:	
+		ry->zero();
+		arraySetRealPart(rx->data(), y->data(), y->nxyz);
+		ry->fft2DTo(qy,0); break;
+	case 2:	
+		rz->zero();
+		arraySetRealPart(rz->data(), z->data(), z->nxyz);
+		rz->fft2DTo(qz,0); break;
 	}
 }
 

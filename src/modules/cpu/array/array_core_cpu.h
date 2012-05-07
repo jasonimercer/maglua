@@ -83,26 +83,26 @@ private:
 	FFT_PLAN* ifft_plan_3D;
 
 public:
-	bool fft1DTo(ArrayCore<T>* dest, T* ws){
+	bool fft1DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 1, FFT_FORWARD, &fft_plan_1D);
 	}
-	bool fft2DTo(ArrayCore<T>* dest, T* ws){
+	bool fft2DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 2, FFT_FORWARD, &fft_plan_2D);
 	}
-	bool fft3DTo(ArrayCore<T>* dest, T* ws){
+	bool fft3DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 3, FFT_FORWARD, &fft_plan_3D);
 	}
-	bool ifft1DTo(ArrayCore<T>* dest, T* ws){
+	bool ifft1DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 1, FFT_BACKWARD, &ifft_plan_1D);
 	}
-	bool ifft2DTo(ArrayCore<T>* dest, T* ws){
+	bool ifft2DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 2, FFT_BACKWARD, &ifft_plan_2D);
 	}
-	bool ifft3DTo(ArrayCore<T>* dest, T* ws){
+	bool ifft3DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 3, FFT_BACKWARD, &ifft_plan_3D);
 	}
 
-	void encode(buffer* b)
+	void encodeCore(buffer* b)
 	{
 		sync_hd();
 		encodeInteger(nx, b);
@@ -111,7 +111,7 @@ public:
 		for(int i=0; i<nxyz; i++)
 			luaT<T>::encode(_data[i], b);
 	}
-	int decode(buffer* b)
+	int decodeCore(buffer* b)
 	{
 		int x = decodeInteger(b);
 		int y = decodeInteger(b);
@@ -146,10 +146,20 @@ public:
 		if(z<0 || z>=nz) return false;
 		return true;
 	}
+	
+	bool member(const int x, const int y, const int z, int& idx) const
+	{
+		if(x<0 || x>=nx) return false;
+		if(y<0 || y>=ny) return false;
+		if(z<0 || z>=nz) return false;
+		idx = xyz2idx(x,y,z);
+		return true;
+	}
 
 	int nx, ny, nz, nxyz;
 	
 	T* data() {return _data;}
+	const T* constData() const {return _data;}
 	T* _data;
 	
 	void sync_hd() {};
@@ -190,7 +200,7 @@ public:
 		if(!member(c[0], c[1], c[2]))
 			return luaL_error(L, "invalid site");
 		c[0] = xyz2idx(c[0], c[1], c[2]);
-		_data[c[0]] = luaT<T>::to(L, base_idx + offset);
+		data()[c[0]] = luaT<T>::to(L, base_idx + offset);
 		return 0;
 	}
 	
@@ -222,17 +232,15 @@ public:
 		if(!member(c[0], c[1], c[2]))
 			return luaL_error(L, "invalid site");
 		c[0] = xyz2idx(c[0], c[1], c[2]);
-		return luaT<T>::push(L, _data[c[0]]);
+		return luaT<T>::push(L, data()[c[0]]);
 	}
 	
-	void setAll(const T& v) {sync_hd(); arraySetAll(_data, nxyz, v);}
-	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(_data, nxyz, v);}
+	void setAll(const T& v) {sync_hd(); arraySetAll(data(), v, nxyz);}
+	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(data(), v, nxyz);}
 	
 	static bool doublePrep(ArrayCore<T>* dest, const ArrayCore<T>* src)
 	{
-		if(!sameSize(dest, src)) return false;
-		dest->sync_hd();
-		 src->sync_hd();
+		if(!dest->sameSize(src)) return false;
 		return true;
 	}
 	static bool triplePrep(ArrayCore<T>* dest, const ArrayCore<T>* src1, const ArrayCore<T>* src2)
@@ -245,14 +253,21 @@ public:
 	static bool pairwiseMult(ArrayCore<T>* dest, const ArrayCore<T>* src1, const ArrayCore<T>* src2)
 	{
 		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
-		arrayMultAll(dest->_data, src1->_data, src2->_data, dest->nxyz);
+		arrayMultAll(dest->data(), src1->data(), src2->data(), dest->nxyz);
 		return true;
 	}
 
 	static bool pairwiseDiff(ArrayCore<T>* dest, const ArrayCore<T>* src1, const ArrayCore<T>* src2)
 	{
 		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
-		arrayDiffAll(dest->_data, src1->_data, src2->_data, dest->nxyz);
+		arrayDiffAll(dest->data(), src1->data(), src2->data(), dest->nxyz);
+		return true;
+	}
+	
+	static bool pairwiseScaleAdd(ArrayCore<T>* dest, const T& s1, const ArrayCore<T>* src1, const T& s2, const ArrayCore<T>* src2)
+	{
+		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
+		arrayScaleAdd(dest->data(), s1, src1->constData(), s2, src2->constData(), dest->nxyz);
 		return true;
 	}
 
@@ -267,11 +282,42 @@ public:
 	{
 		sync_hd(); 
 		T v;
-		arraySumAll(_data, nxyz, v);
+		reduceSumAll(_data, nxyz, v);
 		return v;
 	}
 
+	T diffSum(ArrayCore<T>* other)
+	{
+		sync_hd(); 
+		T v;
+		arrayDiffSumAll(data(), other->data(), nxyz, v);
+		return v;
+	}
 	
+	void copyFrom(ArrayCore<T>* other)
+	{
+		memcpy(data(), other->data(), sizeof(T)*nxyz);
+	}
+	
+	void zero()
+	{
+		arraySetAll(data(),  luaT<T>::zero(), nxyz);
+	}
+
+	ArrayCore<T>& operator+=(const ArrayCore<T> &rhs);
+	
+	T& operator[](int index){
+		return data()[index];
+	}
+
 };
+
+template <typename T>
+ArrayCore<T>& ArrayCore<T>::operator+=(const ArrayCore<T> &rhs)
+{
+	arraySumAll(data(), data(), rhs.constData(), nxyz);
+	return *this;
+}
+	
 
 #endif

@@ -79,24 +79,24 @@ LLGQuaternion::LLGQuaternion()
 
 bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
-	const double* sx = spinfrom->x->data;
-	const double* sy = spinfrom->y->data;
-	const double* sz = spinfrom->z->data;
-	const double* ms = spinfrom->ms->data;
+	const double* sx = spinfrom->x->data();
+	const double* sy = spinfrom->y->data();
+	const double* sz = spinfrom->z->data();
+	const double* ms = spinfrom->ms->data();
 
-	      double* mt = spinto->ms->data;
+	      double* mt = spinto->ms->data();
 
-	const double* hx = dmdt->hx[SUM_SLOT]->data;
-	const double* hy = dmdt->hy[SUM_SLOT]->data;
-	const double* hz = dmdt->hz[SUM_SLOT]->data;
+	const double* hx = dmdt->hx[SUM_SLOT]->data();
+	const double* hy = dmdt->hy[SUM_SLOT]->data();
+	const double* hz = dmdt->hz[SUM_SLOT]->data();
 
-	const double* mx = dmdt->x->data;
-	const double* my = dmdt->y->data;
-	const double* mz = dmdt->z->data;
+	const double* mx = dmdt->x->data();
+	const double* my = dmdt->y->data();
+	const double* mz = dmdt->z->data();
 
-	      double* x  = spinto->x->data;
-	      double* y  = spinto->y->data;
-	      double* z  = spinto->z->data;
+	      double* x  = spinto->x->data();
+	      double* y  = spinto->y->data();
+	      double* z  = spinto->z->data();
 		  
 	const double gamma = dmdt->gamma;
 	const double alpha = dmdt->alpha;
@@ -140,9 +140,9 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 			M[0]=mx[i]; M[1]=my[i]; M[2]=mz[i];
 			H[0]=hx[i]; H[1]=hy[i]; H[2]=hz[i];
 
-			h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data[i];
-			h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data[i];
-			h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data[i];
+			h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
+			h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
+			h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
 
 			CROSS(Sh, M, h);
 			for(int j=0; j<3; j++)

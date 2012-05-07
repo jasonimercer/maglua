@@ -40,24 +40,24 @@ LLGCartesian::LLGCartesian()
 	v[2] = a[0] * b[1] - a[1] * b[0];
 bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
-	const double* sx = spinfrom->x->data;
-	const double* sy = spinfrom->y->data;
-	const double* sz = spinfrom->z->data;
-	const double* ms = spinfrom->ms->data;
+	const double* sx = spinfrom->x->data();
+	const double* sy = spinfrom->y->data();
+	const double* sz = spinfrom->z->data();
+	const double* ms = spinfrom->ms->data();
 	
-	      double* mt = spinto->ms->data;
+	      double* mt = spinto->ms->data();
 
-	const double* hx = dmdt->hx[SUM_SLOT]->data;
-	const double* hy = dmdt->hy[SUM_SLOT]->data;
-	const double* hz = dmdt->hz[SUM_SLOT]->data;
+	const double* hx = dmdt->hx[SUM_SLOT]->data();
+	const double* hy = dmdt->hy[SUM_SLOT]->data();
+	const double* hz = dmdt->hz[SUM_SLOT]->data();
 
-	const double* mx = dmdt->x->data;
-	const double* my = dmdt->y->data;
-	const double* mz = dmdt->z->data;
+	const double* mx = dmdt->x->data();
+	const double* my = dmdt->y->data();
+	const double* mz = dmdt->z->data();
 
-	      double* x  = spinto->x->data;
-	      double* y  = spinto->y->data;
-	      double* z  = spinto->z->data;
+	      double* x  = spinto->x->data();
+	      double* y  = spinto->y->data();
+	      double* z  = spinto->z->data();
 
 	const double gamma = dmdt->gamma;
 	const double alpha = dmdt->alpha;
@@ -65,7 +65,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 
 	//LLG from http://inoe.inoe.ro/joam/arhiva/pdf8_5/5Ciubotaru.pdf
 	const int nxyz = spinfrom->nxyz;
-	#pragma omp parallel for shared(x, y, z)
+//	#pragma omp parallel for shared(x, y, z)
 	for(int i=0; i<nxyz; i++)
 	{
 		mt[i] = ms[i];
@@ -83,9 +83,9 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 
 #ifdef THERMAL_ONLY_FIRST_TERM
 			double h[3];
-			h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data[i];
-			h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data[i];
-			h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data[i];
+			h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
+			h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
+			h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
 			
 			CROSS(MH, M, h);   // M x h
 			CROSS(MMH, M, MH); // M x (M x h)

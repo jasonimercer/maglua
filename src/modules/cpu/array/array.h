@@ -22,6 +22,10 @@ public:
 	static const luaL_Reg* luaMethods(); 
 	virtual int luaInit(lua_State* L); 
 	static int help(lua_State* L); 	
+	
+	virtual void encode(buffer* b) {ArrayCore<T>::encodeCore(b);}
+	virtual  int decode(buffer* b) {return ArrayCore<T>::decodeCore(b);}
+
 };
 
 typedef Array<doubleComplex> dcArray;

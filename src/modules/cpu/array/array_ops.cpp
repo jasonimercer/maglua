@@ -10,23 +10,23 @@ void setAll_(T* dest, const int n, const T& v)
 		dest[i] = v;
 }
 
-void arraySetAll(double* a, const int n, const double& v)
+void arraySetAll(double* a, const double& v, const int n)
 {
 	setAll_<double>(a, n, v);
 }
-void arraySetAll(float* a, const int n, const float& v)
+void arraySetAll(float* a, const float& v, const int n)
 {
 	setAll_<float>(a, n, v);
 }
-void arraySetAll(int* a, const int n, const int& v)
+void arraySetAll(int* a,  const int& v, const int n)
 {
 	setAll_<int>(a, n, v);
 }
-void arraySetAll(doubleComplex* a, const int n, const doubleComplex& v)
+void arraySetAll(doubleComplex* a, const doubleComplex& v, const int n)
 {
 	setAll_<doubleComplex>(a, n, v);
 }
-void arraySetAll(floatComplex* a, const int n, const floatComplex& v)
+void arraySetAll(floatComplex* a, const floatComplex& v, const int n)
 {
 	setAll_<floatComplex>(a, n, v);
 }
@@ -40,23 +40,23 @@ void scaleAll_(T* dest, const int n, const T& v)
 	for(int i=0; i<n; i++)
 		dest[i] *= v;
 }
-void arrayScaleAll(double* a, const int n, const double& v)
+void arrayScaleAll(double* a, const double& v, const int n)
 {
 	scaleAll_<double>(a, n, v);
 }
-void arrayScaleAll(float* a, const int n, const float& v)
+void arrayScaleAll(float* a, const float& v, const int n)
 {
 	scaleAll_<float>(a, n, v);
 }
-void arrayScaleAll(int* a, const int n, const int& v)
+void arrayScaleAll(int* a, const int& v, const int n)
 {
 	scaleAll_<int>(a, n, v);
 }
-void arrayScaleAll(doubleComplex* a, const int n, const doubleComplex& v)
+void arrayScaleAll(doubleComplex* a, const doubleComplex& v, const int n)
 {
 	scaleAll_<doubleComplex>(a, n, v);
 }
-void arrayScaleAll(floatComplex* a, const int n, const floatComplex& v)
+void arrayScaleAll(floatComplex* a, const floatComplex& v, const int n)
 {
 	scaleAll_<floatComplex>(a, n, v);
 }
@@ -238,7 +238,7 @@ void arraySetImagPart(floatComplex* dest, const float * src, const int n)
 
 
 template<typename T>
-T arraySumAll_(T* v, const int n)
+T arraySumAll_(const T* v, const int n)
 {
 	T res = 0;
 	for(int i=0; i<n; i++)
@@ -249,23 +249,23 @@ T arraySumAll_(T* v, const int n)
 
 
 
-void arraySumAll(double* a, const int n, double& v)
+void reduceSumAll(const double* a, const int n, double& v)
 {
 	v = arraySumAll_<double>(a, n);
 }
-void arraySumAll(float* a, const int n, float& v)
+void reduceSumAll(const float* a, const int n, float& v)
 {
 	v = arraySumAll_<float>(a, n);
 }
-void arraySumAll(int* a, const int n, int& v)
+void reduceSumAll(const int* a, const int n, int& v)
 {
 	v = arraySumAll_<int>(a, n);
 }
-void arraySumAll(doubleComplex* a, const int n, doubleComplex& v)
+void reduceSumAll(const doubleComplex* a, const int n, doubleComplex& v)
 {
 	v = arraySumAll_<doubleComplex>(a, n);
 }
-void arraySumAll(floatComplex* a, const int n, floatComplex& v)
+void reduceSumAll(const floatComplex* a, const int n, floatComplex& v)
 {
 	v = arraySumAll_<floatComplex>(a, n);
 }
@@ -276,3 +276,95 @@ void arraySumAll(floatComplex* a, const int n, floatComplex& v)
 
 
 
+
+void arrayDiffSumAll(double* d_a, const double* d_b, const int n, double& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= fabs((d_a[i] - d_b[i]));
+}
+void arrayDiffSumAll(float* d_a, const float* d_b, const int n, float& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= fabsf((d_a[i] - d_b[i]));
+}
+void arrayDiffSumAll(int* d_a, const int* d_b, const int n, int& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= abs((d_a[i] - d_b[i]));
+}
+void arrayDiffSumAll(doubleComplex* d_a, const doubleComplex* d_b, const int n, doubleComplex& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= abs((d_a[i] - d_b[i]));
+}
+void arrayDiffSumAll(floatComplex* d_a, const floatComplex* d_b, const int n, floatComplex& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= abs((d_a[i] - d_b[i]));
+}
+
+
+
+
+
+
+
+
+void arrayScaleAdd(double* dest, double s1, const double* src1, double s2, const double* src2, const int n)
+{
+	for(int i=0; i<n; i++)
+		dest[i] = s1*src1[i] + s2*src2[i];
+}
+
+void arrayScaleAdd(float* dest, float s1, const float* src1, float s2, const float* src2, const int n)
+{
+	for(int i=0; i<n; i++)
+		dest[i] = s1*src1[i] + s2*src2[i];
+}
+void arrayScaleAdd(int* dest, int s1, const int* src1, int s2, const int* src2, const int n)
+{
+	for(int i=0; i<n; i++)
+		dest[i] = s1*src1[i] + s2*src2[i];
+}
+void arrayScaleAdd(doubleComplex* dest, doubleComplex s1, const doubleComplex* src1, doubleComplex s2, const doubleComplex* src2, const int n)
+{
+	for(int i=0; i<n; i++)
+		dest[i] = s1*src1[i] + s2*src2[i];
+}
+
+void arrayScaleAdd(floatComplex* dest, floatComplex s1, const floatComplex* src1, floatComplex s2, const floatComplex* src2, const int n)
+{
+	for(int i=0; i<n; i++)
+		dest[i] = s1*src1[i] + s2*src2[i];
+}
+
+
+
+
+
+void arraySumAll(double* d_dest, const double* d_src1, const double* d_src2, const int n)
+{
+	arrayScaleAdd(d_dest, 1.0, d_src1, 1.0, d_src2, n);
+}
+
+void arraySumAll( float* d_dest,  const float* d_src1,  const float* d_src2, const int n)
+{
+	arrayScaleAdd(d_dest, 1.0, d_src1, 1.0, d_src2, n);
+}
+void arraySumAll(   int* d_dest,    const int* d_src1,    const int* d_src2, const int n)
+{
+	arrayScaleAdd(d_dest, 1.0, d_src1, 1.0, d_src2, n);
+}
+void arraySumAll(doubleComplex* d_dest, const doubleComplex* d_src1, const doubleComplex* d_src2, const int n)
+{
+	arrayScaleAdd(d_dest, 1.0, d_src1, 1.0, d_src2, n);
+}
+void arraySumAll( floatComplex* d_dest,  const floatComplex* d_src1,  const floatComplex* d_src2, const int n)
+{
+	arrayScaleAdd(d_dest, 1.0, d_src1, 1.0, d_src2, n);
+}

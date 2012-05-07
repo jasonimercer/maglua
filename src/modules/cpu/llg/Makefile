@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=llg.o llgquat.o llgfake.o llgalign.o llgcartesian.o llg_wrapper.o
+OBJECTS=llg_wrapper.o llg.o llgquat.o llgfake.o llgalign.o llgcartesian.o
 LIBNAME=LLG
 CATEGORY=cpu
 

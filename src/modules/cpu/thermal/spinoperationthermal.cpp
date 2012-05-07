@@ -76,17 +76,17 @@ bool Thermal::apply(RNG* rand, SpinSystem* ss)
 	const double dt    = ss->dt;
 	const double gamma = ss->gamma;
 
-	double* hx = ss->hx[slot]->data;
-	double* hy = ss->hy[slot]->data;
-	double* hz = ss->hz[slot]->data;
+	double* hx = ss->hx[slot]->data();
+	double* hy = ss->hy[slot]->data();
+	double* hz = ss->hz[slot]->data();
+	const double* ms = ss->ms->data();
 	
 	for(int i=0; i<ss->nxyz; i++)
 	{
-		const double ms = ss->ms->data[i];
-		if(ms != 0 && temperature != 0)
+		if(ms[i] != 0 && temperature != 0)
 		{
 // 			double stddev = sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma * (1+alpha*alpha)));
-			const double stddev = global_scale * sqrt((2.0 * alpha * temperature * (*scale)[i]) / (ms * dt * gamma));
+			const double stddev = global_scale * sqrt((2.0 * alpha * temperature * (*scale)[i]) / (ms[i] * dt * gamma));
 			
 			hx[i] = stddev * rand->randNorm(0, 1);
 			hy[i] = stddev * rand->randNorm(0, 1);

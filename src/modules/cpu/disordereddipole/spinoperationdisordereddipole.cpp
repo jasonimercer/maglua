@@ -117,13 +117,13 @@ bool DisorderedDipole::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
 
-	double* x = ss->x->data;
-	double* y = ss->y->data;
-	double* z = ss->z->data;
+	double* x = ss->x->data();
+	double* y = ss->y->data();
+	double* z = ss->z->data();
 	
-	double* hx = ss->hx[DIPOLE_SLOT]->data;
-	double* hy = ss->hy[DIPOLE_SLOT]->data;
-	double* hz = ss->hz[DIPOLE_SLOT]->data;
+	double* hx = ss->hx[DIPOLE_SLOT]->data();
+	double* hy = ss->hy[DIPOLE_SLOT]->data();
+	double* hz = ss->hz[DIPOLE_SLOT]->data();
 	
 	double r1[3], r2[3];
 	double rij[3];
@@ -135,17 +135,17 @@ bool DisorderedDipole::apply(SpinSystem* ss)
 		hx[i] = 0;
 		hy[i] = 0;
 		hz[i] = 0;
-		r1[0] = posx->data[i];
-		r1[1] = posy->data[i];
-		r1[2] = posz->data[i];
+		r1[0] = (*posx)[i];
+		r1[1] = (*posy)[i];
+		r1[2] = (*posz)[i];
 		
 		for(int j=0; j<nxyz; j++)
 		{
 			if(i != j)
 			{
-				r2[0] = posx->data[j];
-				r2[1] = posy->data[j];
-				r2[2] = posz->data[j];
+				r2[0] = (*posx)[j];
+				r2[1] = (*posy)[j];
+				r2[2] = (*posz)[j];
 				
 				for(int k=0; k<3; k++)
 					rij[k] = r2[k] - r1[k];
@@ -224,9 +224,9 @@ static int l_siteposition(lua_State* L)
 	
 	int site = dip->getSite(s[0]-1, s[1]-1, s[2]-1);
 	
-	lua_pushnumber(L, dip->posx->data[site]);
-	lua_pushnumber(L, dip->posy->data[site]);
-	lua_pushnumber(L, dip->posz->data[site]);
+	lua_pushnumber(L, dip->posx->data()[site]);
+	lua_pushnumber(L, dip->posy->data()[site]);
+	lua_pushnumber(L, dip->posz->data()[site]);
 	return 3;
 }
 

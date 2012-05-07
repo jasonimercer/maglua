@@ -190,7 +190,7 @@ void LongRange::loadMatrix()
 {
 	if(matrixLoaded) return;
 	init();
-	loadMatrixFunction(XX->data, XY->data, XZ->data, YY->data, YZ->data, ZZ->data); //implemented by child
+	loadMatrixFunction(XX->data(), XY->data(), XZ->data(), YY->data(), YZ->data(), ZZ->data()); //implemented by child
 	newdata = true;
 	matrixLoaded = true;
 }
@@ -261,8 +261,9 @@ void LongRange::getMatrices()
 	for(int a=0; a<6; a++)
 	{
 		rrr.zero();
-		rrr.setReal(arrs[a]);
-		rrr.fft2D(qarrs[a]);
+		
+		arraySetRealPart(rrr.data(), arrs[a]->data(), nxyz);
+		rrr.fft2DTo(qarrs[a], 0);
 	}
 
 	newdata = false;
@@ -274,17 +275,17 @@ void LongRange::ifftAppliedForce(SpinSystem* ss)
 	//The nx*ny is for fftw
 	double d = g * global_scale / (double)(nx*ny);
 	
-	hqx->ifft2D(hrx);
-	hqy->ifft2D(hry);
-	hqz->ifft2D(hrz);
+	hqx->ifft2DTo(hrx);
+	hqy->ifft2DTo(hry);
+	hqz->ifft2DTo(hrz);
 
-	hrx->getReal(ss->hx[slot]);
-	hry->getReal(ss->hy[slot]);
-	hrz->getReal(ss->hz[slot]);
-	
-	ss->hx[slot]->scale(d);
-	ss->hy[slot]->scale(d);
-	ss->hz[slot]->scale(d);
+	arrayGetRealPart(ss->hx[slot]->data(), hqx->data(), nxyz);
+	arrayGetRealPart(ss->hy[slot]->data(), hqy->data(), nxyz);
+	arrayGetRealPart(ss->hz[slot]->data(), hqz->data(), nxyz);
+
+	ss->hx[slot]->scaleAll(d);
+	ss->hy[slot]->scaleAll(d);
+	ss->hz[slot]->scaleAll(d);
 }
 
 

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=mersennetwister.o random.o isaac.o crand.o random_wrapper.o
+OBJECTS=random_wrapper.o mersennetwister.o random.o isaac.o crand.o 
 LIBNAME=Random
 CATEGORY=common
 
