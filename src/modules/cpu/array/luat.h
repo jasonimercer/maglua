@@ -23,6 +23,8 @@ public:
 	static	void encode(const T& v, buffer* b){}
 	static	T decode(buffer* b){return 0;}
 	static	T zero() {return 0;}
+	static	T one() {return 1;}
+	static	T neg_one() {return -1;}
 };
 
 template<>
@@ -33,6 +35,8 @@ public:
 	static	void encode(const double& v, buffer* b){	encodeDouble(v, b);	}
 	static	double decode(buffer* b){return decodeDouble(b);}
 	static	double zero() {return 0;}
+	static	double one() {return 1;}
+	static	double neg_one() {return -1;}
 };
 
 template<>
@@ -43,6 +47,8 @@ public:
 	static	void encode(const float& v, buffer* b){	encodeDouble(v, b);	}
 	static	float decode(buffer* b){return decodeDouble(b);}
 	static	float zero() {return 0;}
+	static	float one() {return 1;}
+	static	float neg_one() {return -1;}
 };
 
 template<>
@@ -53,6 +59,8 @@ public:
 	static	void encode(const int& v, buffer* b){	encodeInteger(v, b);	}
 	static	int decode(buffer* b){return decodeInteger(b);}
 	static	int zero() {return 0;}
+	static	int one() {return 1;}
+	static	int neg_one() {return -1;}
 };
 
 template<>
@@ -63,6 +71,8 @@ public:
 	static	void encode(const doubleComplex& v, buffer* b){	encodeDouble(v.real(), b);encodeDouble(v.imag(), b);}
 	static	doubleComplex decode(buffer* b){return doubleComplex(decodeDouble(b), decodeDouble(b));}
 	static	doubleComplex zero() {return doubleComplex(0,0);}
+	static	doubleComplex one() {return doubleComplex(1,0);}
+	static	doubleComplex neg_one() {return doubleComplex(-1,0);}
 };
 
 template<>
@@ -73,6 +83,8 @@ public:
 	static	void encode(const floatComplex& v, buffer* b){	encodeDouble(v.real(), b);encodeDouble(v.imag(), b);}
 	static	floatComplex decode(buffer* b){return floatComplex(decodeDouble(b), decodeDouble(b));}
 	static	floatComplex zero() {return floatComplex(0,0);}
+	static	floatComplex one() {return floatComplex(1,0);}
+	static	floatComplex neg_one() {return floatComplex(-1,0);}
 };
 
 #endif

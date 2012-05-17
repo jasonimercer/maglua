@@ -12,7 +12,7 @@
 
 #include "hybridtaus.h"
 #include <stdlib.h>
-
+#include "array.h"
 
 HybridTaus::HybridTaus()
 	: RNG()
@@ -34,6 +34,7 @@ HybridTaus::~HybridTaus()
 int HybridTaus::luaInit(lua_State* L)
 {
 	init();
+	seed();
 	RNG::luaInit(L);
 	if(luaT_is<RNG>(L, -1))
 	{
@@ -42,7 +43,9 @@ int HybridTaus::luaInit(lua_State* L)
 		if(cpu_rng)
 			luaT_dec<RNG>(cpu_rng);
 		cpu_rng = c;
-		cpu_rng->luaInit(L);
+		const int i = c->randInt();
+		seed(c->randInt());
+// 		cpu_rng->luaInit(L);
 	}
 	return 0;
 }
@@ -56,8 +59,6 @@ void HybridTaus::init()
 
 	HybridTausAllocState(&d_state, nx, ny, nz);
 	HybridTausAllocRNG(&d_rngs, nx, ny, nz);
-	
-	HybridTausSeed(d_state, nx, ny, nz, 123456);
 }
 
 void HybridTaus::deinit()
@@ -120,7 +121,7 @@ int HybridTaus::help(lua_State* L)
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Generates random variables on the GPU using the HybridTaus RNG.");
-		lua_pushstring(L, "Optional 1 Number, Optional 1 RNG Object: The number is the seed. The RNG Object is a CPU based random number generator used for local CPU operations."); //input, empty
+		lua_pushstring(L, "Optional 1 Number, Optional 1 RNG Object: The number is the seed. The RNG Object is a CPU based random number generator used for local CPU operations. If a CPU RNG is given, it will be used to generate a seend for the GPU implementation."); //input, empty
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
@@ -143,6 +144,14 @@ float* HybridTaus::get6Normals(int _nx, int _ny, int _nz, int& t)
 	twiddle++;
 	twiddle &= 0x1;
 
+// 	fArray a(nx,ny,nz*6, d_rngs);
+// 	float* f = a.data(); 
+// 	for(int i=0; i<nx*ny*nz*6; i++)
+// 	{
+// 		f[i] = cpu_rng->randNorm();
+// 	}
+// 	a.sync_hd();
+	
 	if(!twiddle)
 	{
 		HybridTaus_get6Normals(d_state, d_rngs, nx, ny, nz);

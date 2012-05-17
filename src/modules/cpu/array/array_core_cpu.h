@@ -86,20 +86,39 @@ public:
 	bool fft1DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 1, FFT_FORWARD, &fft_plan_1D);
 	}
+	bool fft1DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+		return fft1DTo(dest,ws->data());
+	}
 	bool fft2DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 2, FFT_FORWARD, &fft_plan_2D);
+	}
+	bool fft2DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+		return fft2DTo(dest,ws->data());
 	}
 	bool fft3DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 3, FFT_FORWARD, &fft_plan_3D);
 	}
+	bool fft3DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+		return fft3DTo(dest,ws->data());
+	}
+	
 	bool ifft1DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 1, FFT_BACKWARD, &ifft_plan_1D);
+	}
+	bool ifft1DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+		return ifft1DTo(dest,ws->data());
 	}
 	bool ifft2DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 2, FFT_BACKWARD, &ifft_plan_2D);
 	}
+	bool ifft2DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+		return ifft2DTo(dest,ws->data());
+	}
 	bool ifft3DTo(ArrayCore<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 3, FFT_BACKWARD, &ifft_plan_3D);
+	}
+	bool ifft3DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+		return ifft3DTo(dest,ws->data());
 	}
 
 	void encodeCore(buffer* b)
@@ -237,6 +256,7 @@ public:
 	
 	void setAll(const T& v) {sync_hd(); arraySetAll(data(), v, nxyz);}
 	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(data(), v, nxyz);}
+	void addValue(const T& v) {sync_hd(); arrayAddAll(data(), v, nxyz);}
 	
 	static bool doublePrep(ArrayCore<T>* dest, const ArrayCore<T>* src)
 	{
@@ -290,7 +310,7 @@ public:
 	{
 		sync_hd(); 
 		T v;
-		arrayDiffSumAll(data(), other->data(), nxyz, v);
+		reduceDiffSumAll(data(), other->data(), nxyz, v);
 		return v;
 	}
 	

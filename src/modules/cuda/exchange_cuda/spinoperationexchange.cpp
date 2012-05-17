@@ -483,7 +483,6 @@ int  Exchange::decode(buffer* b)
 bool Exchange::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
-	ss->sync_spins_hd();
 	ss->ensureSlotExists(slot);
 
 // 	make_uncompressed();
@@ -495,13 +494,13 @@ bool Exchange::apply(SpinSystem* ss)
 		make_uncompressed();
 	}
 		
-	double* d_hx = ss->d_hx[slot];
-	double* d_hy = ss->d_hy[slot];
-	double* d_hz = ss->d_hz[slot];
+	double* d_hx = ss->hx[slot]->ddata();
+	double* d_hy = ss->hy[slot]->ddata();
+	double* d_hz = ss->hz[slot]->ddata();
 
-	const double* d_sx = ss->d_x;
-	const double* d_sy = ss->d_y;
-	const double* d_sz = ss->d_z;
+	const double* d_sx = ss->x->ddata();
+	const double* d_sy = ss->y->ddata();
+	const double* d_sz = ss->z->ddata();
 
 	if(compressed)
 	{
@@ -520,14 +519,16 @@ bool Exchange::apply(SpinSystem* ss)
 			nx, ny, nz);
 	}
 	
-	ss->new_device_fields[slot] = true;
+	ss->hx[slot]->new_device = true;
+	ss->hy[slot]->new_device = true;
+	ss->hz[slot]->new_device = true;
+	
 	return true;
 }
 
 
 bool Exchange::applyToSum(SpinSystem* ss)
 {
-	ss->sync_spins_hd();
 	ss->ensureSlotExists(SUM_SLOT);
 
 	double* d_wsx;
@@ -535,7 +536,7 @@ bool Exchange::applyToSum(SpinSystem* ss)
 	double* d_wsz;
 	
 	const int sz = sizeof(double)*nxyz;
-	getWSMem(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
+	getWSMem3(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
 	
 	if(!make_compressed())
 	{
@@ -547,9 +548,9 @@ bool Exchange::applyToSum(SpinSystem* ss)
 // 	double* d_hy = ss->d_hy[slot];
 // 	double* d_hz = ss->d_hz[slot];
 
-	const double* d_sx = ss->d_x;
-	const double* d_sy = ss->d_y;
-	const double* d_sz = ss->d_z;
+	const double* d_sx = ss->x->ddata();
+	const double* d_sy = ss->y->ddata();
+	const double* d_sz = ss->z->ddata();
 
 	if(compressed)
 	{
@@ -569,9 +570,13 @@ bool Exchange::applyToSum(SpinSystem* ss)
 	}
 	
 	const int nxyz = nx*ny*nz;
-	cuda_addArrays(ss->d_hx[SUM_SLOT], nxyz, ss->d_hx[SUM_SLOT], d_wsx);
-	cuda_addArrays(ss->d_hy[SUM_SLOT], nxyz, ss->d_hy[SUM_SLOT], d_wsy);
-	cuda_addArrays(ss->d_hz[SUM_SLOT], nxyz, ss->d_hz[SUM_SLOT], d_wsz);
+	arraySumAll(ss->hx[SUM_SLOT]->ddata(), ss->hx[SUM_SLOT]->ddata(), d_wsx, nxyz);
+	arraySumAll(ss->hy[SUM_SLOT]->ddata(), ss->hy[SUM_SLOT]->ddata(), d_wsy, nxyz);
+	arraySumAll(ss->hz[SUM_SLOT]->ddata(), ss->hz[SUM_SLOT]->ddata(), d_wsz, nxyz);
+	
+	ss->hx[SUM_SLOT]->new_device = true;
+	ss->hy[SUM_SLOT]->new_device = true;
+	ss->hz[SUM_SLOT]->new_device = true;
 	ss->slot_used[SUM_SLOT] = true;
 
 	return true;

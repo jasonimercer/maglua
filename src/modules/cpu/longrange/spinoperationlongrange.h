@@ -41,8 +41,6 @@ public:
 	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 
-	
-	
 	bool apply(SpinSystem* ss);
 	void getMatrices();
 	
@@ -79,12 +77,17 @@ public:
 	double getAB(int matrix, int ox, int oy, int oz);
 	void   setAB(int matrix, int ox, int oy, int oz, double value);
 	
+	dArray* XX;
+	dArray* XY;
+	dArray* XZ;
+	dArray* YY;
+	dArray* YZ;
+	dArray* ZZ;
+	
 private:
 	void loadMatrix();
-
-	void ifftAppliedForce(SpinSystem* ss);
-	void collectIForces(SpinSystem* ss);
-
+	bool updateData();
+	
 	bool newdata;
 	bool hasMatrices;
 	bool matrixLoaded;
@@ -110,12 +113,9 @@ private:
 	dcArray* qYZ;
 	dcArray* qZZ;
 
-	dArray* XX;
-	dArray* XY;
-	dArray* XZ;
-	dArray* YY;
-	dArray* YZ;
-	dArray* ZZ;
+	dcArray* ws1;
+	dcArray* ws2;
+
 };
 
 

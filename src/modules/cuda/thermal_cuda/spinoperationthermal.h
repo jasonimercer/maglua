@@ -14,6 +14,7 @@
 #define SPINOPERATIONTHERMAL
 
 #include "spinoperation.h"
+#include "array.h"
 #include <stdint.h>
 
 #ifdef WIN32
@@ -57,17 +58,11 @@ public:
 	
 	double temperature;
 
-	void sync_dh(bool force=false);
-	void sync_hd(bool force=false);
-	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
-	bool new_device;
-	bool new_host;
-private:
-	double* d_scale;
-	double* h_scale;
+
+	dArray* scale;
 };
 
 

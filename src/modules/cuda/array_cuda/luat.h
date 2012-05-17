@@ -17,6 +17,8 @@ public:
 	static	void encode(const T& v, buffer* b){}
 	static	T decode(buffer* b){return 0;}
 	static	T zero() {return 0;}
+	static	T one() {return 1;}
+	static	T neg_one() {return -1;}
 };
 
 template<>
@@ -27,6 +29,8 @@ public:
 	static	void encode(const double& v, buffer* b){	encodeDouble(v, b);	}
 	static	double decode(buffer* b){return decodeDouble(b);}
 	static	double zero() {return 0;}
+	static	double one() {return 1;}
+	static	double neg_one() {return -1;}
 };
 
 template<>
@@ -37,6 +41,8 @@ public:
 	static	void encode(const float& v, buffer* b){	encodeDouble(v, b);	}
 	static	float decode(buffer* b){return decodeDouble(b);}
 	static	float zero() {return 0;}
+	static	float one() {return 1;}
+	static	float neg_one() {return -1;}
 };
 
 template<>
@@ -47,6 +53,8 @@ public:
 	static	void encode(const int& v, buffer* b){	encodeInteger(v, b);	}
 	static	int decode(buffer* b){return decodeInteger(b);}
 	static	int zero() {return 0;}
+	static	int one() {return 1;}
+	static	int neg_one() {return -1;}
 };
 
 template<>
@@ -57,6 +65,8 @@ public:
 	static	void encode(const cuDoubleComplex& v, buffer* b){	encodeDouble(v.x, b);encodeDouble(v.y, b);}
 	static	cuDoubleComplex decode(buffer* b){return make_cuDoubleComplex(decodeDouble(b), decodeDouble(b));}
 	static	cuDoubleComplex zero() {return make_cuDoubleComplex(0,0);}
+	static	cuDoubleComplex one() {return make_cuDoubleComplex(1,0);}
+	static	cuDoubleComplex neg_one() {return make_cuDoubleComplex(-1,0);}
 };
 
 template<>
@@ -67,6 +77,8 @@ public:
 	static	void encode(const cuFloatComplex& v, buffer* b){	encodeDouble(v.x, b);encodeDouble(v.y, b);}
 	static	cuFloatComplex decode(buffer* b){return make_cuFloatComplex(decodeDouble(b), decodeDouble(b));}
 	static	cuFloatComplex zero() {return make_cuFloatComplex(0,0);}
+	static	cuFloatComplex one() {return make_cuFloatComplex(1,0);}
+	static	cuFloatComplex neg_one() {return make_cuFloatComplex(-1,0);}
 };
 
 #endif

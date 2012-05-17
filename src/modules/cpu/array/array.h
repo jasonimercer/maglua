@@ -25,7 +25,6 @@ public:
 	
 	virtual void encode(buffer* b) {ArrayCore<T>::encodeCore(b);}
 	virtual  int decode(buffer* b) {return ArrayCore<T>::decodeCore(b);}
-
 };
 
 typedef Array<doubleComplex> dcArray;

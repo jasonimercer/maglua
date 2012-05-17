@@ -21,12 +21,16 @@ __global__ void do_thermal(
 		const float* d_rng6,  
 		double FOOBAR, double* d_scale,
 		double* d_hx, double* d_hy, double* d_hz, double* d_ms,
-		const int nx, const int ny, const int offset)
+		const int n)//x, const int ny, const int offset)
 {
-	IDX_PATT(x, y);
-	if(x >= nx || y >= ny)
+// 	IDX_PATT(x, y);
+// 	if(x >= nx || y >= ny)
+// 		return;
+// 	const int idx = x + y*nx + offset;
+	
+	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+	if(idx >= n)
 		return;
-	const int idx = x + y*nx + offset;
 	
 	const double ms = d_ms[idx];
 	if(ms != 0)
@@ -49,28 +53,32 @@ void cuda_thermal(const float* d_rng6, const int twiddle,
 	double alpha, double gamma, double dt, double temperature,
 	double* d_hx, double* d_hy, double* d_hz, double* d_ms,
 	double* d_scale,
-	const int nx, const int ny, const int nz)
+	const int nxyz)//, const int ny, const int nz)
 {
+// 	const int nxyz = nx * ny * nz;
+	const int threads = 512;
+	const int blocks = nxyz / threads + 1;
+		
 	const double FOOBAR =  (2.0 * alpha * temperature) / (dt * gamma);
-	const int _blocksx = nx / 32 + 1;
-	const int _blocksy = ny / 32 + 1;
-	dim3 blocks(_blocksx, _blocksy);
-	dim3 threads(32,32);
+// 	const int _blocksx = nx / 32 + 1;
+// 	const int _blocksy = ny / 32 + 1;
+// 	dim3 blocks(_blocksx, _blocksy);
+// 	dim3 threads(32,32);
 	
 	if(twiddle == 0)
 	{
-		for(int i=0; i<nz; i++)
-		{
-			do_thermal<0><<<blocks, threads>>>(d_rng6, FOOBAR, d_scale, d_hx, d_hy, d_hz, d_ms, nx, ny, nx*ny*i);
+// 		for(int i=0; i<nz; i++)
+// 		{
+			do_thermal<0><<<blocks, threads>>>(d_rng6, FOOBAR, d_scale, d_hx, d_hy, d_hz, d_ms, nxyz);
 			CHECK
-		}
+// 		}
 	}
 	else
 	{
-		for(int i=0; i<nz; i++)
-		{
-			do_thermal<1><<<blocks, threads>>>(d_rng6, FOOBAR, d_scale, d_hx, d_hy, d_hz, d_ms, nx, ny, nx*ny*i);
+// 		for(int i=0; i<nz; i++)
+// 		{
+			do_thermal<1><<<blocks, threads>>>(d_rng6, FOOBAR, d_scale, d_hx, d_hy, d_hz, d_ms, nxyz);
 			CHECK
-		}
+// 		}
 	}
 }

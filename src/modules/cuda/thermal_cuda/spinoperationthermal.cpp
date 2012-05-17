@@ -24,7 +24,7 @@
 Thermal::Thermal(int nx, int ny, int nz)
 	: SpinOperation(Thermal::typeName(), THERMAL_SLOT, nx, ny, nz, hash32(Thermal::typeName()))
 {
-	d_scale = 0;
+	scale = 0;
 	temperature = 0;
  	registerWS();
 
@@ -39,38 +39,12 @@ int Thermal::luaInit(lua_State* L)
 	return 0;
 }
 
-void Thermal::sync_dh(bool force)
-{
-	if(new_device || force)
-	{
-		ss_copyDeviceToHost(h_scale, d_scale, nxyz);
-		
-		new_host = false;
-		new_device = false;
-	}	
-}
-
-void Thermal::sync_hd(bool force)
-{
-	if(new_host || force)
-	{
-		ss_copyHostToDevice(d_scale, h_scale, nxyz);
-
-		new_host = false;
-		new_device = false;
-	}	
-}
-
-
 void Thermal::encode(buffer* b)
 {
-	sync_dh();
 	SpinOperation::encode(b);
 
  	encodeDouble(temperature, b);
- 	
- 	for(int i=0; i<nxyz; i++)
- 		encodeDouble(h_scale[i], b);
+	scale->encode(b);
 }
 
 int  Thermal::decode(buffer* b)
@@ -80,40 +54,23 @@ int  Thermal::decode(buffer* b)
 	init();
 	
 	temperature = decodeDouble(b);
-	
-	for(int i=0; i<nxyz; i++)
-		h_scale[i] = decodeDouble(b);
-	
-	new_host = true;
-	new_device = false;
+	scale->decode(b);
 	return 0;
 }
 
 void Thermal::init()
 {
-	if(d_scale != 0)
+	if(scale != 0)
 		deinit();
 
-	malloc_device(&d_scale, sizeof(double)*nx*ny*nz);
-	malloc_host  (&h_scale, sizeof(double)*nx*ny*nz);
-	for(int i=0; i<nx*ny*nz; i++)
-	{
-		h_scale[i] = 1;
-	}
-	new_host = true;
-	sync_hd();
+	scale = luaT_inc<dArray>(new dArray(nx, ny, nz));
+	scale->setAll(1.0);
 }
 
 void Thermal::deinit()
 {
-	if(d_scale == 0)
-		return;
-
-	free_device(d_scale);
-	free_host  (h_scale);
-	
-	d_scale = 0;
-
+	luaT_dec<dArray>(scale);
+	scale = 0;
 }
 	
 Thermal::~Thermal()
@@ -133,8 +90,6 @@ bool Thermal::applyToSum(RNG* rng, SpinSystem* ss)
 		return false;
 	}
 
-	sync_hd();
-	ss->sync_spins_hd();
 	ss->ensureSlotExists(slot);
 
 	int twiddle = 0;
@@ -145,9 +100,9 @@ bool Thermal::applyToSum(RNG* rng, SpinSystem* ss)
 	double* d_wsy;
 	double* d_wsz;
 	
-	getWSMem(&d_wsx, sz,
-			 &d_wsy, sz,
-			 &d_wsz, sz);
+	getWSMem3(&d_wsx, sz,
+			  &d_wsy, sz,
+			  &d_wsz, sz);
 
 	const double alpha = ss->alpha;
 	const double dt    = ss->dt;
@@ -155,16 +110,21 @@ bool Thermal::applyToSum(RNG* rng, SpinSystem* ss)
 	
 	cuda_thermal(d_rngs, twiddle, 
 		alpha, gamma, dt, temperature * global_scale,
-		d_wsx, d_wsy, d_wsz, ss->d_ms,
-		d_scale,
-		nx, ny, nz);
-	
-	const int nxyz = nx*ny*nz;
-	cuda_addArrays(ss->d_hx[SUM_SLOT], nxyz, ss->d_hx[SUM_SLOT], d_wsx);
-	cuda_addArrays(ss->d_hy[SUM_SLOT], nxyz, ss->d_hy[SUM_SLOT], d_wsy);
-	cuda_addArrays(ss->d_hz[SUM_SLOT], nxyz, ss->d_hz[SUM_SLOT], d_wsz);
-	ss->slot_used[SUM_SLOT] = true;
+		d_wsx, d_wsy, d_wsz, ss->ms->ddata(),
+		scale->ddata(),
+		nx*ny*nz);
 
+	const int nxyz = nx*ny*nz;
+	arraySumAll(ss->hx[SUM_SLOT]->ddata(), ss->hx[SUM_SLOT]->ddata(), d_wsx, nxyz);
+	arraySumAll(ss->hy[SUM_SLOT]->ddata(), ss->hy[SUM_SLOT]->ddata(), d_wsy, nxyz);
+	arraySumAll(ss->hz[SUM_SLOT]->ddata(), ss->hz[SUM_SLOT]->ddata(), d_wsz, nxyz);
+	
+	ss->hx[SUM_SLOT]->new_device = true;
+	ss->hy[SUM_SLOT]->new_device = true;
+	ss->hz[SUM_SLOT]->new_device = true;
+	ss->slot_used[SUM_SLOT] = true;
+	
+	
 	return true;
 }
 
@@ -175,14 +135,14 @@ bool Thermal::apply(RNG* rng, SpinSystem* ss)
 
 	if(!ht)
 	{
-		errormsg = "CUDA Thermal calculations require a GPU based Random Number Generator (HybrisTaus)";
+		errormsg = "CUDA Thermal calculations require a GPU based Random Number Generator (HybridTaus)";
 		return false;
 	}
 
-	sync_hd();
-	ss->sync_spins_hd();
 	ss->ensureSlotExists(slot);
+	markSlotUsed(ss);
 
+	//this twiddle is output in get6Normals
 	int twiddle = 0;
 	float* d_rngs = ht->get6Normals(nx,ny,nz,twiddle);
 
@@ -190,18 +150,19 @@ bool Thermal::apply(RNG* rng, SpinSystem* ss)
 	const double dt    = ss->dt;
 	const double gamma = ss->gamma;
 	
-	double* d_hx = ss->d_hx[slot];
-	double* d_hy = ss->d_hy[slot];
-	double* d_hz = ss->d_hz[slot];
+	double* d_hx = ss->hx[slot]->ddata();
+	double* d_hy = ss->hy[slot]->ddata();
+	double* d_hz = ss->hz[slot]->ddata();
 
 	cuda_thermal(d_rngs, twiddle, 
 		alpha, gamma, dt, temperature * global_scale,
-		d_hx, d_hy, d_hz, ss->d_ms,
-		d_scale,
-		nx, ny, nz);
+		d_hx, d_hy, d_hz, ss->ms->ddata(),
+		scale->ddata(),
+		nx*ny*nz);
 	
-	ss->new_device_fields[slot] = true;
-
+	ss->hx[slot]->new_device = true;
+	ss->hy[slot]->new_device = true;
+	ss->hz[slot]->new_device = true;
 	return true;
 }
 
@@ -210,10 +171,8 @@ void Thermal::scaleSite(int px, int py, int pz, double strength)
 {
 	if(member(px, py, pz))
 	{
-		sync_dh();
 		int idx = getidx(px, py, pz);
-		h_scale[idx] = strength;
-		new_host = true;
+		(*scale)[idx] = strength;
 	}
 }
 
@@ -281,6 +240,28 @@ static int l_gettemp(lua_State* L)
 	return 1;
 }
 
+static int l_getscalearray(lua_State* L)
+{
+	LUA_PREAMBLE(Thermal, th, 1);
+	luaT_push<dArray>(L, th->scale);
+	return 1;
+}
+static int l_setscalearray(lua_State* L)
+{
+	LUA_PREAMBLE(Thermal, th, 1);
+	LUA_PREAMBLE(dArray, a, 2);
+	if(a->sameSize(th->scale))
+	{
+		luaT_inc<dArray>(a);
+		luaT_dec<dArray>(th->scale);
+		th->scale = a;
+		return 0;
+	}
+	return luaL_error(L, "Array size mismatch\n");
+}
+
+
+
 int Thermal::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -326,6 +307,22 @@ int Thermal::help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_getscalearray)
+	{
+		lua_pushstring(L, "Get array object reprenenting thermal scaling for each site. ");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array");
+		return 3;
+	}
+	if(func == l_setscalearray)
+	{
+		lua_pushstring(L, "Set array object reprenenting thermal scaling for each site. ");
+		lua_pushstring(L, "1 Array");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	
 	if(func == l_settemp)
 	{
 		lua_pushstring(L, "Sets the base value of the temperature. ");
@@ -360,6 +357,9 @@ const luaL_Reg* Thermal::luaMethods()
 		{"set",          l_settemp},
 		{"get",          l_gettemp},
 		{"temperature",  l_gettemp},
+		
+		{"scaleArray",  l_getscalearray},
+		{"setScaleArray",  l_setscalearray},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

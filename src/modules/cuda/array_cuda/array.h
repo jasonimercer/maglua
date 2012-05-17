@@ -17,11 +17,14 @@ template<typename T>
 class Array : public ArrayCore<T>, public LuaBaseObject	
 {
 public:
-	Array(int nx=4, int ny=4, int nz=1) : ArrayCore<T>(nx, ny, nz), LuaBaseObject(hash32(lineage(0))) {}
+	Array(int nx=4, int ny=4, int nz=1, T* device_memory=0) : ArrayCore<T>(nx, ny, nz, device_memory), LuaBaseObject(hash32(lineage(0))) {}
 	LINEAGE1(array_lua_name<T>())
 	static const luaL_Reg* luaMethods(); 
 	virtual int luaInit(lua_State* L); 
 	static int help(lua_State* L); 	
+	
+	virtual void encode(buffer* b) {ArrayCore<T>::encodeCore(b);}
+	virtual  int decode(buffer* b) {return ArrayCore<T>::decodeCore(b);}
 };
 
 typedef Array<doubleComplex> dcArray;

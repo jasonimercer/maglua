@@ -15,6 +15,7 @@ NVFLAGS=-O2 -Xcompiler -fPIC -arch=sm_21
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
 		-I$(BASEDIR) \
 		-I$(BASEDIR)/modules/common/luabaseobject \
+		-I$(BASEDIR)/modules/cuda/array_cuda \
 		-I$(BASEDIR)/modules/cuda/core_cuda $(EXTRA_INCLUDE)
 %.cuo : %.cu $(EXTRA_CUDA_DEP)
 	$(NVCC) $(NVFLAGS) $(NV_EXTRAOPS) $(INCLUDEPATH) -c $*.cu -o $*.cuo

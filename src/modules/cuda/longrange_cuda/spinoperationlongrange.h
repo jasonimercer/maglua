@@ -58,7 +58,7 @@ public:
 	void init();
 	void deinit();
 	
-	virtual void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ) {};
+	virtual void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ);
 
 	double getXX(int ox, int oy, int oz);
 	void   setXX(int ox, int oy, int oz, double value);
@@ -82,10 +82,11 @@ public:
 	void   setAB(int matrix, int ox, int oy, int oz, double value);
 private:
 	void loadMatrix();
-	bool getPlan();
-	bool newHostData;
 	bool matrixLoaded;
-	
+
+	bool updateData();
+	bool newHostData;
+
 	
 	// these are the real components
 	// the aim here will be to not trigger 
@@ -106,9 +107,6 @@ private:
 	dcArray* qYY;
 	dcArray* qYZ;
 	dcArray* qZZ;
-
-	dcArray* ws1;
-	
 };
 
 

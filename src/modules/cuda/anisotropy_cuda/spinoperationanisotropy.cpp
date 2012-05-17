@@ -378,11 +378,10 @@ int Anisotropy::decode(buffer* b)
 bool Anisotropy::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
-	ss->sync_spins_hd();
 
-	double* d_hx = ss->d_hx[slot];
-	double* d_hy = ss->d_hy[slot];
-	double* d_hz = ss->d_hz[slot];
+	double* d_hx = ss->hx[slot]->ddata();
+	double* d_hy = ss->hy[slot]->ddata();
+	double* d_hz = ss->hz[slot]->ddata();
 
 	if(!make_compressed())
 		make_uncompressed();
@@ -392,7 +391,7 @@ bool Anisotropy::apply(SpinSystem* ss)
 		// d_LUT is non-null (since compressed)
 		cuda_anisotropy_compressed(
 			global_scale,
-			ss->d_x, ss->d_y, ss->d_z,
+			ss->x->ddata(), ss->y->ddata(), ss->z->ddata(),
 			d_LUT, d_idx, 
 			d_hx, d_hy, d_hz,
 			nxyz);
@@ -404,15 +403,16 @@ bool Anisotropy::apply(SpinSystem* ss)
 		
 		cuda_anisotropy(
 			global_scale,
-			ss->d_x, ss->d_y, ss->d_z, 
+			ss->x->ddata(), ss->y->ddata(), ss->z->ddata(),
 			d_nx, d_ny, d_nz, d_k,
 			d_hx, d_hy, d_hz,
 			nx, ny, nz);
 	}
 	
-
-	ss->new_device_fields[slot] = true;
-
+	ss->hx[slot]->new_device = true;
+	ss->hy[slot]->new_device = true;
+	ss->hz[slot]->new_device = true;
+	
 	return true;
 }
  
@@ -429,7 +429,7 @@ bool Anisotropy::applyToSum(SpinSystem* ss)
 	double* d_wsy;
 	double* d_wsz;
 	const int sz = sizeof(double)*nxyz;
-	getWSMem(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
+	getWSMem3(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
 	
 //	markSlotUsed(ss);
 	ss->sync_spins_hd();
@@ -444,7 +444,7 @@ bool Anisotropy::applyToSum(SpinSystem* ss)
 		// d_LUT is non-null (since compressed)
 		cuda_anisotropy_compressed(
 			global_scale,
-			ss->d_x, ss->d_y, ss->d_z,
+			ss->x->ddata(), ss->y->ddata(), ss->z->ddata(),
 			d_LUT, d_idx, 
 			d_wsx, d_wsy, d_wsz,
 			nxyz);
@@ -456,7 +456,7 @@ bool Anisotropy::applyToSum(SpinSystem* ss)
 		
 		cuda_anisotropy(
 			global_scale,
-			ss->d_x, ss->d_y, ss->d_z, 
+			ss->x->ddata(), ss->y->ddata(), ss->z->ddata(),
 			d_nx, d_ny, d_nz, d_k,
 			d_wsx, d_wsy, d_wsz,
 			nx, ny, nz);
@@ -464,11 +464,15 @@ bool Anisotropy::applyToSum(SpinSystem* ss)
 	
 
 	const int nxyz = nx*ny*nz;
-	cuda_addArrays(ss->d_hx[SUM_SLOT], nxyz, ss->d_hx[SUM_SLOT], d_wsx);
-	cuda_addArrays(ss->d_hy[SUM_SLOT], nxyz, ss->d_hy[SUM_SLOT], d_wsy);
-	cuda_addArrays(ss->d_hz[SUM_SLOT], nxyz, ss->d_hz[SUM_SLOT], d_wsz);
-	ss->slot_used[SUM_SLOT] = true;
-
+	
+	arraySumAll(ss->hx[SUM_SLOT]->ddata(), ss->hx[SUM_SLOT]->ddata(), d_wsx, nxyz);
+	arraySumAll(ss->hy[SUM_SLOT]->ddata(), ss->hy[SUM_SLOT]->ddata(), d_wsy, nxyz);
+	arraySumAll(ss->hz[SUM_SLOT]->ddata(), ss->hz[SUM_SLOT]->ddata(), d_wsz, nxyz);
+	
+	ss->hx[SUM_SLOT]->new_device = true;
+	ss->hy[SUM_SLOT]->new_device = true;
+	ss->hz[SUM_SLOT]->new_device = true;
+	
 	return true;
 }
 

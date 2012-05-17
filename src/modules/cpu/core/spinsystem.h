@@ -53,6 +53,7 @@ public:
 	
 	int getSlot(const char* name);
 	static const char* slotName(int index);
+	void ensureSlotExists(int slot);
 	
 	
 	void getNetMag(double* v4);
@@ -98,9 +99,7 @@ private:
 	void init();
 	void deinit();
 
-	dcArray* rx;
-	dcArray* ry;
-	dcArray* rz;
+	dcArray* ws;
 };
 
 // CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);

@@ -48,12 +48,6 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
     dmdt->ensureSlotExists(SUM_SLOT);
     dmdt->ensureSlotExists(THERMAL_SLOT);
 
-
-    spinfrom->sync_spins_hd();
-    spinto->sync_spins_hd();
-    dmdt->sync_spins_hd();
-    dmdt->sync_fields_hd(SUM_SLOT);
-
 	const int nx = spinfrom->nx;
 	const int ny = spinfrom->ny;
 	const int nz = spinfrom->nz;
@@ -70,21 +64,25 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 	double* d_ws4;
 	
 	const int sz = sizeof(double)*nxyz;
-	getWSMem(&d_ws1, sz, &d_ws2, sz, &d_ws3, sz, &d_ws4, sz);
+	getWSMem4(&d_ws1, sz, &d_ws2, sz, &d_ws3, sz, &d_ws4, sz);
 
 #define S SUM_SLOT
 #define T THERMAL_SLOT
 	cuda_llg_quat_apply(nx, ny, nz,
-			  spinto->d_x,   spinto->d_y,   spinto->d_z,   spinto->d_ms,
-			spinfrom->d_x, spinfrom->d_y, spinfrom->d_z, spinfrom->d_ms,
-			    dmdt->d_x,     dmdt->d_y,     dmdt->d_z,     dmdt->d_ms,
-            dmdt->d_hx[T], dmdt->d_hy[T], dmdt->d_hz[T],
-			dmdt->d_hx[S], dmdt->d_hy[S], dmdt->d_hz[S],
+			  spinto->x->ddata(),   spinto->y->ddata(),   spinto->z->ddata(),   spinto->ms->ddata(),
+			spinfrom->x->ddata(), spinfrom->y->ddata(), spinfrom->z->ddata(), spinfrom->ms->ddata(),
+			    dmdt->x->ddata(),     dmdt->y->ddata(),     dmdt->z->ddata(),     dmdt->ms->ddata(),
+            dmdt->hx[T]->ddata(), dmdt->hy[T]->ddata(), dmdt->hz[T]->ddata(),
+			dmdt->hx[S]->ddata(), dmdt->hy[S]->ddata(), dmdt->hz[S]->ddata(),
 			          d_ws1,         d_ws2,         d_ws3,         d_ws4,
 			alpha, dt, gamma);	
 
 	// mark spins as new for future d->h syncing
-	spinto->new_device_spins = true;
+// 	spinto->new_device_spins = true;
+
+	spinto->x->new_device = true;
+	spinto->y->new_device = true;
+	spinto->z->new_device = true;
 	
 	if(advancetime)
 		spinto->time = spinfrom->time + dt;

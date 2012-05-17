@@ -98,7 +98,13 @@ cudaError_t malloc_host_(void** h_v, size_t n, const char* file, unsigned int li
 {
     cudaError_t err;
     CHECKCALL_FLe(err,cudaMallocHost(h_v, n),file,line);
-    return err; //to mirror malloc_device
+	if(!logfile)
+    {
+		logfile = fopen("malloc.log", "w");
+    }
+	fprintf(logfile, "malloc_host %i bytes from %s:%i\n", (int)n, file, line);
+	fflush(logfile);
+	return err; //to mirror malloc_device
 }
 
 void free_host_(void* h_v, const char* file, unsigned int line)
@@ -124,3 +130,115 @@ void memcpy_h2d_(void* d_dest, void* h_src, size_t n, const char* file, const un
 {
     CHECKCALL_FL(cudaMemcpy(d_dest, h_src, n, cudaMemcpyHostToDevice),file,line);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+typedef struct work_space_device_memory
+{
+	int refcount;
+	void* d_memory[5];
+	size_t size[5];
+} work_space_device_memory;
+
+static work_space_device_memory WS_MEM = {0};
+
+ARRAYCUDA_API void  registerWS()
+{
+	if(WS_MEM.refcount == 0) //initialize
+	{
+		for(int i=0; i<5; i++)
+		{
+			WS_MEM.d_memory[i] = 0;
+			WS_MEM.size[i] = 0;
+		}
+	}
+	
+	WS_MEM.refcount++;
+}
+
+ARRAYCUDA_API void  unregisterWS()
+{
+	WS_MEM.refcount--;
+	if(WS_MEM.refcount == 0)
+	{
+		for(int i=0; i<5; i++)
+		{
+			if(WS_MEM.d_memory[i])
+				free_device(WS_MEM.d_memory[i]);
+			WS_MEM.d_memory[i] = 0;
+			WS_MEM.size[i] = 0;
+		}
+	}
+}
+
+ARRAYCUDA_API void  getWSMem5_(void** ptr1,   size_t size1, 
+			   void** ptr2, size_t size2, 
+			   void** ptr3, size_t size3,
+			   void** ptr4, size_t size4,
+			   void** ptr5, size_t size5)
+{
+	void**  ptr[5] = {ptr1, ptr2, ptr3, ptr4, ptr5};
+	size_t size[5] = {size1, size2, size3, size4, size5};
+	
+	for(int i=0; i<5; i++)
+	{
+		if(size[i] > WS_MEM.size[i])
+		{
+			if(WS_MEM.d_memory[i])
+				free_device(WS_MEM.d_memory[i]);
+			malloc_device(&(WS_MEM.d_memory[i]), size[i]);
+			WS_MEM.size[i] = size[i];
+		}
+		if(ptr[i])
+			*ptr[i] = WS_MEM.d_memory[i];
+	}
+}
+
+
+ARRAYCUDA_API void  getWSMem4_(
+			   void** ptr1, size_t size1, 
+			   void** ptr2, size_t size2, 
+			   void** ptr3, size_t size3,
+			   void** ptr4, size_t size4)
+{
+	getWSMem5(ptr1, size1, ptr2, size2, ptr3, size3, ptr4, size4, 0, 0); 
+}
+
+ARRAYCUDA_API void  getWSMem3_(
+			   void** ptr1, size_t size1, 
+			   void** ptr2, size_t size2, 
+			   void** ptr3, size_t size3)
+{
+	getWSMem4(ptr1, size1, ptr2, size2, ptr3, size3, 0, 0);
+}
+ARRAYCUDA_API void  getWSMem2_(
+			   void** ptr1, size_t size1, 
+			   void** ptr2, size_t size2)
+{
+	getWSMem3(ptr1, size1, ptr2, size2, 0, 0);
+}
+
+ARRAYCUDA_API void  getWSMem1_(
+			   void** ptr1, size_t size1)
+{
+	getWSMem2(ptr1, size1, 0, 0);
+}
+
+
+
+
+

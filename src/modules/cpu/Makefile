@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-DIRS=anisotropy appliedfield core dipole disordereddipole \
+DIRS=array anisotropy appliedfield core dipole disordereddipole \
      exchange llg magnetostatics thermal longrange
 
 all:

@@ -61,53 +61,21 @@ bool AppliedField::apply(SpinSystem* ss)
 	markSlotUsed(ss);
 	ss->ensureSlotExists(slot);
 
-	
-	double* d_hx = ss->d_hx[slot];
-	double* d_hy = ss->d_hy[slot];
-	double* d_hz = ss->d_hz[slot];
-
-	const int nx = ss->nx;
-	const int ny = ss->ny;
-	const int nz = ss->nz;
-
-	
-	ss_d_set3DArray(d_hx, nx, ny, nz, B[0]*global_scale);
-	ss_d_set3DArray(d_hy, nx, ny, nz, B[1]*global_scale);
-	ss_d_set3DArray(d_hz, nx, ny, nz, B[2]*global_scale);
-	
-	ss->new_device_fields[slot] = true;
+	ss->hx[slot]->setAll(B[0]*global_scale);
+	ss->hy[slot]->setAll(B[1]*global_scale);
+	ss->hz[slot]->setAll(B[2]*global_scale);
 	
 	return true;
 }
 
 bool AppliedField::applyToSum(SpinSystem* ss)
 {
-	ss->ensureSlotExists(slot);
+//	ss->ensureSlotExists(slot);
 
-	const int nx = ss->nx;
-	const int ny = ss->ny;
-	const int nz = ss->nz;
-	const int nxyz = nx*ny*nz;
-
-	double* d_wsx;
-	double* d_wsy;
-	double* d_wsz;
+	ss->hx[SUM_SLOT]->addValue(B[0]*global_scale);
+	ss->hy[SUM_SLOT]->addValue(B[1]*global_scale);
+	ss->hz[SUM_SLOT]->addValue(B[2]*global_scale);
 	
-	const int sz = sizeof(double)*nxyz;
-	getWSMem(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
-	
-// 	double* d_wsAll = (double*)getWSMem(*3);
-// 	double* d_wsx = d_wsAll + nxyz * 0;
-// 	double* d_wsy = d_wsAll + nxyz * 1;
-// 	double* d_wsz = d_wsAll + nxyz * 2;
-	
-	ss_d_set3DArray(d_wsx, nx, ny, nz, B[0]*global_scale);
-	ss_d_set3DArray(d_wsy, nx, ny, nz, B[1]*global_scale);
-	ss_d_set3DArray(d_wsz, nx, ny, nz, B[2]*global_scale);
-	
-	cuda_addArrays(ss->d_hx[SUM_SLOT], nxyz, ss->d_hx[SUM_SLOT], d_wsx);
-	cuda_addArrays(ss->d_hy[SUM_SLOT], nxyz, ss->d_hy[SUM_SLOT], d_wsy);
-	cuda_addArrays(ss->d_hz[SUM_SLOT], nxyz, ss->d_hz[SUM_SLOT], d_wsz);
 	ss->slot_used[SUM_SLOT] = true;
 
 	return true;

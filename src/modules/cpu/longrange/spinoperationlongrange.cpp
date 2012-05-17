@@ -28,11 +28,11 @@ LongRange::LongRange(const char* Name, const int field_slot, int nx, int ny, int
 {
     qXX = 0;
     XX = 0;
-
+	ws1 = 0;
 	g = 1;
 	gmax = 2000;
 	matrixLoaded = false;
-	newdata = true;
+	newdata = false;
 	XX = 0;
 	ABC[0] = 1; ABC[1] = 0; ABC[2] = 0;
 	ABC[3] = 0; ABC[4] = 1; ABC[5] = 0;
@@ -114,6 +114,9 @@ void LongRange::init()
 	YZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	ZZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
 
+	ws1 = new dcArray(nx,ny,nz);
+	ws2 = new dcArray(nx,ny,nz);
+	
 	hasMatrices = false;
 }
 
@@ -188,11 +191,18 @@ void  LongRange::setAB(int matrix, int ox, int oy, int oz, double value)
 
 void LongRange::loadMatrix()
 {
+	if(newdata)
+	{
+		matrixLoaded = true; //user made a custom matrix
+		return;
+	}
+	
 	if(matrixLoaded) return;
 	init();
 	loadMatrixFunction(XX->data(), XY->data(), XZ->data(), YY->data(), YZ->data(), ZZ->data()); //implemented by child
-	newdata = true;
+
 	matrixLoaded = true;
+	newdata = true;
 }
 
 void LongRange::deinit()
@@ -226,6 +236,13 @@ void LongRange::deinit()
 		luaT_dec<dArray>(ZZ);
 	}
 	
+	
+	if(ws1)
+	{
+		delete ws1;
+		delete ws2;
+		ws1 = 0;
+	}
 	hasMatrices = false;
 }
 
@@ -233,6 +250,40 @@ LongRange::~LongRange()
 {
 	deinit();
 }
+
+bool LongRange::updateData()
+{
+	if(!matrixLoaded)
+	{
+		loadMatrix();
+	}
+	
+	if(!newdata)
+		return true;
+	newdata = false;
+	
+	ws1->zero();
+	
+	arraySetRealPart(ws1->data(), XX->data(), nxyz);  ws1->fft2DTo(qXX);
+	arraySetRealPart(ws1->data(), XY->data(), nxyz);  ws1->fft2DTo(qXY);
+	arraySetRealPart(ws1->data(), XZ->data(), nxyz);  ws1->fft2DTo(qXZ);
+
+	arraySetRealPart(ws1->data(), YY->data(), nxyz);  ws1->fft2DTo(qYY);
+	arraySetRealPart(ws1->data(), YZ->data(), nxyz);  ws1->fft2DTo(qYZ);
+	arraySetRealPart(ws1->data(), ZZ->data(), nxyz);  ws1->fft2DTo(qZZ);
+
+	//prescaling by 1/xy
+	qXX->scaleAll(doubleComplex(1.0/((double)(nx*ny)), 0));
+	qXY->scaleAll(doubleComplex(1.0/((double)(nx*ny)), 0));
+	qXZ->scaleAll(doubleComplex(1.0/((double)(nx*ny)), 0));
+	qYY->scaleAll(doubleComplex(1.0/((double)(nx*ny)), 0));
+	qYZ->scaleAll(doubleComplex(1.0/((double)(nx*ny)), 0));
+	qZZ->scaleAll(doubleComplex(1.0/((double)(nx*ny)), 0));
+
+
+	return true;
+}
+
 
 void LongRange::getMatrices()
 {
@@ -256,101 +307,102 @@ void LongRange::getMatrices()
 	qarrs[4] = qYZ;
 	qarrs[5] = qZZ;
 	
-	dcArray rrr(nx,ny,nz);
-
 	for(int a=0; a<6; a++)
 	{
-		rrr.zero();
-		
-		arraySetRealPart(rrr.data(), arrs[a]->data(), nxyz);
-		rrr.fft2DTo(qarrs[a], 0);
+		ws1->zero();
+		arraySetRealPart(ws1->data(), arrs[a]->data(), nxyz);
+		ws1->fft2DTo(qarrs[a]);
 	}
 
 	newdata = false;
 	hasMatrices = true;
 }
 
-void LongRange::ifftAppliedForce(SpinSystem* ss)
-{
-	//The nx*ny is for fftw
-	double d = g * global_scale / (double)(nx*ny);
-	
-	hqx->ifft2DTo(hrx);
-	hqy->ifft2DTo(hry);
-	hqz->ifft2DTo(hrz);
 
-	arrayGetRealPart(ss->hx[slot]->data(), hqx->data(), nxyz);
-	arrayGetRealPart(ss->hy[slot]->data(), hqy->data(), nxyz);
-	arrayGetRealPart(ss->hz[slot]->data(), hqz->data(), nxyz);
-
-	ss->hx[slot]->scaleAll(d);
-	ss->hy[slot]->scaleAll(d);
-	ss->hz[slot]->scaleAll(d);
-}
-
-
-void LongRange::collectIForces(SpinSystem* ss)
-{
-	int c;
-	int sourceLayer, targetLayer;// !!Source layer, Target Layer
-	int sourceOffset;
-	int targetOffset;
-	int demagOffset;
-	const int nxy = nx*ny;
-	dcArray& sqx = (*ss->qx);
-	dcArray& sqy = (*ss->qy);
-	dcArray& sqz = (*ss->qz);
-
-	hqx->zero();
-	hqy->zero();
-	hqz->zero();
-	
-# define cSo c+sourceOffset
-# define cDo c+ demagOffset
-# define cTo c+targetOffset
-
-
-	for(targetLayer=0; targetLayer<nz; targetLayer++)
-	for(sourceLayer=0; sourceLayer<nz; sourceLayer++)
-	{
-		int offset = sourceLayer - targetLayer;
-		double sign = 1.0;
-		if(offset < 0)
-		{
-			offset = -offset;
-			sign = -sign;
-		}
-	
-		targetOffset = targetLayer * nxy;
-		sourceOffset = sourceLayer * nxy;
-		demagOffset  = offset * nxy;
-		//these are complex multiplies and adds
-		for(c=0; c<nxy; c++) (*hqx)[cTo]+=(*qXX)[cDo]*sqx[cSo];
-		for(c=0; c<nxy; c++) (*hqx)[cTo]+=(*qXY)[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) (*hqx)[cTo]+=(*qXZ)[cDo]*sqz[cSo]*sign;
-
-		for(c=0; c<nxy; c++) (*hqy)[cTo]+=(*qXY)[cDo]*sqx[cSo];
-		for(c=0; c<nxy; c++) (*hqy)[cTo]+=(*qYY)[cDo]*sqy[cSo];
-		for(c=0; c<nxy; c++) (*hqy)[cTo]+=(*qYZ)[cDo]*sqz[cSo]*sign;
-
-		for(c=0; c<nxy; c++) (*hqz)[cTo]+=(*qXZ)[cDo]*sqx[cSo]*sign;
-		for(c=0; c<nxy; c++) (*hqz)[cTo]+=(*qYZ)[cDo]*sqy[cSo]*sign;
-		for(c=0; c<nxy; c++) (*hqz)[cTo]+=(*qZZ)[cDo]*sqz[cSo];
-	}
-}
 
 
 bool LongRange::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
+	updateData();
+	const int nxy = nx*ny;
 
-	if(newdata)
-		getMatrices();
+	doubleComplex one = luaT<doubleComplex>::one();
+
 	
 	ss->fft();
-	collectIForces(ss);
-	ifftAppliedForce(ss);
+	dcArray* sqx = ss->qx;
+	dcArray* sqy = ss->qy;
+	dcArray* sqz = ss->qz;
 
+	dArray* hx = ss->hx[slot];
+	dArray* hy = ss->hy[slot];
+	dArray* hz = ss->hz[slot];
+	
+	// HX
+	ws1->zero();
+	for(int targetLayer=0; targetLayer<nz; targetLayer++)
+	for(int sourceLayer=0; sourceLayer<nz; sourceLayer++)
+	{
+		int offset = sourceLayer - targetLayer;
+		doubleComplex sign = luaT<doubleComplex>::one();
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = luaT<doubleComplex>::neg_one();
+		}
+	
+		arrayLayerMult(ws1->data(), targetLayer, qXX->data(), offset, sqx->data(), sourceLayer, one, 0, nxy); //0 = sum (1 would be set)
+		arrayLayerMult(ws1->data(), targetLayer, qXY->data(), offset, sqy->data(), sourceLayer, one, 0, nxy); 
+		arrayLayerMult(ws1->data(), targetLayer, qXZ->data(), offset, sqz->data(), sourceLayer,sign, 0, nxy); 
+	}
+	ws1->ifft2DTo(ws2);
+	arrayGetRealPart(hx->data(),  ws2->data(), nxyz);
+	
+	// HY
+	ws1->zero();
+	for(int targetLayer=0; targetLayer<nz; targetLayer++)
+	for(int sourceLayer=0; sourceLayer<nz; sourceLayer++)
+	{
+		int offset = sourceLayer - targetLayer;
+		doubleComplex sign = luaT<doubleComplex>::one();
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = luaT<doubleComplex>::neg_one();
+		}
+	
+		arrayLayerMult(ws1->data(), targetLayer, qXY->data(), offset, sqx->data(), sourceLayer, one, 0, nxy); //0 = sum (1 would be set)
+		arrayLayerMult(ws1->data(), targetLayer, qYY->data(), offset, sqy->data(), sourceLayer, one, 0, nxy); 
+		arrayLayerMult(ws1->data(), targetLayer, qYZ->data(), offset, sqz->data(), sourceLayer,sign, 0, nxy); 
+	}
+	ws1->ifft2DTo(ws2);
+	arrayGetRealPart(hy->data(),  ws2->data(), nxyz);
+
+	// HZ
+	ws1->zero();
+	for(int targetLayer=0; targetLayer<nz; targetLayer++)
+	for(int sourceLayer=0; sourceLayer<nz; sourceLayer++)
+	{
+		int offset = sourceLayer - targetLayer;
+		doubleComplex sign = luaT<doubleComplex>::one();
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = luaT<doubleComplex>::neg_one();
+		}
+	
+		arrayLayerMult(ws1->data(), targetLayer, qXZ->data(), offset, sqx->data(), sourceLayer,sign, 0, nxy); //0 = sum (1 would be set)
+		arrayLayerMult(ws1->data(), targetLayer, qYZ->data(), offset, sqy->data(), sourceLayer,sign, 0, nxy); 
+		arrayLayerMult(ws1->data(), targetLayer, qZZ->data(), offset, sqz->data(), sourceLayer, one, 0, nxy); 
+	}
+	ws1->ifft2DTo(ws2);
+	arrayGetRealPart(hz->data(),  ws2->data(), nxyz);
+	
+	hx->scaleAll(g * global_scale);
+	hy->scaleAll(g * global_scale);
+	hz->scaleAll(g * global_scale);
+		
 	return true;
 }
 
@@ -454,6 +506,7 @@ static int l_gettrunc(lua_State* L)
 	return 1;
 }
 
+
 static int l_setmatrix(lua_State* L)
 {
 	LUA_PREAMBLE(LongRange, lr, 1);
@@ -528,7 +581,81 @@ static int l_getmatrix(lua_State* L)
 	return 1;
 }
 
+static int l_getarray(lua_State* L)
+{
+	LUA_PREAMBLE(LongRange, lr, 1);
+	const char* badname = "1st argument must be matrix name: XX, XY, XZ, YY, YZ or ZZ";
+	if(!lua_isstring(L, 2))
+	    return luaL_error(L, badname);
 
+	const char* type = lua_tostring(L, 2);
+
+	const char* names[6] = {"XX", "XY", "XZ", "YY", "YZ", "ZZ"};
+	int mat = -1;
+	for(int i=0; i<6; i++)
+	{
+	    if(strcasecmp(type, names[i]) == 0)
+	    {
+			mat = i;
+	    }
+	}
+	if(mat < 0)
+	    return luaL_error(L, badname);
+	
+	switch(mat)
+	{
+		case 0: luaT_push<dArray>(L, lr->XX); break;
+		case 1: luaT_push<dArray>(L, lr->XY); break;
+		case 2: luaT_push<dArray>(L, lr->XZ); break;
+		case 3: luaT_push<dArray>(L, lr->YY); break;
+		case 4: luaT_push<dArray>(L, lr->YZ); break;
+		case 5: luaT_push<dArray>(L, lr->ZZ); break;
+	}
+	
+	return 1;
+}
+
+static int l_setarray(lua_State* L)
+{
+	LUA_PREAMBLE(LongRange, lr, 1);
+	const char* badname = "1st argument must be matrix name: XX, XY, XZ, YY, YZ or ZZ";
+	if(!lua_isstring(L, 2))
+	    return luaL_error(L, badname);
+
+	const char* type = lua_tostring(L, 2);
+
+	const char* names[6] = {"XX", "XY", "XZ", "YY", "YZ", "ZZ"};
+	int mat = -1;
+	for(int i=0; i<6; i++)
+	{
+	    if(strcasecmp(type, names[i]) == 0)
+	    {
+			mat = i;
+	    }
+	}
+	if(mat < 0)
+	    return luaL_error(L, badname);
+
+	dArray* a = luaT_to<dArray>(L, 3);
+	if(!a)
+		return luaL_error(L, "2nd argument must be an array");
+	
+	if(!a->sameSize(lr->XX))
+		return luaL_error(L, "Array size mismatch");
+	
+	luaT_inc<dArray>(a);
+	
+	switch(mat)
+	{
+		case 0: luaT_dec<dArray>(lr->XX); lr->XX = a; break;
+		case 1: luaT_dec<dArray>(lr->XY); lr->XY = a; break;
+		case 2: luaT_dec<dArray>(lr->XZ); lr->XZ = a; break;
+		case 3: luaT_dec<dArray>(lr->YY); lr->YY = a; break;
+		case 4: luaT_dec<dArray>(lr->YZ); lr->YZ = a; break;
+		case 5: luaT_dec<dArray>(lr->ZZ); lr->ZZ = a; break;
+	}
+	return 0;
+}
 
 
 int LongRange::help(lua_State* L)
@@ -618,6 +745,21 @@ int LongRange::help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_setarray)
+	{
+		lua_pushstring(L, "Set a named interaction matrix to a new array");
+		lua_pushstring(L, "1 string, 1 Array: The string indicates which AB matrix to set. Can be XX, XY, XZ, YY, YZ or ZZ. The Array must be of appropriate dimensions");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_getarray)
+	{
+		lua_pushstring(L, "Get a named interaction matrix as an array");
+		lua_pushstring(L, "1 string: The string indicates which AB matrix to access. Can be XX, XY, XZ, YY, YZ or ZZ. ");
+		lua_pushstring(L, "1 Array: The interaction matrix for given AB components");
+		return 3;
+	}
+	
 	return SpinOperation::help(L);
 }
 
@@ -637,6 +779,8 @@ const luaL_Reg* LongRange::luaMethods()
 		{"truncation",   l_gettrunc},
 		{"getMatrix",    l_getmatrix},
 		{"setMatrix",    l_setmatrix},
+		{"getArray",    l_getarray},
+		{"setArray",    l_setarray},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

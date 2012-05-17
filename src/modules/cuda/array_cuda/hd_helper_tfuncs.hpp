@@ -4,6 +4,24 @@ typedef cuFloatComplex floatComplex;
 
 
 template<typename T>
+__host__ __device__ inline T subtract(const T& lhs, const T& rhs)
+{
+	return lhs - rhs;
+}
+template<>
+__host__ __device__ inline floatComplex subtract<floatComplex>(const floatComplex& lhs, const floatComplex& rhs)
+{
+	return cuCsubf(lhs, rhs);
+}
+template<>
+__host__ __device__ inline doubleComplex subtract<doubleComplex>(const  doubleComplex& lhs, const doubleComplex& rhs)
+{
+	return cuCsub(lhs, rhs);
+}
+
+
+
+template<typename T>
 __host__ __device__ inline void plus_equal(T& lhs, const T& rhs)
 {
 	lhs += rhs;
@@ -45,12 +63,12 @@ __host__ __device__ inline T zero()
 template<>
 __host__ __device__ inline floatComplex zero<floatComplex>()
 {
-	return make_floatComplex(0,0);
+	return make_cuFloatComplex(0.0,0.0);
 }
 template<>
 __host__ __device__ inline doubleComplex zero<doubleComplex>()
 {
-	return make_doubleComplex(0,0);
+	return make_cuDoubleComplex(0.0,0.0);
 }
 
 
@@ -62,12 +80,12 @@ __host__ __device__ inline T one()
 template<>
 __host__ __device__ inline floatComplex one<floatComplex>()
 {
-	return make_floatComplex(1,0);
+	return make_cuFloatComplex(1.0,0.0);
 }
 template<>
 __host__ __device__ inline doubleComplex one<doubleComplex>()
 {
-	return make_doubleComplex(1,0);
+	return make_cuDoubleComplex(1.0,0.0);
 }
 
 
@@ -96,12 +114,12 @@ __host__ __device__ inline void set_norm<double>(double& dest, const double& src
 template<>
 __host__ __device__ inline void set_norm<floatComplex>(floatComplex& dest, const floatComplex& src) 
 {
-	dest = make_floatComplex(cuCabsf(src), 0);
+	dest = make_cuFloatComplex(cuCabsf(src), 0.0);
 }
 template<>
 __host__ __device__ inline void set_norm<doubleComplex>(doubleComplex& dest, const doubleComplex& src)
 {
-	dest = make_doubleComplex(cuCabs(src), 0);
+	dest = make_cuDoubleComplex(cuCabs(src), 0.0);
 }
 
 
@@ -114,12 +132,12 @@ __host__ __device__ T inline negone()
 template<>
 __host__ __device__ inline floatComplex negone<floatComplex>()
 {
-	return make_floatComplex(-1,0);
+	return make_cuFloatComplex(-1.0,0.0);
 }
 template<>
 __host__ __device__ inline doubleComplex negone<doubleComplex>()
 {
-	return make_doubleComplex(-1,0);
+	return make_cuDoubleComplex(-1.0,0.0);
 }
 
 

@@ -275,33 +275,31 @@ void reduceSumAll(const floatComplex* a, const int n, floatComplex& v)
 
 
 
-
-
-void arrayDiffSumAll(double* d_a, const double* d_b, const int n, double& v)
+void reduceDiffSumAll(const double* d_a, const double* d_b, const int n, double& v)
 {
 	v = 0;
 	for(int i=0; i<n; i++)
 		v+= fabs((d_a[i] - d_b[i]));
 }
-void arrayDiffSumAll(float* d_a, const float* d_b, const int n, float& v)
+void reduceDiffSumAll(const float* d_a, const float* d_b, const int n, float& v)
 {
 	v = 0;
 	for(int i=0; i<n; i++)
 		v+= fabsf((d_a[i] - d_b[i]));
 }
-void arrayDiffSumAll(int* d_a, const int* d_b, const int n, int& v)
+void reduceDiffSumAll(const int* d_a, const int* d_b, const int n, int& v)
 {
 	v = 0;
 	for(int i=0; i<n; i++)
 		v+= abs((d_a[i] - d_b[i]));
 }
-void arrayDiffSumAll(doubleComplex* d_a, const doubleComplex* d_b, const int n, doubleComplex& v)
+void reduceDiffSumAll(const doubleComplex* d_a, const doubleComplex* d_b, const int n, doubleComplex& v)
 {
 	v = 0;
 	for(int i=0; i<n; i++)
 		v+= abs((d_a[i] - d_b[i]));
 }
-void arrayDiffSumAll(floatComplex* d_a, const floatComplex* d_b, const int n, floatComplex& v)
+void reduceDiffSumAll(const floatComplex* d_a, const floatComplex* d_b, const int n, floatComplex& v)
 {
 	v = 0;
 	for(int i=0; i<n; i++)
@@ -312,6 +310,33 @@ void arrayDiffSumAll(floatComplex* d_a, const floatComplex* d_b, const int n, fl
 
 
 
+
+
+void arrayAddAll(double* d_a, const double& v, const int n)
+{
+	for(int i=0; i<n; i++)
+		d_a[i] += v;
+}
+void arrayAddAll(float* d_a, const float& v, const int n)
+{
+	for(int i=0; i<n; i++)
+		d_a[i] += v;
+}
+void arrayAddAll(int* d_a, const int& v, const int n)
+{
+	for(int i=0; i<n; i++)
+		d_a[i] += v;
+}
+void arrayAddAll(doubleComplex* d_a, const doubleComplex& v, const int n)
+{
+	for(int i=0; i<n; i++)
+		d_a[i] += v;
+}
+void arrayAddAll(floatComplex* d_a, const floatComplex& v, const int n)
+{
+	for(int i=0; i<n; i++)
+		d_a[i] += v;
+}
 
 
 
@@ -367,4 +392,53 @@ void arraySumAll(doubleComplex* d_dest, const doubleComplex* d_src1, const doubl
 void arraySumAll( floatComplex* d_dest,  const floatComplex* d_src1,  const floatComplex* d_src2, const int n)
 {
 	arrayScaleAdd(d_dest, 1.0, d_src1, 1.0, d_src2, n);
+}
+
+
+
+
+
+
+
+
+template<typename T>
+void arrayLayerMult_(T* d, int dl, const T* s1, int s1l, const T* s2, int s2l, T mult, const int set, const int nxy)
+{
+	if(set)
+	{
+		for(int i=0; i<nxy; i++)
+		{
+			d[i + dl*nxy]  = s1[i+s1l*nxy] * s2[i+s2l*nxy] * mult;
+		}
+	}
+	else //add
+	{
+		for(int i=0; i<nxy; i++)
+		{
+			d[i + dl*nxy] += s1[i+s1l*nxy] * s2[i+s2l*nxy] * mult;
+		}
+	}
+}
+
+
+
+void arrayLayerMult(double* dest, int dest_layer, const double* src1, int src1_layer, const double* src2, int src2_layer, double mult, int set, const int nxy)
+{
+	arrayLayerMult_<double>(dest, dest_layer, src1, src1_layer, src2, src2_layer, mult, set, nxy);
+}
+void arrayLayerMult(float* dest, int dest_layer, const float* src1, int src1_layer, const float* src2, int src2_layer, float mult, int set, const int nxy)
+{
+	arrayLayerMult_<float>(dest, dest_layer, src1, src1_layer, src2, src2_layer, mult, set, nxy);
+}
+void arrayLayerMult(int* dest, int dest_layer, const int* src1, int src1_layer, const int* src2, int src2_layer, int mult, int set, const int nxy)
+{
+	arrayLayerMult_<int>(dest, dest_layer, src1, src1_layer, src2, src2_layer, mult, set, nxy);
+}
+void arrayLayerMult(doubleComplex* dest, int dest_layer, const doubleComplex* src1, int src1_layer, const doubleComplex* src2, int src2_layer, doubleComplex mult, int set, const int nxy)
+{
+	arrayLayerMult_<doubleComplex>(dest, dest_layer, src1, src1_layer, src2, src2_layer, mult, set, nxy);
+}
+void arrayLayerMult(floatComplex* dest, int dest_layer, const floatComplex* src1, int src1_layer, const floatComplex* src2, int src2_layer, floatComplex mult, int set, const int nxy)
+{
+	arrayLayerMult_<floatComplex>(dest, dest_layer, src1, src1_layer, src2, src2_layer, mult, set, nxy);
 }

@@ -36,3 +36,36 @@ void ARRAYCUDA_API memcpy_h2d_(void* d_dest, void* h_src, size_t n,const char* f
 #define memcpy_h2d(a,b,n) memcpy_h2d_((void*)a, (void*)b, n,__FILE__, __LINE__)
 #define memcpy_d2h(a,b,n) memcpy_d2h_((void*)a, (void*)b, n,__FILE__, __LINE__)
 
+
+
+
+
+ARRAYCUDA_API void  registerWS();
+ARRAYCUDA_API void  unregisterWS();
+
+ARRAYCUDA_API void  getWSMem5_(
+			   void** ptr1, size_t size1, 
+			   void** ptr2, size_t size2, 
+			   void** ptr3, size_t size3,
+			   void** ptr4, size_t size4,
+			   void** ptr5, size_t size5);
+ARRAYCUDA_API void  getWSMem4_(
+			   void** ptr1, size_t size1, 
+			   void** ptr2, size_t size2, 
+			   void** ptr3, size_t size3,
+			   void** ptr4, size_t size4);
+ARRAYCUDA_API void  getWSMem3_(
+			   void** ptr1, size_t size1, 
+			   void** ptr2, size_t size2, 
+			   void** ptr3, size_t size3);
+ARRAYCUDA_API void  getWSMem2_(
+			   void** ptr1, size_t size1, 
+			   void** ptr2, size_t size2);
+ARRAYCUDA_API void  getWSMem1_(
+			   void** ptr1, size_t size1);
+
+#define getWSMem1(p1,s1) getWSMem1_((void**)p1, s1)
+#define getWSMem2(p1,s1, p2,s2) getWSMem2_((void**)p1, s1, (void**)p2, s2)
+#define getWSMem3(p1,s1, p2,s2, p3,s3) getWSMem3_((void**)p1, s1, (void**)p2, s2, (void**)p3, s3)
+#define getWSMem4(p1,s1, p2,s2, p3,s3, p4,s4) getWSMem4_((void**)p1, s1, (void**)p2, s2, (void**)p3, s3, (void**)p4, s4)
+#define getWSMem5(p1,s1, p2,s2, p3,s3, p4,s4, p5,s5) getWSMem5_((void**)p1, s1, (void**)p2, s2, (void**)p3, s3, (void**)p4, s4, (void**)p5, s5)

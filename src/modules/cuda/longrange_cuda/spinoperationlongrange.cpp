@@ -29,7 +29,7 @@ LongRangeCuda::LongRangeCuda(const char* name, const int field_slot, int nx, int
 	ABC[6] = 0; ABC[7] = 0; ABC[8] = 1;
 
 	matrixLoaded = false;
-	plan = 0;
+	newHostData = false;
 	XX = 0;
 	registerWS();
 }
@@ -58,6 +58,19 @@ void LongRangeCuda::encode(buffer* b)
 	}
 }
 
+// implemented by child classes. This is here incase someone instanstiates an empty longrange operator
+void LongRangeCuda::loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ)
+{
+	for(int i=0; i<nxyz; i++)
+		XX[i] = 0;
+
+	memcpy(XY, XX, sizeof(double)*nxyz);
+	memcpy(XZ, XX, sizeof(double)*nxyz);
+	memcpy(YY, XX, sizeof(double)*nxyz);
+	memcpy(YZ, XX, sizeof(double)*nxyz);
+	memcpy(ZZ, XX, sizeof(double)*nxyz);
+}
+
 int  LongRangeCuda::decode(buffer* b)
 {
 	SpinOperation::decode(b);
@@ -78,25 +91,22 @@ void LongRangeCuda::init()
     if(XX) return;
 	deinit();
 	
-	XX = new dArray(nx,ny,nz);
-	XY = new dArray(nx,ny,nz);
-	XZ = new dArray(nx,ny,nz);
+	XX = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	XY = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	XZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
 
-	YY = new dArray(nx,ny,nz);
-	YZ = new dArray(nx,ny,nz);
-	ZZ = new dArray(nx,ny,nz);
+	YY = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	YZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	ZZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	
 	
-	qXX = new dcArray(nx,ny,nz);
-	qXY = new dcArray(nx,ny,nz);
-	qXZ = new dcArray(nx,ny,nz);
+	qXX = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qXY = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qXZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
-	qYY = new dcArray(nx,ny,nz);
-	qYZ = new dcArray(nx,ny,nz);
-	qZZ = new dcArray(nx,ny,nz);
-
-	ws1 = new dcArray(nx,ny,nz);
-
+	qYY = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qYZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qZZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 }
 
 static int offsetOK(int nx, int ny, int nz,  int x, int y, int z, int& offset)
@@ -172,22 +182,20 @@ void LongRangeCuda::deinit()
 	
 	if(XX)
 	{
-		delete XX;
-		delete XY;
-		delete XZ;
-		delete YY;
-		delete YZ;
-		delete ZZ;
+		luaT_dec<dArray>(XX);
+		luaT_dec<dArray>(XY);
+		luaT_dec<dArray>(XZ);
+		luaT_dec<dArray>(YY);
+		luaT_dec<dArray>(YZ);
+		luaT_dec<dArray>(ZZ);
+		
+		luaT_dec<dcArray>(qXX);
+		luaT_dec<dcArray>(qXY);
+		luaT_dec<dcArray>(qXZ);
+		luaT_dec<dcArray>(qYY);
+		luaT_dec<dcArray>(qYZ);
+		luaT_dec<dcArray>(qZZ);
 
-		delete qXX;
-		delete qXY;
-		delete qXZ;
-		delete qYY;
-		delete qYZ;
-		delete qZZ;
-		
-		delete ws1;
-		
 		XX = 0;
 	}
 }
@@ -214,134 +222,254 @@ void LongRangeCuda::loadMatrix()
 	newHostData = true;
 }
 
-static void r2c(const dArray* src, dcArray* dest)
+static void setRealZeroImagCpu(dcArray* d, dArray* s)
 {
-	cuDoubleComplex* dd = dest->data();
-	double* ss = src->data();
-	for(int i=0; i<src->array->nxyz; i++)
+	for(int i=0; i<d->nxyz; i++)
 	{
-		dd[i].x = ss[i];
-		dd[i].y = 0;
+		d->data()[i].x = s->data()[i];
+		d->data()[i].y = 0;
 	}
 }
-	
+
 bool LongRangeCuda::updateData()
 {
 	if(!matrixLoaded)
+	{
 		loadMatrix();
+	}
 	
 	if(!newHostData)
 		return true;
-	newHostData = true;
+	newHostData = false;
 	
-	void* ws_d;
-	const int sz = sizeof(cuDoubleComplex)*nx*ny*nz;
-	getWSMem(&ws_d_A, sz);
+	doubleComplex* d_ws1;
+	doubleComplex* d_ws2;
 	
-	//got new host data, need to FT it and have it on the GPU
-	r2c(XX, ws1);        ws1->array->fft2DTo(qXX->array, ws_d);
-	r2c(XY, ws1);        ws1->array->fft2DTo(qXY->array, ws_d);
-	r2c(XZ, ws1);        ws1->array->fft2DTo(qXZ->array, ws_d);
-	r2c(YY, ws1);        ws1->array->fft2DTo(qYY->array, ws_d);
-	r2c(YZ, ws1);        ws1->array->fft2DTo(qYZ->array, ws_d);
-	r2c(ZZ, ws1); return ws1->array->fft2DTo(qZZ->array, ws_d);
+	getWSMem2(&d_ws1, sizeof(doubleComplex)*nxyz, 
+			  &d_ws2, sizeof(doubleComplex)*nxyz);
+	
+	dcArray ws1(nx,ny,nz, d_ws1);
+	
+	setRealZeroImagCpu(&ws1, XX); ws1.new_host = true; ws1.new_device = false; ws1.fft2DTo(qXX, d_ws2);
+	setRealZeroImagCpu(&ws1, XY); ws1.new_host = true; ws1.new_device = false; ws1.fft2DTo(qXY, d_ws2);
+	setRealZeroImagCpu(&ws1, XZ); ws1.new_host = true; ws1.new_device = false; ws1.fft2DTo(qXZ, d_ws2);
+
+	setRealZeroImagCpu(&ws1, YY); ws1.new_host = true; ws1.new_device = false; ws1.fft2DTo(qYY, d_ws2);
+	setRealZeroImagCpu(&ws1, YZ); ws1.new_host = true; ws1.new_device = false; ws1.fft2DTo(qYZ, d_ws2);
+	setRealZeroImagCpu(&ws1, ZZ); ws1.new_host = true; ws1.new_device = false; ws1.fft2DTo(qZZ, d_ws2);
+
+	//prescaling by 1/xy
+	qXX->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny)), 0));
+	qXY->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny)), 0));
+	qXZ->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny)), 0));
+	qYY->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny)), 0));
+	qYZ->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny)), 0));
+	qZZ->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny)), 0));
+
+	return true;
 }
 
 bool LongRangeCuda::applyToSum(SpinSystem* ss)
 {
-	if(newHostData)
-		getPlan();
-	if(!plan)
-		getPlan();
-	if(!plan)
-		return false;
+	updateData();
+	const int nxy = nx*ny;
 	
-	ss->sync_spins_hd();
+	doubleComplex* d_ws1;
+	doubleComplex* d_ws2;
+	doubleComplex* d_ws3;
+	
+	getWSMem3(&d_ws1, sizeof(doubleComplex)*nxyz, 
+			  &d_ws2, sizeof(doubleComplex)*nxyz,
+			  &d_ws3, sizeof(doubleComplex)*nxyz);
+	
 
-	int conv_ws = JM_LONGRANGE_PLAN_ws_size(nx, ny, nz);
-	int field_ws = sizeof(double)*nx*ny*nz;
+	dcArray ws(nx,ny,nz, d_ws1);
+	dcArray ws2(nx,ny,nz, d_ws2);
+	dcArray ws3(nx,ny,nz, d_ws3);
+	 dArray ws4(nx,ny,nz, (double*) d_ws3); //note: ws4 and ws3 share memory
 	
-	void* d_ws_A;
-	void* d_ws_B;
-	
-	double* d_wsx;
-	double* d_wsy;
-	double* d_wsz;
-	
-	getWSMem((void**)&d_ws_A, conv_ws, 
-			 (void**)&d_ws_B, conv_ws, 
-			 (void**)&d_wsx,  field_ws,
-			 (void**)&d_wsy,  field_ws,
-			 (void**)&d_wsz,  field_ws);
-		  
-// 	void* ws = getWSMem(conv_ws + field_ws*3);
-	
-// 	char* cws = (char*)ws;
-// 	double* d_wsx = (double*)(& cws[conv_ws + field_ws * 0]); //dumb looking
-// 	double* d_wsy = (double*)(& cws[conv_ws + field_ws * 1]); //but gets rid of pointer
-// 	double* d_wsz = (double*)(& cws[conv_ws + field_ws * 2]); //math warning
-	
-	const double* d_sx = ss->d_x;
-	const double* d_sy = ss->d_y;
-	const double* d_sz = ss->d_z;
-	
-	JM_LONGRANGE(plan, 
-					d_sx, d_sy, d_sz, 
-					d_wsx, d_wsy, d_wsz, d_ws_A, d_ws_B);
+	ss->fft();
+	dcArray* sqx = ss->qx;
+	dcArray* sqy = ss->qy;
+	dcArray* sqz = ss->qz;
 
-	cuda_scaledAddArrays(ss->d_hx[SUM_SLOT], nx*ny*nz, 1.0, ss->d_hx[SUM_SLOT], g, d_wsx);
-	cuda_scaledAddArrays(ss->d_hy[SUM_SLOT], nx*ny*nz, 1.0, ss->d_hy[SUM_SLOT], g, d_wsy);
-	cuda_scaledAddArrays(ss->d_hz[SUM_SLOT], nx*ny*nz, 1.0, ss->d_hz[SUM_SLOT], g, d_wsz);
+	doubleComplex one = luaT<doubleComplex>::one();
+	
+	// HX
+	ws.zero();
+	for(int targetLayer=0; targetLayer<nz; targetLayer++)
+	for(int sourceLayer=0; sourceLayer<nz; sourceLayer++)
+	{
+		int offset = sourceLayer - targetLayer;
+		doubleComplex sign = luaT<doubleComplex>::one();
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = luaT<doubleComplex>::neg_one();
+		}
+	
+		arrayLayerMult(ws.ddata(), targetLayer, qXX->ddata(), offset, sqx->ddata(), sourceLayer, one, 0, nxy); //0 = sum (1 would be set)
+		arrayLayerMult(ws.ddata(), targetLayer, qXY->ddata(), offset, sqy->ddata(), sourceLayer, one, 0, nxy); 
+		arrayLayerMult(ws.ddata(), targetLayer, qXZ->ddata(), offset, sqz->ddata(), sourceLayer,sign, 0, nxy); 
+	}
+	ws.ifft2DTo(&ws2, &ws3); //ifft to ws2 using ws3 as a work space
+	arrayGetRealPart(ws4.ddata(),  ws2.ddata(), nxyz);
+	ws4.scaleAll(g * global_scale);
+	(*ss->hx[SUM_SLOT]) += ws4;
+	
+	// HY
+	ws.zero();
+	for(int targetLayer=0; targetLayer<nz; targetLayer++)
+	for(int sourceLayer=0; sourceLayer<nz; sourceLayer++)
+	{
+		int offset = sourceLayer - targetLayer;
+		doubleComplex sign = luaT<doubleComplex>::one();
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = luaT<doubleComplex>::neg_one();
+		}
+		
+		arrayLayerMult(ws.ddata(), targetLayer, qXY->ddata(), offset, sqx->ddata(), sourceLayer, one, 0, nxy); //0 = sum (1 would be set)
+		arrayLayerMult(ws.ddata(), targetLayer, qYY->ddata(), offset, sqy->ddata(), sourceLayer, one, 0, nxy); 
+		arrayLayerMult(ws.ddata(), targetLayer, qYZ->ddata(), offset, sqz->ddata(), sourceLayer,sign, 0, nxy); 
+	}
+	ws.ifft2DTo(&ws2, &ws3); //ifft to ws2 using ws3 as a work space
+	arrayGetRealPart(ws4.ddata(),  ws2.ddata(), nxyz);
+	ws4.scaleAll(g * global_scale);
+	(*ss->hy[SUM_SLOT]) += ws4;
+
+	// HZ
+	ws.zero();
+	for(int targetLayer=0; targetLayer<nz; targetLayer++)
+	for(int sourceLayer=0; sourceLayer<nz; sourceLayer++)
+	{
+		int offset = sourceLayer - targetLayer;
+		doubleComplex sign = luaT<doubleComplex>::one();
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = luaT<doubleComplex>::neg_one();
+		}
+	
+		arrayLayerMult(ws.ddata(), targetLayer, qXZ->ddata(), offset, sqx->ddata(), sourceLayer,sign, 0, nxy); //0 = sum (1 would be set)
+		arrayLayerMult(ws.ddata(), targetLayer, qYZ->ddata(), offset, sqy->ddata(), sourceLayer,sign, 0, nxy); 
+		arrayLayerMult(ws.ddata(), targetLayer, qZZ->ddata(), offset, sqz->ddata(), sourceLayer, one, 0, nxy); 
+	}
+	ws.ifft2DTo(&ws2, &ws3); //ifft to ws2 using ws3 as a work space
+	arrayGetRealPart(ws4.ddata(),  ws2.ddata(), nxyz);
+	ws4.scaleAll(g * global_scale);
+	(*ss->hz[SUM_SLOT]) += ws4;
+	
+	
 	ss->slot_used[SUM_SLOT] = true;
-	
 	return true;
 }
 
 bool LongRangeCuda::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);
+	updateData();
+	const int nxy = nx*ny;
 
-	if(!plan)
-		getPlan();
-	if(!plan)
-		return false;
+	doubleComplex one = luaT<doubleComplex>::one();
+	doubleComplex* d_ws1;
+	doubleComplex* d_ws2;
+	doubleComplex* d_ws3;
 	
-	ss->sync_spins_hd();
-	
-	double* d_hx = ss->d_hx[slot];
-	double* d_hy = ss->d_hy[slot];
-	double* d_hz = ss->d_hz[slot];
-	
-	const double* d_sx = ss->d_x;
-	const double* d_sy = ss->d_y;
-	const double* d_sz = ss->d_z;
+	getWSMem3(&d_ws1, sizeof(doubleComplex)*nxyz, 
+			  &d_ws2, sizeof(doubleComplex)*nxyz,
+			  &d_ws3, sizeof(doubleComplex)*nxyz);
 
-	const int sz = JM_LONGRANGE_PLAN_ws_size(nx, ny, nz);
-// 	void* ws = getWSMem(sz);
+	dcArray ws(nx,ny,nz, d_ws1);
+	dcArray ws2(nx,ny,nz, d_ws2);
+	dcArray ws3(nx,ny,nz, d_ws3);
 	
-	void* ws_d_A;
-	void* ws_d_B;
-	
-	getWSMem(&ws_d_A, sz, &ws_d_B, sz);
-	
-	
-	JM_LONGRANGE(plan, 
-					d_sx, d_sy, d_sz, 
-					d_hx, d_hy, d_hz, ws_d_A, ws_d_B);
+	ss->fft();
+	dcArray* sqx = ss->qx;
+	dcArray* sqy = ss->qy;
+	dcArray* sqz = ss->qz;
 
-	ss_d_scale3DArray(d_hx, nxyz, g);
-	ss_d_scale3DArray(d_hy, nxyz, g);
-	ss_d_scale3DArray(d_hz, nxyz, g);
+	dArray* hx = ss->hx[slot];
+	dArray* hy = ss->hy[slot];
+	dArray* hz = ss->hz[slot];
 	
-	ss->new_device_fields[slot] = true;
-
-	//	ss->sync_spins_dh();
-	// 	printf("(%s:%i) %f %f %f\n", __FILE__, __LINE__, ss->h_x[1], ss->h_y[1], ss->h_z[1]);
-
-//  	ss->sync_fields_dh(slot);
-// 	const int i = 16*16;
-// 	printf("(%s:%i) %f %f %f\n", __FILE__, __LINE__, ss->h_hx[slot][i], ss->h_hy[slot][i], ss->h_hz[slot][i]);
+	// HX
+	ws.zero();
+	for(int targetLayer=0; targetLayer<nz; targetLayer++)
+	for(int sourceLayer=0; sourceLayer<nz; sourceLayer++)
+	{
+		int offset = sourceLayer - targetLayer;
+		doubleComplex sign = luaT<doubleComplex>::one();
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = luaT<doubleComplex>::neg_one();
+		}
 	
+		arrayLayerMult(ws.ddata(), targetLayer, qXX->ddata(), offset, sqx->ddata(), sourceLayer, one, 0, nxy); //0 = sum (1 would be set)
+		arrayLayerMult(ws.ddata(), targetLayer, qXY->ddata(), offset, sqy->ddata(), sourceLayer, one, 0, nxy); 
+		arrayLayerMult(ws.ddata(), targetLayer, qXZ->ddata(), offset, sqz->ddata(), sourceLayer,sign, 0, nxy); 
+	}
+	ws.ifft2DTo(&ws2, &ws3); //ifft to ws2 using ws3 as a work space
+	arrayGetRealPart(hx->ddata(),  ws2.ddata(), nxyz);
+	
+	// HY
+	ws.zero();
+	for(int targetLayer=0; targetLayer<nz; targetLayer++)
+	for(int sourceLayer=0; sourceLayer<nz; sourceLayer++)
+	{
+		int offset = sourceLayer - targetLayer;
+		doubleComplex sign = luaT<doubleComplex>::one();
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = luaT<doubleComplex>::neg_one();
+		}
+	
+		arrayLayerMult(ws.ddata(), targetLayer, qXY->ddata(), offset, sqx->ddata(), sourceLayer, one, 0, nxy); //0 = sum (1 would be set)
+		arrayLayerMult(ws.ddata(), targetLayer, qYY->ddata(), offset, sqy->ddata(), sourceLayer, one, 0, nxy); 
+		arrayLayerMult(ws.ddata(), targetLayer, qYZ->ddata(), offset, sqz->ddata(), sourceLayer,sign, 0, nxy); 
+	}
+	ws.ifft2DTo(&ws2, &ws3); //ifft to ws2 using ws3 as a work space
+	arrayGetRealPart(hy->ddata(),  ws2.ddata(), nxyz);
+
+	// HZ
+	ws.zero();
+	for(int targetLayer=0; targetLayer<nz; targetLayer++)
+	for(int sourceLayer=0; sourceLayer<nz; sourceLayer++)
+	{
+		int offset = sourceLayer - targetLayer;
+		doubleComplex sign = luaT<doubleComplex>::one();
+		if(offset < 0)
+		{
+			offset = -offset;
+			sign = luaT<doubleComplex>::neg_one();
+		}
+	
+		arrayLayerMult(ws.ddata(), targetLayer, qXZ->ddata(), offset, sqx->ddata(), sourceLayer,sign, 0, nxy); //0 = sum (1 would be set)
+		arrayLayerMult(ws.ddata(), targetLayer, qYZ->ddata(), offset, sqy->ddata(), sourceLayer,sign, 0, nxy); 
+		arrayLayerMult(ws.ddata(), targetLayer, qZZ->ddata(), offset, sqz->ddata(), sourceLayer, one, 0, nxy); 
+	}
+	ws.ifft2DTo(&ws2, &ws3); //ifft to ws2 using ws3 as a work space
+	arrayGetRealPart(hz->ddata(),  ws2.ddata(), nxyz);
+	
+	hx->new_host = false;
+	hy->new_host = false;
+	hz->new_host = false;
+	hx->new_device = true;
+	hy->new_device = true;
+	hz->new_device = true;
+	
+	
+/*	printf("%f\n", g );
+	printf("%f\n", g * global_scale);
+	printf("%f\n", global_scale);*/
+	
+	hx->scaleAll(g * global_scale);
+	hy->scaleAll(g * global_scale);
+	hz->scaleAll(g * global_scale);
+		
 	return true;
 }
 

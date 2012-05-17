@@ -86,7 +86,7 @@ bool Thermal::apply(RNG* rand, SpinSystem* ss)
 		if(ms[i] != 0 && temperature != 0)
 		{
 // 			double stddev = sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma * (1+alpha*alpha)));
-			const double stddev = global_scale * sqrt((2.0 * alpha * temperature * (*scale)[i]) / (ms[i] * dt * gamma));
+			const double stddev = sqrt((2.0 * alpha * global_scale * temperature * (*scale)[i]) / (ms[i] * dt * gamma));
 			
 			hx[i] = stddev * rand->randNorm(0, 1);
 			hy[i] = stddev * rand->randNorm(0, 1);

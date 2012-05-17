@@ -57,20 +57,13 @@ AppliedField::~AppliedField()
 
 bool AppliedField::apply(SpinSystem* ss)
 {
-	dArray& hx = (*ss->hx[slot]);
-	dArray& hy = (*ss->hy[slot]);
-	dArray& hz = (*ss->hz[slot]);
+	markSlotUsed(ss);
+	ss->ensureSlotExists(slot);
 
-	const int nxyz = ss->nx * ss->ny * ss->nz; //these are not imported
+	ss->hx[slot]->setAll(B[0]*global_scale);
+	ss->hy[slot]->setAll(B[1]*global_scale);
+	ss->hz[slot]->setAll(B[2]*global_scale);
 	
-	for(int i=0; i<nxyz; i++)
-	{
-		hx[i] = B[0] * global_scale;
-		hy[i] = B[1] * global_scale;
-		hz[i] = B[2] * global_scale;
-		
-		//printf("%g %g %g\n", hx[i], hy[i], hz[i]);
-	}
 	return true;
 }
 

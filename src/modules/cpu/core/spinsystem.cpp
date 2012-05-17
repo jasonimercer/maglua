@@ -201,10 +201,8 @@ void SpinSystem::deinit()
 		delete [] hy;
 		delete [] hz;
 
-		luaT_dec<dcArray>(rx);
-		luaT_dec<dcArray>(ry);
-		luaT_dec<dcArray>(rz);
-
+		luaT_dec<dcArray>(ws);
+		
 		luaT_dec<dcArray>(qx);
 		luaT_dec<dcArray>(qy);
 		luaT_dec<dcArray>(qz);
@@ -255,9 +253,7 @@ void SpinSystem::init()
 	}
 	zeroFields();
 	
-	rx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-	ry = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-	rz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	ws = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
 	qx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	qy = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
@@ -266,6 +262,20 @@ void SpinSystem::init()
 	fft_timeC[0] = -1;
 	fft_timeC[1] = -1;
 	fft_timeC[2] = -1;
+}
+
+// never needed
+void SpinSystem::ensureSlotExists(int slot)
+{
+	if(hx[slot]) return;
+	
+	hx[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	hy[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	hz[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
+
+	hx[slot]->zero();
+	hy[slot]->zero();
+	hz[slot]->zero();
 }
 
 
@@ -376,6 +386,23 @@ int  SpinSystem::decode(buffer* b)
 
 void SpinSystem::sumFields()
 {
+	ensureSlotExists(SUM_SLOT);
+	hx[SUM_SLOT]->zero();
+	for(int i=1; i<NSLOTS; i++)
+		if(slot_used[i] && hx[i])
+			(*hx[SUM_SLOT]) += (*hx[i]);
+
+	hy[SUM_SLOT]->zero();
+	for(int i=1; i<NSLOTS; i++)
+		if(slot_used[i] && hy[i])
+			(*hy[SUM_SLOT]) += (*hy[i]);
+
+	hz[SUM_SLOT]->zero();
+	for(int i=1; i<NSLOTS; i++)
+		if(slot_used[i] && hz[i])
+			(*hz[SUM_SLOT]) += (*hz[i]);
+		
+	/*	
 	hx[SUM_SLOT]->copyFrom(hx[1]);
 	for(int i=2; i<NSLOTS; i++)
 		(*hx[SUM_SLOT]) += (*hx[i]);
@@ -387,6 +414,7 @@ void SpinSystem::sumFields()
 	hz[SUM_SLOT]->copyFrom(hz[1]);
 	for(int i=2; i<NSLOTS; i++)
 		(*hz[SUM_SLOT]) += (*hz[i]);
+	*/
 }
 
 bool SpinSystem::addFields(double mult, SpinSystem* addThis)
@@ -457,20 +485,21 @@ void SpinSystem::fft(int component)
 		return;
 	fft_timeC[component] = time;
 	
+	ws->zero();
 	switch(component)
 	{
 	case 0:	
-		rx->zero();
-		arraySetRealPart(rx->data(), x->data(), x->nxyz);
-		rx->fft2DTo(qx,0); break;
+		arraySetRealPart(ws->data(), x->data(), x->nxyz);
+		ws->fft2DTo(qx); 
+		break;
 	case 1:	
-		ry->zero();
-		arraySetRealPart(rx->data(), y->data(), y->nxyz);
-		ry->fft2DTo(qy,0); break;
+		arraySetRealPart(ws->data(), y->data(), y->nxyz);
+		ws->fft2DTo(qy); 
+		break;
 	case 2:	
-		rz->zero();
-		arraySetRealPart(rz->data(), z->data(), z->nxyz);
-		rz->fft2DTo(qz,0); break;
+		arraySetRealPart(ws->data(), z->data(), z->nxyz);
+		ws->fft2DTo(qz); 
+		break;
 	}
 }
 
@@ -1140,15 +1169,7 @@ static int l_getinversespinX(lua_State* L)
 		return luaL_error(L, "(%d %d %d) is not a member of the system", px+1, py+1, pz+1);
 	
 	int idx = ss->getidx(px, py, pz);
-
-	lua_newtable(L);
-	lua_pushinteger(L, 1);
-	lua_pushnumber(L, real((*ss->qx)[idx]));
-	lua_settable(L, -3);
-	lua_pushinteger(L, 2);
-	lua_pushnumber(L, imag((*ss->qx)[idx]));
-	lua_settable(L, -3);
-	return 1;
+	return luaT<doubleComplex>::push(L, (*ss->qx)[idx]);
 }
 
 static int l_getinversespinY(lua_State* L)
@@ -1169,15 +1190,8 @@ static int l_getinversespinY(lua_State* L)
 		return luaL_error(L, "(%d %d %d) is not a member of the system", px+1, py+1, pz+1);
 	
 	int idx = ss->getidx(px, py, pz);
+	return luaT<doubleComplex>::push(L, (*ss->qy)[idx]);
 
-	lua_newtable(L);
-	lua_pushinteger(L, 1);
-	lua_pushnumber(L, real((*ss->qy)[idx]));
-	lua_settable(L, -3);
-	lua_pushinteger(L, 2);
-	lua_pushnumber(L, imag((*ss->qy)[idx]));
-	lua_settable(L, -3);
-	return 1;
 }
 
 static int l_getinversespinZ(lua_State* L)
@@ -1198,15 +1212,8 @@ static int l_getinversespinZ(lua_State* L)
 		return luaL_error(L, "(%d %d %d) is not a member of the system", px+1, py+1, pz+1);
 	
 	int idx = ss->getidx(px, py, pz);
+	return luaT<doubleComplex>::push(L, (*ss->qz)[idx]);
 
-	lua_newtable(L);
-	lua_pushinteger(L, 1);
-	lua_pushnumber(L, real((*ss->qz)[idx]));
-	lua_settable(L, -3);
-	lua_pushinteger(L, 2);
-	lua_pushnumber(L, imag((*ss->qz)[idx]));
-	lua_settable(L, -3);
-	return 1;
 }
 
 static int l_getinversespin(lua_State* L)
@@ -1228,31 +1235,11 @@ static int l_getinversespin(lua_State* L)
 	
 	int idx = ss->getidx(px, py, pz);
 	
-	lua_newtable(L);
-	lua_pushinteger(L, 1);
-	lua_pushnumber(L, real((*ss->qx)[idx]));
-	lua_settable(L, -3);
-	lua_pushinteger(L, 2);
-	lua_pushnumber(L, imag((*ss->qx)[idx]));
-	lua_settable(L, -3);
-	
-	lua_newtable(L);
-	lua_pushinteger(L, 1);
-	lua_pushnumber(L, real((*ss->qy)[idx]));
-	lua_settable(L, -3);
-	lua_pushinteger(L, 2);
-	lua_pushnumber(L, imag((*ss->qy)[idx]));
-	lua_settable(L, -3);
-	
-	lua_newtable(L);
-	lua_pushinteger(L, 1);
-	lua_pushnumber(L, real((*ss->qz)[idx]));
-	lua_settable(L, -3);
-	lua_pushinteger(L, 2);
-	lua_pushnumber(L, imag((*ss->qz)[idx]));
-	lua_settable(L, -3);
-	
-	return 3;
+	r = 0;
+	r += luaT<doubleComplex>::push(L, (*ss->qx)[idx]);
+	r += luaT<doubleComplex>::push(L, (*ss->qy)[idx]);
+	r += luaT<doubleComplex>::push(L, (*ss->qz)[idx]);
+	return r;
 }
 
 static int l_getdiff(lua_State* L)

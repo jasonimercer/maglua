@@ -14,29 +14,10 @@
 #define SPINSYSTEM
 
 #include "maglua.h"
+#include "array.h"
 
 using namespace std;
 
-typedef struct work_space_device_memory
-{
-	int refcount;
-	void* d_memory[5];
-	size_t size[5];
-} work_space_device_memory;
-
-static work_space_device_memory WS_MEM = {0};
-CORECUDA_API void  registerWS();
-CORECUDA_API void  unregisterWS();
-CORECUDA_API void  getWSMem(void** ptr1,   size_t size1, 
-			   void** ptr2=0, size_t size2=0, 
-			   void** ptr3=0, size_t size3=0,
-			   void** ptr4=0, size_t size4=0,
-			   void** ptr5=0, size_t size5=0);
-CORECUDA_API void  getWSMem(double** ptr1,   size_t size1, 
-			   double** ptr2=0, size_t size2=0, 
-			   double** ptr3=0, size_t size3=0,
-			   double** ptr4=0, size_t size4=0,
-			   double** ptr5=0, size_t size5=0);
 
 
 class CORECUDA_API SpinSystem : public LuaBaseObject
@@ -56,6 +37,8 @@ public:
 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldFrom(lua_State* L, SpinSystem* src, int slot);
+
+	void ensureSlotExists(int slot);
 
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);
@@ -108,12 +91,16 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 
+	void sync_spins_hd() { x->sync_hd(); y->sync_hd(); y->sync_hd(); }
+	void sync_spins_dh() { x->sync_dh(); y->sync_dh(); y->sync_dh(); }
+
 private:
 	void init();
 	void deinit();
 
-	dcArray* rx;
-	dcArray* ry;
+// 	dcArray* rx;
+// 	dcArray* ry;
+// 	dcArray* rz;
 };
 
 #endif

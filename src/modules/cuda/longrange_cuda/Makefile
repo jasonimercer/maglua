@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationlongrange.o longrange_kernel.cuo longrange.o
+OBJECTS=spinoperationlongrange.o
 LIBNAME=LongRangeCuda
 CATEGORY=cuda
 
@@ -17,13 +17,6 @@ CATEGORY=cuda
 DEPEND=luabaseobject corecuda arraycuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
-EXTRA_CUDA_DEP=longrange.h
 
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
-
-longrange.h: longrange.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua longrange.lua
-
-longrange.cpp: longrange.lua
-	touch longrange.cpp
