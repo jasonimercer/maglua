@@ -1,0 +1,25 @@
+# Copyright (C) 2012 Jason Mercer.  All rights reserved.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+
+OBJECTS=spinoperationmultipole.o fmm_math.o cell.o
+LIBNAME=Multipole
+CATEGORY=cpu
+
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core luabaseobject
+BASEDIR=../../..
+include $(BASEDIR)/makefile.common.cpu
+
+main.o: main.cpp
+	g++ -c main.cpp -o main.o
+
+test: main.o fmm_math.o
+	g++ fmm_math.o main.o
