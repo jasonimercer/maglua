@@ -1,61 +1,251 @@
 #include "fmm_math.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 using namespace std;
 
+//int tensor_element_count(const int order);
+
+complex<double>* new_tensor(int order)
+{
+	return new complex<double>[ tensor_element_count(order) ];
+}
+
+
 int main(int argc, char** argv)
 {
-	int order = 6;
-	vector<monopole> charges;
+//	testFMM();
+//	return 0;
+	int order = 5;
 
-	charges.push_back(monopole(1,1,1, 1));
-	charges.push_back(monopole(1,0,0, 1));
-	charges.push_back(monopole(0,1,0,-1));
+//	make_fmm_rules(order);
 
-	monopole d(1,2,3);
-//	monopole d(0,0,0);
-	monopole pos(10,5,2);
-	pos += d;
+	monopole r(0.1,0,0);
+	monopole x1(3,0,0);
+	monopole x2(3,1,0);
+	monopole x3(3,-2,0);
 
+	monopole pos(0,20,1);
+
+	complex<double> sum = 0;
+	int c;
 	int len = tensor_element_count(order);
 
-	complex<double>* CF = new complex<double>[len];
-	complex<double>* CFnew = new complex<double>[len];
-	complex<double>* F  = new complex<double>[len];
-	complex<double>* TCF = new complex<double>[len*len];
+	printf("Outter Goal: %g\n", 1.0/(pos-x1).r + 1.0/(pos-x2).r + 1.0/(pos-x3).r );
 
+	complex<double>* t1 = new_tensor(order);
+	complex<double>* t2 = new_tensor(order);
+	complex<double>* t3 = new_tensor(order);
+	complex<double>* tSum = new_tensor(order);
+	complex<double>* tSum2= new_tensor(order);
+	complex<double>* tp = new_tensor(order);
 
-	CF_tensor(charges, order, CF);
-	F_tensor(pos, order, F);
-	TCF_tensor(d, order, TCF);
-
-	contract42_tensor(order, CFnew, TCF, CF);
-
-
-	complex<double> result;
-	contract22_tensor(order, result, CFnew, F);
-
-	printf("%g %g\n", result.real(), result.imag());
-
-
-	pos -= d;
-	double r0[3];
-	r0[0] = pos.x;
-	r0[1] = pos.y;
-	r0[2] = pos.z;
-	double p = 0;
-	for(unsigned int i=0; i<3; i++)
+	// ===============================================================================
+	// "standard"
+	c = 0;
+	for(int n=0; n<=order; n++)
 	{
-		double r[3];
-		r[0] = charges[i].x;
-		r[1] = charges[i].y;
-		r[2] = charges[i].z;
+		double a = pow(-1.0, n);
+		for(int l=-n; l<=n; l++)
+		{
+			t1[c] = a*Inner(x1, n, -l);
+			t2[c] = a*Inner(x2, n, -l);
+			t3[c] = a*Inner(x3, n, -l);
+			tp[c] = Outter(pos, n, l);
 
-		p += PhiSingle1(charges[i].q, r, r0);
+			tSum[c] = t1[c] + t2[c] + t3[c];
+			c++;
+		}
 	}
-	printf("%g\n", p);
 
-	printf("diff: %g\n", fabs(p - result.real()));
+	sum = 0;
+	for(int i=0; i<len; i++)
+	{
+		complex<double> a = tSum[i] * tp[i];
+		sum += a;
+	}
+
+	printf("standard:    %g %g\n", sum.real(), sum.imag());
+	// ===============================================================================
+
+
+
+
+	// ===============================================================================
+	// "shifted"
+	c = 0;
+	for(int n=0; n<order; n++)
+	{
+		double a = pow(-1.0, n);
+		for(int l=-n; l<=n; l++)
+		{
+			t1[c] = a*Inner(x1+r, n, -l);
+			t2[c] = a*Inner(x2+r, n, -l);
+			t3[c] = a*Inner(x3+r, n, -l);
+			tp[c] = Outter(pos+r, n, l);
+
+			tSum[c] = t1[c] + t2[c] + t3[c];
+			c++;
+		}
+	}
+
+	sum = 0;
+	for(int i=0; i<len; i++)
+	{
+		sum += tSum[i] * tp[i];
+	}
+
+	printf("shifted:     %g %g\n", sum.real(), sum.imag());
+	// ===============================================================================
+
+
+
+
+	// ===============================================================================
+	// "standard" + translation
+	c = 0;
+	for(int n=0; n<order; n++)
+	{
+		double a = pow(-1.0, n);
+		for(int l=-n; l<=n; l++)
+		{
+			t1[c] = a*Inner(x1, n, -l);
+			t2[c] = a*Inner(x2, n, -l);
+			t3[c] = a*Inner(x3, n, -l);
+			tp[c] = Outter(pos-r, n, l);
+
+			tSum[c] = t1[c] + t2[c] + t3[c];
+			c++;
+		}
+	}
+
+	complex<double>* trans = i2i_trans_mat(order, -r);
+	tensor_mat_mul(trans, tSum, tSum2, order);
+
+
+	sum = 0;
+	for(int i=0; i<len; i++)
+	{
+		sum += tSum2[i] * tp[i];
+	}
+
+	printf("s+trans:     %g %g\n", sum.real(), sum.imag());
+	// ===============================================================================
+
+
+
+
+
+
+
+
+
+
+	monopole origin(0.1,0.1,0.1);
+	printf("\n\nInner Goal: %g\n", 1.0/(origin-x1).r + 1.0/(origin-x2).r + 1.0/(origin-x3).r );
+
+	// ===============================================================================
+	// "standard"
+	c = 0;
+	for(int n=0; n<=order; n++)
+	{
+		double a = pow(-1.0, n);
+		for(int l=-n; l<=n; l++)
+		{
+			t1[c] = a*Outter(x1, n, l);
+			t2[c] = a*Outter(x2, n, l);
+			t3[c] = a*Outter(x3, n, l);
+			tp[c] = Inner(origin, n, -l);
+
+			tSum[c] = t1[c] + t2[c] + t3[c];
+			c++;
+		}
+	}
+
+	sum = 0;
+	for(int i=0; i<len; i++)
+	{
+		complex<double> a = tSum[i] * tp[i];
+		sum += a;
+	}
+
+	complex<double> a = Outter(origin, 0, 0);
+
+
+	printf("standard:   %g %g\n", sum.real(), sum.imag());
+	// ===============================================================================
+
+
+
+
+
+	// ===============================================================================
+	// "shifted"
+	c = 0;
+	for(int n=0; n<order; n++)
+	{
+		double a = pow(-1.0, n);
+		for(int l=-n; l<=n; l++)
+		{
+			t1[c] = a*Outter(x1+r, n, l);
+			t2[c] = a*Outter(x2+r, n, l);
+			t3[c] = a*Outter(x3+r, n, l);
+			tp[c] = Inner(origin+r, n, -l);
+
+			tSum[c] = t1[c] + t2[c] + t3[c];
+			c++;
+		}
+	}
+
+	sum = 0;
+	for(int i=0; i<len; i++)
+	{
+		sum += tSum[i] * tp[i];
+	}
+
+	printf("shifted:    %g %g\n", sum.real(), sum.imag());
+	// ===============================================================================
+
+
+
+
+
+	// ===============================================================================
+	// "standard" + translation
+	c = 0;
+	for(int n=0; n<order; n++)
+	{
+		double a = pow(-1.0, n);
+		for(int l=-n; l<=n; l++)
+		{
+			t1[c] = a*Outter(x1, n, l);
+			t2[c] = a*Outter(x2, n, l);
+			t3[c] = a*Outter(x3, n, l);
+			tp[c] = Inner(origin+r, n, -l);
+
+			tSum[c] = t1[c] + t2[c] + t3[c];
+			c++;
+		}
+	}
+
+	complex<double>* trans2 = o2o_trans_mat(order, r);
+	tensor_mat_mul(trans2, tSum, tSum2, order);
+
+	sum = 0;
+	for(int i=0; i<len; i++)
+	{
+		sum += tSum2[i] * tp[i];
+	}
+
+	printf("s+trans:    %g %g\n", sum.real(), sum.imag());
+	// ===============================================================================
+
+
+
+
+
+
+//	free_fmm_rules();
 
 	return 0;
 }

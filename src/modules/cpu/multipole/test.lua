@@ -1,11 +1,8 @@
-ss = SpinSystem.new(4,4)
-mp = Multipole.new(ss)
+L = 6
+x = 1/2
 
-for i=1,4 do
-	for j=1,4 do
-		print(mp:getPosition({i,j}))
-	end
+print("L = " .. L .. ", x = " .. x)
+
+for m=-5,4 do
+	print(L,m,Plm(L,m,x))
 end
-
-
-mp:preCompute()

@@ -1424,7 +1424,7 @@ int SpinSystem::help(lua_State* L)
 	{
 		lua_pushstring(L, "Get the orientation and magnitude of a spin at a site.");
 		lua_pushstring(L, "1 *3Vector*: The lattice site.");
-		lua_pushstring(L, "1 *3Vector*: The spin vector at the lattice site.");
+		lua_pushstring(L, "4 Numbers*: The spin vector at the lattice site and magnitude.");
 		return 3;
 	}
 	

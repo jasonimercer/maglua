@@ -74,12 +74,12 @@ void BSPTree::split(int until_contains)
 	}
 }
 
-	
+
 void BSPTree::getStats(double* meanXYZ, double* stddevXYZ)
 {
-	  meanXYZ[0] = 0;
-	  meanXYZ[1] = 0;
-	  meanXYZ[2] = 0;
+	meanXYZ[0] = 0;
+	meanXYZ[1] = 0;
+	meanXYZ[2] = 0;
 	stddevXYZ[0] = 0;
 	stddevXYZ[1] = 0;
 	stddevXYZ[2] = 0;

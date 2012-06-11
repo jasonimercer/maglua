@@ -16,156 +16,124 @@ using namespace std;
 #define SQRT2 1.41421356237309504880
 #endif
 
-int faci(int x)
+static double faci(int x)
 {
-	int f = 1;
+	double f = 1;
 	for(; x>1; x--)
 		f *= x;
 	return f;
 }
 
-int facfac(int x)
+
+
+double negOnePow(const int l)
 {
-	if(! (x&0x1)) //then even
-		x--; //need odd
-	
-	int f = 1;
-	for(; x>1; x-=2)
-		f *= x;
-	return f;
-}
-
-
-double P00(const double x) {return 1;}
-
-double P10(const double x) {return x;}
-double P11(const double x) {return -1.0 * sqrt(1.0 - x*x);}
-
-double P20(const double x) {return 0.5 * (3.0 * x*x - 1.0);}
-double P21(const double x) {return -3.0 * x * sqrt(1.0 - x*x);}
-double P22(const double x) {return 3.0 * (1.0 - x*x);}
-
-double P30(const double x) {return 0.5 * x * (5.0 * x * x - 3.0);}
-double P31(const double x) {return 1.5 * (1.0 - 5.0 * x * x) * sqrt(1.0-x*x);}
-double P32(const double x) {return 15.0 * x * (1.0-x*x);}
-double P33(const double x) {return -15.0 * pow(1.0 - x*x, 1.5);}
-//   m     m <= l
-// P      
-//   l   
-double Plm(const int l, const int m, const double x)
-{
-	// casting to double
-	const double L = l;
-	const double M = m;
-	if(abs(m) > l)
-		return 0;
 	if(l < 0)
-	{
-		return Plm(l-1,m,x);
-	}
+		return 1.0;
 
-	if(m < 0)
-	{
-		const int em = -m;
-		double prefactor1 = 1;
-		if(em & 2)
-			prefactor1 = -1;
-		double prefactor2a = faci(l - em);
-		double prefactor2b = faci(l + em);
-		return prefactor1 * (prefactor2a / prefactor2b) * Plm(l,em,x);
-	}
-	if(l <= 3 && m <= l)
-	{
-		if(l == 3)
-		{
-			if(m == 0) return P30(x);
-			if(m == 1) return P31(x);
-			if(m == 2) return P32(x);			
-			if(m == 3) return P33(x);			
-		}
-		if(l == 2)
-		{
-			if(m == 0) return P20(x);
-			if(m == 1) return P21(x);
-			if(m == 2) return P22(x);			
-		}
-		if(l == 1)
-		{
-			if(m == 0) return P10(x);
-			if(m == 1) return P11(x);
-		}
-		if(l == 0)
-		{
-			if(m == 0) return P00(x);
-		}
-		fprintf(stderr, "(%s:%i) l = %i   m = %i    something went wrong\n", __FILE__, __LINE__, l,m);
-		return 0;
-	}
-	
-	if(l == m)
-	{
-		const double v = facfac(2*l-1) * pow(1.0-x*x, L/2.0);
-		if(l & 0x1) //odd
-			return -1.0 * v;
-		return v;
-	}
-	
-	if( (l-1) == m)
-	{
-		return x * (2.0*M+1.0) * Plm(m,m,x);
-	}
-	
-	// Must: m <= l
-	if(l - m >= 2) //then reduce l
-	{
-		return (x * (2.0*L-1.0)*Plm(l-1,m,x) - (L+M-1.0)*Plm(l-2,m,x) ) /
-				(L - M);
-	}
-	else // reduce m
-	{
-		// todo: see if there is a problem when x = 1
-		return (2.0*(M-1.0)*x) / (sqrt(1.0-x*x)) * Plm(l,m-1,x) +
-			   ((M-1)*(M-2) - L * (L+1)) * Plm(l,m-2,x);
-	}
+	if(l & 0x1) //odd
+		return -1.0;
+	return 1.0;
 }
 
-complex<double> Ylm(const int l, const int m, const double phi, const double theta)
+complex<double> Ylm(const int l, const int m, const double theta, const double phi)
 {
-	double a = 1;
-	if(m & 0x1)
-		a = -1.0;
-	
-	const double b = (2.0 * ((double)l) + 1.0) / (4.0 * M_PI);
-	const double c = ((double)faci(l-m)) / ((double)faci(l+m));
-	const double d = Plm(l,m,cos(theta));
+	// Journal of Computational Physics 227 (2008) 1836–1862
+	// "We emphasize that our spherical harmonics are considered as identically null for n < 0  or |l| > n."
+	if(l < 0)
+		return complex<double>(0,0);
+	if(abs(m) > l)
+		return complex<double>(0,0);
+	//
 
-	void sincos(double x, double *sin, double *cos);
+	const double a = faci(l - abs(m));
+	const double b = faci(l + abs(m));
+	const double c = Plm(l, abs(m), cos(theta));
 
-	//exp(i x) = cos(x) + i sin(x)
 	double S, C;
 	sincos(((double)m) * phi, &S, &C);
-	
-	const double f = a * sqrt(b*c) * d;
-	
-	return complex<double>(f*C, f*S);
+
+	const double d = sqrt(a/b) * c;
+
+	return negOnePow(l) * complex<double>(d*C, d*S);
 }
 
 
-double Tlm(const int l, const int m, const double theta)
+double Anl(int n, int l)
 {
-	return sqrt(	((double)(2*l+1) * faci(l-m))) / 
-				((double)(4.0*M_PI* faci(l+m)))  * Plm(l,m,theta);
+	double a = -1;
+	if((n&0x1)==0) //then n is even
+		a = 1;
+
+	const double b = faci(n-l);
+	const double c = faci(n+l);
+
+	return a / sqrt(b*c);
 }
 
-double Phim(const int m, double phi)
+complex<double> iPow(int l)
 {
-	if(m >  0)
-		return SQRT2 * cos( ((double)m) * phi );
-	if(m == 0)
-		return 1;
-	return SQRT2 * sin( fabs(m) * phi );
+	l = abs(l);
+	l &= 3;
+	complex<double> iL;
+	switch(l)
+	{
+	case 0: iL = complex<double>( 1, 0); break;
+	case 1: iL = complex<double>( 0, 1); break;
+	case 2: iL = complex<double>(-1, 0); break;
+	case 3: iL = complex<double>( 0,-1); break;
+	}
+	return iL;
+}
+// Journal of Computational Physics 227 (2008) 1836–1862
+complex<double> Outter(const monopole& r, int n, int l)
+{
+	// Journal of Computational Physics 227 (2008) 1836–1862
+	// "We emphasize that our spherical harmonics are considered as identically null for n < 0  or |l| > n."
+	if(n < 0)
+		return complex<double>(0,0);
+	if(abs(l) > n)
+		return complex<double>(0,0);
+
+	const double a = negOnePow(n);
+	complex<double> iL = iPow(l);
+
+	const double b = Anl(n,l);
+	const complex<double> c = Ylm(n,l,r.t, r.p);
+	const double d = pow(r.r, n+1);
+
+//		printf("a  %g\n", a);
+//		printf("iL %g %g\n", iL.real(), iL.imag());
+//		printf("b  %g\n", b);
+//		printf("c  %g %g\n", c.real(), c.imag());
+//		printf("d  %g\n", d);
+
+	return a*iL/b * c/d;
 }
 
+
+complex<double> Inner(const monopole& r, int n, int l)
+{
+	// Journal of Computational Physics 227 (2008) 1836–1862
+	// "We emphasize that our spherical harmonics are considered as identically null for n < 0  or |l| > n."
+	if(n < 0)
+		return complex<double>(0,0);
+	if(abs(l) > n)
+		return complex<double>(0,0);
+
+
+	const complex<double> a = 1.0 / iPow(l);
+	const double b = Anl(n,l);
+	const complex<double> c = Ylm(n,l,r.t, r.p);
+	const double d = pow(r.r, n);
+
+//	printf("a %g %g\n", a.real(), a.imag());
+//	printf("b %g\n", b);
+//	printf("c %g %g\n", c.real(), c.imag());
+//	printf("d %g\n", d);
+
+	return a * b * c * d;
+}
 
 
 void physics_spherical_coords(const double rx, const double ry, const double rz, 
@@ -186,6 +154,7 @@ void physics_spherical_coords(const double rx, const double ry, const double rz,
 	else
 		phi = atan2(ry, rx);
 	theta = acos(rz / rad);
+
 }
 void physics_spherical_coords(const double* rxyz, double& theta, double& phi, double& rad)
 {
@@ -212,284 +181,130 @@ monopole& monopole::operator-=(const monopole& rhs)
 	calcSpherical();
 	return *this;
 }
-
-
-
-// equation 2 of IEEE Trans Mag 37. 3
-complex<double> Flm_Plm_r2(int l, int m, double r2, double _Plm, double phi)
+monopole& monopole::operator*=(const double rhs)
 {
-	const double L = l;
-	const double M = m;
-	const double f1 = faci(l-m);
-	const double f2 = _Plm;
-	const double d1 = pow(r2, (L+1.0)/2.0);
-
-	const double value = f1*f2/d1;
-
-	//exp(i x) = cos(x) + i sin(x)
-	double S, C;
-	sincos(M * phi, &S, &C);
-	return complex<double>(value*C, value*S);
-}
-
-complex<double> Flm_Plm(int l, int m, double rx, double ry, double rz, double _Plm, double phi)
-{
-	return Flm_Plm_r2(l,m,rx*rx+ry*ry+rz*rz,_Plm,phi);
-}
-complex<double> Flm(int l, int m, double rx, double ry, double rz, double cos_theta, double phi)
-{
-	return Flm_Plm(l,m,rx,ry,rz, Plm(l,m,cos_theta), phi);
+	x *= rhs;	y *= rhs;
+	z *= rhs;	q *= rhs;
+	calcSpherical();
+	return *this;
 }
 
 
-// equation 3 of IEEE Trans Mag 37. 3
-complex<double> Nlm_Plm_r2(int l, int m, double r2, double _Plm, double phi)
-{
-	const double L = l;
-	const double M = m;
-	const double f1 = pow(r2, L/2.0);
-	const double f2 = _Plm;
-	const double d1 = faci(l+m);
-
-	const double value = f1*f2/d1;
-
-	double S, C;
-	sincos(-1.0 * M * phi, &S, &C);
-	return complex<double>(value*C, value*S);
-}
-
-complex<double> Nlm_Plm(int l, int m, double rx, double ry, double rz, double _Plm, double phi)
-{
-	return Nlm_Plm_r2(l,m,rx*rx+ry*ry+rz*rz,_Plm,phi);
-}
-complex<double> Nlm(int l, int m, double rx, double ry, double rz, double cos_theta, double phi)
-{
-	return Nlm_Plm(l,m,rx,ry,rz, Plm(l,m,cos_theta), phi);
-}
-
-
-
-
-
-// equation 6 of IEEE Trans Mag 37. 3
-complex<double> Contract_Flm_Nlm(int lmax, double rx, double ry, double rz, double cos_theta, double phi)
-{
-	const double r2 = rx*rx+ry*ry+rz*rz;
-	complex<double> sum = 0;
-	for(int l=0; l<=lmax; l++)
-	{
-		for(int m=-l; m<=l; l++)
-		{
-			const double _Plm = Plm(l,m,cos_theta);
-			const complex<double> f = Flm_Plm_r2(l,m,r2,_Plm,phi);
-			const complex<double> n = Nlm_Plm_r2(l,m,r2,_Plm,phi);
-			sum += f*n;
-		}
-	}
-	return sum;
-}
-
-
-
-
-void negGradNlm(int l, int m, const double r, const double cos_theta, const double sin_theta, const double phi, complex<double>* res3)
-{
-	const double L = l;
-	const double M = m;
-
-	const double cot_theta = cos_theta / sin_theta;
-	const double csc_theta =       1.0 / sin_theta;
-
-	const complex<double> N = Nlm_Plm_r2(l, m, r*r, Plm(l,m,cos_theta), phi);
-	const complex<double> Nl1 = Nlm_Plm_r2(l+1, m, r*r, Plm(l,m,cos_theta), phi);
-	const complex<double> phi_scale = complex<double>(0, M / (r * sin_theta));
-
-	res3[0] = -(L / r) * N;
-	res3[1] = phi_scale * N;
-	res3[2] = (-1.0/r) * (csc_theta * (M-L-1.0) * Nl1 + cot_theta * (L+1.0) * N);
-}
-
-void negGradFlm(int l, int m, const double r, const double cos_theta, const double sin_theta, const double phi, complex<double>* res3)
-{
-	const double L = l;
-	const double M = m;
-
-	const double cot_theta = cos_theta / sin_theta;
-	const double csc_theta =       1.0 / sin_theta;
-
-	const complex<double> F = Flm_Plm_r2(l, m, r*r, Plm(l,m,cos_theta), phi);
-	const complex<double> Fl1 = Flm_Plm_r2(l+1, m, r*r, Plm(l,m,cos_theta), phi);
-	const complex<double> phi_scale = complex<double>(0,-M / (r * sin_theta));
-
-	res3[0] = ((L+1) / r) * F;
-	res3[1] = phi_scale * F;
-	res3[2] = (1.0/r) * (cot_theta * (L+1.0) * F + (M-L-1.0) * csc_theta * Fl1);
-}
-
-
-
-
-double PhiSingle1(double q, double* r3, double* r03)
-{
-	double r2 = pow(r3[0] - r03[0], 2);
-	r2 += pow(r3[1] - r03[1], 2);
-	r2 += pow(r3[2] - r03[2], 2);
-
-	return q / (sqrt(r2) * 4.0 * M_PI);
-}
-
-std::complex<double> PhiSingle1(double q, double* r3, double* r03, int order)
-{
-	double t, t0, p, p0, r, r0;
-
-	physics_spherical_coords(r3,  t,  p,  r);
-	physics_spherical_coords(r03, t0, p0, r0);
-
-	complex<double> sum = 0;
-
-	for(int l=0; l<=order; l++)
-	{
-		for(int m=-l; m<=l; m++)
-		{
-			double _Plm = Plm(l, m, cos(t));
-			double _Plm0 = Plm(l, m, cos(t0));
-
-			const complex<double> a = Nlm_Plm_r2(l, m, r0*r0, _Plm0, p0) * Flm_Plm_r2(l, m, r*r, _Plm, p);
-			printf("% 4i % 4i % 10e % 10e\n", l, m, a.real(), a.imag());
-			sum +=a;
-		}
-	}
-
-	sum *= (q / (4.0 * M_PI));
-	return sum;
-}
 
 int tensor_element_count(const int order)
 {
-	if(order <= 0)
-		return 1;
+	if(order < 0)
+		return 0;
 	return (2*order+1) + tensor_element_count(order-1);
 }
 
-void CF_tensor(const vector<monopole>& r, const int order, std::complex<double>* tensor)
+
+static int degree_order_to_index(const int l, const int m)
 {
-	int c = 0;
-	for(int l=0; l<=order; l++)
+	if(abs(m) > l)
+		return -1;
+	return tensor_element_count(l-1) + l + m;
+}
+
+
+
+void tensor_mat_mul(const complex<double>* A, const complex<double>* x, complex<double>* b, int max_order)
+{
+	int m = tensor_element_count(max_order);
+
+	for(int r=0; r<m; r++)
 	{
-		for(int m=-l; m<=l; m++)
+		b[r] = 0;
+	}
+
+
+	for(int r=0; r<m; r++)
+	{
+		for(int c=0; c<m; c++)
 		{
-			complex<double> a = 0;
-			for(unsigned int i=0; i<r.size(); i++)
-			{
-				complex<double> v = r[i].q * Nlm(l, m, r[i].x, r[i].y, r[i].z, cos(r[i].t), r[i].p);
-				a += v;
-			}
-			tensor[c] = a / (4.0 * M_PI);
-			c++;
+			b[r] += A[r*m+c] * x[c];
 		}
 	}
 }
 
-void F_tensor(const monopole& r, const int order, std::complex<double>* tensor)
+// Journal of Computational Physics 227 (2008) 1836–1862
+// Theorem 3
+complex<double>* i2i_trans_mat(const int max_order, const monopole& d)
 {
-	int c = 0;
-	for(int l=0; l<=order; l++)
-	{
-		for(int m=-l; m<=l; m++)
-		{
-			tensor[c] = Flm(l, m, r.x, r.y, r.z, cos(r.t), r.p);
-			c++;
-		}
-	}
-}
+	int m = tensor_element_count(max_order);
 
-// rank 4 tensor. tensor_element_count(order)^2 elements
-void TCF_tensor(const monopole& d, const int order, std::complex<double>* tensor)
-{
-	monopole nd(-d.x, -d.y, -d.z);
-	int c = 0;
-	for(int l=0; l<=order; l++)
+	complex<double>* A = new complex<double>[m*m];
+
+	for(int i=0; i<m*m; i++)
+		A[i] = 0;
+
+	for(int n=0; n<=max_order; n++)
 	{
-		for(int m=-l; m<=l; m++)
+		for(int l=-n; l<=n; l++)
 		{
-			for(int i=0; i<=order; i++)
+			const int r = degree_order_to_index(n,l); //row
+			for(int j=0; j<=max_order; j++)
 			{
-				for(int j=-i; j<=i; j++)
+				for(int k=-j; k<=j; k++)
 				{
-					tensor[c] = Nlm(l-i, m-j, nd.x, nd.y, nd.z, cos(nd.t), nd.p);
-					c++;
+					int src_degree = n-j;
+					int src_order = l-k;
+					const int c = degree_order_to_index(src_degree, src_order); //col
+					if(c >= 0 && c < m) //then valid
+					{
+						double sign = 1.0;
+						if(j&0x1) sign = -1.0;
+
+						complex<double> v = sign * Inner(d, j, k);
+
+						A[r*m+c] = v;
+					}
 				}
 			}
 		}
 	}
+	return A;
 }
-// rank 4 tensor. tensor_element_count(order)^2 elements
-void TCN_tensor(const monopole& d, const int order, std::complex<double>* tensor)
+
+
+
+// Journal of Computational Physics 227 (2008) 1836–1862
+// Theorem 2
+complex<double>* o2o_trans_mat(const int max_order, const monopole& d)
 {
-	int c = 0;
-	for(int l=0; l<=order; l++)
+	int m = tensor_element_count(max_order);
+
+	complex<double>* A = new complex<double>[m*m];
+
+	for(int i=0; i<m*m; i++)
+		A[i] = 0;
+
+	for(int n=0; n<=max_order; n++)
 	{
-		for(int m=-l; m<=l; m++)
+		for(int l=-n; l<=n; l++)
 		{
-			for(int i=0; i<=order; i++)
+			const int r = degree_order_to_index(n,l); //row
+			for(int j=0; j<=max_order; j++)
 			{
-				for(int j=-i; j<=i; j++)
+				for(int k=-j; k<=j; k++)
 				{
-					tensor[c] = Nlm(i-l, j-m, d.x, d.y, d.z, cos(d.t), d.p);
-					c++;
+					int src_degree = n+j;
+					int src_order = l+k;
+					const int c = degree_order_to_index(src_degree, src_order); //col
+					if(c >= 0 && c < m) //then valid
+					{
+						double sign = 1.0;
+						if(j&0x1) sign = -1.0;
+
+						complex<double> v = sign * Inner(d, j, -k);
+
+						A[r*m+c] = v;
+					}
 				}
 			}
 		}
 	}
-}
-// rank 4 tensor. tensor_element_count(order)^2 elements
-void TCNCF_tensor(const monopole& d, const int order, std::complex<double>* tensor)
-{
-	int c = 0;
-	for(int l=0; l<=order; l++)
-	{
-		for(int m=-l; m<=l; m++)
-		{
-			for(int i=0; i<=order; i++)
-			{
-				for(int j=-i; j<=i; j++)
-				{
-					tensor[c] = pow(-1.0, l) * Flm(i+l, j+m, d.x, d.y, d.z, cos(d.t), d.p);
-					c++;
-				}
-			}
-		}
-	}
-}
-
-
-void contract22_tensor(const int order, std::complex<double>& dest, std::complex<double>* src1, std::complex<double>* src2)
-{
-	int n = tensor_element_count(order);
-
-	dest = 0;
-	for(int i=0; i<n; i++)
-	{
-		dest += src1[i] * src2[i];
-	}
-}
-
-void contract42_tensor(const int order, std::complex<double>* dest, std::complex<double>* src4, std::complex<double>* src2)
-{
-	int n = tensor_element_count(order);
-
-	for(int j=0; j<n; j++)
-	{
-		dest[j] = 0;
-	}
-
-	for(int j=0; j<n; j++)
-	{
-		for(int i=0; i<n; i++)
-		{
-			dest[j] += src4[i+j*n] * src2[i];
-		}
-	}
+	return A;
 }
 
 
