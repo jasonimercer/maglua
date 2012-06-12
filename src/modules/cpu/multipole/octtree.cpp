@@ -1,12 +1,19 @@
 #include "octtree.h"
 #include <math.h>
+#include "fmm_math.h"
 
-OctTree::OctTree(dArray* X, dArray* Y, dArray* Z, OctTree* Parent)
+
+OctTree::OctTree(dArray*  X, dArray*  Y, dArray*  Z,
+                 dArray* SX, dArray* SY, dArray* SZ, OctTree* Parent)
 {
 	x = luaT_inc<dArray>(X);
 	y = luaT_inc<dArray>(Y);
 	z = luaT_inc<dArray>(Z);
-	
+
+    sx = luaT_inc<dArray>(SX);
+    sy = luaT_inc<dArray>(SY);
+    sz = luaT_inc<dArray>(SZ);
+
 	bounds_low[0] = 0;
 	bounds_low[1] = 0;
 	bounds_low[2] = 0;
@@ -37,9 +44,13 @@ OctTree::~OctTree()
 			delete c[i];
 	}
 
-	luaT_dec<dArray>(x);
-	luaT_dec<dArray>(y);
-	luaT_dec<dArray>(z);
+    luaT_dec<dArray>(x);
+    luaT_dec<dArray>(y);
+    luaT_dec<dArray>(z);
+
+    luaT_dec<dArray>(sx);
+    luaT_dec<dArray>(sy);
+    luaT_dec<dArray>(sz);
 }
 
 bool OctTree::contains(double px, double py, double pz)
@@ -70,7 +81,6 @@ void OctTree::setBounds(double* low, double* high, int childNumber)
 }
 
 
-
 void OctTree::split(int until_contains)
 {
 	if(c[0]) return; //already split
@@ -81,7 +91,7 @@ void OctTree::split(int until_contains)
 
 	for(int i=0; i<8; i++)
 	{
-		c[i] = new OctTree(x, y, z, this);
+        c[i] = new OctTree(x, y, z, sx, sy, sz, this);
 		c[i]->setBounds(bounds_low, bounds_high, i);
 	}
 

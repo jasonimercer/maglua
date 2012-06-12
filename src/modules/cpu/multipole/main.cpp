@@ -14,11 +14,7 @@ complex<double>* new_tensor(int order)
 
 int main(int argc, char** argv)
 {
-//	testFMM();
-//	return 0;
 	int order = 5;
-
-//	make_fmm_rules(order);
 
 	monopole r(0.1,0,0);
 	monopole x1(3,0,0);
@@ -45,16 +41,16 @@ int main(int argc, char** argv)
 	c = 0;
 	for(int n=0; n<=order; n++)
 	{
-		double a = pow(-1.0, n);
+        double a = pow(-1.0, n);
 		for(int l=-n; l<=n; l++)
 		{
-			t1[c] = a*Inner(x1, n, -l);
-			t2[c] = a*Inner(x2, n, -l);
-			t3[c] = a*Inner(x3, n, -l);
+            t1[c] = Inner(x1, n, -l);
+            t2[c] = Inner(x2, n, -l);
+            t3[c] = Inner(x3, n, -l);
 			tp[c] = Outter(pos, n, l);
 
-			tSum[c] = t1[c] + t2[c] + t3[c];
-			c++;
+            tSum[c] = a*(t1[c] + t2[c] + t3[c]);
+            c++;
 		}
 	}
 
@@ -62,8 +58,10 @@ int main(int argc, char** argv)
 	for(int i=0; i<len; i++)
 	{
 		complex<double> a = tSum[i] * tp[i];
+//        printf("%g %g\n", t1[i].real(), t1[i].imag());
 		sum += a;
 	}
+//    return 0;
 
 	printf("standard:    %g %g\n", sum.real(), sum.imag());
 	// ===============================================================================
@@ -79,12 +77,12 @@ int main(int argc, char** argv)
 		double a = pow(-1.0, n);
 		for(int l=-n; l<=n; l++)
 		{
-			t1[c] = a*Inner(x1+r, n, -l);
-			t2[c] = a*Inner(x2+r, n, -l);
-			t3[c] = a*Inner(x3+r, n, -l);
+            t1[c] = Inner(x1+r, n, -l);
+            t2[c] = Inner(x2+r, n, -l);
+            t3[c] = Inner(x3+r, n, -l);
 			tp[c] = Outter(pos+r, n, l);
 
-			tSum[c] = t1[c] + t2[c] + t3[c];
+            tSum[c] = a*(t1[c] + t2[c] + t3[c]);
 			c++;
 		}
 	}

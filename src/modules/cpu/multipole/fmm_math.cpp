@@ -5,17 +5,6 @@
 using namespace std;
 
 
-
-
-
-#ifndef M_PI
-#define M_PI 3.1415926535897932384
-#endif
-
-#ifndef SQRT2 
-#define SQRT2 1.41421356237309504880
-#endif
-
 static double faci(int x)
 {
 	double f = 1;
@@ -191,6 +180,39 @@ monopole& monopole::operator*=(const double rhs)
 
 
 
+
+tensor_transformation::tensor_transformation(double x, double y, double z, int d)
+{
+    degree = d;
+    t = i2i_trans_mat(degree, monopole(x,y,z));
+}
+
+tensor_transformation::~tensor_transformation()
+{
+    delete [] t;
+}
+
+void tensor_transformation::apply(const std::complex<double>* x, std::complex<double>* b) const
+{
+    const complex<double>* A = t;
+
+    int m = tensor_element_count(degree);
+
+    for(int r=0; r<m; r++)
+        b[r] = 0;
+
+    for(int r=0; r<m; r++)
+        for(int c=0; c<m; c++)
+        {
+            b[r] += A[r*m+c] * x[c];
+        }
+}
+
+
+
+
+
+
 int tensor_element_count(const int order)
 {
 	if(order < 0)
@@ -208,9 +230,9 @@ static int degree_order_to_index(const int l, const int m)
 
 
 
-void tensor_mat_mul(const complex<double>* A, const complex<double>* x, complex<double>* b, int max_order)
+void tensor_mat_mul(const complex<double>* A, const complex<double>* x, complex<double>* b, int max_degree)
 {
-	int m = tensor_element_count(max_order);
+    int m = tensor_element_count(max_degree);
 
 	for(int r=0; r<m; r++)
 	{
@@ -229,21 +251,21 @@ void tensor_mat_mul(const complex<double>* A, const complex<double>* x, complex<
 
 // Journal of Computational Physics 227 (2008) 1836–1862
 // Theorem 3
-complex<double>* i2i_trans_mat(const int max_order, const monopole& d)
+complex<double>* i2i_trans_mat(const int max_degree, const monopole& d)
 {
-	int m = tensor_element_count(max_order);
+    int m = tensor_element_count(max_degree);
 
 	complex<double>* A = new complex<double>[m*m];
 
 	for(int i=0; i<m*m; i++)
 		A[i] = 0;
 
-	for(int n=0; n<=max_order; n++)
+    for(int n=0; n<=max_degree; n++)
 	{
 		for(int l=-n; l<=n; l++)
 		{
 			const int r = degree_order_to_index(n,l); //row
-			for(int j=0; j<=max_order; j++)
+            for(int j=0; j<=max_degree; j++)
 			{
 				for(int k=-j; k<=j; k++)
 				{
@@ -270,21 +292,21 @@ complex<double>* i2i_trans_mat(const int max_order, const monopole& d)
 
 // Journal of Computational Physics 227 (2008) 1836–1862
 // Theorem 2
-complex<double>* o2o_trans_mat(const int max_order, const monopole& d)
+complex<double>* o2o_trans_mat(const int max_degree, const monopole& d)
 {
-	int m = tensor_element_count(max_order);
+    int m = tensor_element_count(max_degree);
 
 	complex<double>* A = new complex<double>[m*m];
 
 	for(int i=0; i<m*m; i++)
 		A[i] = 0;
 
-	for(int n=0; n<=max_order; n++)
+    for(int n=0; n<=max_degree; n++)
 	{
 		for(int l=-n; l<=n; l++)
 		{
 			const int r = degree_order_to_index(n,l); //row
-			for(int j=0; j<=max_order; j++)
+            for(int j=0; j<=max_degree; j++)
 			{
 				for(int k=-j; k<=j; k++)
 				{

@@ -27,6 +27,19 @@ public:
 };
 
 
+class tensor_transformation
+{
+public:
+    tensor_transformation(double x, double y, double z, int degree);
+    ~tensor_transformation();
+
+    void apply(const std::complex<double>* x, std::complex<double>* b) const;
+
+    double rx, ry, rz;
+    int degree;
+    std::complex<double>* t;
+};
+
 std::complex<double> Ylm(const int l, const int m, const double theta, const double phi);
 
 int tensor_element_count(const int order);
