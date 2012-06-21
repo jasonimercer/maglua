@@ -24,6 +24,8 @@ public:
 	const monopole operator*(const double b) const	{monopole c(*this); c*=b; return c;}
 	const monopole operator/(const double b) const	{monopole c(*this); c*=(1.0/b); return c;}
 	const monopole operator-() const {monopole c(*this); c*=-1.0; return c;}
+
+	void makeUnit() {if(r != 0) {x/=r; y/=r; z/=r; r=1;} else {x=1; calcSpherical();}}
 };
 
 

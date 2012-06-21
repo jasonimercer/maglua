@@ -66,6 +66,7 @@ int SpinOperation::decode(buffer* b)
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
+	nxyz = nx*ny*nz;
 	global_scale = decodeDouble(b);
 	return 0;
 }

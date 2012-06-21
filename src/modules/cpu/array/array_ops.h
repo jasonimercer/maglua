@@ -65,6 +65,13 @@ void reduceDiffSumAll(const int* d_a, const int* d_b, const int n, int& v);
 void reduceDiffSumAll(const doubleComplex* d_a, const doubleComplex* d_b, const int n, doubleComplex& v);
 void reduceDiffSumAll(const floatComplex* d_a, const floatComplex* d_b, const int n, floatComplex& v);
 
+
+void reduceMultSumAll(const double* d_a, const double* d_b, const int n, double& v);
+void reduceMultSumAll(const float* d_a, const float* d_b, const int n, float& v);
+void reduceMultSumAll(const int* d_a, const int* d_b, const int n, int& v);
+void reduceMultSumAll(const doubleComplex* d_a, const doubleComplex* d_b, const int n, doubleComplex& v);
+void reduceMultSumAll(const floatComplex* d_a, const floatComplex* d_b, const int n, floatComplex& v);
+
 void arrayScaleAdd(double* dest, double s1, const double* src1, const double s2, const double* src2, const int n);
 void arrayScaleAdd(float* dest, float s1, const float* src1, float s2, const float* src2, const int n);
 void arrayScaleAdd(int* dest, int s1, const int* src1, int s2, const int* src2, const int n);

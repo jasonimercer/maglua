@@ -356,16 +356,17 @@ static bool dipole_write_matrix(const char* filename,
 	fprintf(f, "XX={} XY={} XZ={} YY={} YZ={} ZZ={}\n");
 	
 	int c = 0;
-	for(int zoffset=0; zoffset<nz; zoffset++)
+// 	for(int zoffset=0; zoffset<nz; zoffset++)
+	for(int zoffset=0; zoffset<nz*2-1; zoffset++)
 	{
-		_writemat(f, "XX", zoffset, &XX[c*nx*ny], nx, ny);
-		_writemat(f, "XY", zoffset, &XY[c*nx*ny], nx, ny);
-		_writemat(f, "XZ", zoffset, &XZ[c*nx*ny], nx, ny);
+		_writemat(f, "XX", zoffset-nz+1, &XX[c*nx*ny], nx, ny);
+		_writemat(f, "XY", zoffset-nz+1, &XY[c*nx*ny], nx, ny);
+		_writemat(f, "XZ", zoffset-nz+1, &XZ[c*nx*ny], nx, ny);
 		
-		_writemat(f, "YY", zoffset, &YY[c*nx*ny], nx, ny);
-		_writemat(f, "YZ", zoffset, &YZ[c*nx*ny], nx, ny);
+		_writemat(f, "YY", zoffset-nz+1, &YY[c*nx*ny], nx, ny);
+		_writemat(f, "YZ", zoffset-nz+1, &YZ[c*nx*ny], nx, ny);
 		
-		_writemat(f, "ZZ", zoffset, &ZZ[c*nx*ny], nx, ny);
+		_writemat(f, "ZZ", zoffset-nz+1, &ZZ[c*nx*ny], nx, ny);
 		
 		c++;
 	}
@@ -531,22 +532,23 @@ static void loadXYZ(
 	arrs[3] = YY;
 	arrs[4] = YZ;
 	arrs[5] = ZZ;
-	
+
 	if(luaL_dofile(L, filename))
 	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		fprintf(stderr, "(%s:%i) %s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 		lua_close(L);
 		return;
 	}
 	
+
 	lua_getglobal(L, "parse");
 	if(lua_isfunction(L, -1))
 	{
-	  if(lua_pcall(L, 0, 0, 0))
+		if(lua_pcall(L, 0, 0, 0))
 	    {
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		lua_close(L);
-		return;	      
+			fprintf(stderr, "(%s:%i) %s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+			lua_close(L);
+			return;	      
 	    }
 	}
 
@@ -555,14 +557,35 @@ static void loadXYZ(
 		int c = 0;
 		//int p = 0;
 		lua_getglobal(L, vars[a]); //XX
-		for(int k=0; k<nz; k++)
+		if(!lua_istable(L, -1))
+		{
+			fprintf(stderr, "(%s:%i) Table Lookup failed\n", __FILE__, __LINE__);
+			lua_close(L);
+			exit(0);
+			return;
+		}
+		for(int k=-nz+1; k<nz; k++)
 		{
 			lua_pushinteger(L, k); //XX 0
 			lua_gettable(L, -2);   //XX XX[0]
+			if(!lua_istable(L, -1))
+			{
+				fprintf(stderr, "(%s:%i) Table Lookup failed\n", __FILE__, __LINE__);
+				lua_close(L);
+				exit(0);
+				return;
+			}
 			for(int j=0; j<ny; j++)
 			{
 				lua_pushinteger(L, j+1); // XX XX[0] 1
 				lua_gettable(L, -2);     // XX XX[0] XX[0,1]
+				if(!lua_istable(L, -1))
+				{
+					fprintf(stderr, "(%s:%i) Table Lookup failed\n", __FILE__, __LINE__);
+					lua_close(L);
+					exit(0);
+					return;
+				}
 				for(int i=0; i<nx; i++)
 				{
 					lua_pushinteger(L, i+1); // XX XX[0] XX[0,1] 2
@@ -689,7 +712,8 @@ void dipoleLoad(
 		else
 		{
 			int c = 0;
-			for(int k=0; k<nz; k++)
+			for(int k=-nz+1; k<nz; k++)
+// 			for(int k=0; k<nz; k++)
 			for(int j=0; j<ny; j++)
 			for(int i=0; i<nx; i++)
 			{
@@ -767,7 +791,7 @@ void dipoleLoad(
 	
 					if(fail | !maxiter)
 					{
-					    fprintf(stderr, "Failed to find a extrapolate to solution under tolerance, using best calculated value\n");
+					    fprintf(stderr, "Failed to extrapolate to solution under tolerance, using best calculated value\n");
 					}
 				}
 				c++;

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationmultipole.o fmm_math.o cell.o plm.o
+OBJECTS=spinoperationmultipole.o fmm_math.o plm.o
 LIBNAME=Multipole
 CATEGORY=cpu
 

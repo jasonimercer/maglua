@@ -9,7 +9,7 @@
 * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
-
+#if 0
 #include "spinoperationmultipole.h"
 #include "spinsystem.h"
 
@@ -265,4 +265,4 @@ MULTIPOLE_API int lib_main(lua_State* L)
 	return 0;
 }
 
-
+#endif

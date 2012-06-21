@@ -62,6 +62,26 @@ static int l_zero(lua_State* L)
 	a->setAll(t);
 	return 0;
 }
+template<typename T>
+static int l_pwm(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	LUA_PREAMBLE(Array<T>, b, 2);
+	LUA_PREAMBLE(Array<T>, c, 3);
+	
+	Array<T>::pairwiseMult(c, a, b);
+	return 0;
+}
+template<typename T>
+static int l_dot(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	LUA_PREAMBLE(Array<T>, b, 2);
+	
+	T t = Array<T>::dot(a,b);
+	luaT<T>::push(L, t);
+	return 1;
+}
 
 template<typename T>
 static const luaL_Reg* get_base_methods()
@@ -71,6 +91,8 @@ static const luaL_Reg* get_base_methods()
 	static const luaL_Reg _m[] =
 	{
 		{"setAll",  l_setAll<T>},
+		{"pairwiseMultiply",     l_pwm<T>},
+		{"dot",     l_dot<T>},
 		{"zero",    l_zero<T>},
 		{"sameSize",l_sameSize<T>},
 		{"nx",      l_get_nx<T>},
@@ -118,6 +140,21 @@ int Array<T>::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+	if(func == &(l_pwm<T>))
+	{
+		lua_pushstring(L, "Multiply each data in this array with the data in another storing in a destination array");
+		lua_pushstring(L, "2 Arrays: The pairwise scaling array and the destination array");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == &(l_dot<T>))
+	{
+		lua_pushstring(L, "Compute the dot product of the current array and another of equal size and type");
+		lua_pushstring(L, "1 Arrays: other array");
+		lua_pushstring(L, "1 Value: result of dot product");
+		return 3;
+	}
+	
 	if(func == &(l_zero<T>))
 	{
 		lua_pushstring(L, "Set all values in the array 0");

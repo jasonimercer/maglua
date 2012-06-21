@@ -99,20 +99,20 @@ void LongRange::init()
 	hry = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	hrz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
-	qXX = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-	qXY = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-	qXZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qXX = luaT_inc<dcArray>(new dcArray(nx,ny,nz*2-1));
+	qXY = luaT_inc<dcArray>(new dcArray(nx,ny,nz*2-1));
+	qXZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz*2-1));
 
-	qYY = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-	qYZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-	qZZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	qYY = luaT_inc<dcArray>(new dcArray(nx,ny,nz*2-1));
+	qYZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz*2-1));
+	qZZ = luaT_inc<dcArray>(new dcArray(nx,ny,nz*2-1));
 
-	XX = luaT_inc<dArray>(new dArray(nx,ny,nz));
-	XY = luaT_inc<dArray>(new dArray(nx,ny,nz));
-	XZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
-	YY = luaT_inc<dArray>(new dArray(nx,ny,nz));
-	YZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
-	ZZ = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	XX = luaT_inc<dArray>(new dArray(nx,ny,nz*2-1));
+	XY = luaT_inc<dArray>(new dArray(nx,ny,nz*2-1));
+	XZ = luaT_inc<dArray>(new dArray(nx,ny,nz*2-1));
+	YY = luaT_inc<dArray>(new dArray(nx,ny,nz*2-1));
+	YZ = luaT_inc<dArray>(new dArray(nx,ny,nz*2-1));
+	ZZ = luaT_inc<dArray>(new dArray(nx,ny,nz*2-1));
 
 	ws1 = new dcArray(nx,ny,nz);
 	ws2 = new dcArray(nx,ny,nz);
@@ -122,11 +122,11 @@ void LongRange::init()
 
 static int offsetOK(int nx, int ny, int nz,  int x, int y, int z, int& offset)
 {
-	if(x<0 || x >= nx) return 0;
-	if(y<0 || y >= ny) return 0;
-	if(z<0 || z >= nz) return 0;
+	if(x<0   || x >= nx) return 0;
+	if(y<0   || y >= ny) return 0;
+	if(z<-nz || z >= nz) return 0;
 	
-	offset = x + y*nx + z*nx*ny;
+	offset = x + y*nx + (z+nz-1)*nx*ny;
 	return 1;
 }
 
@@ -262,16 +262,20 @@ bool LongRange::updateData()
 		return true;
 	newdata = false;
 	
-	ws1->zero();
+	dcArray* wsZ = new dcArray(nx,ny,nz*2-1);
+
 	
-	arraySetRealPart(ws1->data(), XX->data(), nxyz);  ws1->fft2DTo(qXX);
-	arraySetRealPart(ws1->data(), XY->data(), nxyz);  ws1->fft2DTo(qXY);
-	arraySetRealPart(ws1->data(), XZ->data(), nxyz);  ws1->fft2DTo(qXZ);
+	wsZ->zero();
+	arraySetRealPart(wsZ->data(), XX->data(), nxyz);  wsZ->fft2DTo(qXX);
+	arraySetRealPart(wsZ->data(), XY->data(), nxyz);  wsZ->fft2DTo(qXY);
+	arraySetRealPart(wsZ->data(), XZ->data(), nxyz);  wsZ->fft2DTo(qXZ);
 
-	arraySetRealPart(ws1->data(), YY->data(), nxyz);  ws1->fft2DTo(qYY);
-	arraySetRealPart(ws1->data(), YZ->data(), nxyz);  ws1->fft2DTo(qYZ);
-	arraySetRealPart(ws1->data(), ZZ->data(), nxyz);  ws1->fft2DTo(qZZ);
-
+	arraySetRealPart(wsZ->data(), YY->data(), nxyz);  wsZ->fft2DTo(qYY);
+	arraySetRealPart(wsZ->data(), YZ->data(), nxyz);  wsZ->fft2DTo(qYZ);
+	arraySetRealPart(wsZ->data(), ZZ->data(), nxyz);  wsZ->fft2DTo(qZZ);
+	
+	delete wsZ;
+	
 	//prescaling by 1/xy
 	qXX->scaleAll(doubleComplex(1.0/((double)(nx*ny)), 0));
 	qXY->scaleAll(doubleComplex(1.0/((double)(nx*ny)), 0));
@@ -346,11 +350,12 @@ bool LongRange::apply(SpinSystem* ss)
 	{
 		int offset = sourceLayer - targetLayer;
 		doubleComplex sign = luaT<doubleComplex>::one();
-		if(offset < 0)
-		{
-			offset = -offset;
-			sign = luaT<doubleComplex>::neg_one();
-		}
+// 		if(offset < 0)
+// 		{
+// 			offset = -offset;
+// 			sign = luaT<doubleComplex>::neg_one();
+// 		}
+		offset += nz-1;
 	
 		arrayLayerMult(ws1->data(), targetLayer, qXX->data(), offset, sqx->data(), sourceLayer, one, 0, nxy); //0 = sum (1 would be set)
 		arrayLayerMult(ws1->data(), targetLayer, qXY->data(), offset, sqy->data(), sourceLayer, one, 0, nxy); 
@@ -366,11 +371,12 @@ bool LongRange::apply(SpinSystem* ss)
 	{
 		int offset = sourceLayer - targetLayer;
 		doubleComplex sign = luaT<doubleComplex>::one();
-		if(offset < 0)
-		{
-			offset = -offset;
-			sign = luaT<doubleComplex>::neg_one();
-		}
+// 		if(offset < 0)
+// 		{
+// 			offset = -offset;
+// 			sign = luaT<doubleComplex>::neg_one();
+// 		}
+		offset += nz-1;
 	
 		arrayLayerMult(ws1->data(), targetLayer, qXY->data(), offset, sqx->data(), sourceLayer, one, 0, nxy); //0 = sum (1 would be set)
 		arrayLayerMult(ws1->data(), targetLayer, qYY->data(), offset, sqy->data(), sourceLayer, one, 0, nxy); 
@@ -386,11 +392,12 @@ bool LongRange::apply(SpinSystem* ss)
 	{
 		int offset = sourceLayer - targetLayer;
 		doubleComplex sign = luaT<doubleComplex>::one();
-		if(offset < 0)
-		{
-			offset = -offset;
-			sign = luaT<doubleComplex>::neg_one();
-		}
+// 		if(offset < 0)
+// 		{
+// 			offset = -offset;
+// 			sign = luaT<doubleComplex>::neg_one();
+// 		}
+		offset += nz-1;
 	
 		arrayLayerMult(ws1->data(), targetLayer, qXZ->data(), offset, sqx->data(), sourceLayer,sign, 0, nxy); //0 = sum (1 would be set)
 		arrayLayerMult(ws1->data(), targetLayer, qYZ->data(), offset, sqy->data(), sourceLayer,sign, 0, nxy); 

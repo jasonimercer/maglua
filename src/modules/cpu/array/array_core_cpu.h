@@ -270,7 +270,7 @@ public:
 		return true;
 	}
 	
-	static bool pairwiseMult(ArrayCore<T>* dest, const ArrayCore<T>* src1, const ArrayCore<T>* src2)
+	static bool pairwiseMult(ArrayCore<T>* dest, ArrayCore<T>* src1, ArrayCore<T>* src2)
 	{
 		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
 		arrayMultAll(dest->data(), src1->data(), src2->data(), dest->nxyz);
@@ -296,6 +296,14 @@ public:
 		if(!doublePrep(dest, src)) return false;
 		arrayNormAll(dest->_data, src->_data, dest->nxyz);
 		return true;
+	}
+	
+	static T dot(ArrayCore<T>* a, ArrayCore<T>* b)
+	{
+		if(!doublePrep(a, b)) return luaT<T>::zero();
+		T t;
+		reduceMultSumAll(a->_data, b->_data, a->nxyz, t);
+		return t;
 	}
 
 	T sum()

@@ -307,6 +307,38 @@ void reduceDiffSumAll(const floatComplex* d_a, const floatComplex* d_b, const in
 }
 
 
+void reduceMultSumAll(const double* d_a, const double* d_b, const int n, double& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= d_a[i] * d_b[i];
+}
+void reduceMultSumAll(const float* d_a, const float* d_b, const int n, float& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= d_a[i] * d_b[i];
+}
+void reduceMultSumAll(const int* d_a, const int* d_b, const int n, int& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= d_a[i] * d_b[i];
+}
+void reduceMultSumAll(const doubleComplex* d_a, const doubleComplex* d_b, const int n, doubleComplex& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= d_a[i] * d_b[i];
+}
+void reduceMultSumAll(const floatComplex* d_a, const floatComplex* d_b, const int n, floatComplex& v)
+{
+	v = 0;
+	for(int i=0; i<n; i++)
+		v+= d_a[i] * d_b[i];
+}
+
+
 
 
 
