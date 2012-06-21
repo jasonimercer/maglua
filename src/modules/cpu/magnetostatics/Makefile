@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o cubature.o gamma_ab_v.o
+OBJECTS=spinoperationmagnetostatics.o magnetostaticssupport.o gamma_ab_v.o
 LIBNAME=Magnetostatics
 CATEGORY=cpu
 

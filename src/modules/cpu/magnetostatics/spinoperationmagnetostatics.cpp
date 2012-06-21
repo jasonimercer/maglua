@@ -33,7 +33,7 @@ Magnetostatic::Magnetostatic(int nx, int ny, int nz)
 	: LongRange(Magnetostatic::typeName(), DIPOLE_SLOT, nx, ny, nz, hash32(Magnetostatic::typeName()))
 {
 	crossover_tolerance = 0.0001;
-
+	
 	volumeDimensions[0] = 1;	
 	volumeDimensions[1] = 1;	
 	volumeDimensions[2] = 1;	
@@ -190,7 +190,7 @@ int Magnetostatic::help(lua_State* L)
 		lua_pushstring(L, "1 Number: The relative error for the crossover");
 		return 3;
 	}
-	
+
 	return LongRange::help(L);
 }
 

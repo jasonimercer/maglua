@@ -6,18 +6,15 @@ extern "C"
 {
 #endif
 
-double gamma_xx_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-double gamma_yy_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-double gamma_zz_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-double gamma_xy_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-double gamma_yx_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-double gamma_xz_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-double gamma_zx_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-double gamma_yz_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-double gamma_zy_v(double x, double y, double z, double d1, double l1, double w1, double d2, double l2, double w2);
-double gamma_xx_sv(double d, double l, double w);
-double gamma_yy_sv(double d, double l, double w);
-double gamma_zz_sv(double d, double l, double w);
+double gamma_xx_v(double x, double y, double z, const double* prism);
+double gamma_yy_v(double x, double y, double z, const double* prism);
+double gamma_zz_v(double x, double y, double z, const double* prism);
+double gamma_xy_v(double x, double y, double z, const double* prism);
+double gamma_yx_v(double x, double y, double z, const double* prism);
+double gamma_xz_v(double x, double y, double z, const double* prism);
+double gamma_zx_v(double x, double y, double z, const double* prism);
+double gamma_yz_v(double x, double y, double z, const double* prism);
+double gamma_zy_v(double x, double y, double z, const double* prism);
 #ifdef __cplusplus
 }
 #endif
