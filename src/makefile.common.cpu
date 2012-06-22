@@ -10,7 +10,7 @@
 #
 
 CXX=g++
-CFLAGS=-O2 -g -Wreturn-type -Wall
+CFLAGS=-O2 -g
 PKG=lua5.1 fftw3 $(EXTRA_PKG)
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
 		-I$(BASEDIR) \

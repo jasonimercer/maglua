@@ -13,8 +13,8 @@
 
 MPICXX=mpicxx -D_MPI
 CXX=g++
-CFLAGS=-ansi -O2 -g
-PKG=lua5.1 fftw3
+CFLAGS=-O2 -g
+PKG=lua5.1 fftw3 fftw3f
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
 LIBS=`pkg-config --libs $(PKG)` -lpthread
 OBJECTS=libMagLua.o loader.o modules.o
@@ -55,8 +55,11 @@ clean:
 pack:			#dev version
 	./pack.sh	#dev version
 
+pack_cpu:			#dev version
+	./pack_cpu.sh	#dev version
+
 distclean: clean
-	make -C modules/cuda distclean
+	make -C modules/cuda distclean #cuda version
 	make -C modules/cpu distclean
 	make -C modules/common distclean
 	make -C modules/extras distclean

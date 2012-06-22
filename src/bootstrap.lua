@@ -48,7 +48,7 @@ for k,v in pairs(arg) do
 		be_quiet = k
 	end
 	
-	if v == "-v" and sub_process == nil then
+	if (v == "-v" or v == "--version") and sub_process == nil then
 		print_version = true
 	end
 	
