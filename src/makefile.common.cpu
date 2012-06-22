@@ -25,7 +25,7 @@ MODDIR=$(shell maglua --module_path $(CATEGORY) 2> /dev/null)
 all: $(LIBNAME).so
 
 $(LIBNAME).so : $(OBJECTS)
-	$(CXX) $(CFLAGS) -fPIC -rdynamic -shared $(OBJECTS) $(LIBS) $(LIBMIGRATE) -o $(LIBNAME).so
+	$(CXX) $(CFLAGS) -fPIC -shared $(OBJECTS) $(LIBS) $(LIBMIGRATE) -o $(LIBNAME).so
 
 %.o : %.cpp  %.h $(EXTRA_CPU_DEPS)
 	$(CXX)  $(CFLAGS) -fPIC $(CC_EXTRAOPS) $(INCLUDEPATH) -c $*.cpp -o $*.o 
