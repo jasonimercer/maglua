@@ -179,9 +179,6 @@ void arrayGetImagPart_(A* dest, const B* src, const int n)
 		dest[i] = src[i].imag();
 }
 
-
-
-
 void arrayGetRealPart(double* dest, const doubleComplex* src, const int n)
 {
 	arrayGetRealPart_<double,doubleComplex>(dest, src, n);

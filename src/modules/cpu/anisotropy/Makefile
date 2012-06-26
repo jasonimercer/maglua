@@ -14,7 +14,7 @@ LIBNAME=Anisotropy
 CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core luabaseobject
+DEPEND=core luabaseobject  array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

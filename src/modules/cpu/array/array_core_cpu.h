@@ -1,12 +1,3 @@
-#include <complex>
-#ifndef COMPLEX_TYPES
-#define COMPLEX_TYPES
-using namespace std;
-typedef complex<double> doubleComplex; //cpu version
-typedef complex<float>   floatComplex;
-#endif
-
-
 #ifndef ARRAYCORECUDA
 #define ARRAYCORECUDA
 
@@ -16,7 +7,7 @@ typedef complex<float>   floatComplex;
 #include <stdlib.h>
 
 template<typename T>
-class ArrayCore
+class ARRAY_API ArrayCore
 {
 public:
 	ArrayCore(int x, int y, int z) 
@@ -277,21 +268,21 @@ public:
 		return true;
 	}
 
-	static bool pairwiseDiff(ArrayCore<T>* dest, const ArrayCore<T>* src1, const ArrayCore<T>* src2)
+	static bool pairwiseDiff(ArrayCore<T>* dest, ArrayCore<T>* src1, ArrayCore<T>* src2)
 	{
 		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
 		arrayDiffAll(dest->data(), src1->data(), src2->data(), dest->nxyz);
 		return true;
 	}
 	
-	static bool pairwiseScaleAdd(ArrayCore<T>* dest, const T& s1, const ArrayCore<T>* src1, const T& s2, const ArrayCore<T>* src2)
+	static bool pairwiseScaleAdd(ArrayCore<T>* dest, const T& s1, ArrayCore<T>* src1, const T& s2, ArrayCore<T>* src2)
 	{
 		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
 		arrayScaleAdd(dest->data(), s1, src1->constData(), s2, src2->constData(), dest->nxyz);
 		return true;
 	}
 
-	static bool norm(ArrayCore<T>* dest, const ArrayCore<T>* src)
+	static bool norm(ArrayCore<T>* dest, ArrayCore<T>* src)
 	{
 		if(!doublePrep(dest, src)) return false;
 		arrayNormAll(dest->_data, src->_data, dest->nxyz);
@@ -332,20 +323,25 @@ public:
 		arraySetAll(data(),  luaT<T>::zero(), nxyz);
 	}
 
-	ArrayCore<T>& operator+=(const ArrayCore<T> &rhs);
-	
+	ArrayCore<T>& operator+=(const ArrayCore<T> &rhs)
+	{
+		arraySumAll(data(), data(), rhs.constData(), nxyz);
+		return *this;
+	}
 	T& operator[](int index){
 		return data()[index];
 	}
-
 };
 
-template <typename T>
-ArrayCore<T>& ArrayCore<T>::operator+=(const ArrayCore<T> &rhs)
-{
-	arraySumAll(data(), data(), rhs.constData(), nxyz);
-	return *this;
-}
-	
+#ifdef WIN32
+//forcing instantiation so they get exported
+template class ArrayCore<doubleComplex>;
+template class ArrayCore<double>;
+template class ArrayCore<floatComplex>;
+template class ArrayCore<float>;
+template class ArrayCore<int>;
+#endif
+
+
 
 #endif

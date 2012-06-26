@@ -9,6 +9,7 @@ basedir=[[C:\programming\c\maglua\src]]
 aid = basedir .. ";"
 aid = aid .. basedir .. [[\..\Common;]]
 aid = aid .. basedir .. [[\modules\common\luabaseobject;]]
+aid = aid .. basedir .. [[\modules\cpu\array;]]
 
 
 local compile_Configuration = nil
@@ -19,7 +20,7 @@ end
 outputDirectory = basedir .. [[\..\Common\]]
 additionalIncludeDirectories = aid
 additionalLibraryDirectories = basedir .. [[\..\Common;]]
-additionalDependencies = [[lua-5.1_x86_64_compat.lib;libfftw3-3.lib;]]
+additionalDependencies = [[lua-5.1_x86_64_compat.lib;libfftw3-3.lib;libfftw3f-3.lib;]]
 
 m = io.open("Makefile", "r")
 

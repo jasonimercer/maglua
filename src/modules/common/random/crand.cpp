@@ -15,7 +15,9 @@
 #include <stdlib.h>
 
 
-//static int (*globalRand)() = rand;
+#ifdef WIN32
+static int (*globalRand)() = rand;
+#endif
 
 CRand::CRand()
 	: RNG()

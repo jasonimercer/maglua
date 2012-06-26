@@ -383,11 +383,19 @@ ARRAY_API int lib_main(lua_State* L);
 
 ARRAY_API int lib_register(lua_State* L)
 {
+#ifdef DOUBLE_ARRAY
 	luaT_register<dArray>(L);
+#endif
+#ifdef SINGLE_ARRAY
 	luaT_register<fArray>(L);
+#endif
 	luaT_register<iArray>(L);
+#ifdef DOUBLE_ARRAY
 	luaT_register<dcArray>(L);
+#endif
+#ifdef SINGLE_ARRAY
 	luaT_register<fcArray>(L);
+#endif
 
 	return 0;
 }

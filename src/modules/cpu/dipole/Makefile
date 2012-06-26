@@ -15,7 +15,7 @@ CATEGORY=cpu
 EXTRA_CPU_DEPS=extrapolate.h
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core luabaseobject longrange
+DEPEND=core luabaseobject longrange array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

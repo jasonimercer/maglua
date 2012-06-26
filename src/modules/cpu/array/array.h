@@ -1,6 +1,8 @@
 #include "array_core_cpu.h"
 #include "luabaseobject.h"
 
+
+
 #ifndef ARRAY_H
 #define ARRAY_H
 
@@ -14,7 +16,7 @@ template<>inline const char* array_lua_name<floatComplex>() {return "Array.Float
 template<>inline const char* array_lua_name<doubleComplex>() {return "Array.DoubleComplex";}
 
 template<typename T>
-class Array : public ArrayCore<T>, public LuaBaseObject	
+class ARRAY_API Array : public ArrayCore<T>, public LuaBaseObject	
 {
 public:
 	Array(int nx=4, int ny=4, int nz=1) : ArrayCore<T>(nx, ny, nz), LuaBaseObject(hash32(lineage(0))) {}
