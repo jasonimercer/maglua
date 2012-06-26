@@ -5,20 +5,38 @@
 #include "luat.h"
 #include "array_ops.h"
 #include <stdlib.h>
+#include "luabaseobject.h"
 
 template<typename T>
-class ARRAY_API ArrayCore
+inline const char* array_lua_name() {return "Array.Unnamed";}
+
+template<>inline const char* array_lua_name<int>() {return "Array.Integer";}
+template<>inline const char* array_lua_name<float>() {return "Array.Float";}
+template<>inline const char* array_lua_name<double>() {return "Array.Double";}
+template<>inline const char* array_lua_name<floatComplex>() {return "Array.FloatComplex";}
+template<>inline const char* array_lua_name<doubleComplex>() {return "Array.DoubleComplex";}
+
+
+
+template<typename T>
+class ARRAY_API Array : public LuaBaseObject	
 {
 public:
-	ArrayCore(int x, int y, int z) 
+	LINEAGE1(array_lua_name<T>())
+	static const luaL_Reg* luaMethods(); 
+	virtual int luaInit(lua_State* L); 
+	static int help(lua_State* L); 	
+
+	
+	Array(int x=4, int y=4, int z=1) 
 	: 	 fft_plan_1D(0),  fft_plan_2D(0),  fft_plan_3D(0),
 		ifft_plan_1D(0), ifft_plan_2D(0), ifft_plan_3D(0),
-		nx(x-1), ny(y-1), nz(z-1), _data(0)
+		nx(x-1), ny(y-1), nz(z-1), _data(0), LuaBaseObject(hash32((array_lua_name<T>())))
 	{
 		setSize(x,y,z);
 	}
 	
-	~ArrayCore() {setSize(0,0,0);}
+	~Array() {setSize(0,0,0);}
 	
 	void setSize(int x, int y, int z)
 	{
@@ -52,7 +70,7 @@ public:
 	}
 	
 private:
-	bool internal_fft(ArrayCore<T>* dest, T* ws, int dims, int direction, FFT_PLAN** plan)
+	bool internal_fft(Array<T>* dest, T* ws, int dims, int direction, FFT_PLAN** plan)
 	{
 		if(!sameSize(dest)) return false;
 		if(!*plan)
@@ -74,41 +92,41 @@ private:
 	FFT_PLAN* ifft_plan_3D;
 
 public:
-	bool fft1DTo(ArrayCore<T>* dest, T* ws=0){
+	bool fft1DTo(Array<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 1, FFT_FORWARD, &fft_plan_1D);
 	}
-	bool fft1DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+	bool fft1DTo(Array<T>* dest, Array<T>* ws){
 		return fft1DTo(dest,ws->data());
 	}
-	bool fft2DTo(ArrayCore<T>* dest, T* ws=0){
+	bool fft2DTo(Array<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 2, FFT_FORWARD, &fft_plan_2D);
 	}
-	bool fft2DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+	bool fft2DTo(Array<T>* dest, Array<T>* ws){
 		return fft2DTo(dest,ws->data());
 	}
-	bool fft3DTo(ArrayCore<T>* dest, T* ws=0){
+	bool fft3DTo(Array<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 3, FFT_FORWARD, &fft_plan_3D);
 	}
-	bool fft3DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+	bool fft3DTo(Array<T>* dest, Array<T>* ws){
 		return fft3DTo(dest,ws->data());
 	}
 	
-	bool ifft1DTo(ArrayCore<T>* dest, T* ws=0){
+	bool ifft1DTo(Array<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 1, FFT_BACKWARD, &ifft_plan_1D);
 	}
-	bool ifft1DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+	bool ifft1DTo(Array<T>* dest, Array<T>* ws){
 		return ifft1DTo(dest,ws->data());
 	}
-	bool ifft2DTo(ArrayCore<T>* dest, T* ws=0){
+	bool ifft2DTo(Array<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 2, FFT_BACKWARD, &ifft_plan_2D);
 	}
-	bool ifft2DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+	bool ifft2DTo(Array<T>* dest, Array<T>* ws){
 		return ifft2DTo(dest,ws->data());
 	}
-	bool ifft3DTo(ArrayCore<T>* dest, T* ws=0){
+	bool ifft3DTo(Array<T>* dest, T* ws=0){
 		return internal_fft(dest, ws, 3, FFT_BACKWARD, &ifft_plan_3D);
 	}
-	bool ifft3DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
+	bool ifft3DTo(Array<T>* dest, Array<T>* ws){
 		return ifft3DTo(dest,ws->data());
 	}
 
@@ -135,7 +153,7 @@ public:
 	}
 
 	
-	bool sameSize(const ArrayCore<T>* other) const
+	bool sameSize(const Array<T>* other) const
 	{
 		if(!other) return false;
 		if(other-> nx != nx) return false;
@@ -249,47 +267,47 @@ public:
 	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(data(), v, nxyz);}
 	void addValue(const T& v) {sync_hd(); arrayAddAll(data(), v, nxyz);}
 	
-	static bool doublePrep(ArrayCore<T>* dest, const ArrayCore<T>* src)
+	static bool doublePrep(Array<T>* dest, const Array<T>* src)
 	{
 		if(!dest->sameSize(src)) return false;
 		return true;
 	}
-	static bool triplePrep(ArrayCore<T>* dest, const ArrayCore<T>* src1, const ArrayCore<T>* src2)
+	static bool triplePrep(Array<T>* dest, const Array<T>* src1, const Array<T>* src2)
 	{
 		if(!doublePrep(dest, src1)) return false;
 		if(!doublePrep(dest, src2)) return false;
 		return true;
 	}
 	
-	static bool pairwiseMult(ArrayCore<T>* dest, ArrayCore<T>* src1, ArrayCore<T>* src2)
+	static bool pairwiseMult(Array<T>* dest, Array<T>* src1, Array<T>* src2)
 	{
-		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
+		if(!Array<T>::triplePrep(dest, src1, src2)) return false;
 		arrayMultAll(dest->data(), src1->data(), src2->data(), dest->nxyz);
 		return true;
 	}
 
-	static bool pairwiseDiff(ArrayCore<T>* dest, ArrayCore<T>* src1, ArrayCore<T>* src2)
+	static bool pairwiseDiff(Array<T>* dest, Array<T>* src1, Array<T>* src2)
 	{
-		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
+		if(!Array<T>::triplePrep(dest, src1, src2)) return false;
 		arrayDiffAll(dest->data(), src1->data(), src2->data(), dest->nxyz);
 		return true;
 	}
 	
-	static bool pairwiseScaleAdd(ArrayCore<T>* dest, const T& s1, ArrayCore<T>* src1, const T& s2, ArrayCore<T>* src2)
+	static bool pairwiseScaleAdd(Array<T>* dest, const T& s1, Array<T>* src1, const T& s2, Array<T>* src2)
 	{
-		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
+		if(!Array<T>::triplePrep(dest, src1, src2)) return false;
 		arrayScaleAdd(dest->data(), s1, src1->constData(), s2, src2->constData(), dest->nxyz);
 		return true;
 	}
 
-	static bool norm(ArrayCore<T>* dest, ArrayCore<T>* src)
+	static bool norm(Array<T>* dest, Array<T>* src)
 	{
 		if(!doublePrep(dest, src)) return false;
 		arrayNormAll(dest->_data, src->_data, dest->nxyz);
 		return true;
 	}
 	
-	static T dot(ArrayCore<T>* a, ArrayCore<T>* b)
+	static T dot(Array<T>* a, Array<T>* b)
 	{
 		if(!doublePrep(a, b)) return luaT<T>::zero();
 		T t;
@@ -305,7 +323,7 @@ public:
 		return v;
 	}
 
-	T diffSum(ArrayCore<T>* other)
+	T diffSum(Array<T>* other)
 	{
 		sync_hd(); 
 		T v;
@@ -313,7 +331,7 @@ public:
 		return v;
 	}
 	
-	void copyFrom(ArrayCore<T>* other)
+	void copyFrom(Array<T>* other)
 	{
 		memcpy(data(), other->data(), sizeof(T)*nxyz);
 	}
@@ -323,7 +341,7 @@ public:
 		arraySetAll(data(),  luaT<T>::zero(), nxyz);
 	}
 
-	ArrayCore<T>& operator+=(const ArrayCore<T> &rhs)
+	Array<T>& operator+=(const Array<T> &rhs)
 	{
 		arraySumAll(data(), data(), rhs.constData(), nxyz);
 		return *this;
@@ -335,13 +353,18 @@ public:
 
 #ifdef WIN32
 //forcing instantiation so they get exported
-template class ArrayCore<doubleComplex>;
-template class ArrayCore<double>;
-template class ArrayCore<floatComplex>;
-template class ArrayCore<float>;
-template class ArrayCore<int>;
+template class Array<doubleComplex>;
+template class Array<double>;
+template class Array<floatComplex>;
+template class Array<float>;
+template class Array<int>;
 #endif
 
 
+typedef Array<doubleComplex> dcArray;
+typedef Array<floatComplex>  fcArray;
+typedef Array<double>         dArray;
+typedef Array<float>          fArray;
+typedef Array<int>            iArray;
 
 #endif
