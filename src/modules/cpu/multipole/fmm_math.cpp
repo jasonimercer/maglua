@@ -20,27 +20,57 @@ double negOnePow(const int l)
 	if(l < 0)
 		return 1.0;
 
-	if(l & 0x1) //odd
+	if( (l & 0x1) ) //odd
 		return -1.0;
 	return 1.0;
 }
 
-complex<double> Ylm(const int l, const int m, const double theta, const double phi)
+// hard coding gamma function for integers 1 to 20
+long Gammai(long z)
+{
+	switch(z)
+	{
+	case  1: return  1;
+	case  2: return  1;
+	case  3: return  2;
+	case  4: return  6;
+	case  5: return  24;
+	case  6: return  120;
+	case  7: return  720;
+	case  8: return  5040;
+	case  9: return  40320;
+	case 10: return  362880;
+	case 11: return  3628800;
+	case 12: return  39916800;
+	case 13: return  479001600;
+	case 14: return  6227020800;
+	case 15: return  87178291200;
+	case 16: return  1307674368000;
+	case 17: return  20922789888000;
+	case 18: return  355687428096000;
+	case 19: return  6402373705728000;
+	case 20: return  121645100408832000;
+	}
+	fprintf(stderr, "(%s:%i) No rule for Gamma(%i)\n", __FILE__, __LINE__, z);
+	return 0;
+}
+
+complex<double> Ylm(const int n, const int l, const double theta, const double phi)
 {
 	// Journal of Computational Physics 227 (2008) 1836–1862
 	// "We emphasize that our spherical harmonics are considered as identically null for n < 0  or |l| > n."
-	if(l < 0)
+	if(n < 0)
 		return complex<double>(0,0);
-	if(abs(m) > l)
+	if(abs(l) > n)
 		return complex<double>(0,0);
 	//
 
-	const double a = faci(l - abs(m));
-	const double b = faci(l + abs(m));
-	const double c = Plm(l, abs(m), cos(theta));
+	const double a = faci(n - l);
+	const double b = faci(n + l);
+	const double c = Plm(n, l, cos(theta));
 
 	double S, C;
-	sincos(((double)m) * phi, &S, &C);
+	sincos(((double)l) * phi, &S, &C);
 
 	const double d = sqrt(a/b) * c;
 
@@ -91,15 +121,79 @@ complex<double> Outter(const monopole& r, int n, int l)
 	const complex<double> c = Ylm(n,l,r.t, r.p);
 	const double d = pow(r.r, n+1);
 
-//		printf("a  %g\n", a);
-//		printf("iL %g %g\n", iL.real(), iL.imag());
-//		printf("b  %g\n", b);
-//		printf("c  %g %g\n", c.real(), c.imag());
-//		printf("d  %g\n", d);
+	//		printf("a  %g\n", a);
+	//		printf("iL %g %g\n", iL.real(), iL.imag());
+	//		printf("b  %g\n", b);
+	//		printf("c  %g %g\n", c.real(), c.imag());
+	//		printf("d  %g\n", d);
 
 	return a*iL/b * c/d;
 }
 
+void OutterTensor(const monopole& r, const int order, complex<double>* tensor)
+{
+	int c = 0;
+	for(int n=0; n<=order; n++)
+	{
+		for(int l=-n; l<=n; l++)
+		{
+			tensor[c] = Outter(r, n, l);
+			c++;
+		}
+	}
+}
+
+complex<double> im(int v)
+{
+	return complex<double>(0,v);
+}
+
+
+// There is an optimization opportunity here
+// Pln0 and Pln1 have a lot of overlap, can cut down Pln function calls by about 1/2
+void gradOutterTensor(const monopole& R, const int order, complex<double>* dx, complex<double>* dy, complex<double>* dz)
+{
+	complex<double> ii(0,1);
+	int count = tensor_element_count(order);
+	complex<double>* pln0 = new complex<double>[count];
+	complex<double>* pln1 = new complex<double>[count];
+	complex<double>* xy   = new complex<double>[count]; //common to x&y terms
+
+	const double x = R.x;
+	const double y = R.y;
+	const double z = R.z;
+	const double r = R.r;
+
+	const double r2 = r*r;
+
+	int c = 0;
+	for(int n=0; n<=order; n++)
+	{
+		for(int l=-n; l<=n; l++)
+		{
+			pln0[c] = Plm(n,   l, z/r);
+			pln1[c] = Plm(n+1, l, z/r);
+			xy[c] = -exp(-0.5 * im(l) * (M_PI - 2 * R.p)) * pow(r2, -1.5 - 0.5*n) * faci(n-l) / (x*x + y*y);
+			c++;
+		}
+	}
+
+	c = 0;
+	for(int n=0; n<=order; n++)
+	{
+		for(int l=-n; l<=n; l++)
+		{
+			dx[c] = xy[c] * ((x+n*x+im(l)*y)*r2 * pln0[c] + (l-n-1)*x*z*r*pln1[c]);
+			dy[c] = xy[c] * ((y+n*y-im(l)*x)*r2 * pln0[c] + (l-n-1)*y*z*r*pln1[c]);
+			dz[c] = -pow(ii,-l) * exp(im(l)*R.p) * pow(r2,-1-0.5*n) * (double)Gammai(2-l+n) * pln1[c];
+			c++;
+		}
+	}
+
+	delete [] pln0;
+	delete [] pln1;
+	delete [] xy;
+}
 
 complex<double> Inner(const monopole& r, int n, int l)
 {
@@ -116,12 +210,25 @@ complex<double> Inner(const monopole& r, int n, int l)
 	const complex<double> c = Ylm(n,l,r.t, r.p);
 	const double d = pow(r.r, n);
 
-//	printf("a %g %g\n", a.real(), a.imag());
-//	printf("b %g\n", b);
-//	printf("c %g %g\n", c.real(), c.imag());
-//	printf("d %g\n", d);
+	//	printf("a %g %g\n", a.real(), a.imag());
+	//	printf("b %g\n", b);
+	//	printf("c %g %g\n", c.real(), c.imag());
+	//	printf("d %g\n", d);
 
 	return a * b * c * d;
+}
+
+void InnerTensor(const monopole& r, const int order, complex<double>* tensor)
+{
+	int c = 0;
+	for(int n=0; n<=order; n++)
+	{
+		for(int l=-n; l<=n; l++)
+		{
+			tensor[c] = r.q * pow(-1.0, n) * Inner(r, n, -l);
+			c++;
+		}
+	}
 }
 
 

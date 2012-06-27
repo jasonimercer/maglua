@@ -4,13 +4,14 @@
 
 using namespace std;
 
-//int tensor_element_count(const int order);
-
-complex<double>* new_tensor(int order)
+int main(int argc, char** argv)
 {
-	return new complex<double>[ tensor_element_count(order) ];
+
+
+	return 0;
 }
 
+#if 0
 void dip(double rx, double ry, double rz, double mx, double my, double mz, double& hx, double& hy, double& hz)
 {
 	double mdotr = rx*mx+ry*my+rz*mz;
@@ -22,6 +23,58 @@ void dip(double rx, double ry, double rz, double mx, double my, double mz, doubl
 	hy = 3.0 * ry * mdotr / r5 - my / r3;
 	hz = 3.0 * rz * mdotr / r5 - mz / r3;
 }
+
+int main(int argc, char** argv)
+{
+	int order = 4;
+	int count = tensor_element_count(order);
+	monopole mag(1,1,1);
+	mag.makeUnit();
+	const double e = 1e-6;
+
+	monopole x1 = monopole(0,0,0, 1/e) + mag * e/2;
+	monopole x2 = monopole(0,0,0,-1/e) - mag * e/2;
+
+	complex<double>* in1 = new complex<double>[count];
+	complex<double>* in2 = new complex<double>[count];
+
+	complex<double>* dOutdx = new complex<double>[count];
+	complex<double>* dOutdy = new complex<double>[count];
+	complex<double>* dOutdz = new complex<double>[count];
+
+	InnerTensor(x1, order, in1);
+	InnerTensor(x2, order, in2);
+
+	monopole pos(10,15,1);
+
+	gradOutterTensor(pos, order, dOutdx, dOutdy, dOutdz);
+
+	complex<double> hx = 0;
+	complex<double> hy = 0;
+	complex<double> hz = 0;
+
+	for(int i=0; i<count; i++)
+	{
+		hx += dOutdx[i] * (in1[i] + in2[i]);
+		hy += dOutdy[i] * (in1[i] + in2[i]);
+		hz += dOutdz[i] * (in1[i] + in2[i]);
+	}
+
+	printf("hx = %e %e i\n", hx.real(), hx.imag());
+	printf("hy = %e %e i\n", hy.real(), hy.imag());
+	printf("hz = %e %e i\n", hz.real(), hz.imag());
+
+	delete [] in1;
+	delete [] in2;
+	delete [] dOutdx;
+	delete [] dOutdy;
+	delete [] dOutdz;
+
+	return 0;
+}
+#endif
+
+#if 0
 
 int main(int argc, char** argv)
 {
@@ -302,3 +355,4 @@ int main(int argc, char** argv)
 #endif
 	return 0;
 }
+#endif

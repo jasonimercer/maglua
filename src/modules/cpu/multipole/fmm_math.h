@@ -43,12 +43,18 @@ public:
 };
 
 std::complex<double> Ylm(const int l, const int m, const double theta, const double phi);
+long Gammai(long z);
 
 int tensor_element_count(const int order);
 
 // Journal of Computational Physics 227 (2008) 1836–1862
 std::complex<double> Inner(const monopole& r, int n, int l);
 std::complex<double> Outter(const monopole& r, int n, int l);
+
+void InnerTensor(const monopole& r, const int order, std::complex<double>* tensor);
+void OutterTensor(const monopole& r, const int order, std::complex<double>* tensor);
+
+void gradOutterTensor(const monopole& R, const int order, std::complex<double>* dx, std::complex<double>* dy, std::complex<double>* dz);
 
 
 std::complex<double>* i2i_trans_mat(const int max_order, const monopole& d);

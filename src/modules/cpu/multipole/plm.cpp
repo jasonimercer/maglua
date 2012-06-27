@@ -1,9 +1,13 @@
+// Copyright (c) Jason Mercer 2012.  All rights reserved.
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "plm.h"
 
+// Plm() implements a subset of the Legendre Polynomial function for
+// orders in the range [0:16] and ranks in the range [-order:20]
 
 static double faci(int x)
 {
