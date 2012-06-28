@@ -230,6 +230,7 @@ const luaL_Reg* Multipole::luaMethods()
 }
 
 
+#include "octtree.h"
 
 extern "C"
 {
@@ -241,8 +242,9 @@ MULTIPOLE_API int lib_main(lua_State* L);
 
 MULTIPOLE_API int lib_register(lua_State* L)
 {
-	luaT_register<Multipole>(L);
-	return 0;
+    luaT_register<Multipole>(L);
+    luaT_register<OctTree>(L);
+    return 0;
 }
 
 MULTIPOLE_API int lib_version(lua_State* L)

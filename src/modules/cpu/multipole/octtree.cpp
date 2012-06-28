@@ -6,35 +6,41 @@
 OctTree::OctTree(dArray*  X, dArray*  Y, dArray*  Z,
                  dArray* SX, dArray* SY, dArray* SZ, OctTree* Parent)
 {
-	x = luaT_inc<dArray>(X);
-	y = luaT_inc<dArray>(Y);
-	z = luaT_inc<dArray>(Z);
-
-    sx = luaT_inc<dArray>(SX);
-    sy = luaT_inc<dArray>(SY);
-    sz = luaT_inc<dArray>(SZ);
-
-	bounds_low[0] = 0;
-	bounds_low[1] = 0;
-	bounds_low[2] = 0;
-
-	bounds_high[0] = 1;
-	bounds_high[1] = 1;
-	bounds_high[2] = 1;
-	
-	for(int i=0; i<8; i++)
-	{
-		c[i] = 0;
-	}
-	
-	parent = Parent;
-	if(!parent) //this is the root and should have all members
-	{
-		for(int i=0; i<x->nxyz; i++)
-			members.push_back(i);
-	}
+    init(X, Y, Z, SX, SY, SZ, Parent);
 }
 
+void OctTree::init(dArray*  X, dArray*  Y, dArray*  Z,
+                   dArray* SX, dArray* SY, dArray* SZ, OctTree* Parent)
+  {
+      x = luaT_inc<dArray>(X);
+      y = luaT_inc<dArray>(Y);
+      z = luaT_inc<dArray>(Z);
+
+      sx = luaT_inc<dArray>(SX);
+      sy = luaT_inc<dArray>(SY);
+      sz = luaT_inc<dArray>(SZ);
+
+      bounds_low[0] = 0;
+      bounds_low[1] = 0;
+      bounds_low[2] = 0;
+
+      bounds_high[0] = 1;
+      bounds_high[1] = 1;
+      bounds_high[2] = 1;
+
+      for(int i=0; i<8; i++)
+      {
+          c[i] = 0;
+      }
+
+      parent = Parent;
+      if(!parent) //this is the root and should have all members
+      {
+          if(x)
+              for(int i=0; i<x->nxyz; i++)
+                  members.push_back(i);
+      }
+}
 
 OctTree::~OctTree()
 {
@@ -53,6 +59,30 @@ OctTree::~OctTree()
     luaT_dec<dArray>(sz);
 }
 
+
+
+void OctTree::push(lua_State* L)
+{
+    luaT_push<OctTree>(L, this);
+}
+
+int OctTree::luaInit(lua_State* L)
+{
+    init(luaT_to<dArray>(L, 1), luaT_to<dArray>(L, 2), luaT_to<dArray>(L, 3),
+         luaT_to<dArray>(L, 4), luaT_to<dArray>(L, 5), luaT_to<dArray>(L, 6) );
+
+    return 0;
+}
+
+
+
+int OctTree::help(lua_State* L)
+{
+    return LuaBaseObject::help(L);
+}
+
+
+
 bool OctTree::contains(double px, double py, double pz)
 {
 	if(px < bounds_low[0] || px >= bounds_high[0]) return false;
@@ -63,7 +93,7 @@ bool OctTree::contains(double px, double py, double pz)
 
 void OctTree::setBounds(double* low, double* high, int childNumber)
 {
-	int a[3] = {1,2,4};
+    int a[3] = {1,2,4};
 	for(int i=2; i>=0; i--)
 	{
 		if(childNumber < a[i])
@@ -160,6 +190,78 @@ void OctTree::getStats(double* meanXYZ, double* stddevXYZ)
 
 
 
+static int l_split(lua_State* L)
+{
+    LUA_PREAMBLE(OctTree, oct, 1);
+    if(lua_isnumber(L, 2))
+        oct->split(lua_tointeger(L, 2));
+    else
+        oct->split();
+    return 0;
+}
+
+static int l_child(lua_State* L)
+{
+    LUA_PREAMBLE(OctTree, oct, 1);
+
+    int c = lua_tointeger(L, 2) - 1;
+    if(c >= 0 && c < 8)
+    {
+        luaT_push<OctTree>(L, oct->c[c]);
+    }
+    else
+    {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+static int l_tab2array(lua_State* L, int idx, double* a, int n)
+{
+    if(!lua_istable(L, idx))
+        return 0;
+
+    for(int i=1; i<=n; i++)
+    {
+        lua_pushinteger(L, i);
+        lua_gettable(L, idx);
+        a[i-1] = lua_tonumber(L, -1);
+        lua_pop(L, 1);
+    }
+    return 1;
+}
+
+static int l_setbounds(lua_State* L)
+{
+    LUA_PREAMBLE(OctTree, oct, 1);
+
+    double dummy[3];
+    if(l_tab2array(L, 2, dummy, 3))
+        memcpy(oct->bounds_low,  dummy, sizeof(double)*3);
+    if(l_tab2array(L, 3, dummy, 3))
+        memcpy(oct->bounds_high, dummy, sizeof(double)*3);
+    return 0;
+}
+
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* OctTree::luaMethods()
+{
+    if(m[127].name)return m;
+
+    merge_luaL_Reg(m, LuaBaseObject::luaMethods());
+    static const luaL_Reg _m[] =
+    {
+        {"split", l_split},
+        {"child", l_child},
+        {"setBounds", l_setbounds},
+//		{"getPosition", l_getpos},
+//		{"preCompute", l_pc},
+        {NULL, NULL}
+    };
+    merge_luaL_Reg(m, _m);
+    m[127].name = (char*)1;
+    return m;
+}
 
 
 
