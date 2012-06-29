@@ -9,8 +9,8 @@
 * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
-#if 0
 #include "spinoperationmultipole.h"
+#if 0
 #include "spinsystem.h"
 
 #include "info.h"
@@ -230,7 +230,10 @@ const luaL_Reg* Multipole::luaMethods()
 }
 
 
+#endif
+
 #include "octtree.h"
+#include "info.h"
 
 extern "C"
 {
@@ -240,9 +243,11 @@ MULTIPOLE_API const char* lib_name(lua_State* L);
 MULTIPOLE_API int lib_main(lua_State* L);
 }
 
+
+
 MULTIPOLE_API int lib_register(lua_State* L)
 {
-    luaT_register<Multipole>(L);
+//    luaT_register<Multipole>(L);
     luaT_register<OctTree>(L);
     return 0;
 }
@@ -267,4 +272,4 @@ MULTIPOLE_API int lib_main(lua_State* L)
 	return 0;
 }
 
-#endif
+

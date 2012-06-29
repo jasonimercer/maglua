@@ -15,15 +15,17 @@
  #define MULTIPOLE_API
 #endif
 
+#include "fmm_math.h"
+using namespace std;
+
 class MULTIPOLE_API OctTree : public LuaBaseObject
 {
 public:
-    OctTree(dArray*  x=0, dArray*  y=0, dArray*  z=0,
-            dArray* sx=0, dArray* sy=0, dArray* sz=0, OctTree* parent = 0);
+	OctTree(  dArray*  x=0, dArray*  y=0, dArray*  z=0,
+			  dArray* sx=0, dArray* sy=0, dArray* sz=0, OctTree* parent = 0);
     void init(dArray*  x=0, dArray*  y=0, dArray*  z=0,
               dArray* sx=0, dArray* sy=0, dArray* sz=0, OctTree* parent = 0);
     ~OctTree();
-
 
     LINEAGE1("OctTree")
     static const luaL_Reg* luaMethods();
@@ -33,11 +35,13 @@ public:
 
 	bool contains(double px, double py, double pz);
 	void getStats(double* meanXYZ, double* stddevXYZ);
-	
 	void setBounds(double* low, double* high, int childNumber);
-	
+	void calcLocalOrigin();
 	void split(int until_contains=0);
-	
+
+	void calcInnerTensor(int max_degree, double epsilon=1e-6);
+	void calcChildTranslationTensorOperator(int max_degree);
+
     // pointers to all members (positions)
     dArray* x;
     dArray* y;
@@ -53,9 +57,15 @@ public:
 
 	double bounds_low[3];
 	double bounds_high[3];
-	
+	double localOrigin[3];
+
 	OctTree* c[8]; //children (lowz highz) (lowy highy) (lowx highx)
 	OctTree* parent;
+
+	complex<double>* inner;
+	int inner_length;
+
+	complex<double>** child_translation_tensor;
 };
 
 #endif

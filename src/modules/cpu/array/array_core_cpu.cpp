@@ -187,6 +187,21 @@ int Array<T>::help(lua_State* L)
 		return 3;
 	}
 
+	if(func == &(l_get<T>))
+	{
+		lua_pushstring(L, "Get an element from the array");
+		lua_pushstring(L, "1, 2 or 3 integers (or 1 table): indices(XYZ) of the element to fetch default values are 1");
+		lua_pushstring(L, "1 value");
+		return 3;
+	}
+	if(func == &(l_set<T>))
+	{
+		lua_pushstring(L, "Set an element of the array");
+		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value: indices(XYZ) of the element to fetch default values are 1. Last argument is the new value");
+		lua_pushstring(L, "0");
+		return 3;
+	}
+
 
 	return LuaBaseObject::help(L);
 }

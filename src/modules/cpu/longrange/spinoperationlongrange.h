@@ -42,7 +42,7 @@ public:
 	static int help(lua_State* L);
 
 	bool apply(SpinSystem* ss);
-	void getMatrices();
+// 	void getMatrices();
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);

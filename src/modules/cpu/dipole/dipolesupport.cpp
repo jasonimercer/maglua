@@ -808,7 +808,5 @@ void dipoleLoad(
 			return;
 		}
 	}
-	lua_close(L);
-	printf("done %i %i %i\n", nx, ny, nz);
 }
 

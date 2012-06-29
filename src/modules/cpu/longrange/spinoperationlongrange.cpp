@@ -114,6 +114,8 @@ void LongRange::init()
 	YZ = luaT_inc<dArray>(new dArray(nx,ny,nz*2-1));
 	ZZ = luaT_inc<dArray>(new dArray(nx,ny,nz*2-1));
 
+	//XX->zero();
+	
 	ws1 = new dcArray(nx,ny,nz);
 	ws2 = new dcArray(nx,ny,nz);
 	
@@ -146,7 +148,7 @@ void   LongRange::set##AB (int ox, int oy, int oz, double value) \
 { \
     ox = (ox + 10*nx)%nx; \
     oy = (oy + 10*ny)%ny; \
-	loadMatrix(); \
+    loadMatrix(); \
 	int offset; \
 	if(offsetOK(nx,ny,nz, ox,oy,oz, offset)) \
 	{ \
@@ -266,13 +268,13 @@ bool LongRange::updateData()
 
 	
 	wsZ->zero();
-	arraySetRealPart(wsZ->data(), XX->data(), nxyz);  wsZ->fft2DTo(qXX);
-	arraySetRealPart(wsZ->data(), XY->data(), nxyz);  wsZ->fft2DTo(qXY);
-	arraySetRealPart(wsZ->data(), XZ->data(), nxyz);  wsZ->fft2DTo(qXZ);
+	arraySetRealPart(wsZ->data(), XX->data(), wsZ->nxyz);  wsZ->fft2DTo(qXX);
+	arraySetRealPart(wsZ->data(), XY->data(), wsZ->nxyz);  wsZ->fft2DTo(qXY);
+	arraySetRealPart(wsZ->data(), XZ->data(), wsZ->nxyz);  wsZ->fft2DTo(qXZ);
 
-	arraySetRealPart(wsZ->data(), YY->data(), nxyz);  wsZ->fft2DTo(qYY);
-	arraySetRealPart(wsZ->data(), YZ->data(), nxyz);  wsZ->fft2DTo(qYZ);
-	arraySetRealPart(wsZ->data(), ZZ->data(), nxyz);  wsZ->fft2DTo(qZZ);
+	arraySetRealPart(wsZ->data(), YY->data(), wsZ->nxyz);  wsZ->fft2DTo(qYY);
+	arraySetRealPart(wsZ->data(), YZ->data(), wsZ->nxyz);  wsZ->fft2DTo(qYZ);
+	arraySetRealPart(wsZ->data(), ZZ->data(), wsZ->nxyz);  wsZ->fft2DTo(qZZ);
 	
 	delete wsZ;
 	
@@ -289,38 +291,43 @@ bool LongRange::updateData()
 }
 
 
-void LongRange::getMatrices()
-{
-	init();
-	
-	loadMatrix();
-	
-	dArray* arrs[6];
-	arrs[0] = XX;
-	arrs[1] = XY;
-	arrs[2] = XZ;
-	arrs[3] = YY;
-	arrs[4] = YZ;
-	arrs[5] = ZZ;
-	
-	dcArray* qarrs[6];
-	qarrs[0] = qXX;
-	qarrs[1] = qXY;
-	qarrs[2] = qXZ;
-	qarrs[3] = qYY;
-	qarrs[4] = qYZ;
-	qarrs[5] = qZZ;
-	
-	for(int a=0; a<6; a++)
-	{
-		ws1->zero();
-		arraySetRealPart(ws1->data(), arrs[a]->data(), nxyz);
-		ws1->fft2DTo(qarrs[a]);
-	}
-
-	newdata = false;
-	hasMatrices = true;
-}
+// void LongRange::getMatrices()
+// {
+// 	init();
+// 	
+// 	loadMatrix();
+// 	
+// 	dArray* arrs[6];
+// 	arrs[0] = XX;
+// 	arrs[1] = XY;
+// 	arrs[2] = XZ;
+// 	arrs[3] = YY;
+// 	arrs[4] = YZ;
+// 	arrs[5] = ZZ;
+// 	
+// 	dcArray* qarrs[6];
+// 	qarrs[0] = qXX;
+// 	qarrs[1] = qXY;
+// 	qarrs[2] = qXZ;
+// 	qarrs[3] = qYY;
+// 	qarrs[4] = qYZ;
+// 	qarrs[5] = qZZ;
+// 	
+// 	dcArray* wsZ = new dcArray(nx,ny,nz*2-1);
+// 
+// 	for(int a=0; a<6; a++)
+// 	{
+// 		printf("AAAAA\n");
+// 		wsZ->zero();
+// 		arraySetRealPart(wsZ->data(), arrs[a]->data(), wsZ->nxyz);
+// 		wsZ->fft2DTo(qarrs[a]);
+// 	}
+// 
+// 	newdata = false;
+// 	hasMatrices = true;
+// 	
+// 	delete [] wsZ;
+// }
 
 
 
@@ -356,14 +363,14 @@ bool LongRange::apply(SpinSystem* ss)
 // 			sign = luaT<doubleComplex>::neg_one();
 // 		}
 		offset += nz-1;
-	
+		
 		arrayLayerMult(ws1->data(), targetLayer, qXX->data(), offset, sqx->data(), sourceLayer, one, 0, nxy); //0 = sum (1 would be set)
-		arrayLayerMult(ws1->data(), targetLayer, qXY->data(), offset, sqy->data(), sourceLayer, one, 0, nxy); 
-		arrayLayerMult(ws1->data(), targetLayer, qXZ->data(), offset, sqz->data(), sourceLayer,sign, 0, nxy); 
+// 		arrayLayerMult(ws1->data(), targetLayer, qXY->data(), offset, sqy->data(), sourceLayer, one, 0, nxy); 
+// 		arrayLayerMult(ws1->data(), targetLayer, qXZ->data(), offset, sqz->data(), sourceLayer,sign, 0, nxy); 
 	}
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hx->data(),  ws2->data(), nxyz);
-	
+
 	// HY
 	ws1->zero();
 	for(int targetLayer=0; targetLayer<nz; targetLayer++)
@@ -541,12 +548,13 @@ static int l_setmatrix(lua_State* L)
 	int offset[3];
 
 	int r1 = lua_getNint(L, 3, offset, 3, 0);
-        if(r1<0)
+	if(r1<0)
 	    return luaL_error(L, "invalid offset");
 
 	double val = lua_tonumber(L, 3+r1);
 
 	// not altering zero base here:
+	// printf("mat(%i) {%i %i %i} %g\n", mat, offset[0], offset[1], offset[2], val);
 	lr->setAB(mat, offset[0], offset[1], offset[2], val);
 
 	return 0;

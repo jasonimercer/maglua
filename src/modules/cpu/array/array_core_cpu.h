@@ -213,15 +213,16 @@ public:
 		else
 		{
 			offset = 0;
-			for(int i=0; i<3; i++)
+			const int e = luaT<T>::elements();
+			const int end = lua_gettop(L) - e;
+			int v = 0;
+			for(int i=base_idx; i<=end && v<3; i++)
 			{
-				if(lua_isnumber(L, base_idx+i))
+				if(lua_isnumber(L, i))
 				{
-					if(lua_isnumber(L, base_idx+i))
-					{
-						c[i] = lua_tointeger(L, base_idx+i)-1;
-						offset++;
-					}
+					c[v] = lua_tointeger(L, i)-1;
+					offset++;
+					v++;
 				}
 			}
 		}

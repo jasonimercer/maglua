@@ -9,6 +9,7 @@ class monopole
 {
 public:
 	monopole(double _x=0, double _y=0, double _z=0, double _q=0) : x(_x), y(_y), z(_z), q(_q) {calcSpherical();}
+	monopole(double* v3, double _q=0) : {x=v3[0]; y=v3[1], z=v3[2], q=_q, calcSpherical();}
 	monopole(const monopole& p) : x(p.x), y(p.y), z(p.z), q(p.q) {calcSpherical();}
 
 	void calcSpherical();
@@ -45,7 +46,7 @@ public:
 std::complex<double> Ylm(const int l, const int m, const double theta, const double phi);
 long Gammai(long z);
 
-int tensor_element_count(const int order);
+int tensor_element_count(const int degree);
 
 // Journal of Computational Physics 227 (2008) 1836–1862
 std::complex<double> Inner(const monopole& r, int n, int l);
