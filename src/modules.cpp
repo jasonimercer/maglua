@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+using namespace std;
 
 #ifndef WIN32
  #include <stdlib.h>

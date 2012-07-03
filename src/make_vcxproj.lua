@@ -20,7 +20,9 @@ end
 outputDirectory = basedir .. [[\..\Common\]]
 additionalIncludeDirectories = aid
 additionalLibraryDirectories = basedir .. [[\..\Common;]]
+
 additionalDependencies = [[lua-5.1_x86_64_compat.lib;libfftw3-3.lib;libfftw3f-3.lib;]]
+--additionalDependencies = [[lua-5.1_x86_64_compat.lib;libfftw-3.3.lib;libfftwf-3.3.lib;]]
 
 m = io.open("Makefile", "r")
 
@@ -57,6 +59,12 @@ for line in m:lines() do
 	
 	local a, b, c = string.find(line, "LIBNAME%s*=%s*(.*)")
 	if a then
+		local x,y,z = string.find(c, "(.*)\.a$")
+		if x then
+			configurationType = "StaticLibrary"
+			subsystem = "Console"
+			c = z
+		end
 		libname = c
 	end
 	
@@ -112,12 +120,14 @@ end
 -- 	additionalDependencies = additionalDependencies .. "encode.lib;"
 -- end
 
-if binname ~= nil then
-	configurationType = "Application"
-	subsystem = "Console"
-else
-	configurationType = "DynamicLibrary"
-	subsystem = "Windows"
+if configurationType == nil then
+	if binname ~= nil then
+		configurationType = "Application"
+		subsystem = "Console"
+	else
+		configurationType = "DynamicLibrary"
+		subsystem = "Windows"
+	end
 end
 
 header = [[<?xml version="1.0" encoding="utf-8"?>

@@ -566,18 +566,18 @@ static void loadXYZ(
 		}
 		for(int k=-nz+1; k<nz; k++)
 		{
-			lua_pushinteger(L, k); //XX 0
+			lua_pushnumber(L, k); //XX 0
 			lua_gettable(L, -2);   //XX XX[0]
 			if(!lua_istable(L, -1))
 			{
-				fprintf(stderr, "(%s:%i) Table Lookup failed\n", __FILE__, __LINE__);
+				fprintf(stderr, "(%s:%i) Table Lookup failed. Expected type(%s[%i]) = table, got %s\n", __FILE__, __LINE__, vars[a], k, lua_typename(L, lua_type(L, -1)));
 				lua_close(L);
 				exit(0);
 				return;
 			}
 			for(int j=0; j<ny; j++)
 			{
-				lua_pushinteger(L, j+1); // XX XX[0] 1
+				lua_pushnumber(L, j+1); // XX XX[0] 1
 				lua_gettable(L, -2);     // XX XX[0] XX[0,1]
 				if(!lua_istable(L, -1))
 				{
@@ -588,7 +588,7 @@ static void loadXYZ(
 				}
 				for(int i=0; i<nx; i++)
 				{
-					lua_pushinteger(L, i+1); // XX XX[0] XX[0,1] 2
+					lua_pushnumber(L, i+1); // XX XX[0] XX[0,1] 2
 					lua_gettable(L, -2);     // XX XX[0] XX[0,1] XX[0,1,2]
 					arrs[a][c*nx*ny + j*nx + i] = lua_tonumber(L, -1);
 					lua_pop(L, 1); // XX XX[0] XX[0,1]

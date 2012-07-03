@@ -66,6 +66,7 @@ if category == "" or category == "cpu" then
 	end
 end
 
+--[[
 function strip_(line)
 	return string.gsub(line, "_", "")
 end
@@ -78,8 +79,4 @@ if category == "" or category == "cuda" then
 		end
 	end
 end
-
-
-
-
-
+--]]

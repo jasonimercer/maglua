@@ -43,6 +43,12 @@ FFT_PLAN* make_FFT_PLAN_double(int direction, int fftdims, const int nx, const i
 	doubleComplex* a = new doubleComplex[nx*ny*nz];
 	doubleComplex* b = new doubleComplex[nx*ny*nz];
 	
+	for(int i=0; i<nx*ny*nz; i++)
+	{
+		a[i] = 0;
+		b[i] = 0;
+	}
+	
 	fftw_iodim dims[3];
 	dims[0].n = nx;
 	dims[0].is= 1;

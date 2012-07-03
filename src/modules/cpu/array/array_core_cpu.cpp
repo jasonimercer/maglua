@@ -327,15 +327,7 @@ static int l_init( Array<T>* a, lua_State* L)
 
 
 
-template <typename T>
-const luaL_Reg* Array<T>::luaMethods()
-{
-	static luaL_Reg m[128] = {_NULLPAIR128};
-	if(m[127].name)	return m;
-	merge_luaL_Reg(m, get_base_methods<T>());
-	m[127].name = (char*)1;
-	return m;
-}
+
 
 //special cases for complex datatypes (fft):
 template <>
@@ -358,7 +350,15 @@ const luaL_Reg* Array<floatComplex>::luaMethods()
 	m[127].name = (char*)1;
 	return m;
 }
-
+template <typename T>
+const luaL_Reg* Array<T>::luaMethods()
+{
+	static luaL_Reg m[128] = {_NULLPAIR128};
+	if(m[127].name)	return m;
+	merge_luaL_Reg(m, get_base_methods<T>());
+	m[127].name = (char*)1;
+	return m;
+}
 
 
 template <typename T>

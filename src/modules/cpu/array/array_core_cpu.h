@@ -6,6 +6,7 @@
 #include "array_ops.h"
 #include <stdlib.h>
 #include "luabaseobject.h"
+#include <fftw3.h>
 
 template<typename T>
 inline const char* array_lua_name() {return "Array.Unnamed";}
@@ -49,7 +50,8 @@ public:
 			if(ifft_plan_2D) free_FFT_PLAN(ifft_plan_2D);
 			if(ifft_plan_3D) free_FFT_PLAN(ifft_plan_3D);
 
-			if(_data) free(_data);
+			//if(_data) free(_data);
+			if(_data) fftw_free(_data);
 			_data = 0;
 			fft_plan_1D = 0;
 			fft_plan_2D = 0;
@@ -62,7 +64,9 @@ public:
 			nxyz = nx*ny*nz;
 			if(nxyz)
 			{
-				_data = (T*)malloc(sizeof(T) * nxyz);
+				//_data = (T*)malloc(sizeof(T) * nxyz);
+				_data = (T*)fftw_malloc(sizeof(T) * nxyz);
+				
 				for(int i=0; i<nxyz; i++)
 					_data[i] = luaT<T>::zero();
 			}
@@ -353,12 +357,15 @@ public:
 };
 
 #ifdef WIN32
+#ifndef DUMMYWINDOWS_ARRYA_INSTANTIATION
+#define DUMMYWINDOWS_ARRYA_INSTANTIATION
 //forcing instantiation so they get exported
 template class Array<doubleComplex>;
 template class Array<double>;
 template class Array<floatComplex>;
 template class Array<float>;
 template class Array<int>;
+#endif
 #endif
 
 

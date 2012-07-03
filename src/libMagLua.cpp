@@ -124,12 +124,20 @@ void libMagLua(lua_State* L, int sub_process, int force_quiet)
 	if(lua_pcall(L, 0, 0, -2))
 	{
 		const char* err = lua_tostring(L, -1);
-		char err_buf[2048];
-		if(err)
+		lua_getglobal(L, "debug");
+		lua_getfield(L, -1, "trim_error");
+		lua_pushstring(L, err);
+
+		if(lua_pcall(L, 1, 1, 0))
 		{
-			trim_err(err, err_buf);
-			fprintf(stderr, "%s\n", err_buf);
+			fprintf(stderr, "Error in error handler: %s\n", lua_tostring(L, -1));
+			fprintf(stderr, "Original error: %s\n", err);
 		}
+		else
+		{
+			fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		}
+
 	}
 }
 

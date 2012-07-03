@@ -7,7 +7,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <lmerr.h>
-
+using namespace std;
 
 inline void set_lib_error(DWORD dwLastError, std::string& error)
 {
@@ -38,6 +38,7 @@ inline T import_function_e(std::string path, std::string name, std::string& erro
 	T func = 0;
 	if(path.length())
 	{
+		//cout << path << endl;
 		HINSTANCE handle = LoadLibraryA(path.c_str());
 
 		if(!handle) //try to fetch it as if it were already loaded (it may be)

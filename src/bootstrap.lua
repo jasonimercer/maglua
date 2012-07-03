@@ -31,6 +31,24 @@ local setup_module_path = nil
 local print_help = false
 local print_module_path_file = nil
 
+
+-- trim info about bootstrap from error messages
+debug["trim_error"] = function(msg)
+	local x = 
+[[
+%s*%[C%]%: in function .dofile.%s*
+%s*%[string "%-%-%s*bootstrap]]
+
+	local a, b, m = string.find(msg, [[^(.*)]] .. x)
+	if a then 
+		return m 
+	end
+	return msg
+end
+
+
+
+
 for k,v in pairs(arg) do
 	if v == "--module_path" and sub_process == nil then
 		print_module_path = arg[k+1] or true
@@ -301,3 +319,7 @@ if sub_process == nil then
 else
 	sub_process = nil
 end
+
+
+
+
