@@ -9,8 +9,8 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-CXX=g++
-CFLAGS=-O2 -g
+include $(BASEDIR)/makefile.common.config
+
 PKG=lua5.1 fftw3 $(EXTRA_PKG)
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
 		-I$(BASEDIR) \

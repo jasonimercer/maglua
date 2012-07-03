@@ -17,3 +17,5 @@ DEPEND=luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.mpi
+
+CXX=$(MPICXX)
