@@ -10,7 +10,6 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 #include "spinoperationmultipole.h"
-#if 0
 #include "spinsystem.h"
 
 #include "info.h"
@@ -101,17 +100,16 @@ Multipole::~Multipole()
 
 void Multipole::precompute()
 {
-	if(oct) return;
+//	if(oct) return;
 	
-	oct = new OctTree(x, y, z);
- 	oct->split(1);
+//	oct = new FMMOctTree(x, y, z);
+// 	oct->split(1);
 	
 }
 
 
 bool Multipole::apply(SpinSystem* ss)
 {
-
 	return true;
 }
 
@@ -211,6 +209,50 @@ static int l_pc(lua_State* L)
 	return 0;
 }
 
+
+static int l_i2i(lua_State* L)
+{
+	//CORE_API int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def);
+	double r[3];
+	int pos = 2;
+	int r1 = lua_getNdouble(L, 3, r, pos, 0);
+	printf("r1 = %i\n", r1);
+	monopole m(r);
+
+	const int max_degree = 2;
+	int cc = tensor_element_count(max_degree);
+
+	printf("%f %f %f\n", m.r, m.t, m.p);
+	printf("%f %f %f\n", m.x, m.y, m.z);
+	printf("%f %f %f\n", r[0], r[1], r[2]);
+
+	std::complex<double>* t = i2i_trans_mat(max_degree, m);
+
+	const int n = cc;
+	lua_newtable(L);
+	for(int r=0; r<n; r++)
+	{
+		lua_pushinteger(L, r+1);
+		lua_newtable(L);
+		for(int c=0; c<n; c++)
+		{
+			lua_pushinteger(L, c+1);
+			lua_newtable(L);
+			lua_pushinteger(L, 1);
+			lua_pushnumber(L, t[r*n+c].real());
+			lua_settable(L, -3);
+			lua_pushinteger(L, 2);
+			lua_pushnumber(L, t[r*n+c].imag());
+			lua_settable(L, -3);
+			lua_settable(L, -3);
+		}
+		lua_settable(L, -3);
+	}
+
+	return 1;
+}
+
+
 static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* Multipole::luaMethods()
 {
@@ -222,6 +264,7 @@ const luaL_Reg* Multipole::luaMethods()
 		{"mapPosition", l_mappos},
 		{"getPosition", l_getpos},
 		{"preCompute", l_pc},
+		{"i2i", l_i2i},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -230,9 +273,7 @@ const luaL_Reg* Multipole::luaMethods()
 }
 
 
-#endif
-
-#include "octtree.h"
+#include "fmm_octtree.h"
 #include "info.h"
 
 extern "C"
@@ -247,8 +288,8 @@ MULTIPOLE_API int lib_main(lua_State* L);
 
 MULTIPOLE_API int lib_register(lua_State* L)
 {
-//    luaT_register<Multipole>(L);
-    luaT_register<OctTree>(L);
+	luaT_register<Multipole>(L);
+	luaT_register<FMMOctTree>(L);
     return 0;
 }
 

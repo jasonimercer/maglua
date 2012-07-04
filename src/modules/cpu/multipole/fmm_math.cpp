@@ -51,7 +51,7 @@ long Gammai(long z)
 	case 19: return  6402373705728000;
 	case 20: return  121645100408832000;
 	}
-	fprintf(stderr, "(%s:%i) No rule for Gamma(%i)\n", __FILE__, __LINE__, z);
+	fprintf(stderr, "(%s:%i) No rule for Gamma(%i)\n", __FILE__, __LINE__, (int)z);
 	return 0;
 }
 
@@ -356,13 +356,30 @@ void tensor_mat_mul(const complex<double>* A, const complex<double>* x, complex<
 	}
 }
 
+complex<double> tensor_contract(const complex<double>* t1, const complex<double>* t2, const int len_not_max_degree)
+{
+	complex<double> sum = 0;
+	for(int i=0; i<len_not_max_degree; i++)
+	{
+		sum += t1[i] * t2[i];
+	}
+	return sum;
+}
+
+
+
 // Journal of Computational Physics 227 (2008) 1836–1862
 // Theorem 3
-complex<double>* i2i_trans_mat(const int max_degree, const monopole& d)
+complex<double>* i2i_trans_mat(const int max_degree, const monopole& d, complex<double>* array)
 {
     int m = tensor_element_count(max_degree);
 
-	complex<double>* A = new complex<double>[m*m];
+	complex<double>* A;
+
+	if(array)
+		A = array;
+	else
+		A = new complex<double>[m*m];
 
 	for(int i=0; i<m*m; i++)
 		A[i] = 0;
@@ -381,12 +398,11 @@ complex<double>* i2i_trans_mat(const int max_degree, const monopole& d)
 					const int c = degree_order_to_index(src_degree, src_order); //col
 					if(c >= 0 && c < m) //then valid
 					{
-						double sign = 1.0;
-						if(j&0x1) sign = -1.0;
+						// The -1^j term does not appear here.
+						// This function creates the matrix that
+						// gives the I(X+R) transform rather than I(X-R)
+						A[r*m+c] =  Inner(d, j, k);
 
-						complex<double> v = sign * Inner(d, j, k);
-
-						A[r*m+c] = v;
 					}
 				}
 			}

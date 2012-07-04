@@ -25,11 +25,9 @@
  #define MULTIPOLE_API 
 #endif
 
-#if 0
-
 #include "spinoperation.h"
 #include "array.h"
-#include "octtree.h"
+#include "fmm_octtree.h"
 
 using namespace std;
 
@@ -59,9 +57,8 @@ public:
 	dArray* z;
 	dArray* weight;
 	
-	OctTree* oct;
+	FMMOctTree* oct;
 };
 
 
-#endif
 #endif

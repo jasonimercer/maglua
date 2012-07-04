@@ -1,5 +1,5 @@
-#ifndef OCTTREE_H
-#define OCTTREE_H
+#ifndef FMMFMMOctTree_H
+#define FMMFMMOctTree_H
 
 #include "array.h"
 #include <vector>
@@ -18,16 +18,16 @@
 #include "fmm_math.h"
 using namespace std;
 
-class MULTIPOLE_API OctTree : public LuaBaseObject
+class MULTIPOLE_API FMMOctTree : public LuaBaseObject
 {
 public:
-	OctTree(  dArray*  x=0, dArray*  y=0, dArray*  z=0,
-			  dArray* sx=0, dArray* sy=0, dArray* sz=0, OctTree* parent = 0);
-    void init(dArray*  x=0, dArray*  y=0, dArray*  z=0,
-              dArray* sx=0, dArray* sy=0, dArray* sz=0, OctTree* parent = 0);
-    ~OctTree();
+	FMMOctTree(const int max_degree=5, dArray*  x=0, dArray*  y=0, dArray*  z=0,
+			  dArray* sx=0, dArray* sy=0, dArray* sz=0, FMMOctTree* parent = 0);
+	void init(const int max_degree=5, dArray*  x=0, dArray*  y=0, dArray*  z=0,
+			  dArray* sx=0, dArray* sy=0, dArray* sz=0, FMMOctTree* parent = 0);
+	~FMMOctTree();
 
-    LINEAGE1("OctTree")
+	LINEAGE1("FMMOctTree")
     static const luaL_Reg* luaMethods();
     virtual void push(lua_State* L);
     virtual int luaInit(lua_State* L);
@@ -39,8 +39,10 @@ public:
 	void calcLocalOrigin();
 	void split(int until_contains=0);
 
-	void calcInnerTensor(int max_degree, double epsilon=1e-6);
-	void calcChildTranslationTensorOperator(int max_degree);
+	void calcInnerTensor(double epsilon=1e-6);
+	void calcChildTranslationTensorOperators();
+
+	void fieldAt(double* p3, double* h3);
 
     // pointers to all members (positions)
     dArray* x;
@@ -59,13 +61,15 @@ public:
 	double bounds_high[3];
 	double localOrigin[3];
 
-	OctTree* c[8]; //children (lowz highz) (lowy highy) (lowx highx)
-	OctTree* parent;
+	FMMOctTree* c[8]; //children (lowz highz) (lowy highy) (lowx highx)
+	FMMOctTree* parent;
 
 	complex<double>* inner;
 	int inner_length;
 
 	complex<double>** child_translation_tensor;
+
+	int max_degree;
 };
 
 #endif

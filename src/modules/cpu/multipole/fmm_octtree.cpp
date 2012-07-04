@@ -1,26 +1,28 @@
-#include "octtree.h"
+#include "fmm_octtree.h"
 #include <math.h>
 #include "fmm_math.h"
+#include "spinoperation.h"
 
-
-OctTree::OctTree(dArray*  X, dArray*  Y, dArray*  Z,
-                 dArray* SX, dArray* SY, dArray* SZ, OctTree* Parent)
+FMMOctTree::FMMOctTree(const int md,
+				 dArray*  X, dArray*  Y, dArray*  Z,
+				 dArray* SX, dArray* SY, dArray* SZ, FMMOctTree* Parent)
 {
 	inner = 0;
 	child_translation_tensor = 0;
-    init(X, Y, Z, SX, SY, SZ, Parent);
+	init(md, X, Y, Z, SX, SY, SZ, Parent);
 }
 
-void OctTree::calcLocalOrigin()
+void FMMOctTree::calcLocalOrigin()
 {
 	for(int i=0; i<3; i++)
 		localOrigin[i] = bounds_low[i] + 0.5 * (bounds_high[i] - bounds_low[i]);
 }
 
 
-void OctTree::init(dArray*  X, dArray*  Y, dArray*  Z,
-                   dArray* SX, dArray* SY, dArray* SZ, OctTree* Parent)
+void FMMOctTree::init(const int md, dArray*  X, dArray*  Y, dArray*  Z,
+				   dArray* SX, dArray* SY, dArray* SZ, FMMOctTree* Parent)
 {
+	max_degree = md;
 	x = luaT_inc<dArray>(X);
 	y = luaT_inc<dArray>(Y);
 	z = luaT_inc<dArray>(Z);
@@ -65,13 +67,34 @@ void OctTree::init(dArray*  X, dArray*  Y, dArray*  Z,
 				if(Z[i] > bounds_high[2]) bounds_high[2] = Z[i];
 			}
 
-			// expand bounds by a bit (so nodes on domain edges don't get missed on split)
+			// need to make sure hi-low != 0
 			for(int i=0; i<3; i++)
 			{
-				double d = bounds_high[i] - bounds_low[i];
-				bounds_low[i]  -= d * 0.01;
-				bounds_high[i] += d * 0.01;
+				if(fabs(bounds_high[i] - bounds_low[i]) < 1e-8)
+				{
+					bounds_high[i] += 1;
+				}
 			}
+
+			if(x->nxyz == 1) //make sure point isn't at r=0
+			{
+				for(int i=0; i<3; i++)
+				{
+					bounds_low[i]  -= 0.25;
+					bounds_high[i] += 0.5;
+				}
+			}
+			else // expand bounds by a bit (so nodes on domain edges don't get missed on split)
+			{
+				for(int i=0; i<3; i++)
+				{
+					double d = bounds_high[i] - bounds_low[i];
+					bounds_low[i]  -= d * 0.02; //asymetric
+					bounds_high[i] += d * 0.01;
+				}
+			}
+
+
 			calcLocalOrigin();
 		}
 	}
@@ -89,10 +112,10 @@ void OctTree::init(dArray*  X, dArray*  Y, dArray*  Z,
 	}
 }
 
-OctTree::~OctTree()
+FMMOctTree::~FMMOctTree()
 {
 	for(int i=0; i<8; i++)
-		luaT_dec<OctTree>(c[i]); //dec can deal with null values
+		luaT_dec<FMMOctTree>(c[i]); //dec can deal with null values
 
     luaT_dec<dArray>(x);
     luaT_dec<dArray>(y);
@@ -115,7 +138,7 @@ OctTree::~OctTree()
 	child_translation_tensor = 0;
 }
 
-void OctTree::calcChildTranslationTensorOperator(int max_degree)
+void FMMOctTree::calcChildTranslationTensorOperators()
 {
 	if(child_translation_tensor)
 	{
@@ -131,11 +154,13 @@ void OctTree::calcChildTranslationTensorOperator(int max_degree)
 	const int tlen = tensor_element_count(max_degree);
 	child_translation_tensor = new complex<double>* [8];
 	for(int i=0; i<8; i++)
-		child_translation_tensor[i] = i2i_trans_mat(max_degree, monopole(localOrigin) - monopole(c[i]->localOrigin));
-
+	{
+		monopole r = monopole(c[i]->localOrigin) - monopole(localOrigin);
+		child_translation_tensor[i] = i2i_trans_mat(max_degree, r, new complex<double>[tlen * tlen]);
+	}
 }
 
-void OctTree::calcInnerTensor(int max_degree, double epsilon)
+void FMMOctTree::calcInnerTensor(double epsilon)
 {
 	if(inner)
 		delete [] inner;
@@ -150,10 +175,24 @@ void OctTree::calcInnerTensor(int max_degree, double epsilon)
 
 	if(c[0])
 	{
+		complex<double>* temp = new complex<double>[inner_length];
+
 		for(int i=0; i<8; i++)
 		{
-			c[i]->calcInnerTensor(max_degree);
+//			if(c[i]->members.size())
+			{
+				c[i]->calcInnerTensor(epsilon);
+
+				// need to transform child tensors to local origin
+				tensor_mat_mul(child_translation_tensor[i], c[i]->inner, temp, max_degree);
+
+				for(int j=0; j<inner_length; j++)
+				{
+					inner[j] += temp[j];
+				}
+			}
 		}
+
 	}
 	else
 	{
@@ -165,7 +204,7 @@ void OctTree::calcInnerTensor(int max_degree, double epsilon)
 		dArray& SY = *sy;
 		dArray& SZ = *sz;
 
-		monopole origin(localOrigin[0], localOrigin[1], localOrigin[2]);
+		monopole origin(localOrigin);
 		complex<double>* temp = new complex<double>[inner_length];
 
 		for(unsigned int i=0; i<members.size(); i++)
@@ -178,6 +217,7 @@ void OctTree::calcInnerTensor(int max_degree, double epsilon)
 			const double ml = m.r;
 			m.makeUnit();
 
+			// head
 			monopole pos = p + m * (epsilon / 2.0) - origin;
 			pos.q = ml / epsilon;
 
@@ -188,7 +228,8 @@ void OctTree::calcInnerTensor(int max_degree, double epsilon)
 				inner[k] += temp[k];
 			}
 
-			pos = p + m * (epsilon / 2.0) - origin;
+			// tail
+			pos = p - m * (epsilon / 2.0) - origin;
 			pos.q = -ml / epsilon;
 
 			InnerTensor(pos, max_degree, temp);
@@ -202,29 +243,55 @@ void OctTree::calcInnerTensor(int max_degree, double epsilon)
 }
 
 
-void OctTree::push(lua_State* L)
+void FMMOctTree::fieldAt(double* p3, double* h3)
 {
-    luaT_push<OctTree>(L, this);
+	int n = tensor_element_count(max_degree);
+
+	complex<double>* dx = new complex<double>[n];
+	complex<double>* dy = new complex<double>[n];
+	complex<double>* dz = new complex<double>[n];
+
+	gradOutterTensor(monopole(p3) - monopole(localOrigin), max_degree, dx, dy, dz);
+
+	complex<double> hx = tensor_contract(dx, inner, n);
+	complex<double> hy = tensor_contract(dy, inner, n);
+	complex<double> hz = tensor_contract(dz, inner, n);
+
+	h3[0] = hx.real();
+	h3[1] = hy.real();
+	h3[2] = hz.real();
+
+	delete [] dx;
+	delete [] dy;
+	delete [] dz;
 }
 
-int OctTree::luaInit(lua_State* L)
+
+
+void FMMOctTree::push(lua_State* L)
 {
-    init(luaT_to<dArray>(L, 1), luaT_to<dArray>(L, 2), luaT_to<dArray>(L, 3),
-         luaT_to<dArray>(L, 4), luaT_to<dArray>(L, 5), luaT_to<dArray>(L, 6) );
+	luaT_push<FMMOctTree>(L, this);
+}
+
+int FMMOctTree::luaInit(lua_State* L)
+{
+	init(   lua_tointeger(L, 1), //max degree
+			luaT_to<dArray>(L, 2), luaT_to<dArray>(L, 3), luaT_to<dArray>(L, 4),
+			luaT_to<dArray>(L, 5), luaT_to<dArray>(L, 6), luaT_to<dArray>(L, 7) );
 
     return 0;
 }
 
 
 
-int OctTree::help(lua_State* L)
+int FMMOctTree::help(lua_State* L)
 {
     return LuaBaseObject::help(L);
 }
 
 
 
-bool OctTree::contains(double px, double py, double pz)
+bool FMMOctTree::contains(double px, double py, double pz)
 {
 	if(px < bounds_low[0] || px >= bounds_high[0]) return false;
 	if(py < bounds_low[1] || py >= bounds_high[1]) return false;
@@ -232,7 +299,7 @@ bool OctTree::contains(double px, double py, double pz)
 	return true;
 }
 
-void OctTree::setBounds(double* low, double* high, int childNumber)
+void FMMOctTree::setBounds(double* low, double* high, int childNumber)
 {
 	const int a[3] = {1,2,4};
 	for(int i=2; i>=0; i--)
@@ -253,7 +320,7 @@ void OctTree::setBounds(double* low, double* high, int childNumber)
 }
 
 
-void OctTree::split(int until_contains)
+void FMMOctTree::split(int until_contains)
 {
 	if(c[0]) return; //already split
 	
@@ -263,9 +330,11 @@ void OctTree::split(int until_contains)
 
 	for(int i=0; i<8; i++)
 	{
-		c[i] = luaT_inc<OctTree>(new OctTree(x, y, z, sx, sy, sz, this));
+		c[i] = luaT_inc<FMMOctTree>(new FMMOctTree(max_degree, x, y, z, sx, sy, sz, this));
 		c[i]->setBounds(bounds_low, bounds_high, i);
+
 	}
+	calcChildTranslationTensorOperators();
 
 	for(unsigned int i=0; i<members.size(); i++)
 	{
@@ -288,7 +357,7 @@ void OctTree::split(int until_contains)
 }
 
 
-void OctTree::getStats(double* meanXYZ, double* stddevXYZ)
+void FMMOctTree::getStats(double* meanXYZ, double* stddevXYZ)
 {
 	meanXYZ[0] = 0;
 	meanXYZ[1] = 0;
@@ -337,7 +406,7 @@ void OctTree::getStats(double* meanXYZ, double* stddevXYZ)
 
 static int l_split(lua_State* L)
 {
-    LUA_PREAMBLE(OctTree, oct, 1);
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
     if(lua_isnumber(L, 2))
         oct->split(lua_tointeger(L, 2));
     else
@@ -347,12 +416,12 @@ static int l_split(lua_State* L)
 
 static int l_child(lua_State* L)
 {
-    LUA_PREAMBLE(OctTree, oct, 1);
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
 
     int c = lua_tointeger(L, 2) - 1;
     if(c >= 0 && c < 8)
     {
-        luaT_push<OctTree>(L, oct->c[c]);
+		luaT_push<FMMOctTree>(L, oct->c[c]);
     }
     else
     {
@@ -389,7 +458,7 @@ static void l_array2tab(lua_State* L, double* a, int n)
 
 static int l_setbounds(lua_State* L)
 {
-	LUA_PREAMBLE(OctTree, oct, 1);
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
 
 	double dummy[3];
 	if(l_tab2array(L, 2, dummy, 3))
@@ -402,7 +471,7 @@ static int l_setbounds(lua_State* L)
 
 static int l_getbounds(lua_State* L)
 {
-	LUA_PREAMBLE(OctTree, oct, 1);
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
 
 	l_array2tab(L, oct->bounds_low, 3);
 	l_array2tab(L, oct->bounds_high, 3);
@@ -412,13 +481,100 @@ static int l_getbounds(lua_State* L)
 
 static int l_count(lua_State* L)
 {
-	LUA_PREAMBLE(OctTree, oct, 1);
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
 	lua_pushnumber(L, oct->members.size());
 	return 1;
 }
 
+static int l_calcinnertensor(lua_State* L)
+{
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
+	double epsilon = lua_tonumber(L, 2);
+	oct->calcInnerTensor(epsilon);
+	return 0;
+}
+
+static int l_fieldAt(lua_State* L)
+{
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
+	double pos[3];
+	double field[3];
+
+	int r1 = lua_getNdouble(L, 3, pos, 2, 0);
+
+	oct->fieldAt(pos, field);
+
+	lua_pushnumber(L, field[0]);
+	lua_pushnumber(L, field[1]);
+	lua_pushnumber(L, field[2]);
+
+	return 3;
+}
+
+
+static int l_maxdegree(lua_State* L)
+{
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
+	lua_pushnumber(L, oct->max_degree);
+	return 1;
+}
+
+static int l_getlocalorigin(lua_State* L)
+{
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
+
+	l_array2tab(L, oct->localOrigin, 3);
+	return 1;
+}
+
+static int l_getinnertensor(lua_State* L)
+{
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
+
+	const int n = tensor_element_count(oct->max_degree);
+	const complex<double>* t = oct->inner;
+
+	if(!t)
+		lua_pushnil(L);
+	else
+	{
+		lua_newtable(L);
+		for(int i=0; i<n; i++)
+		{
+			lua_pushinteger(L, i+1);
+			lua_newtable(L);
+
+			lua_pushinteger(L, 1);
+			lua_pushnumber(L, t[i].real());
+			lua_settable(L, -3);
+			lua_pushinteger(L, 2);
+			lua_pushnumber(L, t[i].imag());
+			lua_settable(L, -3);
+
+			lua_settable(L, -3);
+		}
+	}
+
+	return 1;
+}
+
+
+static int l_getmember(lua_State* L)
+{
+	LUA_PREAMBLE(FMMOctTree, oct, 1);
+
+	int i = lua_tointeger(L, 2);
+
+	if(i<0 || i>oct->members.size())
+		return 0;
+
+	lua_pushinteger(L, oct->members[i-1]+1);
+	return 1;
+}
+
+
 static luaL_Reg m[128] = {_NULLPAIR128};
-const luaL_Reg* OctTree::luaMethods()
+const luaL_Reg* FMMOctTree::luaMethods()
 {
     if(m[127].name)return m;
 
@@ -430,6 +586,12 @@ const luaL_Reg* OctTree::luaMethods()
 		{"setBounds", l_setbounds},
 		{"bounds", l_getbounds},
 		{"count", l_count},
+		{"calcInnerTensor", l_calcinnertensor},
+		{"fieldAt", l_fieldAt},
+		{"maxDegree", l_maxdegree},
+		{"innerTensor", l_getinnertensor},
+		{"localOrigin", l_getlocalorigin},
+		{"member", l_getmember},
 
 		//		{"getPosition", l_getpos},
 		//		{"preCompute", l_pc},

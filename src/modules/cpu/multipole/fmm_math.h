@@ -5,11 +5,14 @@
 #include <vector>
 #include "plm.h"
 
+#ifndef MULTIPOLE_CLASSES
+#define MULTIPOLE_CLASSES
+
 class monopole
 {
 public:
 	monopole(double _x=0, double _y=0, double _z=0, double _q=0) : x(_x), y(_y), z(_z), q(_q) {calcSpherical();}
-	monopole(double* v3, double _q=0) : {x=v3[0]; y=v3[1], z=v3[2], q=_q, calcSpherical();}
+	monopole(double* v3, double _q=0) {x=v3[0]; y=v3[1], z=v3[2], q=_q, calcSpherical();}
 	monopole(const monopole& p) : x(p.x), y(p.y), z(p.z), q(p.q) {calcSpherical();}
 
 	void calcSpherical();
@@ -43,8 +46,12 @@ public:
     std::complex<double>* t;
 };
 
+#endif
+
+
+#ifndef FMM_FUNCS
+#define FMM_FUNCS
 std::complex<double> Ylm(const int l, const int m, const double theta, const double phi);
-long Gammai(long z);
 
 int tensor_element_count(const int degree);
 
@@ -58,7 +65,10 @@ void OutterTensor(const monopole& r, const int order, std::complex<double>* tens
 void gradOutterTensor(const monopole& R, const int order, std::complex<double>* dx, std::complex<double>* dy, std::complex<double>* dz);
 
 
-std::complex<double>* i2i_trans_mat(const int max_order, const monopole& d);
+// if no dest if given then memory will be allocated and returned otherwise the given memory will be used and returned
+std::complex<double>* i2i_trans_mat(const int max_order, const monopole& d, std::complex<double>* dest=0);
 std::complex<double>* o2o_trans_mat(const int max_order, const monopole& d);
 
-void tensor_mat_mul(const std::complex<double>* A, const std::complex<double>* x, std::complex<double>* b, int max_order);
+void tensor_mat_mul(const std::complex<double>* A, const std::complex<double>* x, std::complex<double>* b, int max_degree);
+std::complex<double> tensor_contract(const std::complex<double>* t1, const std::complex<double>* t2, const int len_not_max_degree);
+#endif
