@@ -55,7 +55,7 @@ bool equal_tol(double a, double b, double tolerance)
 	
 	double t1 = fabs( (a-b)/a );
 	double t2 = fabs( (a-b)/b );
-// 	printf("%s, %E, %e - %f, %f, %e     %f\n", qqq,a, b, t, q, qq, tolerance);
+// 	printf("%g %g %g\n", t1, t2, tolerance);
 // 	printf("%ss %g %g\n", qqq, t1,t2);
 // 	if(strncmp(qqq, "YY", 2) == 0)
 // 		printf("%g %g %e\n", a, b, qq);
@@ -79,7 +79,7 @@ static void getGAB_range(
 	const int nA, const int nB, const int nC,  //width, depth, layers 
 	const int ix, const int iy, const int iz,
 	const int ax, const int ay, const int bx, const int by,	      
-	              const int truemax, 
+	              const int* truemax, 
 	double& gXX, double& gXY, double& gXZ,
 	double& gYY, double& gYZ, double& gZZ,
 	mag_dip_crossover& crossover)
@@ -103,23 +103,24 @@ static void getGAB_range(
 	dipYZ = 0;
 	dipZZ = 0;
 
-	// goign to try to work from center out so that crossover is detected before noise in 
+	// going to try to work from center out so that crossover is detected before noise in 
 	// magnetostatic swamps the data 
 	vector<d3> pts;
 	
 	
 	const int zz = iz;
-	if(abs(zz) <= truemax)
+	if(abs(zz) <= truemax[4] && abs(zz) <= truemax[0])
     {
 	for(int x=ax; x<=bx; x++)
 	{
 	    const int xx = x*nA+ix;
-	    if(abs(xx) <= truemax)
+	    if(abs(xx) <= truemax[2] && abs(zz) <= truemax[0])
 	    {
 		for(int y=ay; y<=by; y++)
 		{
 		    const int yy = y*nB+iy;
-		    if(abs(yy) <= truemax)
+		    if(abs(yy) <= truemax[3]  && abs(zz) <= truemax[0])
+			if(xx*xx + yy*yy + zz*zz <= truemax[0]*truemax[0])
 		    {
 				const double rx = ((double)xx)*ABC[0] + ((double)yy)*ABC[3] + ((double)zz)*ABC[6];
 				const double ry = ((double)xx)*ABC[1] + ((double)yy)*ABC[4] + ((double)zz)*ABC[7];
@@ -210,7 +211,7 @@ static void getGAB(
 	const double* prism, /* 3 vector */
 	const int nA, const int nB, const int nC,  //width, depth, layers 
 	const int ix, const int iy, const int iz, 
-	const int smin, const int smax, const int truemax, //allowing rings 
+	const int smin, const int smax, const int* truemax, //allowing rings 
 	double* XX, double* XY, double* XZ,
 	double* YY, double* YZ, double* ZZ,
 	mag_dip_crossover& crossover)
@@ -445,7 +446,7 @@ static bool magnetostatics_write_matrix(const char* filename,
 	const double* ABC,
 	const double* prism,
 	const int nx, const int ny, const int nz,  //width, depth, layers 
-	const int gmax, 
+	const int* gmax, 
 	const double* XX, const double* XY, const double* XZ,
 	const double* YY, const double* YZ, const double* ZZ)
 {
@@ -455,10 +456,11 @@ static bool magnetostatics_write_matrix(const char* filename,
 	
 	fprintf(f, "-- This file contains magnetostatic interaction matrices\n");
 	fprintf(f, "\n");
-	if(gmax == -1)
-		fprintf(f, "gmax = math.huge\n");
+	if(gmax[0] == -1)
+		fprintf(f, "gmax = {math.huge, math.huge, math.huge, math.huge}  -- radial max, maxX, maxY, maxZ\n");
 	else
-		fprintf(f, "gmax = %i\n", gmax);
+		fprintf(f, "gmax = {%i, %i, %i, %i} -- radial max, maxX, maxY, maxZ\n", gmax[0], gmax[1], gmax[2], gmax[3]);
+	
 	fprintf(f, "nx, ny, nz = %i, %i, %i\n", nx, ny, nz);
 	fprintf(f, "cellDimensions = {%g, %g, %g}\n", prism[0], prism[1], prism[2]);
 	fprintf(f, "ABC = {{%g, %g, %g}, --unit cell\n       {%g, %g, %g},\n       {%g, %g, %g}}\n\n", 
@@ -558,7 +560,7 @@ static bool checkTable(lua_State* L, const double* v3)
 static bool magnetostaticsParamsMatch(
 	const char* filename,
 	const int nx, const int ny, const int nz,
-	const int gmax, const double* ABC, const double* prism)
+	const int* gmax, const double* ABC, const double* prism)
 {
 	lua_State *L = lua_open();
 	luaL_openlibs(L);
@@ -586,23 +588,32 @@ static bool magnetostaticsParamsMatch(
 	}
 
 
-	int file_gmax = 0;
+	int file_gmax[4] = {0,0,0,0};
 	lua_getglobal(L, "gmax");
-	file_gmax = lua_tointeger(L, -1);
-	lua_getglobal(L, "math");
-	lua_pushstring(L, "huge");
-	lua_gettable(L, -2);
-	lua_remove(L, -2); //remove math table
-	if(lua_equal(L, -2, -1)) //then gmax = math.huge
+	for(int i=0; i<4; i++)
 	{
-		file_gmax = -1; //special marker for math.huge
+		lua_pushinteger(L, i+1);
+		lua_gettable(L, -2);
+		file_gmax[i] = lua_tointeger(L, -1);
+		
+		lua_getglobal(L, "math");
+		lua_pushstring(L, "huge");
+		lua_gettable(L, -2);
+		lua_remove(L, -2); //remove math table
+		if(lua_equal(L, -2, -1)) //then gmax = math.huge
+		{
+			file_gmax[i] = -1; //special marker for math.huge
+		}
+		lua_pop(L, 2);
 	}
-	lua_pop(L, 2);
 	
-	if(file_gmax != gmax)
+	for(int i=0; i<4; i++)
 	{
-		lua_close(L);
-		return false;
+		if(file_gmax[i] != gmax[i])
+		{
+			lua_close(L);
+			return false;
+		}
 	}
 
 	lua_getglobal(L, "cellDimensions");
@@ -798,7 +809,7 @@ static bool extrapolate(lua_State* L,
 
 void magnetostaticsLoad(
 	const int nx, const int ny, const int nz,
-	const int gmax, const double* ABC,
+	const int* gmax, const double* ABC,
 	const double* prism, /* 3 vector */
 	double* XX, double* XY, double* XZ,
 	double* YY, double* YZ, double* ZZ,
@@ -838,14 +849,14 @@ void magnetostaticsLoad(
 			for(int i=0; i<nx; i++)
 			{
 				fflush(stdout);
-				if(gmax != -1)
+				if(gmax[0] != -1)
 				{
 // 					printf("c = %i\n", c);
 					getGAB(ABC,
 							prism,
 							nx, ny, nz,
 							i, j, k,
-							0, gmax, gmax,
+							0, gmax[0], gmax,
 							XX+c, XY+c, XZ+c,
 							YY+c, YZ+c, ZZ+c, 
 							crossover);
@@ -854,6 +865,7 @@ void magnetostaticsLoad(
 				}
 				else // math.huge sum
 				{
+					int big[4] = {1e9, 1e9, 1e9, 1e9};
 					vector<double> vXX;
 					vector<double> vXY;
 					vector<double> vXZ;
@@ -881,7 +893,7 @@ void magnetostaticsLoad(
 							prism,
 							nx, ny, nz,
 							i, j, k,
-							_lmin, _lmax, (int)1e16,
+							_lmin, _lmax, big,
 							 &tXX, &tXY, &tXZ, &tYY, &tYZ, &tZZ,
 							crossover);
 						

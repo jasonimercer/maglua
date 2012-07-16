@@ -12,7 +12,7 @@
 
 void magnetostaticsLoad(
 	const int nx, const int ny, const int nz,
-	const int gmax, const double* ABC,
+	const int* gmax, const double* ABC,
 	const double* prism, /* 3 vector */
 	double* XX, double* XY, double* XZ,
 	double* YY, double* YZ, double* ZZ, double tol);

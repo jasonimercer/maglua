@@ -23,6 +23,7 @@ DisorderedDipole::DisorderedDipole(int nx, int ny, int nz)
 	posx = 0;
 	posy = 0;
 	posz = 0;
+	g = 1.0;
 	init();
 }
 
@@ -86,6 +87,7 @@ int  DisorderedDipole::decode(buffer* b)
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
+	nxyz = nx*ny*nz;
 	global_scale = decodeDouble(b);
 	init();
 	
@@ -162,7 +164,6 @@ bool DisorderedDipole::apply(SpinSystem* ss)
 			}
 		}
 	}
-	
 	
 	return true;
 }
@@ -361,18 +362,21 @@ int DisorderedDipole::help(lua_State* L)
 		lua_pushstring(L, "Get an array representing the X components site positions. This array is connected to the Operator so changes to the returned array will change operator.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Array: The X components of the positions.");
+		return 3;
 	}
 	if(func == l_getarrayy)
 	{
 		lua_pushstring(L, "Get an array representing the Y components site positions. This array is connected to the Operator so changes to the returned array will change operator.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Array: The Y components of the positions.");
+		return 3;
 	}
 	if(func == l_getarrayz)
 	{
 		lua_pushstring(L, "Get an array representing the Z components site positions. This array is connected to the Operator so changes to the returned array will change operator.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Array: The Z components of the positions.");
+		return 3;
 	}
 	
 		
@@ -381,18 +385,21 @@ int DisorderedDipole::help(lua_State* L)
 		lua_pushstring(L, "Set an array representing the X components site positions.");
 		lua_pushstring(L, "1 Array: The X components of the positions.");
 		lua_pushstring(L, "");
+		return 3;
 	}
 	if(func == l_setarrayy)
 	{
 		lua_pushstring(L, "Set an array representing the Y components site positions.");
 		lua_pushstring(L, "1 Array: The Y components of the positions.");
 		lua_pushstring(L, "");
+		return 3;
 	}
 	if(func == l_setarrayz)
 	{
 		lua_pushstring(L, "Set an array representing the Z components site positions.");
 		lua_pushstring(L, "1 Array: The Z components of the positions.");
 		lua_pushstring(L, "");
+		return 3;
 	}
 	
 	return SpinOperation::help(L);

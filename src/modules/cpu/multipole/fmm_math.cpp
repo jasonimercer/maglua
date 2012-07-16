@@ -7,10 +7,39 @@ using namespace std;
 
 static double faci(int x)
 {
-	double f = 1;
-	for(; x>1; x--)
-		f *= x;
-	return f;
+	if(x < 0 || x > 20)
+		return 1;
+
+//	double f = 1;
+//	for(; x>1; x--)
+//		f *= x;
+//	return f;
+
+	static const double faci_lookup[21] =
+		{
+		 1, // 0!
+		 1,
+		 2,
+		 6,
+		 24,
+		 120, // 5!
+		 720,
+		 5040,
+		 40320,
+		 362880,
+		 3628800, // 10!
+		 39916800,
+		 479001600,
+		 6227020800,
+		 87178291200,
+		 1307674368000, //15!
+		 20922789888000,
+		 355687428096000,
+		 6402373705728000,
+		 121645100408832000,
+		 2432902008176640000 //20!
+		};
+	return faci_lookup[x];
 }
 
 
@@ -143,21 +172,58 @@ void OutterTensor(const monopole& r, const int order, complex<double>* tensor)
 	}
 }
 
-complex<double> im(int v)
+complex<double> im(const int v)
 {
 	return complex<double>(0,v);
 }
 
 
-// There is an optimization opportunity here
-// Pln0 and Pln1 have a lot of overlap, can cut down Pln function calls by about 1/2
-void gradOutterTensor(const monopole& R, const int order, complex<double>* dx, complex<double>* dy, complex<double>* dz)
+// ii ^ x
+// works for x > -400
+complex<double> ipow(const int x)
 {
+	switch( (x+400) & 0x3 )
+	{
+	case 0:	return complex<double>( 1, 0);
+	case 1:	return complex<double>( 0, 1);
+	case 2:	return complex<double>(-1, 0);
+	case 3:	return complex<double>( 0,-1);
+	}
+	return 0;
+}
+
+// There is an optimization opportunity here
+// Pln0 and Pln1 have a lot of overlap, can cut down Pln function calls by about 1/2.
+// turns out this opt doesn't save much. Look elsewhere for gains
+
+// making these static. This breaks multithreading over gradOutterTensor
+static complex<double> pln0[256]; //larger than needed
+static complex<double> pln1[121];
+static complex<double>   xy[121]; //common to x&y terms
+static complex<double> eterm[40];
+static complex<double>  __ir[12];
+void gradOutterTensor(const monopole& R, const int max_degree, complex<double>* dx, complex<double>* dy, complex<double>* dz)
+{
+	if(max_degree > 9)
+	{
+		fprintf(stderr, "(%s:%i) max_degree > 9 not supported\n", __FILE__, __LINE__);
+		return;
+	}
 	complex<double> ii(0,1);
-	int count = tensor_element_count(order);
-	complex<double>* pln0 = new complex<double>[count];
-	complex<double>* pln1 = new complex<double>[count];
-	complex<double>* xy   = new complex<double>[count]; //common to x&y terms
+	int count = tensor_element_count(max_degree);
+	//int count1 = tensor_element_count(order+1);
+
+#if 0
+	complex<double>* pln0;
+	complex<double>* pln1;
+	complex<double>* xy;
+
+	pln0 = new complex<double>[count];
+	pln1 = new complex<double>[count];
+	xy   = new complex<double>[count]; //common to x&y terms
+#endif
+
+
 
 	const double x = R.x;
 	const double y = R.y;
@@ -166,34 +232,104 @@ void gradOutterTensor(const monopole& R, const int order, complex<double>* dx, c
 
 	const double r2 = r*r;
 
+
 	int c = 0;
-	for(int n=0; n<=order; n++)
+	int cc;
+	for(int n=0; n<=max_degree+1; n++) //order+1 so that we can get the n+1 terms calculated here
 	{
+#if 0
 		for(int l=-n; l<=n; l++)
 		{
 			pln0[c] = Plm(n,   l, z/r);
 			pln1[c] = Plm(n+1, l, z/r);
-			xy[c] = -exp(-0.5 * im(l) * (M_PI - 2 * R.p)) * pow(r2, -1.5 - 0.5*n) * faci(n-l) / (x*x + y*y);
+			//xy[c] = -exp(-0.5 * im(l) * (M_PI - 2 * R.p)) * pow(r2, -1.5 - 0.5*n) * faci(n-l) / (x*x + y*y);
+			c++;
+		}
+#else
+		// using calculated Plm to get the others
+		for(int l=-n; l<=0; l++)
+		{
+			pln0[c] = Plm(n,   l, z/r);
+			//pln1[c] = Plm(n+1, l, z/r);
+			//xy[c] = -exp(-0.5 * im(l) * (M_PI - 2 * R.p)) * pow(r2, -1.5 - 0.5*n) * faci(n-l) / (x*x + y*y);
+			c++;
+		}
+		cc = c-2;
+		for(int l=1; l<=n; l++)
+		{
+			pln0[c] = Plm_negate_order(n,   l, pln0[cc].real());  //Plm(n,   l, z/r);
+			//pln1[c] = Plm_negate_order(n+1, l, pln1[cc].real());//  Plm(n+1, l, z/r);
+			c++;
+			cc--;
+		}
+#endif
+	}
+
+	//read off n+1 terms
+	cc = 0;
+	c = 0;
+	for(int n=0; n<=max_degree; n++) //order+1 so that we can get the n+1 terms calculated here
+	{
+		cc+=2;
+		for(int l=-n; l<=n; l++)
+		{
+			pln1[c] = pln0[cc];
+			c++;
+			cc++;
+		}
+	}
+
+	// Computing the xy[c] term piecewise and smarter
+	eterm[20] = -1;
+	for(int l=1; l<=max_degree; l++)
+	{
+		eterm[20 + l] = -exp(-0.5 * im(l) * (M_PI - 2 * R.p));
+		eterm[20 - l] = 1.0 / eterm[20 + l];
+	}
+
+	__ir[0] = 1.0;
+	__ir[1] = 1.0/r;
+	const complex<double> ir2 = __ir[1]*__ir[1];
+	for(int i=2; i<=max_degree+2; i+=2)
+	{
+		__ir[i+0] = __ir[i-2] * ir2;
+		__ir[i+1] = __ir[i-1] * ir2;
+	}
+
+	const double ixxyy = 1.0 / (x*x+y*y);
+	c = 0;
+	for(int n=0; n<=max_degree; n++)
+	{
+		const double r2_term = pow(r2, -1.5 - 0.5*n);
+		for(int l=-n; l<=n; l++)
+		{
+			xy[c] = eterm[20+l] * (r2_term * faci(n-l) * ixxyy);
 			c++;
 		}
 	}
 
 	c = 0;
-	for(int n=0; n<=order; n++)
+	for(int n=0; n<=max_degree; n++)
 	{
 		for(int l=-n; l<=n; l++)
 		{
 			dx[c] = xy[c] * ((x+n*x+im(l)*y)*r2 * pln0[c] + (l-n-1)*x*z*r*pln1[c]);
 			dy[c] = xy[c] * ((y+n*y-im(l)*x)*r2 * pln0[c] + (l-n-1)*y*z*r*pln1[c]);
-			dz[c] = -pow(ii,-l) * exp(im(l)*R.p) * pow(r2,-1-0.5*n) * (double)Gammai(2-l+n) * pln1[c];
+			//dz[c] = -pow(ii,-l) * exp(im(l)*R.p) * pow(r2,-1-0.5*n) * (double)Gammai(2-l+n) * pln1[c];
+			//dz[c] = -ipow(-l) * exp(im(l)*R.p) * pow(r2,-1-0.5*n) * (double)Gammai(2-l+n) * pln1[c];
+			dz[c] = -ipow(-l) * exp(im(l)*R.p) * (__ir[n+2]) * (double)Gammai(2-l+n) * pln1[c];
 			c++;
 		}
 	}
 
+#if 0
 	delete [] pln0;
 	delete [] pln1;
 	delete [] xy;
+#endif
 }
+
+
 
 complex<double> Inner(const monopole& r, int n, int l)
 {
@@ -287,7 +423,7 @@ monopole& monopole::operator*=(const double rhs)
 
 
 
-
+#if 0
 tensor_transformation::tensor_transformation(double x, double y, double z, int d)
 {
     degree = d;
@@ -314,7 +450,7 @@ void tensor_transformation::apply(const std::complex<double>* x, std::complex<do
             b[r] += A[r*m+c] * x[c];
         }
 }
-
+#endif
 
 
 
@@ -324,7 +460,10 @@ int tensor_element_count(const int order)
 {
 	if(order < 0)
 		return 0;
-	return (2*order+1) + tensor_element_count(order-1);
+
+	return 1 + 2*order + order*order;
+
+	//	return (2*order+1) + tensor_element_count(order-1);
 }
 
 
@@ -337,7 +476,7 @@ static int degree_order_to_index(const int l, const int m)
 
 
 
-void tensor_mat_mul(const complex<double>* A, const complex<double>* x, complex<double>* b, int max_degree)
+void tensor_mat_mul_LowerTri(const complex<double>* A, const complex<double>* x, complex<double>* b, int max_degree)
 {
     int m = tensor_element_count(max_degree);
 
@@ -349,7 +488,8 @@ void tensor_mat_mul(const complex<double>* A, const complex<double>* x, complex<
 
 	for(int r=0; r<m; r++)
 	{
-		for(int c=0; c<m; c++)
+		//for(int c=0; c<m; c++)
+		for(int c=0; c<=r; c++)
 		{
 			b[r] += A[r*m+c] * x[c];
 		}
@@ -384,28 +524,21 @@ complex<double>* i2i_trans_mat(const int max_degree, const monopole& d, complex<
 	for(int i=0; i<m*m; i++)
 		A[i] = 0;
 
+	int r = 0;
     for(int n=0; n<=max_degree; n++)
 	{
 		for(int l=-n; l<=n; l++)
 		{
-			const int r = degree_order_to_index(n,l); //row
+			int c = 0;
             for(int j=0; j<=max_degree; j++)
 			{
 				for(int k=-j; k<=j; k++)
 				{
-					int src_degree = n-j;
-					int src_order = l-k;
-					const int c = degree_order_to_index(src_degree, src_order); //col
-					if(c >= 0 && c < m) //then valid
-					{
-						// The -1^j term does not appear here.
-						// This function creates the matrix that
-						// gives the I(X+R) transform rather than I(X-R)
-						A[r*m+c] =  Inner(d, j, k);
-
-					}
+					A[r*m+c] =  Inner(d, n-j, -l+k);
+					c++;
 				}
 			}
+			r++;
 		}
 	}
 	return A;

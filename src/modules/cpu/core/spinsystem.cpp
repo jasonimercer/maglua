@@ -1359,6 +1359,38 @@ static int l_getarraym(lua_State* L)
 	return 0;	
 }
 
+static int l_getslotused(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+
+	const char* name = lua_tostring(L, 2);
+	if(!name)                             
+		return luaL_error(L, "Argument must a string");
+	int slot = s->getSlot(name);                      
+	if(slot < 0)                                       
+		return luaL_error(L, "Unknown field type`%s'", name); 
+	
+	lua_pushboolean(L, s->slot_used[slot]);
+	return 1;
+}
+
+static int l_setslotused(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+
+	const char* name = lua_tostring(L, 2);
+	if(!name)                             
+		return luaL_error(L, "Argument must a string");
+	int slot = s->getSlot(name);                      
+	if(slot < 0)                                       
+		return luaL_error(L, "Unknown field type`%s'", name); 
+	
+	if(lua_isnumber(L, 3))
+		s->slot_used[slot] = lua_tointeger(L, 3);
+	else
+		s->slot_used[slot] = 1;
+	return 0;
+}
 
 
 int SpinSystem::help(lua_State* L)
@@ -1759,6 +1791,22 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+	
+	
+	if(func == l_getslotused)
+	{
+		lua_pushstring(L, "Deternime if an internal field slot has been set");
+		lua_pushstring(L, "1 String: A field name");
+		lua_pushstring(L, "1 Boolean: The return value");
+		return 3;
+	}
+	if(func == l_setslotused)
+	{
+		lua_pushstring(L, "Set an internal variable. If true this field type will be added in the sum fields method.");
+		lua_pushstring(L, "1 String, 0 or 1 Boolean: A field name and a flag to include or exclude the field in the summation method. Default value is true");
+		lua_pushstring(L, "");
+		return 3;
+	}
 #if 0
 	if(func == l_spindotfield)
 	{
@@ -1770,6 +1818,8 @@ int SpinSystem::help(lua_State* L)
 #endif
 	return LuaBaseObject::help(L);
 }
+
+
 
 
 static luaL_Reg m[128] = {_NULLPAIR128};
@@ -1832,6 +1882,9 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"setFieldArrayX",  l_setfieldarrayx},
 		{"setFieldArrayY",  l_setfieldarrayy},
 		{"setFieldArrayZ",  l_setfieldarrayz},
+		
+		{"slotUsed", l_getslotused},
+		{"setSlotUsed", l_setslotused},
 
 		{NULL, NULL}
 	};

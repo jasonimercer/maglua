@@ -134,7 +134,7 @@ public:
 		return ifft3DTo(dest,ws->data());
 	}
 
-	void encodeCore(buffer* b)
+	void encode(buffer* b)
 	{
 		sync_hd();
 		encodeInteger(nx, b);
@@ -143,7 +143,7 @@ public:
 		for(int i=0; i<nxyz; i++)
 			luaT<T>::encode(_data[i], b);
 	}
-	int decodeCore(buffer* b)
+	int decode(buffer* b)
 	{
 		int x = decodeInteger(b);
 		int y = decodeInteger(b);
@@ -234,6 +234,47 @@ public:
 			return luaL_error(L, "invalid site");
 		c[0] = xyz2idx(c[0], c[1], c[2]);
 		data()[c[0]] = luaT<T>::to(L, base_idx + offset);
+		return 0;
+	}
+	
+		
+	int lua_addat(lua_State* L, int base_idx)
+	{
+		sync_dh();
+		int c[3] = {0,0,0};
+		int offset = 0;
+		if(lua_istable(L, base_idx))
+		{
+			for(int i=0; i<3; i++)
+			{
+				lua_pushinteger(L, i+1);
+				lua_gettable(L, base_idx);
+				if(lua_isnumber(L, -1))
+					c[i] = lua_tointeger(L, -1)-1;
+				lua_pop(L, 1);
+			}
+			offset = 1;
+		}
+		else
+		{
+			offset = 0;
+			const int e = luaT<T>::elements();
+			const int end = lua_gettop(L) - e;
+			int v = 0;
+			for(int i=base_idx; i<=end && v<3; i++)
+			{
+				if(lua_isnumber(L, i))
+				{
+					c[v] = lua_tointeger(L, i)-1;
+					offset++;
+					v++;
+				}
+			}
+		}
+		if(!member(c[0], c[1], c[2]))
+			return luaL_error(L, "invalid site");
+		c[0] = xyz2idx(c[0], c[1], c[2]);
+		data()[c[0]] += luaT<T>::to(L, base_idx + offset);
 		return 0;
 	}
 	

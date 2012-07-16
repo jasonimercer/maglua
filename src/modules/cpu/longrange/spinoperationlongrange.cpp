@@ -30,7 +30,10 @@ LongRange::LongRange(const char* Name, const int field_slot, int nx, int ny, int
     XX = 0;
 	ws1 = 0;
 	g = 1;
-	gmax = 2000;
+	gmax[0] = 1000;
+	gmax[1] = 1000;
+	gmax[2] = 1000;
+	gmax[3] = 1000;
 	matrixLoaded = false;
 	newdata = false;
 	XX = 0;
@@ -57,7 +60,10 @@ void LongRange::push(lua_State* L)
 void LongRange::encode(buffer* b)
 {
 	SpinOperation::encode(b);
-	encodeInteger(gmax, b);
+	encodeInteger(gmax[0], b);
+	encodeInteger(gmax[1], b);
+	encodeInteger(gmax[2], b);
+	encodeInteger(gmax[3], b);
 	encodeDouble(g, b);
 	for(int i=0; i<9; i++)
 	{
@@ -69,7 +75,10 @@ int  LongRange::decode(buffer* b)
 {
 	SpinOperation::decode(b);
 
-	gmax = decodeInteger(b);
+	gmax[0] = decodeInteger(b);
+	gmax[1] = decodeInteger(b);
+	gmax[2] = decodeInteger(b);
+	gmax[3] = decodeInteger(b);
 	g = decodeDouble(b);
 
 	for(int i=0; i<9; i++)
@@ -492,6 +501,52 @@ static int l_settrunc(lua_State* L)
 {
 	LUA_PREAMBLE(LongRange, lr, 1);
 
+	if(lua_istable(L, 2))
+	{
+		lr->gmax[0] = 0;
+		for(int i=1; i<=3; i++)
+		{
+			lua_pushinteger(L, i);
+			lua_gettable(L, 2);
+			if(lua_isnumber(L, -1))
+			{
+				lr->gmax[i] = lua_tointeger(L, -1);
+				if(lr->gmax[i] <= 0)
+					lr->gmax[i] = 1;
+			}
+			else
+			{
+				lr->gmax[i] = 1;
+			}
+			lua_pop(L, 1);
+			if(lr->gmax[i] > lr->gmax[0])
+				lr->gmax[0] = lr->gmax[i];
+		}
+
+		return 0;
+	}
+	if(lua_gettop(L) > 2)
+	{
+		lr->gmax[0] = 0;
+		for(int i=1; i<=3; i++)
+		{
+			if(lua_isnumber(L, i+1))
+			{
+				lr->gmax[i] = lua_tointeger(L, i+1);
+				if(lr->gmax[i] <= 0)
+					lr->gmax[i] = 1;
+			}
+			else
+			{
+				lr->gmax[i] = 1;
+			}
+			if(lr->gmax[i] > lr->gmax[0])
+				lr->gmax[0] = lr->gmax[i];
+		}
+		
+		return 0;
+	}
+	
 	lua_getglobal(L, "math");
 	lua_pushstring(L, "huge");
 	lua_gettable(L, -2);
@@ -500,11 +555,15 @@ static int l_settrunc(lua_State* L)
 	
 	if(huge)
 	{
-		lr->gmax = -1;
+		lr->gmax[0] = -1;
 	}
 	else
 	{
-		lr->gmax = lua_tointeger(L, 2);
+		lr->gmax[0] = lua_tointeger(L, 2);
+	}
+	for(int i=0; i<3; i++)
+	{
+		lr->gmax[i+1] = lr->gmax[0];
 	}
 	return 0;
 }
@@ -512,17 +571,20 @@ static int l_gettrunc(lua_State* L)
 {
 	LUA_PREAMBLE(LongRange, lr, 1);
 
-	if(lr->gmax == -1)
+	for(int i=0; i<4; i++)
 	{
-		lua_getglobal(L, "math");
-		lua_pushstring(L, "huge");
-		lua_gettable(L, -2);
-		lua_remove(L, -2);//remove table (not really needed);
+		if(lr->gmax[i] == -1)
+		{
+			lua_getglobal(L, "math");
+			lua_pushstring(L, "huge");
+			lua_gettable(L, -2);
+			lua_remove(L, -2);//remove table (not really needed);
+		}
+		else
+			lua_pushnumber(L, lr->gmax[i]);
 	}
-	else
-		lua_pushnumber(L, lr->gmax);
 
-	return 1;
+	return 4;
 }
 
 
@@ -737,7 +799,7 @@ int LongRange::help(lua_State* L)
 	if(func == l_settrunc)
 	{
 		lua_pushstring(L, "Set the truncation distance in spins of the dipolar sum.");
-		lua_pushstring(L, "1 Integers: Radius of spins to sum out to. If set to math.huge then extrapolation will be used to approximate infinite radius.");
+		lua_pushstring(L, "1 Integer or Table of 3 Integers or 3 Integers: Radius of spins to sum out to. If set to math.huge then extrapolation will be used to approximate infinite radius. If input is more than 1 value then the input is considered as the hard truncation limit for each Cartesian coordinate.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -746,7 +808,7 @@ int LongRange::help(lua_State* L)
 	{
 		lua_pushstring(L, "Get the truncation distance in spins of the dipolar sum.");
 		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Integers: Radius of spins to sum out to.");
+		lua_pushstring(L, "4 Integers: Radius of spins to sum out to, hard Limit in X, Y and Z direction.");
 		return 3;
 	}
 	if(func == l_getmatrix)

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationmultipole.o fmm_math.o plm.o fmm_octtree.o
+OBJECTS=fmm_octtree_luafuncs.o spinoperationmultipole.o fmm_math.o plm.o fmm_octtree.o
 LIBNAME=Multipole
 CATEGORY=cpu
 
@@ -17,3 +17,9 @@ CATEGORY=cpu
 DEPEND=core luabaseobject array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
+
+fmm_octtree_luafuncs.h: fmm_octtree_luafuncs.lua $(BASEDIR)/hardcode.lua
+	lua $(BASEDIR)/hardcode.lua fmm_octtree_luafuncs.lua
+
+fmm_octtree_luafuncs.cpp:
+	touch fmm_octtree_luafuncs.cpp

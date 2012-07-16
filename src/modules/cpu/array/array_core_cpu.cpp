@@ -47,6 +47,12 @@ static int l_set(lua_State* L)
 	LUA_PREAMBLE(Array<T>, a, 1);
 	return a->lua_set(L, 2);
 }
+template<typename T>
+static int l_addat(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	return a->lua_addat(L, 2);
+}
 
 
 template<typename T>
@@ -103,6 +109,7 @@ static const luaL_Reg* get_base_methods()
 		{"nz",      l_get_nz<T>},
 		{"get",     l_get<T>},
 		{"set",     l_set<T>},
+		{"addAt",   l_addat<T>},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -197,7 +204,14 @@ int Array<T>::help(lua_State* L)
 	if(func == &(l_set<T>))
 	{
 		lua_pushstring(L, "Set an element of the array");
-		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value: indices(XYZ) of the element to fetch default values are 1. Last argument is the new value");
+		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value: indices(XYZ) of the element to set, default values are 1. Last argument is the new value");
+		lua_pushstring(L, "0");
+		return 3;
+	}
+	if(func == &(l_addat<T>))
+	{
+		lua_pushstring(L, "Add a value to an element of the array");
+		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value: indices(XYZ) of the element to modify, default values are 1. Last argument is the value to add");
 		lua_pushstring(L, "0");
 		return 3;
 	}
@@ -315,11 +329,12 @@ static int l_init( Array<T>* a, lua_State* L)
 	else
 	{
 		for(int i=0; i<3; i++)
-			c[i] = lua_tonumber(L, i+1);
+			if(lua_isnumber(L, i+1))
+				c[i] = lua_tonumber(L, i+1);
 	}
 
 	for(int i=0; i<3; i++)
-		if(c[i] < 1) c[i] = 1;
+		if(c[i] < 0) c[i] = 0;
 	
 	a->setSize(c[0], c[1], c[2]);
 	return 0;

@@ -27,15 +27,21 @@ for i=1,n do
 end
 
 
-octtree = FMMOctTree.new(max_degree, px,py,pz, sx,sy,sz)
-octtree:split(1)
+function printNode(name, node)
+	local c = node -- octtree:child(i)
+	print(name .. ": " .. c:count() .. " points")
 
-for i=1,8 do
-	local c = octtree:child(i)
-	print("Child " .. i .. ": " .. c:count() .. " points")
 
 	if c:count() > 0 then
-		o = c:localOrigin()
+		local t = node:innerTensor()
+		for r=1,table.maxn(t) do
+			t[r] = string.format("%6.4f %6.4fi", t[r][1], t[r][2])
+		end
+		table.insert(t, 5, "|")
+		table.insert(t, 2, "|")
+		print(table.concat(t, "  "))
+	
+		local o = c:localOrigin()
 		print("local origin: ", table.concat(o, ", "))
 
 		for j=1,c:count() do
@@ -47,10 +53,29 @@ for i=1,8 do
 			print("point " .. k,"local",x-o[1], y-o[2], z-o[3])
 		end
 	end
-	
-	print()
 	print()
 end
+
+
+octtree = FMMOctTree.new(max_degree, px,py,pz, sx,sy,sz)
+
+do_split = true
+
+if do_split then
+	octtree:split(1)
+	octtree:calcInnerTensor();
+	
+	printNode("root", octtree)
+	for i=1,8 do
+			printNode("child" .. i, octtree:child(i))
+	end
+else
+	octtree:calcInnerTensor();
+	printNode("root", octtree)
+end
+	
+	
+	
 
 
 --[[

@@ -32,7 +32,7 @@ public:
 	void makeUnit() {if(r != 0) {x/=r; y/=r; z/=r; r=1;} else {x=1; calcSpherical();}}
 };
 
-
+#if 0
 class tensor_transformation
 {
 public:
@@ -45,6 +45,7 @@ public:
     int degree;
     std::complex<double>* t;
 };
+#endif
 
 #endif
 
@@ -62,13 +63,13 @@ std::complex<double> Outter(const monopole& r, int n, int l);
 void InnerTensor(const monopole& r, const int order, std::complex<double>* tensor);
 void OutterTensor(const monopole& r, const int order, std::complex<double>* tensor);
 
-void gradOutterTensor(const monopole& R, const int order, std::complex<double>* dx, std::complex<double>* dy, std::complex<double>* dz);
+void gradOutterTensor(const monopole& R, const int max_degree, std::complex<double>* dx, std::complex<double>* dy, std::complex<double>* dz);
 
 
 // if no dest if given then memory will be allocated and returned otherwise the given memory will be used and returned
 std::complex<double>* i2i_trans_mat(const int max_order, const monopole& d, std::complex<double>* dest=0);
 std::complex<double>* o2o_trans_mat(const int max_order, const monopole& d);
 
-void tensor_mat_mul(const std::complex<double>* A, const std::complex<double>* x, std::complex<double>* b, int max_degree);
+void tensor_mat_mul_LowerTri(const std::complex<double>* A, const std::complex<double>* x, std::complex<double>* b, int max_degree);
 std::complex<double> tensor_contract(const std::complex<double>* t1, const std::complex<double>* t2, const int len_not_max_degree);
 #endif

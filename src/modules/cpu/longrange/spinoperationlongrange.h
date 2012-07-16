@@ -49,7 +49,7 @@ public:
 
 	double ABC[9]; //unit cell vectors (not shape of sites)
 	double g; //scale
-	int gmax; //longrange cut-off
+	int gmax[4]; //cuttoff r, x, y, z
 
 	virtual void init();
 	virtual void deinit();

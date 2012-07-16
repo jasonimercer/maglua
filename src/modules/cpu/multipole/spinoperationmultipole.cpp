@@ -284,12 +284,43 @@ MULTIPOLE_API const char* lib_name(lua_State* L);
 MULTIPOLE_API int lib_main(lua_State* L);
 }
 
+#include "fmm_octtree_luafuncs.h"
 
+static int l_getmetatable(lua_State* L)
+{
+    if(!lua_isstring(L, 1))
+        return luaL_error(L, "First argument must be a metatable name");
+    luaL_getmetatable(L, lua_tostring(L, 1));
+    return 1;
+}
 
 MULTIPOLE_API int lib_register(lua_State* L)
 {
 	luaT_register<Multipole>(L);
 	luaT_register<FMMOctTree>(L);
+
+
+    lua_pushcfunction(L, l_getmetatable);
+    lua_setglobal(L, "maglua_getmetatable");
+    if(luaL_dostring(L, __fmm_octtree_luafuncs))
+    {
+        fprintf(stderr, "%s\n", lua_tostring(L, -1));
+        return luaL_error(L, lua_tostring(L, -1));
+    }
+
+    lua_pushnil(L);
+    lua_setglobal(L, "maglua_getmetatable");
+
+
+//	double x = -0.5;
+//	for(int n=0; n<4; n++)
+//	{
+//		for(int l=-n; l<=n; l++)
+//		{
+//			printf("Pln(%i,%i,%g) = %g\n", n,l,x,Plm(n,l,x));
+//		}
+//	}
+
     return 0;
 }
 
