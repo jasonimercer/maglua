@@ -11,5 +11,11 @@ extern "C" {
 #endif
 
 
-void  libMagLuaArgs(int argc, char** argv, lua_State* L, int sub_process, int force_quiet);
-void  libMagLua(lua_State* L, int sub_process, int force_quiet);
+/*
+ * Returns 
+ * 0 for success
+ * 1 for error in script
+ * 2 for error in bootloader
+ */
+int  libMagLuaArgs(int argc, char** argv, lua_State* L, int sub_process, int force_quiet);
+int  libMagLua(lua_State* L, int sub_process, int force_quiet);

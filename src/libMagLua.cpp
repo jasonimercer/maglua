@@ -109,8 +109,9 @@ static void trim_err(const char* e, char* b)
 }
 	
 
-void libMagLua(lua_State* L, int sub_process, int force_quiet)
+int libMagLua(lua_State* L, int sub_process, int force_quiet)
 {
+	int ret = 0;
 	lua_setupPreamble(L, sub_process);
 	
 	pushtraceback(L);
@@ -118,7 +119,7 @@ void libMagLua(lua_State* L, int sub_process, int force_quiet)
 	if(luaL_loadstring(L, __bootstrap))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return;
+		return 2;
 	}
 	
 	if(lua_pcall(L, 0, 0, -2))
@@ -137,16 +138,17 @@ void libMagLua(lua_State* L, int sub_process, int force_quiet)
 		{
 			fprintf(stderr, "%s\n", lua_tostring(L, -1));
 		}
-
+		ret = 1;
 	}
+	return ret;
 }
 
-void libMagLuaArgs(int argc, char** argv, lua_State* L, int sub_process, int force_quiet)
+int libMagLuaArgs(int argc, char** argv, lua_State* L, int sub_process, int force_quiet)
 {
 	for(int i=0; i<argc; i++)
 		args.push_back(argv[i]);
 	if(force_quiet)
 		args.push_back("-q");
 	
-	libMagLua(L, sub_process, force_quiet);
+	return libMagLua(L, sub_process, force_quiet);
 }

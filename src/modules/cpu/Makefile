@@ -10,7 +10,7 @@
 #
 
 DIRS=array anisotropy appliedfield core dipole disordereddipole \
-     exchange llg magnetostatics thermal longrange
+     exchange llg magnetostatics thermal longrange multipole
 
 all:
 	@for d in $(DIRS); do (make -C $$d); done

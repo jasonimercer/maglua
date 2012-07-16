@@ -31,11 +31,11 @@ int main(int argc, char** argv)
 #endif
 
 	lua_State *L = lua_open();
-	libMagLuaArgs(argc, argv, L, sub_process, force_quiet);
+	int ret = libMagLuaArgs(argc, argv, L, sub_process, force_quiet);
 	lua_close(L);
 	
 #ifdef _MPI
 	MPI_Finalize();
 #endif
-	return 0;
+	return ret;
 }
