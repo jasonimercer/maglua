@@ -151,7 +151,9 @@ local function buildRelationships(octtree)
 			end
 			
 			if OK then
-				table.insert(far, t)
+				if t:count() > 0 then
+					table.insert(far, t)
+				end
 			else
 				if t:child(1) then
 					for i=1,8 do

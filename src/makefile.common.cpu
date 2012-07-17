@@ -42,6 +42,7 @@ clena: clean
 clean:
 	rm -f *~
 	rm -f $(OBJECTS)
+	rm -f $(EXTRA_CLEAN)
 
 distclean: clean
 	rm -f $(LIBNAME).so

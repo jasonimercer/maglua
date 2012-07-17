@@ -23,3 +23,5 @@ fmm_octtree_luafuncs.h: fmm_octtree_luafuncs.lua $(BASEDIR)/hardcode.lua
 
 fmm_octtree_luafuncs.cpp:
 	touch fmm_octtree_luafuncs.cpp
+
+EXTRA_CLEAN=fmm_octtree_luafuncs.cpp fmm_octtree_luafuncs.h
