@@ -29,42 +29,42 @@ using namespace std;
 
 
 
-#define ZERO_CHECK double r = sqrt(rx*rx+ry*ry+rz*rz); if(r < 1E-10)	return 0; double ir = 1.0 / r;
+#define ZERO_CHECK double r = sqrt(rx*rx+ry*ry+rz*rz); if(r < 1E-40)	return 0; const double ir = 1.0 / r; double ir3 = ir*ir*ir; double ir5=ir3*ir*ir;
 
-double gamma_xx_dip(double rx, double ry, double rz)
+double gamma_xx_dip(const double rx, const double ry, const double rz)
 {
 	ZERO_CHECK
-	return - pow(ir,3) + 3.0 * rx * rx * pow(ir,5);
+	return  -1.0 * (ir3 - 3.0 * rx * rx * ir5);
 }
 
-double gamma_xy_dip(double rx, double ry, double rz)
+double gamma_xy_dip(const double rx, const double ry, const double rz)
 {
 	ZERO_CHECK
-	return           + 3.0 * rx * ry * pow(ir,5);
+	return  -1.0 * (         - 3.0 * rx * ry * ir5);
 }
 
-double gamma_xz_dip(double rx, double ry, double rz)
+double gamma_xz_dip(const double rx, const double ry, const double rz)
 {
 	ZERO_CHECK
-	return           + 3.0 * rx * rz * pow(ir,5);
+	return  -1.0 * (         - 3.0 * rx * rz * ir5);
 }
 
-double gamma_yy_dip(double rx, double ry, double rz)
+double gamma_yy_dip(const double rx, const double ry, const double rz)
 {
 	ZERO_CHECK
-	return - pow(ir,3) + 3.0 * ry * ry * pow(ir,5);
+	return  -1.0 * (ir3 - 3.0 * ry * ry * ir5);
 }
 
-double gamma_yz_dip(double rx, double ry, double rz)
+double gamma_yz_dip(const double rx, const double ry, const double rz)
 {
 	ZERO_CHECK
-	return           + 3.0 * ry * rz * pow(ir,5);
+	return  -1.0 * (         - 3.0 * ry * rz * ir5);
 }
 
-double gamma_zz_dip(double rx, double ry, double rz)
+double gamma_zz_dip(const double rx, const double ry, const double rz)
 {
 	ZERO_CHECK
-	return - pow(ir,3) + 3.0 * rz * rz * pow(ir,5);
+	return  -1.0 * (ir3 - 3.0 * rz * rz * ir5);
 }
 
 
@@ -72,48 +72,62 @@ static void getWAB_range(const double* ABC,
 	const int nA, const int nB, const int nC,  //width, depth, layers 
 	const int ix, const int iy, const int iz,
 	const int ax, const int ay, const int bx, const int by,	      
-	              const int* gmax, 
+	              const int* truemax, 
 	double& gXX, double& gXY, double& gXZ,
 	double& gYY, double& gYZ, double& gZZ)
 {
-	if(abs(iz) <= gmax[3])
+	const int zz = iz;
+	if( (abs(zz) <= truemax[4]) && (abs(zz) <= truemax[0]))
     {
 	for(int x=ax; x<=bx; x++)
 	{
 	    const int xx = x*nA+ix;
-	    
-	    if(abs(xx) <= gmax[1])
+	    if((abs(xx) <= truemax[2]) && (abs(xx) <= truemax[0]))
 	    {
 		for(int y=ay; y<=by; y++)
 		{
 		    const int yy = y*nB+iy;
-		    if(abs(yy) <= gmax[2])
-		    {
-			const double rx = ((double)xx)*ABC[0] + ((double)yy)*ABC[3] + ((double)iz)*ABC[6];
-			const double ry = ((double)xx)*ABC[1] + ((double)yy)*ABC[4] + ((double)iz)*ABC[7];
-			const double rz = ((double)xx)*ABC[2] + ((double)yy)*ABC[5] + ((double)iz)*ABC[8];
-			
-			const double r2 = rx*rx + ry*ry + rz*rz;
-			if(r2 != 0)
+		    if(abs(yy) <= truemax[3]  && abs(yy) <= truemax[0])
 			{
-			    const double ir  = 1.0/sqrt(r2);
-			    const double ir3 = ir*ir*ir;
-			    const double ir5 = ir3*ir*ir;
-			    
-			    gXX += ir3 - 3.0 * rx * rx * ir5;
-			    gXY +=     - 3.0 * rx * ry * ir5;
-			    gXZ +=     - 3.0 * rx * rz * ir5;
-			    
-			    gYY += ir3 - 3.0 * ry * ry * ir5;
-			    gYZ +=     - 3.0 * ry * rz * ir5;
-							
-			    gZZ += ir3 - 3.0 * rz * rz * ir5;
+				//casting to double here because of integer overflow
+				if(((double)xx*xx + (double)yy*yy + (double)zz*zz) <= ((double)truemax[0]*(double)truemax[0]))
+				{
+					const double rx = ((double)xx)*ABC[0] + ((double)yy)*ABC[3] + ((double)zz)*ABC[6];
+					const double ry = ((double)xx)*ABC[1] + ((double)yy)*ABC[4] + ((double)zz)*ABC[7];
+					const double rz = ((double)xx)*ABC[2] + ((double)yy)*ABC[5] + ((double)zz)*ABC[8];
+					
+					
+// 	if(abs(iz) <= gmax[3])
+//     {
+// 	for(int x=ax; x<=bx; x++)
+// 	{
+// 	    const int xx = x*nA+ix;
+// 	    
+// 	    if(abs(xx) <= gmax[1])
+// 	    {
+// 		for(int y=ay; y<=by; y++)
+// 		{
+// 		    const int yy = y*nB+iy;
+// 		    if(abs(yy) <= gmax[2])
+// 		    {
+// 			const double rx = ((double)xx)*ABC[0] + ((double)yy)*ABC[3] + ((double)iz)*ABC[6];
+// 			const double ry = ((double)xx)*ABC[1] + ((double)yy)*ABC[4] + ((double)iz)*ABC[7];
+// 			const double rz = ((double)xx)*ABC[2] + ((double)yy)*ABC[5] + ((double)iz)*ABC[8];
+// 			
+					gXX += gamma_xx_dip(rx,ry,rz);
+					gXY += gamma_xy_dip(rx,ry,rz);;
+					gXZ += gamma_xz_dip(rx,ry,rz);;
+
+					gYY += gamma_yy_dip(rx,ry,rz);;
+					gYZ += gamma_yz_dip(rx,ry,rz);;
+					
+					gZZ += gamma_zz_dip(rx,ry,rz);;
+				}
 			}
-		    }
+			}
 		}
-	    }
+		}
 	}
-    }
 }
 
 
@@ -215,14 +229,14 @@ static void getWAB(
 	    }
 	}
 
-	*XX = -gXX;
-	*XY = -gXY;
-	*XZ = -gXZ;
+	*XX = gXX;
+	*XY = gXY;
+	*XZ = gXZ;
 
-	*YY = -gYY;
-	*YZ = -gYZ;
+	*YY = gYY;
+	*YZ = gYZ;
 
-	*ZZ = -gZZ;
+	*ZZ = gZZ;
 }//end function WAB
 
 
@@ -476,6 +490,19 @@ static bool dipoleParamsMatch(
 	
 	int file_gmax[4] = {0,0,0,0};
 	lua_getglobal(L, "gmax");
+	if(lua_isnumber(L, -1)) //deal with old files
+	{
+		int t = lua_tointeger(L, -1);
+		lua_pop(L, 1);
+		lua_newtable(L);
+		for(int i=0; i<4; i++)
+		{
+			lua_pushinteger(L, i+1);
+			lua_pushinteger(L, t);
+			lua_settable(L, -3);
+		}
+	}
+	
 	for(int i=0; i<4; i++)
 	{
 		lua_pushinteger(L, i+1);
@@ -700,7 +727,7 @@ void dipoleLoad(
 	
 	if(luaL_dostring(L, __extrapolate))
 	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		fprintf(stderr, "(%s:%i) %s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 		lua_close(L);
 		return;
 	}

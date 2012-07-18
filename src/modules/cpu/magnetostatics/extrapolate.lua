@@ -5,7 +5,10 @@ tol = 1e-8
 -- idea is to take log of {x,y}' and see if the resulting points fit
 -- a straight line, if so, extrapolate, else, return false
 function extrapolate(t, mult) --to infinity, mult for flipping y (can only have positive derivs)
-
+-- 	for k,v in pairs(t) do
+-- 		print(k,v[1], v[2])
+-- 	end
+	
 	while table.maxn(t) > 6 do
 		table.remove(t, 1)
 	end

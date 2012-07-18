@@ -34,18 +34,19 @@ using namespace std;
 #define M_PI 3.14159265358979
 #endif
 #define DipMagConversion (1.0 / (M_PI * 4.0))
-// #define DipMagConversion (1.0)
 
 #include "../dipole/dipolesupport.h" //to compare for crossover
 
 
 typedef struct mag_dip_crossover
 {
+	mag_dip_crossover() : r2(1e10), tol(0)  {}
+	mag_dip_crossover(const mag_dip_crossover& c) : r2(c.r2), tol(c.tol) {}
 	double r2;  //crossover at this distance (squared) (initially big)
 	double tol; //crossover at this tolerance (reset r)
 } mag_dip_crossover;
 
-bool equal_tol(double a, double b, double tolerance)
+bool equal_tol( /* const char* component, double r, */ double a, double b, double tolerance)
 {
 	if(a == 0 && b == 0)
 		return true;
@@ -56,6 +57,7 @@ bool equal_tol(double a, double b, double tolerance)
 	double t1 = fabs( (a-b)/a );
 	double t2 = fabs( (a-b)/b );
 // 	printf("%g %g %g\n", t1, t2, tolerance);
+// 	printf("%s %e %g %g  %i\n", component, r, a, b, t1 < tolerance && t2 < tolerance);
 // 	printf("%ss %g %g\n", qqq, t1,t2);
 // 	if(strncmp(qqq, "YY", 2) == 0)
 // 		printf("%g %g %e\n", a, b, qq);
@@ -64,14 +66,17 @@ bool equal_tol(double a, double b, double tolerance)
 
 typedef struct d3
 {
-	d3(const d3& d) : x(d.x), y(d.y), z(d.z) {}
+	d3(const d3& d) : x(d.x), y(d.y), z(d.z) {r2=x*x+y*y+z*z;}
 	d3(double X, double Y, double Z) : x(X), y(Y), z(Z) {}
-	double x, y, z;
+	double x, y, z, r2;
 } d3;
 
 
-static bool myfunction (const d3& i, const d3& j) { return (i.x*i.x + i.y*i.y + i.z*i.z) < (j.x*j.x + j.y*j.y + j.z*j.z);}
+static bool myfunction (const d3& i, const d3& j) { return i.r2 < j.r2;}
 
+
+typedef double(*magFunc)(const double x, const double y, const double z, const double* prism);
+typedef double(*dipFunc)(const double x, const double y, const double z);
 
 static void getGAB_range(
 	const double* ABC, 
@@ -86,122 +91,99 @@ static void getGAB_range(
 {
 	const double volume = prism[0] * prism[1] * prism[2];
 	
-	double magXX, magXY, magXZ;
-	double dipXX, dipXY, dipXZ;
+	mag_dip_crossover crossAB[6] = {crossover,crossover,crossover,crossover,crossover,crossover};
 	
-	double magYY, magYZ;
-	double dipYY, dipYZ;
+	double magAB[6] = {0,0,0,0,0,0};
+	double dipAB[6] = {0,0,0,0,0,0};
 	
-	double magZZ;
-	double dipZZ;
+	const char* AB[6] = {"XX", "XY", "XZ", "YY", "YZ", "ZZ"};
+	const magFunc gamma_ab_v[6]   = {gamma_xx_v, gamma_xy_v, gamma_xz_v, gamma_yy_v, gamma_yz_v, gamma_zz_v};
+	const dipFunc gamma_ab_dip[6] = {gamma_xx_dip, gamma_xy_dip, gamma_xz_dip, gamma_yy_dip, gamma_yz_dip, gamma_zz_dip};
+	
+	double g[6] = {0,0,0,0,0,0};
 
-
-	dipXX = 0;
-	dipXY = 0;
-	dipXZ = 0;
-	dipYY = 0;
-	dipYZ = 0;
-	dipZZ = 0;
-
-	// going to try to work from center out so that crossover is detected before noise in 
-	// magnetostatic swamps the data 
+	// going to try to work from center out so that crossover is detected early
 	vector<d3> pts;
 	
-	
 	const int zz = iz;
-	if(abs(zz) <= truemax[4] && abs(zz) <= truemax[0])
+	if( (abs(zz) <= truemax[4]) && (abs(zz) <= truemax[0]))
     {
 	for(int x=ax; x<=bx; x++)
 	{
 	    const int xx = x*nA+ix;
-	    if(abs(xx) <= truemax[2] && abs(zz) <= truemax[0])
+	    if((abs(xx) <= truemax[2]) && (abs(xx) <= truemax[0]))
 	    {
 		for(int y=ay; y<=by; y++)
 		{
 		    const int yy = y*nB+iy;
-		    if(abs(yy) <= truemax[3]  && abs(zz) <= truemax[0])
-			if(xx*xx + yy*yy + zz*zz <= truemax[0]*truemax[0])
-		    {
-				const double rx = ((double)xx)*ABC[0] + ((double)yy)*ABC[3] + ((double)zz)*ABC[6];
-				const double ry = ((double)xx)*ABC[1] + ((double)yy)*ABC[4] + ((double)zz)*ABC[7];
-				const double rz = ((double)xx)*ABC[2] + ((double)yy)*ABC[5] + ((double)zz)*ABC[8];
-			
-				pts.push_back(d3(rx,ry,rz));
-		    }
+		    if(abs(yy) <= truemax[3]  && abs(yy) <= truemax[0])
+			{
+				//casting to double here because of integer overflow
+				if(((double)xx*xx + (double)yy*yy + (double)zz*zz) <= ((double)truemax[0]*(double)truemax[0]))
+				{
+					const double rx = ((double)xx)*ABC[0] + ((double)yy)*ABC[3] + ((double)zz)*ABC[6];
+					const double ry = ((double)xx)*ABC[1] + ((double)yy)*ABC[4] + ((double)zz)*ABC[7];
+					const double rz = ((double)xx)*ABC[2] + ((double)yy)*ABC[5] + ((double)zz)*ABC[8];
+				
+					pts.push_back(d3(rx,ry,rz));
+				}
+			}
+
 		}
 	    }
 	}
     }
     
    	sort(pts.begin(), pts.end(), myfunction);
-
-    for(unsigned int i=0; i<pts.size(); i++)
-	{
-		const double rx = pts[i].x;
-		const double ry = pts[i].y;
-		const double rz = pts[i].z;
-		
-		const double r2 = rx*rx + ry*ry + rz*rz;
-
-		if(crossover.tol > 0)
-		{
-			dipXX = DipMagConversion * volume * gamma_xx_dip(rx, ry, rz);
-			dipXY = DipMagConversion * volume * gamma_xy_dip(rx, ry, rz);
-			dipXZ = DipMagConversion * volume * gamma_xz_dip(rx, ry, rz);
-
-			dipYY = DipMagConversion * volume * gamma_yy_dip(rx, ry, rz);
-			dipYZ = DipMagConversion * volume * gamma_yz_dip(rx, ry, rz);
-			dipZZ = DipMagConversion * volume * gamma_zz_dip(rx, ry, rz);
-		}
 	
-		if(r2 >= crossover.r2)
+	for(int k=0; k<6; k++) // iterate over AB
+	{
+		for(unsigned int i=0; i<pts.size(); i++)
 		{
-			magXX = dipXX;
-			magXY = dipXY;
-			magXZ = dipXZ;
+			const double& rx = pts[i].x;
+			const double& ry = pts[i].y;
+			const double& rz = pts[i].z;
+			
+			const double& r2 = pts[i].r2;
 
-			magYY = dipYY;
-			magYZ = dipYZ;
-
-			magZZ = dipZZ;
-		}
-		else
-		{
-			magXX = gamma_xx_v(rx, ry, rz, prism);
-			magYY = gamma_yy_v(rx, ry, rz, prism);
-			magZZ = gamma_zz_v(rx, ry, rz, prism);
-				
-			magXY = gamma_xy_v(rx, ry, rz, prism);
-			magXZ = gamma_xz_v(rx, ry, rz, prism);
-			magYZ = gamma_yz_v(rx, ry, rz, prism);
-
-			if(crossover.tol > 0)
+			if(crossAB[k].tol > 0)
 			{
-				bool same = equal_tol(magXX, dipXX, crossover.tol) &&
-					equal_tol(magXY, dipXY, crossover.tol) &&
-					equal_tol(magXZ, dipXZ, crossover.tol) &&
-					equal_tol(magYY, dipYY, crossover.tol) &&
-					equal_tol(magYZ, dipYZ, crossover.tol) &&
-					equal_tol(magZZ, dipZZ, crossover.tol);
+				dipAB[k] = DipMagConversion * volume * gamma_ab_dip[k](rx,ry,rz);
+			}
+		
+			if(r2 >= crossAB[k].r2)
+			{
+				magAB[k] = dipAB[k];
+			}
+			else
+			{
+				magAB[k] = gamma_ab_v[k](rx,ry,rz, prism);
 
-				if(same && r2 > 0)
+				if(crossAB[k].tol > 0)
 				{
-					if(r2 < crossover.r2)
+					bool same = equal_tol(/*AB[k], sqrt(r2),*/ magAB[k], dipAB[k], crossAB[k].tol);
+
+					if(same && r2 > 0)
 					{
-						crossover.r2 = r2;
+						if(r2 < crossAB[k].r2)
+						{
+// 							printf("crossover[%i] changed from %e to %e\n", k, crossAB[k].r2, r2);
+							crossAB[k].r2 = r2;
+						}
 					}
 				}
 			}
+			g[k] += magAB[k];	
 		}
-		gXX += magXX;
-		gXY += magXY;
-		gXZ += magXZ;
-
-		gYY += magYY;
-		gYZ += magYZ;
-		gZZ += magZZ;	
 	}
-
+	
+	gXX = g[0];
+	gXY = g[1];
+	gXZ = g[2];
+	gYY = g[3];
+	gYZ = g[4];
+	gZZ = g[5];
+	
 }
 
 
@@ -283,20 +265,27 @@ static void getGAB(
 	ay[8] = -(maxy-1);
 	bx[8] = -ax[8];
 	by[8] = -ay[8];
+	
+	for(int i=0; i<9; i++)
+	{
+		int t;
+		if(ax[i] > bx[i])
+		{
+			t = bx[i];
+			bx[i] = ax[i];
+			ax[i] = t;
+		}
+		if(ay[i] > by[i])
+		{
+			t = by[i];
+			by[i] = ay[i];
+			ay[i] = t;
+		}
+	}
 
 	if(smin == 0)
 	{
 	    const int i = 8;
-// static void getGAB_range(
-// 	const double* ABC, 
-// 	const double* prism,
-// 	const int nA, const int nB, const int nC,  //width, depth, layers 
-// 	const int ix, const int iy, const int iz,
-// 	const int ax, const int ay, const int bx, const int by,	      
-// 	              const int truemax, 
-// 	double& gXX, double& gXY, double& gXZ,
-// 	double& gYY, double& gYZ, double& gZZ,
-// 	mag_dip_crossover& crossover)
 
 		getGAB_range(ABC, prism, nA, nB, nC, ix, iy, iz,
 			 ax[i], ay[i], bx[i], by[i],
@@ -316,21 +305,6 @@ static void getGAB(
 			     gYY, gYZ, gZZ,
 				 crossover);
 	    }
-	}
-
-// #ifndef WIN32
-// #warning This is a hack to fix self terms. Eventually this will be in the numerical code.
-// #endif
-	if(ix == 0 && iy == 0 && iz == 0)
-	{
-		gXX *= 0.5;
-		gXY *= 0.5;
-		gXZ *= 0.5;
-
-		gYY *= 0.5;
-		gYZ *= 0.5;
-
-		gZZ *= 0.5;
 	}
 
 	*XX = gXX;
@@ -567,7 +541,7 @@ static bool magnetostaticsParamsMatch(
 	
 	if(luaL_dofile(L, filename))
 	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		fprintf(stderr, "(%s:%i) %s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 		lua_close(L);
 		return false;
 	}
@@ -590,6 +564,21 @@ static bool magnetostaticsParamsMatch(
 
 	int file_gmax[4] = {0,0,0,0};
 	lua_getglobal(L, "gmax");
+	if(lua_isnumber(L, -1)) //deal with old files
+	{
+		int t = lua_tointeger(L, -1);
+		lua_pop(L, 1);
+		lua_newtable(L);
+		for(int i=0; i<4; i++)
+		{
+			lua_pushinteger(L, i+1);
+			lua_pushinteger(L, t);
+			lua_settable(L, -3);
+		}
+	}
+	
+	
+	
 	for(int i=0; i<4; i++)
 	{
 		lua_pushinteger(L, i+1);
@@ -773,7 +762,7 @@ static bool extrapolate(lua_State* L,
 
 		if(lua_pcall(L, 1, 1, 0))
 		{
-			fprintf(stderr, "%s\n", lua_tostring(L, -1));
+			fprintf(stderr, "(%s:%i) %s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 			fail = true;
 			return false;
 		}
@@ -819,6 +808,14 @@ void magnetostaticsLoad(
 	
 	lua_State* L = lua_open();
 	luaL_openlibs(L);
+	if(luaL_dostring(L, __extrapolate))
+	{
+		fprintf(stderr, "(%s:%i) %s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+		lua_close(L);
+		return;
+	}
+	
+	
 	
 	mag_dip_crossover crossover;
 	crossover.r2  = 1E10;
@@ -879,7 +876,7 @@ void magnetostaticsLoad(
 					sXX=0; sXY=0; sXZ=0;
 					sYY=0; sYZ=0; sZZ=0;
 
-					const int lstep = 4;
+					const int lstep = 1;
 					bool fail = false;
 					int _lmin = 0; //inits of lattices
 					int _lmax = lstep;
@@ -896,7 +893,7 @@ void magnetostaticsLoad(
 							_lmin, _lmax, big,
 							 &tXX, &tXY, &tXZ, &tYY, &tYZ, &tZZ,
 							crossover);
-						
+
 						sXX+=tXX;sXY+=tXY;sXZ+=tXZ;
 						sYY+=tYY;sYZ+=tYZ;sZZ+=tZZ;
 						vXX.push_back(sXX);
@@ -909,13 +906,13 @@ void magnetostaticsLoad(
 						cuttoffs.push_back(_lmax);
 						_lmin += lstep;
 						_lmax += lstep;
-						if(q>=8) //let the system prime itself before trying to extrapolate
+						if(q>=20) //let the system prime itself before trying to extrapolate
 						{
 // 						    converge = true;
 							converge = extrapolate(L, cuttoffs, vXX, vXY, vXZ, vYY, vYZ, vZZ, fail);
 							if(converge)
 							{
-								printf("Extrapolating at %i\n", _lmax);
+								//printf("%i %i %i Extrapolating at %i    %g\n", i,j,k, _lmax, vXX[vXX.size()]);
 							}
 						}
 						q++;

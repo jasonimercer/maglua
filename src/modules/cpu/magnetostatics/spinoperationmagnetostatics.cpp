@@ -32,7 +32,7 @@
 Magnetostatic::Magnetostatic(int nx, int ny, int nz)
 	: LongRange(Magnetostatic::typeName(), DIPOLE_SLOT, nx, ny, nz, hash32(Magnetostatic::typeName()))
 {
-	crossover_tolerance = 0.0001;
+	crossover_tolerance = 0.00001;
 	
 	volumeDimensions[0] = 1;	
 	volumeDimensions[1] = 1;	

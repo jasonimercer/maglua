@@ -26,9 +26,9 @@ void dipoleLoad(
  #define DIPOLE_API 
 #endif
 
-DIPOLE_API double gamma_xx_dip(double rx, double ry, double rz);
-DIPOLE_API double gamma_xy_dip(double rx, double ry, double rz);
-DIPOLE_API double gamma_xz_dip(double rx, double ry, double rz);
-DIPOLE_API double gamma_yy_dip(double rx, double ry, double rz);
-DIPOLE_API double gamma_yz_dip(double rx, double ry, double rz);
-DIPOLE_API double gamma_zz_dip(double rx, double ry, double rz);
+DIPOLE_API double gamma_xx_dip(const double rx, const double ry, const double rz);
+DIPOLE_API double gamma_xy_dip(const double rx, const double ry, const double rz);
+DIPOLE_API double gamma_xz_dip(const double rx, const double ry, const double rz);
+DIPOLE_API double gamma_yy_dip(const double rx, const double ry, const double rz);
+DIPOLE_API double gamma_yz_dip(const double rx, const double ry, const double rz);
+DIPOLE_API double gamma_zz_dip(const double rx, const double ry, const double rz);
