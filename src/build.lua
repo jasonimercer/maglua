@@ -15,7 +15,7 @@ category = arg[1] or ""
 
 modules_common = {"luabaseobject","checkpoint","interpolate","random","timer"}
 modules_extras = {"server", "client", "luagraphics"}
-modules_cpu    = {"array", "core", "longrange", "anisotropy", "appliedfield", "dipole", "disordereddipole", "exchange", "llg", "magnetostatics", "thermal"}
+modules_cpu    = {"array", "core", "longrange", "anisotropy", "appliedfield", "dipole", "disordereddipole", "exchange", "llg", "magnetostatics", "thermal","wood"}
 modules_cuda   = {"core_cuda", "longrange_cuda", "anisotropy_cuda", "appliedfield_cuda", "dipole_cuda", "exchange_cuda", "llg_cuda", "magnetostatics_cuda", "thermal_cuda"}
 
 mod_path = {}
