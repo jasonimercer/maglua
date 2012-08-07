@@ -1,4 +1,4 @@
-# Copyright (C) 2011 Jason Mercer.  All rights reserved.
+# Copyright (C) 2012 Jason Mercer.  All rights reserved.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -9,19 +9,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=sqlite_luafuncs.o libLuaSqlite.o
-LIBNAME=SQLite3
-CATEGORY=extra
+OBJECTS=spinoperationlongrange3d.o
+LIBNAME=LongRange3D
+CATEGORY=cpu
 
-DEPEND=luabaseobject
-EXTRA_PKG=sqlite3
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core luabaseobject array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
-
-sqlite_luafuncs.h: sqlite_luafuncs.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua sqlite_luafuncs.lua
-
-sqlite_luafuncs.cpp:
-	touch sqlite_luafuncs.cpp
-
-EXTRA_CLEAN=sqlite_luafuncs.cpp sqlite_luafuncs.h

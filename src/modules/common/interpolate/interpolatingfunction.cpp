@@ -237,7 +237,10 @@ static int l_mt(lua_State* L)
 	return 1;
 }
 
-static int l_help(lua_State* L)
+
+#endif
+
+int InterpolatingFunction::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
@@ -259,14 +262,6 @@ static int l_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-	if(func == l_new)
-	{
-		lua_pushstring(L, "Create a new Interpolate object.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Interpolate object");
-		return 3;
-	}
-	
 	if(func == l_adddata)
 	{
 		lua_pushstring(L, "Add data to the 1D linear interpolator.");
@@ -283,9 +278,8 @@ static int l_help(lua_State* L)
 		return 3;
 	}
 	
-	return 0;
+	return LuaBaseObject::help(L);
 }
-#endif
 
 
 static luaL_Reg m[128] = {_NULLPAIR128};

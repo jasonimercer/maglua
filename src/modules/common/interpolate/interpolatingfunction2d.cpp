@@ -145,6 +145,8 @@ bool InterpolatingFunction2D::compile()
 	return true;
 }
 
+
+
 int InterpolatingFunction2D::getidx(double x, double y)
 {
 	int v2[2];
@@ -306,6 +308,15 @@ static int l_mt(lua_State* L)
 
 static int l_help(lua_State* L)
 {
+
+	
+	return 0;
+}
+#endif
+
+
+int InterpolatingFunction2D::help(lua_State* L)
+{
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Interpolate2D creates a 2D linear interpolating function. Data must form a complete grid.");
@@ -325,14 +336,6 @@ static int l_help(lua_State* L)
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
-	
-	if(func == l_new)
-	{
-		lua_pushstring(L, "Create a new Interpolate2D object.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Interpolate2D object");
-		return 3;
-	}
 	
 	if(func == l_adddata)
 	{
@@ -374,9 +377,9 @@ static int l_help(lua_State* L)
 		return 3;
 	}
 	
-	return 0;
+	return LuaBaseObject::help(L);
 }
-#endif
+
 
 static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* InterpolatingFunction2D::luaMethods()

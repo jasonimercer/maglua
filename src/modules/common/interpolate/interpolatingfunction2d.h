@@ -47,6 +47,7 @@ public:
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);
+	static int help(lua_State* L);
 	
 	
 	void addData(const double inx, const double iny, const double out);

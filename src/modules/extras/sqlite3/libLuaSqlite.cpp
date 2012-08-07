@@ -1,4 +1,3 @@
-#include <sqlite3.h>
 #include "libLuaSqlite.h"
 
 #include <unistd.h>
@@ -9,25 +8,29 @@
 #include <iostream>
 #include <semaphore.h>
 
+#define SLEEP_TIME (100000 + (rand() & 0x7FFFF))
+#define RETRIES 100
+
 using namespace std;
 
 static map<string,sem_t> semLookup;
 
-static void waitDB(string name)
+
+static void waitDB(const string& name)
 {
 	if(semLookup.find(name) == semLookup.end()) //doesn't exist
 	{
 		sem_t& sem = semLookup[name];
 		sem_init(&sem, 0, 1);
 		
-		cout << "New semaphore made for `" << name << "'" << endl;
+		//cout << "New semaphore made for `" << name << "'" << endl;
 	}
 	
 	sem_wait(&semLookup[name]);
 }
 
 
-static void postDB(string name)
+static void postDB(const string& name)
 {
 	if(semLookup.find(name) == semLookup.end()) //doesn't exist
 	{
@@ -37,61 +40,35 @@ static void postDB(string name)
 }
 
 
-typedef struct sqlite3_conn
-{
-	sqlite3* db;
-	string filename;
-	int refcount;
-} sqlite3_conn;
 
-typedef struct LI
+sqlite3_conn::sqlite3_conn()
+	: LuaBaseObject(hash32(lineage(0)))
 {
-	lua_State* L;
-	int i;
-} LI;
-
-#define SLEEP_TIME (100000 + (rand() & 0x7FFFF))
-#define RETRIES 100
-
-int lua_isSQLite(lua_State* L, int idx)
-{
-	lua_getmetatable(L, idx);
-	luaL_getmetatable(L, "SQLite3");
-	int eq = lua_equal(L, -2, -1);
-	lua_pop(L, 2);
-	return eq;
+	db = 0;
+	filename = "";
 }
 
-sqlite3_conn* lua_toSQLite(lua_State* L, int idx)
+sqlite3_conn::~sqlite3_conn()
 {
-	sqlite3_conn** pp = (sqlite3_conn**)luaL_checkudata(L, idx, "SQLite3");
-	luaL_argcheck(L, pp != NULL, idx, "`SQLite3' expected");
-	return *pp;
+	if(db)
+		sqlite3_close(db);
+	db = 0;
 }
 
-void lua_pushSQLite(lua_State* L, sqlite3_conn* s)
+void sqlite3_conn::push(lua_State* L)
 {
-	sqlite3_conn** pp = (sqlite3_conn**)lua_newuserdata(L, sizeof(sqlite3_conn**));
-	
-	*pp = s;
-	luaL_getmetatable(L, "SQLite3");
-	lua_setmetatable(L, -2);
-	s->refcount++;
+	luaT_push<sqlite3_conn>(L, this);
 }
 
-
-static int l_sql_new(lua_State* L)
+int sqlite3_conn::luaInit(lua_State* L)
 {
-	const char* filename = lua_tostring(L, 1);
-	if(!filename)
+	const char* cfilename = lua_tostring(L, 1);
+	if(!cfilename)
 		return luaL_error(L, "SQLite3.new requires a filename");
 	
 	char* errormsg = 0;
-// 	sqlite3* s = 0;
 	
-	sqlite3_conn* sql = new sqlite3_conn();
-	sql->refcount = 0;
-	sql->filename = filename;
+	filename = cfilename;
 	
 	int retries = RETRIES;
 	
@@ -99,13 +76,13 @@ static int l_sql_new(lua_State* L)
 	for(int i=0; i<retries; i++)
 	{
 		waitDB(filename);
-		rv = sqlite3_open(filename, &(sql->db));
+		rv = sqlite3_open(cfilename, &db);
 		postDB(filename);
 		
 		if(rv == SQLITE_BUSY)
 		{
 			int s = SLEEP_TIME;
-			printf("%s is busy, sleeping for %i\n", filename, s);
+			printf("%s is busy, sleeping for %i\n", cfilename, s);
 			usleep(s); //sleep for a bit and then try again
 		}
 		else
@@ -114,47 +91,30 @@ static int l_sql_new(lua_State* L)
 		}
 	}
 	
-	
 	//probably a leak here
 	if(rv != SQLITE_OK)
 	{
-		if(sql->db)
+		if(db)
 		{
-			int r = luaL_error(L, sqlite3_errmsg(sql->db));
-			delete sql;
-			return r;
+			return luaL_error(L, sqlite3_errmsg(db));
 		}
 		else
 		{
-			delete sql;
 			return luaL_error(L, "sqlite3 pointer is null");
 		}
 	}
 	
-	
-	lua_pushSQLite(L, sql);
-	return 1;
-}
-
-static int l_sql_tostring(lua_State* L)
-{
-	lua_pushstring(L, "SQLite3");
-	return 1;	
-}
-
-
-
-static int l_sql_gc(lua_State* L)
-{
-	sqlite3_conn* sql = lua_toSQLite(L, 1);
-	if(!sql) return 0;
-	if(!sql->db) return 0;
-	
-	sqlite3_close(sql->db);
-	delete sql;
-
 	return 0;
 }
+
+
+typedef struct LI
+{
+	lua_State* L;
+	int i;
+} LI;
+
+
 
 static int exec_callback(void* arg, int numcols, char** colvalues, char** colnames)
 {
@@ -178,8 +138,8 @@ static int exec_callback(void* arg, int numcols, char** colvalues, char** colnam
 
 static int l_sql_exec(lua_State* L)
 {
-	sqlite3_conn* sql = lua_toSQLite(L, 1);
-	if(!sql) return 0;
+	LUA_PREAMBLE(sqlite3_conn, sql, 1);	
+
 	if(!sql->db) return luaL_error(L, "Database is not opened");
 
 	const char* statement = lua_tostring(L, 2);
@@ -225,9 +185,9 @@ static int l_sql_exec(lua_State* L)
 	
 static int l_sql_close(lua_State* L)
 {
-	sqlite3_conn* sql = lua_toSQLite(L, 1);
-	if(!sql) return 0;
-	if(!sql->db) return luaL_error(L, "Database is not opened");
+	LUA_PREAMBLE(sqlite3_conn, sql, 1);	
+
+	if(!sql->db) return 0;//luaL_error(L, "Database is not opened");
 	
 	sqlite3_close(sql->db);
 	sql->db = 0;
@@ -236,49 +196,101 @@ static int l_sql_close(lua_State* L)
 
 static int l_sql_changes(lua_State* L)
 {
-	sqlite3_conn* sql = lua_toSQLite(L, 1);
-	if(!sql) return 0;
-	if(!sql->db) return luaL_error(L, "Database is not opened");
-	
-	lua_pushinteger(L, sqlite3_changes(sql->db));
+	LUA_PREAMBLE(sqlite3_conn, sql, 1);	
+
+	if(!sql->db) //return luaL_error(L, "Database is not opened");
+		lua_pushinteger(L, 0);
+	else
+		lua_pushinteger(L, sqlite3_changes(sql->db));
 	return 1;
 }
 
 
-int lib_deps(lua_State* L)
+static int l_escapestring(lua_State* L)
 {
-// 	lua_pushstring(L, "test1");
-// 	lua_pushstring(L, "test2");
-	return 0;
+	LUA_PREAMBLE(sqlite3_conn, sql, 1);	
+	
+	const char* s = lua_tostring(L, 2);
+
+	char* es = sqlite3_mprintf("%q",s);
+	
+	lua_pushstring(L, es);
+	
+	sqlite3_free(es);
+	
+	return 1;
 }
 
-int lib_registerSQLite3(lua_State* L)
+
+int sqlite3_conn::help(lua_State* L)
 {
-	static const struct luaL_reg methods [] = {
-		{"__gc",         l_sql_gc},
-		{"__tostring",   l_sql_tostring},
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "SQLite3 database interaction object");
+		lua_pushstring(L, "1 String: Filename of the database to open or create."); //input, empty
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+	
+	if(!lua_isfunction(L, 1))
+	{
+		return luaL_error(L, "help expect zero arguments or 1 function.");
+	}
+	
+	lua_CFunction func = lua_tocfunction(L, 1);
+	
+	if(func == l_sql_exec)
+	{
+		lua_pushstring(L, "Execute a properly formatted SQLite3 instruction");
+		lua_pushstring(L, "1 String: SQL instruction");
+		lua_pushstring(L, "1 Table: Result of the operation.");
+		return 3;
+	}
+
+	if(func == l_escapestring)
+	{
+		lua_pushstring(L, "Escape quotes in a string so that it may be used in an SQL statement");
+		lua_pushstring(L, "1 String: Unescaped string.");
+		lua_pushstring(L, "1 String: Escaped string.");
+		return 3;
+	}
+	
+	if(func == l_sql_close)
+	{
+		lua_pushstring(L, "Close the opened SQLite3 database");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_sql_changes)
+	{
+		lua_pushstring(L, "Determine how many records were changed by the most recent SQL operation");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Integer: Number of records changed.");
+		return 3;
+	}
+		
+	return LuaBaseObject::help(L);
+}
+
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* sqlite3_conn::luaMethods()
+{
+	if(m[127].name)
+		return m;
+
+	static const luaL_Reg _m[] =
+	{
 		{"exec",         l_sql_exec},
 		{"close",        l_sql_close},
 		{"changes",      l_sql_changes},
+		{"escapeString", l_escapestring},
 		{NULL, NULL}
 	};
-		
-	luaL_newmetatable(L, "SQLite3");
-	lua_pushstring(L, "__index");
-	lua_pushvalue(L, -2);
-	lua_settable(L, -3);
-	luaL_register(L, NULL, methods);
-	lua_pop(L,1); //metatable is registered
-		
-	static const struct luaL_reg functions [] = {
-		{"new",                 l_sql_new},
-		{"open",                l_sql_new},
-		{NULL, NULL}
-	};
-		
-	luaL_register(L, "SQLite3", functions);
-	lua_pop(L,1);
-	return 0;
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
 
 #include "info.h"
@@ -290,9 +302,32 @@ SQLITE3_API const char* lib_name(lua_State* L);
 SQLITE3_API int lib_main(lua_State* L);
 }
 
+
+
+static int l_getmetatable(lua_State* L)
+{
+    if(!lua_isstring(L, 1))
+        return luaL_error(L, "First argument must be a metatable name");
+    luaL_getmetatable(L, lua_tostring(L, 1));
+    return 1;
+}
+
+#include "sqlite_luafuncs.h"
 SQLITE3_API int lib_register(lua_State* L)
 {
-	lib_registerSQLite3(L);
+	luaT_register<sqlite3_conn>(L);
+
+    lua_pushcfunction(L, l_getmetatable);
+    lua_setglobal(L, "maglua_getmetatable");
+    if(luaL_dostring(L, __sqlite_luafuncs))
+    {
+        fprintf(stderr, "%s\n", lua_tostring(L, -1));
+        return luaL_error(L, lua_tostring(L, -1));
+    }
+
+    lua_pushnil(L);
+    lua_setglobal(L, "maglua_getmetatable");
+
 	return 0;
 }
 
@@ -303,7 +338,11 @@ SQLITE3_API int lib_version(lua_State* L)
 
 SQLITE3_API const char* lib_name(lua_State* L)
 {
+#if defined NDEBUG || defined __OPTIMIZE__
 	return "SQLite3";
+#else
+	return "SQLite3-Debug";
+#endif
 }
 
 SQLITE3_API int lib_main(lua_State* L)
