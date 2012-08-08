@@ -276,6 +276,25 @@ static int l_getscale(lua_State* L)
 	return 0;
 }
 
+static int l_nx(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	lua_pushinteger(L, so->nx);
+	return 1;
+}
+static int l_ny(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	lua_pushinteger(L, so->ny);
+	return 1;
+}
+static int l_nz(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	lua_pushinteger(L, so->nz);
+	return 1;
+}
+
 static int l_tostring(lua_State* L)
 {
 	LUA_PREAMBLE(SpinOperation,so,1);
@@ -293,9 +312,9 @@ int SpinOperation::help(lua_State* L)
 		return 3;
 	}
 	
-	if(!lua_iscfunction(L, 1))
+	if(!lua_isfunction(L, 1))
 	{
-		return luaL_error(L, "help expect zero arguments or 1 function.");
+		return luaL_error(L, "(%s:%i) Help expects zero arguments or 1 function.", __FILE__, __LINE__);
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
@@ -328,6 +347,28 @@ int SpinOperation::help(lua_State* L)
 		lua_pushstring(L, "1 Number: The scale");
 		return 3;
 	}
+	
+	if(func == l_nx)
+	{
+		lua_pushstring(L, "Get the size in the x direction that this operator was created with.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: size");
+		return 3;
+	}
+	if(func == l_ny)
+	{
+		lua_pushstring(L, "Get the size in the y direction that this operator was created with.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: size");
+		return 3;
+	}
+	if(func == l_nz)
+	{
+		lua_pushstring(L, "Get the size in the z direction that this operator was created with.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: size");
+		return 3;
+	}
 
 	return LuaBaseObject::help(L);
 }
@@ -345,6 +386,9 @@ const luaL_Reg* SpinOperation::luaMethods()
 		{"apply",        l_apply},
 		{"setScale",     l_setscale},
 		{"scale",        l_getscale},
+		{"nx",        l_nx},
+		{"ny",        l_ny},
+		{"nz",        l_nz},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

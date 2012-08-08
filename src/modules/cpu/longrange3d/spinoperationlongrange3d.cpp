@@ -700,19 +700,13 @@ int LongRange3D::help(lua_State* L)
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
-	
-	if(lua_istable(L, 1))
+
+	if(!lua_isfunction(L, 1))
 	{
-		return 0;
-	}
-	
-	if(!lua_iscfunction(L, 1))
-	{
-		return luaL_error(L, "help expects zero arguments or 1 function.");
+		return luaL_error(L, "help expect zero arguments or 1 function (%s).", lua_typename(L, lua_type(L, 1)));
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
-
 	
 	
 	if(func == l_setstrength)
@@ -823,7 +817,14 @@ const luaL_Reg* LongRange3D::luaMethods()
 
 
 
-
+#include "longrange3d_luafuncs.h"
+static int l_getmetatable(lua_State* L)
+{
+    if(!lua_isstring(L, 1))
+        return luaL_error(L, "First argument must be a metatable name");
+    luaL_getmetatable(L, lua_tostring(L, 1));
+    return 1;
+}
 
 extern "C"
 {
@@ -836,6 +837,18 @@ LONGRANGE_API int lib_main(lua_State* L);
 LONGRANGE_API int lib_register(lua_State* L)
 {
 	luaT_register<LongRange3D>(L);
+	
+	lua_pushcfunction(L, l_getmetatable);
+	lua_setglobal(L, "maglua_getmetatable");
+	if(luaL_dostring(L, __longrange3d_luafuncs))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		return luaL_error(L, lua_tostring(L, -1));
+	}
+
+	lua_pushnil(L);
+	lua_setglobal(L, "maglua_getmetatable");
+	
 	return 0;
 }
 

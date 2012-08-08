@@ -36,6 +36,7 @@ cp -r modules/cpu/disordereddipole     $version/modules/cpu
 cp -r modules/cpu/exchange             $version/modules/cpu
 cp -r modules/cpu/llg                  $version/modules/cpu
 cp -r modules/cpu/longrange            $version/modules/cpu
+cp -r modules/cpu/longrange3d          $version/modules/cpu
 cp -r modules/cpu/magnetostatics       $version/modules/cpu
 cp -r modules/cpu/thermal              $version/modules/cpu
 

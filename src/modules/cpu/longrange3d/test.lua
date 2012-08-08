@@ -37,6 +37,16 @@ for i=1,6 do
 	lr3d:setMatrix("ZZ", cart[i], J)
 end
 
+function f(name)
+	lr3d:saveTensors(name)
+end
+
+f("tensor_test.lua")
+
+lr3d:loadTensors("tensor_test.lua")
+f("tensor_test2.lua")
+
+
 function step1()
 	ss1:resetFields()
 	
