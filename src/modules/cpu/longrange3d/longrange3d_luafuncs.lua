@@ -99,7 +99,7 @@ local function saveTensors(lr, filename, notes)
 	
 	f:write([[-- This is a custom 3D tensor file created with MagLua-r]] .. version() .. [[.
 -- Use lr3d:loadTensors(filename), where lr3d is a LongRange3D object, to load these tensors.
--- The matrices below represent slices in the XY plane, the index on the AB tables represent Z offsets.
+-- The matrices below represent slices in the XY plane, the indices on the AB tables represent Z offsets.
 
 -- This data was created at:
 ]] .. trace() .. [[
