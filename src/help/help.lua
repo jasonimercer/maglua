@@ -6,13 +6,47 @@
 filename = arg[1] or "maglua.html"
 f = io.open(filename, "w")
 
-function lp(txt) -- Link Process, change *TEXT* into <a href="#TEXT">TEXT</a>
-	local a, b, c, d, e = string.find(txt, "^(.*)\*(.-)\*(.*)$")
-
-	if a then
-		return lp(c .. "<a href=\"#" .. d .. "\">" .. d .. "</a>" .. e)
+function lp(txt) -- Link Process, change *TEXT* into <a href="#TEXT">TEXT</a>. Also changing \n for <br>\n
+	local function _ws(txt) --tab, br
+		txt = string.gsub(txt, "\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
+		txt = string.gsub(txt, "\n", "<br>")
+		return txt
 	end
-	return txt
+		
+	local function _lp(txt)
+		local a, b, c, d, e = string.find(txt, "^(.*)\*(.-)\*(.*)$")
+
+		if a then
+			return _lp(c .. "<a href=\"#" .. d .. "\">" .. d .. "</a>" .. e)
+		end
+		return txt
+	end
+	
+	--don't want to process <pre>xyz</pre>
+	local function parts(txt, t)
+		t=t or {}
+		local a, b, c, d, e = string.find(txt, "^(.-)(<pre>.-</pre>)(.*)")
+		if a then
+			table.insert(t, {"txt", c})
+			table.insert(t, {"pre", d})
+			return parts(e, t)
+		end
+		table.insert(t, {"txt", txt})
+		return t
+	end
+	local p = parts(txt)
+	
+	for k,v in pairs(p) do
+		if v[1] == "txt" then
+			p[k][2] = _lp(_ws(p[k][2]))
+		end
+	end
+	
+	local s = {}
+	for k,v in pairs(p) do
+		s[k] = v[2]
+	end
+	return table.concat(s, " ")
 end
 
 f:write([[

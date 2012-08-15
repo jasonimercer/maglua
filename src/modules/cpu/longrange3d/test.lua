@@ -15,10 +15,10 @@ for z=1,n do
 			
 			ex:add({x,y,z}, {x+1,y,z}, J)
 			ex:add({x,y,z}, {x-1,y,z}, J)
-			ex:add({x,y,z}, {x,y+1,z}, J)
-			ex:add({x,y,z}, {x,y-1,z}, J)
-			ex:add({x,y,z}, {x,y,z+1}, J)
-			ex:add({x,y,z}, {x,y,z-1}, J)
+			ex:add({x,y,z}, {x,y+1,z}, J*2)
+			ex:add({x,y,z}, {x,y-1,z}, J*2)
+			ex:add({x,y,z}, {x,y,z+1}, J*3)
+			ex:add({x,y,z}, {x,y,z-1}, J*3)
 		end
 	end
 end
@@ -31,10 +31,20 @@ cart = {{1,0,0}, {-1,0,0},
 		{0,1,0}, {0,-1,0}, 
 		{0,0,1}, {0,0,-1}}
 
-for i=1,6 do
+for i=1,2 do
 	lr3d:setMatrix("XX", cart[i], J)
 	lr3d:setMatrix("YY", cart[i], J)
 	lr3d:setMatrix("ZZ", cart[i], J)
+end
+for i=3,4 do
+	lr3d:setMatrix("XX", cart[i], J*2)
+	lr3d:setMatrix("YY", cart[i], J*2)
+	lr3d:setMatrix("ZZ", cart[i], J*2)
+end
+for i=5,6 do
+	lr3d:setMatrix("XX", cart[i], J*3)
+	lr3d:setMatrix("YY", cart[i], J*3)
+	lr3d:setMatrix("ZZ", cart[i], J*3)
 end
 
 function f(name)
