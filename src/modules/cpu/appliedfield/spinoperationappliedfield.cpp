@@ -57,17 +57,17 @@ AppliedField::~AppliedField()
 
 bool AppliedField::apply(SpinSystem* ss)
 {
+	// the following is implemented in appliedfield_luafuncs.lua
+	// leaving this here for now in case people want to make direct 
+	// calls to the C implementation.
 	markSlotUsed(ss);
 	ss->ensureSlotExists(slot);
 
 	ss->hx[slot]->setAll(B[0]*global_scale);
 	ss->hy[slot]->setAll(B[1]*global_scale);
 	ss->hz[slot]->setAll(B[2]*global_scale);
-	
 	return true;
 }
-
-
 
 
 // generete canned functions for these simple get/set cases
@@ -79,47 +79,6 @@ LUAFUNC_GET_DOUBLE(AppliedField, B[0], l_gx)
 LUAFUNC_GET_DOUBLE(AppliedField, B[1], l_gy)
 LUAFUNC_GET_DOUBLE(AppliedField, B[2], l_gz)
 
-static int l_set(lua_State* L)
-{
-	LUA_PREAMBLE(AppliedField, ap, 1);
-	
-	double a[3];
-	int r = lua_getNdouble(L, 3, a, 2, 0);
-	if(r<0)
-		return luaL_error(L, "invalid field");
-	
-	ap->B[0] = a[0];
-	ap->B[1] = a[1];
-	ap->B[2] = a[2];
-	
-	return 0;
-}
-
-static int l_add(lua_State* L)
-{
-	LUA_PREAMBLE(AppliedField, ap, 1);
-	
-	double a[3];
-	int r = lua_getNdouble(L, 3, a, 2, 0);
-	if(r<0)
-		return luaL_error(L, "invalid field");
-	
-	ap->B[0] += a[0];
-	ap->B[1] += a[1];
-	ap->B[2] += a[2];
-	
-	return 0;
-}
-
-
-
-static int l_get(lua_State* L)
-{
-	LUA_PREAMBLE(AppliedField, ap, 1);
-	for(int i=0; i<3; i++)
-		lua_pushnumber(L, ap->B[i]);
-	return 3;
-}
 
 int AppliedField::help(lua_State* L)
 {
@@ -131,59 +90,21 @@ int AppliedField::help(lua_State* L)
 		return 3;
 	}
 	
-	if(!lua_iscfunction(L, 1))
-	{
-		return luaL_error(L, "help expect zero arguments or 1 function.");
-	}
-	
 	lua_CFunction func = lua_tocfunction(L, 1);
-		
-	if(func == l_set)
-	{
-		lua_pushstring(L, "Set the direction and strength of the Applied Field");
-		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines the strength and direction of the applied field");
-		lua_pushstring(L, "");
-		return 3;
+	
+#define GETHELP(f, C) \
+	if(func == f) \
+	{ \
+		lua_pushstring(L, "Get the " C " component of the applied field."); \
+		lua_pushstring(L, ""); \
+		lua_pushstring(L, "1 Number: " C " component of the applied field"); \
+		return 3; \
 	}
 	
-	if(func == l_add)
-	{
-		lua_pushstring(L, "Add the direction and strength of the Applied Field");
-		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines the strength and direction of the applied field addition");
-		lua_pushstring(L, "");
-		return 3;
-	}
+	GETHELP(l_gx, "X")
+	GETHELP(l_gy, "Y")
+	GETHELP(l_gz, "Z")
 	
-	
-	if(func == l_get)
-	{
-		lua_pushstring(L, "Get the direction and strength of the Applied Field");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "3 numbers: The x, y and z components of the field");
-		return 3;
-	}
-	
-	if(func == l_gx)
-	{
-		lua_pushstring(L, "Get the X component of the applied field.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Number: X component of the applied field");
-		return 3;
-	}
-	if(func == l_gy)
-	{
-		lua_pushstring(L, "Get the Y component of the applied field.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Number: Y component of the applied field");
-		return 3;
-	}
-	if(func == l_gz)
-	{
-		lua_pushstring(L, "Get the Z component of the applied field.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Number: Z component of the applied field");
-		return 3;
-	}
 	
 
 	if(func == l_sx)
@@ -219,9 +140,6 @@ const luaL_Reg* AppliedField::luaMethods()
 	merge_luaL_Reg(m, SpinOperation::luaMethods());
 	static const luaL_Reg _m[] =
 	{
-		{"set",          l_set},
-		{"get",          l_get},
-		{"add",          l_add},
 		{"x",            l_gx},
 		{"y",            l_gy},
 		{"z",            l_gz},
@@ -237,6 +155,7 @@ const luaL_Reg* AppliedField::luaMethods()
 
 
 
+
 #include "info.h"
 extern "C"
 {
@@ -246,11 +165,33 @@ APPLIEDFIELD_API const char* lib_name(lua_State* L);
 APPLIEDFIELD_API int lib_main(lua_State* L);
 }
 
+#include "appliedfield_luafuncs.h"
+static int l_getmetatable(lua_State* L)
+{
+    if(!lua_isstring(L, 1))
+        return luaL_error(L, "First argument must be a metatable name");
+    luaL_getmetatable(L, lua_tostring(L, 1));
+    return 1;
+}
+
 APPLIEDFIELD_API int lib_register(lua_State* L)
 {
 	luaT_register<AppliedField>(L);
+	
+	lua_pushcfunction(L, l_getmetatable);
+	lua_setglobal(L, "maglua_getmetatable");
+	if(luaL_dostring(L, __appliedfield_luafuncs))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		return luaL_error(L, lua_tostring(L, -1));
+	}
+
+	lua_pushnil(L);
+	lua_setglobal(L, "maglua_getmetatable");
+	
 	return 0;
 }
+
 
 APPLIEDFIELD_API int lib_version(lua_State* L)
 {

@@ -1537,7 +1537,7 @@ int SpinSystem::help(lua_State* L)
 	{
 		lua_pushstring(L, "Return an element of the Fourier Transform of the lattice.");
 		lua_pushstring(L, "1 *3Vector*: The lattice site");
-		lua_pushstring(L, "3 tables: The s(q) value represented as a triplet of tables. Each table represents the x, y or z component and the table values [1] and [2] are the real and imaginary parts");
+		lua_pushstring(L, "6 numbers: The s(q) value represented as a triplet of tables. Each table represents the x, y or z component and the table values [1] and [2] are the real and imaginary parts");
 		return 3;
 	}
 	

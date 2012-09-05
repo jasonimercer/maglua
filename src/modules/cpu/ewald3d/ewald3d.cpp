@@ -1,11 +1,10 @@
 // original code and calculations by Matthew Fitzpatrick 
 
 #include <math.h>
-#include <string.h> //for memcpy
 #include "spinsystem.h" //so we can init with an ss to set size
 #include "ewald3d.h"
-
-
+#include <iostream>
+using namespace std;
 
 // helper function prototypes
 static void cross(double* c, const double* a, const double* b);
@@ -22,38 +21,49 @@ static void sum3(double* a, const double* b, const double* c);
 #endif
 
 
-bool DipoleEwald3D::calcTensorElement(const int alpha, const int beta, const int* r3, double& element, double tau = 0.001)
+// minimum search value for eta
+#define MINA 1e-10
+
+bool DipoleEwald3D::calcTensorElement(const int alpha, const int beta, const int* r3, double& element, const int nSites, const double tau)
 {
 	if(!gotGoodEta)
 	{
-		if(!findEta(tau))
+		//		double r0[3] = {0,0,0};
+		if(!findEta(a1, tau))
 			return false;
 	}
-	
+
 	double r[3];
 	for(int i=0; i<3; i++)
 	{
 		r[i] = r3[0]*a1[i] + r3[1]*a2[i] + r3[2]*a3[i];
 	}
-	
+
+	return calcTensorElementRealR(alpha, beta, r, element, nSites, tau);
+}
+
+bool DipoleEwald3D::calcTensorElementRealR(const int alpha, const int beta, const double* r, double& element, const int nSites, const double tau)
+{
+	if(!gotGoodEta)
+	{
+		if(!findEta(a1, tau))
+			return false;
+	}
+
 	element = calcG_ab(alpha, beta, r, eta, nSites);
 	return true;
 }
 
-	
 void DipoleEwald3D::setUnitCell(const double* A1, const double* A2, const double* A3)
 {
-	memcpy(a1, A1, sizeof(double)*3);
-	memcpy(a2, A2, sizeof(double)*3);
-	memcpy(a3, A3, sizeof(double)*3);
+	for(int i=0; i<3; i++)
+	{
+		a1[i] = A1[i];
+		a2[i] = A2[i];
+		a3[i] = A3[i];
+	}
 	calcSupportVectors();
 }
-
-void DipoleEwald3D::setUnitCell(const vector<double>& A1, const vector<double>& A2, const vector<double>& A3)
-{
-	setUnitCell(&A1[0], &A2[0], &A3[0]);
-}
-
 
 void DipoleEwald3D::setLatticeSiteCount(const int nx, const int ny, const int nz)
 {
@@ -82,7 +92,7 @@ void DipoleEwald3D::calcSupportVectors()
 	cross(u1Xu2, u1, u2);
 
 	//Calculating volume of 3D cell formed by {u1,u2,u3}
-	vu = dot3(u1, u2Xu3);
+	vu = fabs(dot3(u1, u2Xu3));
 	
 	//Calculating reciprocal lattice vectors (triple product)
 	for(int i=0; i<3; i++)
@@ -94,96 +104,180 @@ void DipoleEwald3D::calcSupportVectors()
 	gotGoodEta = false; //since we need to update based on new values
 }
 
-bool DipoleEwald3D::findEta(double tau) //tau is like a tolerance parameter
+
+static int _findEtaDone(const double ca, const double tau, const double b, const double x)
 {
-	gotGoodEta = false;
-	//Beginning of Golden Section Search to find best convergence parameter eta
-	//Variables for golden section search of best convergence parameter eta
-	int iterations = 0;
-	double phi = (sqrt(5.0) - 1.0) / 2.0; //Golden ratio
-	double x1 = 1.0e-10;
-	double x3 = 5.;
-	double x2 = x1 + (1 - phi) * (x3 - x1);
-	double x4;
-	double error;
-	
-	const double* r = a1;
+	return  (ca) < (tau * (fabs(b) + fabs(x))); //then we've narrowed in on a good value
+}
 
-	double leftBracket, rightBracket, mid;
-	while(iterations <= 100)
-	{
-		mid = (x3 + x1) / 2.0; //x1 and x3 are the left and right brackets respectively of the section we are currently searching
-// 		error = fabs(calcG_ab(0, 0, r, mid, nSites)-calcG_ab(0, 0, r, mid, (nSites+1))); //Find the error at mid-point of section
-		error = fabs(calcG_ab_nextTerm(0, 0, r, mid, nSites)); //Find the error at mid-point of section
-		leftBracket = x1;
-		rightBracket = x3;
-
-		if (fabs(x3 - x1) < tau * (fabs(x2) + fabs(x4))) //Check to see if search section is small enough 
-		{
-// 			cout << "a=" << x1 << "\t b=" << x3 << "\t" << "eta = " << mid << ", diff = " << error << "\n \n";
-			break;
-		}
-		
-		if ((x3-x2) > (x2-x1)) //Else we must shrink our search window based on Golden ratio
-		{
-			x4 = x2 + (1.0 - phi) * (x3 - x2);
-		}
-		else
-		{
-			x4 = x1 + phi * (x2 - x1);
-		}
-
-		//Calculate differences in dipole sums for different numbers of terms (nSites vs. (nSites+1))
-		delGXXx2 = fabs(calcG_ab_nextTerm(0, 0, r, x2, nSites));
-		delGXXx4 = fabs(calcG_ab_nextTerm(0, 0, r, x4, nSites));
-		delGXXleft = fabs(calcG_ab_nextTerm(0, 0, r, leftBracket, nSites));
-		delGXXright = fabs(calcG_ab_nextTerm(0, 0, r, rightBracket, nSites));
-// 		cout << leftBracket << "\t" << rightBracket << "\t" << x2 << "\t" << x4 << "\t" << delGXXleft << "\t" << delGXXright << "\t" << "\t" << delGXXx2 << "\t" << delGXXx4 << "\n";
-// 		cout << iterations << "\t" << mid << "\t" << error << endl;
-		if (delGXXx4 < delGXXx2)
-		{
-			if ((x3 - x2) > (x2 - x1))
-			{
-				x1 = x2;
-				x2 = x4;
-			}
-			else
-			{
-				x3 = x2;
-				x2 = x4;
-			}
-		}
-		else
-		{
-			if ((x3 - x2) > (x2 - x1))
-			{
-				x3 = x4;
-			}
-			else
-			{
-				x1 = x4;
-			}
-		}
-		iterations++;
-	}
-	if (iterations == 101) //Not a good enough eta was found
-	{
-// 		cout << "Did not find a good convergence parameter after " << iterations-1 << " iterations; \n";
-// 		cout << "Program Aborted. \n";
+// http://en.wikipedia.org/wiki/Golden_section_search#Recursive_algorithm
+// (1 + sqrt(5)) / 2
+#define RGR 0.3819660112501051518
+// recursive version of search with caching of function evaluations
+bool DipoleEwald3D::_findEta(const int n, const double* r3,
+							 const double a, const double fa,
+							 const double b, const double fb,
+							 const double c, const double fc,
+							 const int nSites, const double tau)
+{
+	if(n < 0)
 		return false;
+	//printf("%g    %g    %g\n", a, b, c);
+	if(a > MINA)
+	{
+		// checking to see if there is evidence for a minimum outside the bound
+		if(fa < fb && fb < fc) //then lets try to extend the range to the right
+		{
+			double x = c + RGR*(c-b);
+			const double fx = fabs(calcG_ab_nextTerm(0, 0, r3, x, nSites));
+			return _findEta(n-1, r3, b, fb, c, fc, x, fx, nSites, tau);
+		}
+	}
+	if(fa > fb && fb > fc) //then lets try to extend the range to the left
+	{
+		double x = a - RGR*(b-a);
+		const double fx = fabs(calcG_ab_nextTerm(0, 0, r3, x, nSites));
+		return _findEta(n-1, r3, x, fx, a, fa, b, fb, nSites, tau);
 	}
 
-	eta = mid; //Set last midpoint in search algorithm to our eta	
-	gotGoodEta = true;
-	return true;
+
+	// selecting largest range for new probe point
+	if((c-b) > (b-a)) //second range
+	{
+		const double x = b + (RGR) * (c-b);
+
+		if(_findEtaDone(c-a, tau, b, x)) // comparing the size of the range (c-a) to the magnitude of the solution
+		{
+			eta = (c+a)*0.5;
+			return true;
+		}
+		const double fx = fabs(calcG_ab_nextTerm(0, 0, r3, x, nSites));
+
+		if(fx < fb)
+		{
+			return _findEta(n-1, r3, b, fb, x, fx, c, fc, nSites, tau);
+		}
+		else
+		{
+			return _findEta(n-1, r3, a, fa, b, fb, x, fx, nSites, tau);
+		}
+	}
+	else // first range
+	{
+		const double x = b - RGR * (b-a);
+		if(_findEtaDone(c-a, tau, b, x)) // comparing the size of the range (c-a) to the magnitude of the solution
+		{
+			eta = (c+a)*0.5;
+			return true;
+		}
+		const double fx = fabs(calcG_ab_nextTerm(0, 0, r3, x, nSites));
+
+		if(fx < fb)
+		{
+			return _findEta(n-1, r3, a, fa, x, fx, b, fb, nSites, tau);
+		}
+		else
+		{
+			return _findEta(n-1, r3, x, fx, b, fb, c, fc, nSites, tau);
+		}
+	}
 }
 
 
- //Function that calculates parts of individual terms of GAB
-void DipoleEwald3D::calcG_ab_nmk(	const int alpha, const int beta, 
-									const double* r, const double eta, 
-									const int n, const int m, const int k,  //this is the part of the term requested
-									double& real_part, double& recip_part)
+bool DipoleEwald3D::findEta(const double* r3, const int nSites, double tau) //tau is like a tolerance parameter
+{
+	gotGoodEta = false;
+
+	// required: c > a
+	const double a = MINA;
+	const double c = 1000;
+	const double b = a + 0.3819660112501051518 * (c-a); //golden(ish) split
+	
+	const double fa =  fabs(calcG_ab_nextTerm(0, 0, r3, a, nSites));
+	const double fb =  fabs(calcG_ab_nextTerm(0, 0, r3, b, nSites));
+	const double fc =  fabs(calcG_ab_nextTerm(0, 0, r3, c, nSites));
+	
+	const int max_iterations = 100;
+	
+	//	FILE* f = fopen("d.dat", "w");
+	//	for(double x=a; x<=2; x+=0.01)
+	//	{
+	//		const double fx = fabs(calcG_ab_nextTerm(0, 0, r3, x, nSites));
+	//		fprintf(f, "%g %g\n", x, fx);
+	//	}
+	//	fclose(f);
+
+	if(_findEta(max_iterations, r3, a, fa, b, fb, c, fc, nSites, tau))
+	{
+		//printf("Eta = %g\n", eta);
+		gotGoodEta = true;
+		return true;
+	}
+	return false;
+}
+
+//Function that calculates parts of individual terms of GAB
+void DipoleEwald3D::calcG_ab_nmk(	const int alpha, const int beta,
+								 const double* r, const double eta,
+								 const int n, const int m, const int k,  //this is the part of the term requested
+								 double& real_part, double& recip_part)
+{
+	if(dot3(r,r) == 0)
+	{
+		return calcG_ab_nmk0(alpha, beta, eta, n, m, k, real_part, recip_part);
+	}
+	//printf("!Zero\n");
+	const double eta2  = eta*eta;
+	const double delta = (alpha==beta)?1:0;
+
+	double Q[3], rPlusR[3];
+
+	// transform {n,m,k} into reciprocal and real space vectors
+	Q[0] = n * b1[0] + m * b2[0] + k * b3[0];
+	Q[1] = n * b1[1] + m * b2[1] + k * b3[1];
+	Q[2] = n * b1[2] + m * b2[2] + k * b3[2];
+
+	rPlusR[0] = n * u1[0] + m * u2[0] + k * u3[0] + r[0];
+	rPlusR[1] = n * u1[1] + m * u2[1] + k * u3[1] + r[1];
+	rPlusR[2] = n * u1[2] + m * u2[2] + k * u3[2] + r[2];
+
+	//Fourier Space
+	const double normQ2 = dot3(Q,Q);
+	const double normQ1 = sqrt(normQ2);
+	const double rDotQ = dot3(r, Q);
+	//const double low_limit = 1e-5;
+	const double low_limit = 0;
+
+	if (normQ1 > low_limit) //factoring global 4.0 * M_PI / vu term in here. Not as efficient but reads easier on totalQ + totalR
+		recip_part = 4.0 * M_PI * Q[alpha] * Q[beta] * cos(rDotQ) * exp(-normQ2 / (4.0 * eta2)) / (normQ2 * vu);
+	else
+	{
+		recip_part = 0;
+	}
+
+	const double rRab = rPlusR[alpha] * rPlusR[beta];
+	const double nrR2 = dot3(rPlusR, rPlusR);
+	const double nrR1 = sqrt(nrR2);
+	const double nrR4 = nrR2 * nrR2;
+	const double nrR5 = nrR4 * nrR1;
+
+	//Real Space
+	if (nrR1 > low_limit)
+	{
+		real_part =
+				2.0 * eta * exp(-eta2 * nrR2) * (nrR2 * delta - 3.0 * rRab - 2.0 * eta2 * rRab * nrR2) / (M_SQRTPI * nrR4) +
+				(nrR2 * delta - 3.0 * rRab) * erfc (eta * nrR1) / (nrR5);
+	}
+	else
+		real_part = 0;
+
+}
+
+//Function that calculates parts of individual terms of GAB - special case: r=0
+void DipoleEwald3D::calcG_ab_nmk0(	const int alpha, const int beta,
+								  const double eta,
+								  const int n, const int m, const int k,  //this is the part of the term requested
+								  double& real_part, double& recip_part)
 {
 	const double eta2  = eta*eta;
 	const double delta = (alpha==beta)?1:0;
@@ -195,22 +289,26 @@ void DipoleEwald3D::calcG_ab_nmk(	const int alpha, const int beta,
 	Q[1] = n * b1[1] + m * b2[1] + k * b3[1];
 	Q[2] = n * b1[2] + m * b2[2] + k * b3[2];
 	
-	rPlusR[0] = n * u1[0] + m * u2[0] + k * u3[0] + r[0];
-	rPlusR[1] = n * u1[1] + m * u2[1] + k * u3[1] + r[1];
-	rPlusR[2] = n * u1[2] + m * u2[2] + k * u3[2] + r[2];
+	// r = 0
+	rPlusR[0] = n * u1[0] + m * u2[0] + k * u3[0];
+	rPlusR[1] = n * u1[1] + m * u2[1] + k * u3[1];
+	rPlusR[2] = n * u1[2] + m * u2[2] + k * u3[2];
 	
 	//Fourier Space
 	const double normQ2 = dot3(Q,Q);
 	const double normQ1 = sqrt(normQ2);
-	const double rDotQ = dot3(r, Q);
-	const double low_limit = 1e-8;
-	if (normQ1 >= low_limit) //factoring global 4.0 * M_PI / vu term in here. Not as efficient but reads easier on totalQ + totalR
-		recip_part = 4.0 * M_PI * Q[alpha] * Q[beta] * cos(rDotQ) * exp(-normQ2 / (4.0 * eta2)) / (normQ2 * vu);
+	const double rDotQ = 0;
+	const double low_limit = 0;
+
+	if (normQ1 > low_limit) //factoring global 4.0 * M_PI / vu term in here. Not as efficient but reads easier on totalQ + totalR
+	{
+		recip_part = -4.0 * M_PI * exp(-normQ2 / (4.0 * eta2)) * (normQ2 * delta - 3 * Q[alpha] * Q[beta])  / (3.0 * vu * normQ2);
+	}
 	else
 	{
 		recip_part = 0;
 	}
-	
+
 	const double rRab = rPlusR[alpha] * rPlusR[beta];
 	const double nrR2 = dot3(rPlusR, rPlusR);
 	const double nrR1 = sqrt(nrR2);
@@ -218,15 +316,13 @@ void DipoleEwald3D::calcG_ab_nmk(	const int alpha, const int beta,
 	const double nrR5 = nrR4 * nrR1;
 	
 	//Real Space
-	if (nrR1 >= low_limit)
+	if (nrR1 > low_limit)
 	{
-		real_part = 
-			2.0 * eta * exp(-eta2 * nrR2) * (nrR2 * delta - 3.0 * rRab - 2.0 * eta2 * rRab * nrR2) / (M_SQRTPI * nrR4) +
-			(nrR2 * delta - 3.0 * rRab) * erfc (eta * nrR1) / (nrR5);
+		real_part = (nrR2 * delta - 3.0 * rPlusR[alpha] * rPlusR[beta]) *
+				(2.0 * eta * exp(-nrR2 * eta2) * (3.0 + 2.0 * nrR2 * eta2)/(3.0 * nrR4 * M_SQRTPI) + erfc(nrR1 * eta) / nrR5);
 	}
 	else
 		real_part = 0;
-	
 }
 
 //Function that calculates individual terms of GAB
@@ -237,30 +333,13 @@ double DipoleEwald3D::calcG_ab(const int alpha, const int beta, const double* r,
 	
 	double partQ, partR;
 
-//	printf("r = {%g %g %g}\n", r[0], r[1], r[2]);
-
-/*
-	printf("a1  %g %g %g\n", a1[0], a1[1], a1[2]);
-	printf("a2  %g %g %g\n", a2[0], a2[1], a2[2]);
-	printf("a3  %g %g %g\n", a3[0], a3[1], a3[2]);
-
-	printf("b1  %g %g %g\n", b1[0], b1[1], b1[2]);
-	printf("b2  %g %g %g\n", b2[0], b2[1], b2[2]);
-	printf("b3  %g %g %g\n", b3[0], b3[1], b3[2]);
-
-	printf("u1  %g %g %g\n", u1[0], u1[1], u1[2]);
-	printf("u2  %g %g %g\n", u2[0], u2[1], u2[2]);
-	printf("u3  %g %g %g\n", u3[0], u3[1], u3[2]);
-*/
-
 	for(int n=-nSites; n<=nSites; n++)
 	{
 		for (int m=-nSites; m<=nSites; m++)
 		{
 			for (int k=-nSites; k<=nSites; k++)
 			{
-				calcG_ab_nmk(alpha, beta, r, eta,
-								n, m, k, partR, partQ);
+				calcG_ab_nmk(alpha, beta, r, eta, n, m, k, partR, partQ);
 				
 				totalR += partR;
 				totalQ += partQ;
@@ -271,28 +350,37 @@ double DipoleEwald3D::calcG_ab(const int alpha, const int beta, const double* r,
 	return totalQ + totalR;
 }
 
-// Function that computes the contribution of the next term in the series
+// Function that computes the contribution of the next term in the series (nSites + 1 term)
+// this function is numerically equal to 
+//   
+//    calcG_ab(alpha, beta, r, eta, nSites+1) - calcG_ab(alpha, beta, r, eta, nSites)
+//
+// for infinite precision. At fixed precision (64 bit) the above goes to zero very quickly for good etas.
+//
 double DipoleEwald3D::calcG_ab_nextTerm(const int alpha, const int beta, const double* r, const double eta, const int nSites) 
 {
+	//  // for testing:
+	// 	return calcG_ab(alpha, beta, r, eta, nSites+1) - calcG_ab(alpha, beta, r, eta, nSites);
+	
 	double totalQ = 0;
 	double totalR = 0;
 	
-	double partQ, partR;
+	double partQ1, partR1;
+	double partQ2, partR2;
 
 	// full k faces
 	for(int n=-(nSites+1); n<=(nSites+1); n++)
 	{
 		for (int m=-(nSites+1); m<=(nSites+1); m++)
 		{
-				calcG_ab_nmk(alpha, beta, r, eta,
-								n, m, -(nSites+1), partR, partQ);
-				totalR += partR;
-				totalQ += partQ;
+			calcG_ab_nmk(alpha, beta, r, eta, n, m,  (nSites+1), partR1, partQ1);
+			calcG_ab_nmk(alpha, beta, r, eta, n, m, -(nSites+1), partR2, partQ2);
 
-				calcG_ab_nmk(alpha, beta, r, eta,
-								n, m,   (nSites+1), partR, partQ);
-				totalR += partR;
-				totalQ += partQ;
+			totalR += partR1;
+			totalQ += partQ1;
+
+			totalR += partR2;
+			totalQ += partQ2;
 		}
 	}
 
@@ -301,15 +389,14 @@ double DipoleEwald3D::calcG_ab_nextTerm(const int alpha, const int beta, const d
 	{
 		for (int k=-(nSites); k<=(nSites); k++)
 		{
-				calcG_ab_nmk(alpha, beta, r, eta,
-								n, -(nSites+1), k, partR, partQ);
-				totalR += partR;
-				totalQ += partQ;
+			calcG_ab_nmk(alpha, beta, r, eta, n,  (nSites+1), k, partR1, partQ1);
+			calcG_ab_nmk(alpha, beta, r, eta, n, -(nSites+1), k, partR2, partQ2);
 
-				calcG_ab_nmk(alpha, beta, r, eta,
-								n,  (nSites+1), k, partR, partQ);
-				totalR += partR;
-				totalQ += partQ;
+			totalR += partR1;
+			totalQ += partQ1;
+
+			totalR += partR2;
+			totalQ += partQ2;
 		}
 	}
 
@@ -318,24 +405,23 @@ double DipoleEwald3D::calcG_ab_nextTerm(const int alpha, const int beta, const d
 	{
 		for (int k=-(nSites); k<=(nSites); k++)
 		{
-				calcG_ab_nmk(alpha, beta, r, eta,
-								-(nSites+1), m, k, partR, partQ);
-				totalR += partR;
-				totalQ += partQ;
+			calcG_ab_nmk(alpha, beta, r, eta,  (nSites+1), m, k, partR1, partQ1);
+			calcG_ab_nmk(alpha, beta, r, eta, -(nSites+1), m, k, partR2, partQ2);
 
-				calcG_ab_nmk(alpha, beta, r, eta,
-								 (nSites+1), m, k, partR, partQ);
-				totalR += partR;
-				totalQ += partQ;
+			totalR += partR1;
+			totalQ += partQ1;
+
+			totalR += partR2;
+			totalQ += partQ2;
 		}
 	}
 
-	return totalQ + totalR; 
+	return totalQ + totalR;
 }
 
 
 
-// support function
+// support functions
 static void cross(double* c, const double* a, const double* b)
 {
 	c[0] = a[1]*b[2] - a[2]*b[1];
@@ -439,8 +525,8 @@ static int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def)
 	return N;
 }
 
-	
-	
+
+
 // LuaBaseObject methods:
 int DipoleEwald3D::luaInit(lua_State* L)
 {
@@ -484,7 +570,7 @@ static int l_setunitcell(lua_State* L)
 	r2 = lua_getNdouble(L, 3, b, 2+r1, 0);
 	if(r2 < 0)	return luaL_error(L, "invalid vector");
 
-	r3 = lua_getNdouble(L, 3, b, 2+r1+r2, 0);
+	r3 = lua_getNdouble(L, 3, c, 2+r1+r2, 0);
 	if(r3 < 0)	return luaL_error(L, "invalid vector");
 
 	if(dot3(a,a) < 0 || dot3(b,b) < 0 || dot3(c,c) < 0)
@@ -514,63 +600,129 @@ static int l_getunitcell(lua_State* L)
 	return 3;
 }
 
-static int l_calctens(lua_State* L)
+static int _abTo00(const char* AB, int* ab2)
 {
-	LUA_PREAMBLE(DipoleEwald3D, e, 1);	
-
-	const char* errmsg1 = "first argument of calculateTensorElement must be AB pair: `XX', `XY', ... `ZZ'";
-	
-	if(!lua_isstring(L, 2))
-		return luaL_error(L, errmsg1);
-	
-	const char* AB = lua_tostring(L, 2);
-	
-	if(strlen(AB) < 2)
-		return luaL_error(L, errmsg1);
-
-	int ab[2];
-
 	for(int i=0; i<2; i++)
 	{
 		switch(AB[i])
 		{
-			case 'x':
-			case 'X':
-				ab[i] = 0;
-				break;
-			case 'y':
-			case 'Y':
-				ab[i] = 1;
-				break;
-			case 'z':
-			case 'Z':
-				ab[i] = 2;
-				break;
-			default:
-				return luaL_error(L, errmsg1);
-	
+		case 'x':
+		case 'X':
+			ab2[i] = 0;
+			break;
+		case 'y':
+		case 'Y':
+			ab2[i] = 1;
+			break;
+		case 'z':
+		case 'Z':
+			ab2[i] = 2;
+			break;
+		default:
+			return 1;
 		}
 	}
-	
+	return 0;
+}
+
+static int l_calctens(lua_State* L)
+{
+	LUA_PREAMBLE(DipoleEwald3D, e, 1);
+
+	const char* errmsg1 = "first argument of calculateTensorElement must be AB pair: `XX', `XY', ... `ZZ'";
+
+	if(!lua_isstring(L, 2))
+		return luaL_error(L, errmsg1);
+
+	const char* AB = lua_tostring(L, 2);
+	int ab[2];
+
+	if(!AB || strlen(AB) < 2 || _abTo00(AB, ab))
+		return luaL_error(L, errmsg1);
+
 	int r[3];
 	int r1 = lua_getNint(L, 3, r, 3, 0);
 
-	double tau = 0.001;
-	if(lua_isnumber(L, 3+r1))
-	{
-		tau = lua_tonumber(L, 3+r1);
-	}
-	
 	double elem;
-	bool ok = e->calcTensorElement(ab[0], ab[1], r, elem, tau); 
-	
+	bool ok = e->calcTensorElement(ab[0], ab[1], r, elem, e->getNSites(), e->getTau());
+
 	if(!ok)
 	{
-		return luaL_error(L, "Failed to calculate real/reciprocal partition point (eta) for series limits. Try a different tau value for a tolerance (current tau = %g)", tau);
+		return luaL_error(L, "Failed to calculate real/reciprocal partition point (eta) for series limits. Try a different tau value for a tolerance (current tau = %f)", e->getTau());
 	}
 
 	lua_pushnumber(L, elem);
 	return 1;
+}
+
+static int l_calctensrr(lua_State* L)
+{
+	LUA_PREAMBLE(DipoleEwald3D, e, 1);
+
+	const char* errmsg1 = "first argument of calculateTensorElement must be AB pair: `XX', `XY', ... `ZZ'";
+
+	if(!lua_isstring(L, 2))
+		return luaL_error(L, errmsg1);
+
+	const char* AB = lua_tostring(L, 2);
+	int ab[2];
+
+	if(!AB || strlen(AB) < 2 || _abTo00(AB, ab))
+		return luaL_error(L, errmsg1);
+
+	double r[3];
+	int r1 = lua_getNdouble(L, 3, r, 3, 0);
+
+	double elem;
+	bool ok = e->calcTensorElementRealR(ab[0], ab[1], r, elem, e->getNSites(), e->getTau());
+
+	if(!ok)
+	{
+		return luaL_error(L, "Failed to calculate real/reciprocal partition point (eta) for series limits. Try a different tau value for a tolerance (current tau = %f)", e->getTau());
+	}
+
+	lua_pushnumber(L, elem);
+	return 1;
+}
+
+static int l_getucvol(lua_State* L)
+{
+	LUA_PREAMBLE(DipoleEwald3D, e, 1);
+	lua_pushnumber(L, e->getVolume());
+	return 1;
+}
+
+static int l_geteta(lua_State* L)
+{
+	LUA_PREAMBLE(DipoleEwald3D, e, 1);
+	lua_pushnumber(L, e->getEta());
+	return 1;
+}
+static int l_gettau(lua_State* L)
+{
+	LUA_PREAMBLE(DipoleEwald3D, e, 1);
+	lua_pushnumber(L, e->getTau());
+	return 1;
+}
+static int l_settau(lua_State* L)
+{
+	LUA_PREAMBLE(DipoleEwald3D, e, 1);
+	e->setTau(lua_tonumber(L, 2));
+	return 0;
+}
+
+
+static int l_getnsites(lua_State* L)
+{
+	LUA_PREAMBLE(DipoleEwald3D, e, 1);
+	lua_pushnumber(L, e->getNSites());
+	return 1;
+}
+static int l_setnsites(lua_State* L)
+{
+	LUA_PREAMBLE(DipoleEwald3D, e, 1);
+	e->setNSites(lua_tointeger(L, 2));
+	return 0;
 }
 
 
@@ -608,7 +760,7 @@ static int l_setlatticesize(lua_State* L)
 	e->setLatticeSiteCount(n[0], n[1], n[2]);
 	return 0;
 }
-		
+
 
 int DipoleEwald3D::help(lua_State* L)
 {
@@ -644,11 +796,18 @@ int DipoleEwald3D::help(lua_State* L)
 	if(func == l_calctens)
 	{
 		lua_pushstring(L, "Calculate the tensor element.");
-		lua_pushstring(L, "1 String, 1 *3Vector*, optionally 1 number: String is AB pair (`XX', `XY', ..., `ZZ') the *3Vector* represents offsets from zero. It takes 3 integer values each ranging from 0 to n-1 where n is the number of unit cells in the lattice in a given direction. The last optional number controls the calculation of an optimal eta value which partitions the series into real and reciprocal sums.");
+		lua_pushstring(L, "1 String, 1 *3Vector*: String is AB pair (`XX', `XY', ..., `ZZ') the *3Vector* represents offsets from zero. It takes 3 integer values each ranging from 0 to n-1 where n is the number of unit cells in the lattice in a given direction.");
 		lua_pushstring(L, "1 Number: The tensor element at the requested position.");
 		return 3;
 	}
-	
+	if(func == l_calctensrr)
+	{
+		lua_pushstring(L, "Calculate the tensor element.");
+		lua_pushstring(L, "1 String, 1 *3Vector*: String is AB pair (`XX', `XY', ..., `ZZ') the *3Vector* represents offsets from zero. It takes 3 real values representing a positon somewhere in the lattice. This 3D point is not transformed by the basis vectors.");
+		lua_pushstring(L, "1 Number: The tensor element at the requested position.");
+		return 3;
+	}
+
 	if(func == l_getlatticesize)
 	{
 		lua_pushstring(L, "Get the number of unit cells in each crystallographic direction.");
@@ -663,8 +822,52 @@ int DipoleEwald3D::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
-		
-		
+
+	if(func == l_gettau)
+	{
+		lua_pushstring(L, "Get the tolerance (tau) used in the search for a good eta value");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: The new tolerance value (initially 0.001)");
+		return 3;
+	}
+	if(func == l_settau)
+	{
+		lua_pushstring(L, "Set the tolerance (tau) used in the search for a good eta value");
+		lua_pushstring(L, "1 Number: The new tolerance value (initially 0.001)");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_getnsites)
+	{
+		lua_pushstring(L, "Get the number of terms to use in the series along 1 direction in the 3D sum");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: The number of terms (initially 10)");
+		return 3;
+	}
+	if(func == l_setnsites)
+	{
+		lua_pushstring(L, "Set the number of terms to use in the series along 1 direction in the 3D sum");
+		lua_pushstring(L, "1 Number: The number of terms (initially 10)");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_geteta)
+	{
+		lua_pushstring(L, "Get the crossover eta value determined from search.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: The crossover value eta");
+		return 3;
+	}
+	if(func == l_getucvol)
+	{
+		lua_pushstring(L, "Get the volume of the unit cell.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: The volume.");
+		return 3;
+	}
+
 	return LuaBaseObject::help(L);
 }
 
@@ -686,13 +889,22 @@ const luaL_Reg* DipoleEwald3D::luaMethods()
 
 	static const luaL_Reg _m[] =
 	{
-		{"__tostring", l_tostring},
-		{"setUnitCell",         l_setunitcell},
-		{"unitCell", l_getunitcell},
+		{"__tostring",      l_tostring},
+		{"setUnitCell",     l_setunitcell},
+		{"unitCell",        l_getunitcell},
+		{"volume",          l_getucvol},
+		{"latticeSize",     l_getlatticesize},
+		{"setLatticeSize",  l_setlatticesize},
 		{"calculateTensorElement", l_calctens},
-		{"latticeSize", l_getlatticesize},
-		{"setLatticeSize", l_setlatticesize},
-		
+		{"calculateTensorElementRealR", l_calctensrr},
+
+		{"tau", l_gettau},
+		{"setTau", l_settau},
+
+		{"NSites", l_getnsites},
+		{"setNSites", l_setnsites},
+
+		{"eta", l_geteta},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

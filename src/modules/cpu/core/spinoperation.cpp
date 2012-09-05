@@ -273,7 +273,7 @@ static int l_getscale(lua_State* L)
 {
 	LUA_PREAMBLE(SpinOperation,so,1);
 	lua_pushnumber(L, so->global_scale);
-	return 0;
+	return 1;
 }
 
 static int l_nx(lua_State* L)

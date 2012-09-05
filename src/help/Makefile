@@ -1,4 +1,4 @@
-# Copyright (C) 2011 Jason Mercer.  All rights reserved.
+# Copyright (C) 2012 Jason Mercer.  All rights reserved.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -9,21 +9,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=mpi_luafuncs.o luampi.o
-LIBNAME=MPI
-CATEGORY=common
-DEPEND=luabaseobject
+HELPFILE=maglua.html
 
-BASEDIR=../../..
-include $(BASEDIR)/makefile.common.cpu
-include $(BASEDIR)/makefile.common.mpi
+all: help.lua
+	maglua help.lua $(HELPFILE)
 
-CXX=$(MPICXX)
-
-mpi_luafuncs.h: mpi_luafuncs.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua mpi_luafuncs.lua
-
-mpi_luafuncs.cpp:
-	touch mpi_luafuncs.cpp
-
-EXTRA_CLEAN=mpi_luafuncs.cpp mpi_luafuncs.h
+clean:
+	rm -f *~
+	rm -f $(HELPFILE)

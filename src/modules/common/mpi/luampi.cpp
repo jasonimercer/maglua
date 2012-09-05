@@ -16,6 +16,7 @@
 #include <string.h>
 #include "luampi.h"
 #include "luamigrate.h"
+// GCC < 4.5 has buggy template pointers
 
 extern "C" {
         #include <lua.h>
@@ -23,34 +24,6 @@ extern "C" {
         #include <lauxlib.h>
 }
 
-
-// GCC < 4.5 has buggy template pointers
-// The following is to work around it by 
-// making wrapper function
-#ifdef __GNUC__
-  #if __GNUC__ < 4
-    #define BUGGY_TEMPLATE_POINTER
-  #else
-    #if __GNUC_MINOR__ < 5
-      #define BUGGY_TEMPLATE_POINTER
-    #endif
-  #endif
-#endif
-
-#ifdef BUGGY_TEMPLATE_POINTER
-#warning Using templated function pointer workaround for buggy gcc (gcc<4.5)
-  //templated function address
-  #define TFA(n,b) (&n ## _ ## b)
-  //templated functiion addres wrapper
-  #define TFAW(n) \
-  static int n ## _0(lua_State* L) {return n  <0>(L);} \
-  static int n ## _1(lua_State* L) {return n  <1>(L);}
-#else
-  #define TFA(n,b) (&n<b>)
-  #define TFAW(n) 
-#endif
-
-#include "info.h"
 
 #define NUMLUAVAR_TAG 100
 #define    LUAVAR_TAG 200
@@ -75,14 +48,14 @@ inline int mpi_size(MPI_Comm comm = MPI_COMM_WORLD)
 
 typedef struct mpi_comm_lua
 {
-	mpi_comm_lua(MPI_Comm c) {comm = c;}
+	mpi_comm_lua(MPI_Comm c) {comm = c; refcount=0;}
 	MPI_Comm comm;
     int refcount;
 } mpi_comm_lua;
 
 mpi_comm_lua* checkMPI_Comm(lua_State* L, int idx)
 {
-    mpi_comm_lua** pp = (mpi_comm_lua**)luaL_checkudata(L, idx, "MERCER.mpi_comm");
+    mpi_comm_lua** pp = (mpi_comm_lua**)luaL_checkudata(L, idx, "mpi");
     luaL_argcheck(L, pp != NULL, 1, "`MPI_Comm' expected");
     return *pp;
 }
@@ -92,8 +65,19 @@ void lua_pushMPI_Comm(lua_State* L, mpi_comm_lua* p)
     p->refcount++;
     mpi_comm_lua** pp = (mpi_comm_lua**)lua_newuserdata(L, sizeof(mpi_comm_lua**));
     *pp = p;
-    luaL_getmetatable(L, "MERCER.mpi_comm");
+    luaL_getmetatable(L, "mpi");
     lua_setmetatable(L, -2);
+}
+void lua_pushMPI_Comm(lua_State* L, MPI_Comm c)
+{
+	if(c == MPI_COMM_NULL)
+	{
+		lua_pushnil(L);
+	}
+	else
+	{
+		lua_pushMPI_Comm(L, new mpi_comm_lua(c));
+	}
 }
 
 static int l_MPI_Comm_gc(lua_State* L)
@@ -142,11 +126,10 @@ static int l_mpi_comm_split(lua_State* L)
 	
 	MPI_Comm new_comm;
 	MPI_Comm_split(old, colour, 0, &new_comm);
-	lua_pushMPI_Comm(L, new mpi_comm_lua(new_comm));
+	lua_pushMPI_Comm(L, new_comm);
 
     return 1;
 }
-TFAW(l_mpi_comm_split)
 
 template<int base>
 static int l_cart_create(lua_State* L)
@@ -178,7 +161,9 @@ static int l_cart_create(lua_State* L)
 		ndims++;
 	}
 	
-	int reorder = lua_tointeger(L, base+3);
+	int reorder = 1;
+	if(!lua_isnone(L, base+3))
+		reorder = lua_toboolean(L, base+3);
 	
 	if(ndims == 0)
 		return luaL_error(L, "Zero dimensional grid not allowed");
@@ -186,11 +171,10 @@ static int l_cart_create(lua_State* L)
 	MPI_Comm new_comm;
 	MPI_Cart_create(old, ndims, dims, per, reorder, &new_comm);
 
-	lua_pushMPI_Comm(L, new mpi_comm_lua(new_comm));
+	lua_pushMPI_Comm(L, new_comm);
 
     return 1;
 }
-TFAW(l_cart_create)
 
 static int l_mpi_get_processor_name(lua_State* L)
 {
@@ -211,7 +195,6 @@ static int l_mpi_get_size(lua_State* L)
 	lua_pushinteger(L, mpi_size(comm));
 	return 1;
 }
-TFAW(l_mpi_get_size)
 
 
 template<int base>
@@ -221,7 +204,6 @@ static int l_mpi_get_rank(lua_State* L)
 	lua_pushinteger(L, mpi_rank(comm)+1);
 	return 1;
 }
-TFAW(l_mpi_get_rank)
 
 
 template<int base>
@@ -231,7 +213,42 @@ static int l_mpi_barrier(lua_State* L)
 	MPI_Barrier(comm);
 	return 0;
 }
-TFAW(l_mpi_barrier)
+
+
+template<int base>
+static int l_mpi_splitrange(lua_State* L)
+{
+	MPI_Comm comm = get_comm<base>(L);
+	const double low  = lua_tonumber(L, base+1);
+	const double high = lua_tonumber(L, base+2);
+	
+	double step = 1.0;
+	if(lua_isnumber(L, base+3))
+	{
+		step = lua_tonumber(L, base+3);
+	}
+	
+	lua_getglobal(L, "mpi");
+	if(!lua_istable(L, -1))
+	{
+		return luaL_error(L, "Failed to lookup mpi table");
+	}
+	
+	lua_getfield(L, -1, "_make_range_iterator"); //this should be a function
+	if(!lua_isfunction(L, -1))
+	{
+		return luaL_error(L, "`mpi._make_range_iterator' is not a function");
+	}
+	
+	lua_pushMPI_Comm(L, comm);
+	lua_pushnumber(L, low);
+	lua_pushnumber(L, high);
+	lua_pushnumber(L, step);
+	
+	lua_call(L, 4, 1);
+
+	return 1;
+}
 
 
 template<int base>
@@ -259,7 +276,6 @@ static int l_mpi_send(lua_State* L)
 	}
 	return 0;
 }
-TFAW(l_mpi_send)
 
 
 template<int base>
@@ -297,7 +313,6 @@ static int l_mpi_recv(lua_State* L)
 		free(buf);
 	return n;
 }
-TFAW(l_mpi_recv)
 
 
 template<int base>
@@ -372,7 +387,6 @@ int l_mpi_gather(lua_State* L)
 		return 1;
 	return 0;
 }
-TFAW(l_mpi_gather)
 
 
 template<int base>
@@ -415,26 +429,21 @@ int l_mpi_bcast(lua_State* L)
 	free(buf);
 	return 1;
 }
-TFAW(l_mpi_bcast)
+
 
 static int l_mpi_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "Exposes basic MPI functions");
+		lua_pushstring(L, "Exposes basic and new convenience MPI functions");
 		lua_pushstring(L, ""); //input, empty
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
-	
-	if(lua_istable(L, 1))
-	{
-		return 0;
-	}
-	
+
 	if(!lua_iscfunction(L, 1))
 	{
-		return luaL_error(L, "help expect zero arguments or 1 function.");
+		return 0;
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
@@ -446,35 +455,47 @@ static int l_mpi_help(lua_State* L)
 		lua_pushstring(L, "1 String: Name");
 		return 3;
 	}	
-	if(func == TFA(l_mpi_get_size,0) || func == TFA(l_mpi_get_size,1))
+	if(func == &(l_mpi_get_size<0>) || func == &(l_mpi_get_size<1>))
 	{
 		lua_pushstring(L, "Return the total number of proccesses in the global workgroup");
 		lua_pushstring(L, ""); 
 		lua_pushstring(L, "1 Number: Number of processes");
 		return 3;
 	}	
-	if(func == TFA(l_mpi_get_rank,0) || func == TFA(l_mpi_get_rank,1))
+	if(func == &l_mpi_get_rank<0> || func == &l_mpi_get_rank<1>)
 	{
-		lua_pushstring(L, "The rank of the calling process");
-		lua_pushstring(L, ""); 
+		lua_pushstring(L, "The rank of the calling process as a base 1 value. Note: The C and Fortran bindings for MPI use base 0 for ranks, this is automatically translated to base 1 in MagLua for esthetics and language consistency.");
+		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Number: Rank");
 		return 3;
 	}	
-	if(func == TFA(l_mpi_send,0) || func == TFA(l_mpi_send,1))
+	if(func == &l_mpi_send<0> || func == &l_mpi_send<1>)
 	{
-		lua_pushstring(L, "Send data to another process in the workgroup");
-		lua_pushstring(L, "1 Number, ...: Index of remote process followed by zero or more variables"); 
+		lua_pushstring(L, "Send data to another process in the workgroup. Example:\n<pre>"
+"if mpi.get_rank() == 1 then\n"
+"	-- sending an anonymous function and some data\n"
+"	local msg = \"hello\"\n"
+"	mpi.send(2, function(x) print(x,x) end, msg)\n"
+"end\n"
+"if mpi.get_rank() == 2 then\n"
+"	f, x = mpi.recv(1)\n"
+"	f(x)\n"
+"end\n</pre>"
+"Output at process 2:\n"
+"<pre>hello	hello</pre>"		
+		);
+		lua_pushstring(L, "1 Number, ...: Index of remote process followed by zero or more data"); 
 		lua_pushstring(L, "");
 		return 3;
 	}	
-	if(func == TFA(l_mpi_recv,0) || func == TFA(l_mpi_recv,1))
+	if(func == &l_mpi_recv<0> || func == &l_mpi_recv<1>)
 	{
 		lua_pushstring(L, "Receive data from another process in the workgroup");
 		lua_pushstring(L, "1 Number: Index of remote process sending the data"); 
 		lua_pushstring(L, "...: zero or more pieces of data");
 		return 3;
 	}	
-	if(func == TFA(l_mpi_barrier,0) || func == TFA(l_mpi_barrier,1))
+	if(func == &(l_mpi_barrier<0>) || func == &l_mpi_barrier<1>)
 	{
 		lua_pushstring(L, "Syncronization barrier");
 		lua_pushstring(L, ""); 
@@ -482,7 +503,7 @@ static int l_mpi_help(lua_State* L)
 		return 3;
 	}
 
-	if(func == TFA(l_mpi_gather,0) || func == TFA(l_mpi_gather,1))
+	if(func == &l_mpi_gather<0> || func == &l_mpi_gather<1>)
 	{
 		lua_pushstring(L, "Gather data to a given rank. The return at the rank will be a table with each data as the value for source keys.");
 		lua_pushstring(L, "1 Integer, 1 value: The value is what will be gathered, the Integer is the rank where the data will be gathered."); 
@@ -490,7 +511,7 @@ static int l_mpi_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == TFA(l_mpi_bcast,0) || func == TFA(l_mpi_bcast,1))
+	if(func == &l_mpi_bcast<0> || func == &l_mpi_bcast<1>)
 	{
 		lua_pushstring(L, "Broadcast data to all members of the workgrroup from the given rank.");
 		lua_pushstring(L, "1 Integer, 1 value: The value is what will be broadcasted, the integer is the rank where the data will be from."); 
@@ -498,19 +519,57 @@ static int l_mpi_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == TFA(l_cart_create,0) || func == TFA(l_cart_create,1))
+	if(func == &l_cart_create<0> || func == &l_cart_create<1>)
 	{
-		lua_pushstring(L, "Create a cartesian workgroup.");
-		lua_pushstring(L, "2 Tables, 1 Boolean: The first table contains sizes of each dimension, the second is a table of booleans indicating if each dimension should be periodic. The last boolean argument states if the ranks may be reordered"); 
-		lua_pushstring(L, "1 MPI_Comm: Optimized for cartesian communication");
+		lua_pushstring(L, "Create a cartesian workgroup, maximum 10 dimensions. 3D Example with periodic bounds in the 1st and 2nd dimension:\n"
+		"<pre>mpi_cart = mpi.cart_create({3,3,2}, {true,true,false})\n</pre>");
+		lua_pushstring(L, "2 Tables, 1 Optional Boolean: The first table contains sizes of each dimension, the second is a table of booleans indicating if each dimension should be periodic. The last boolean argument states if the ranks may be reordered (default true, some MPI implementations ignore this value)"); 
+		lua_pushstring(L, "1 MPI_Comm: Optimized for cartesian communication. In the case that the number of processes in the calling workgroup is larger than the number of processes in the new workgroup, nils will be returned to some members.");
 		return 3;
 	}
 	
-	if(func == TFA(l_mpi_comm_split,0) || func == TFA(l_mpi_comm_split,1))
+	if(func == &l_mpi_comm_split<0> || func == &l_mpi_comm_split<1>)
 	{
-		lua_pushstring(L, "Split a workgroup into sub groups by common colours.");
+		lua_pushstring(L, "Split a workgroup into sub groups by common colours (integers).\nExample with mpirun -n 8:\n<pre>"
+			
+		
+"rank = mpi.get_rank()\n"
+"size = mpi.get_size()\n"
+"\n"
+"new_group = {1,1,1,2,2,1,5,2}\n"
+"\n"
+"split_comm = mpi.comm_split(new_group[rank])\n"
+"split_rank = split_comm:get_rank()\n"
+"split_size = split_comm:get_size()\n"
+"\n"
+"for i=1,size do\n"
+"	if rank == i then\n"
+"		print(rank .. \"/\" .. size .. \" -> \" .. split_rank .. \"/\" .. split_size)\n"
+"	end\n"
+"	mpi.barrier()\n"
+"end\n"
+"</pre>Output\n<pre>"
+"1/8 -> 1/4\n"
+"2/8 -> 2/4\n"
+"3/8 -> 3/4\n"
+"4/8 -> 1/3\n"
+"5/8 -> 2/3\n"
+"6/8 -> 4/4\n"
+"7/8 -> 1/1\n"
+"8/8 -> 3/3\n</pre>"
+		);
 		lua_pushstring(L, "1 Integer: The colour for the MPI_Comm_split function. Processes with common colours will be put into common sub-workgroups."); 
 		lua_pushstring(L, "1 MPI_Comm: Sub-Workgroup");
+		return 3;
+	}
+	
+		
+	if(func == &l_mpi_splitrange<0> || func == &l_mpi_splitrange<1>)
+	{
+		lua_pushstring(L, "Make an iterator that iterates over different balanced sequential chunks of a range for each MPI process. Example use:\n"
+			"<pre>for i=mpi.range(1,10) do\n\tprint(mpi.get_rank(), i)\nend\n</pre>");
+		lua_pushstring(L, "2 Numbers, 1 Optional Number: The first two numbers represent the start and end points (inclusive) of the range. The optional third number gives a step size (default 1)."); 
+		lua_pushstring(L, "1 Function: The function will return sequential values in the local chunk for each function call. The function will return nil when the range has been exhausted.");
 		return 3;
 	}
 
@@ -523,20 +582,11 @@ static int l_mpi_metatable(lua_State* L)
 	return 1;
 }
 
-
-#if 0
-int l_mpirequest_gc(lua_State* L)
+static int l_mpi_comm_world(lua_State* L)
 {
-	mpi_req* io = checkRequest(L, 1);
-	if(!io) return 0;
-
-	io->refcount--;
-	if(io->refcount == 0)
-		delete io;
-
-	return 0;
+	lua_pushMPI_Comm(L, MPI_COMM_WORLD);
+	return 1;
 }
-#endif
 
 #define add(name, func) \
 	lua_pushstring(L, name); \
@@ -545,19 +595,21 @@ int l_mpirequest_gc(lua_State* L)
 
 void registerMPI(lua_State* L)
 {
-    luaL_newmetatable(L, "MERCER.mpi_comm");
+    luaL_newmetatable(L, "mpi");
     lua_pushstring(L, "__index");
     lua_pushvalue(L, -2);  /* pushes the metatable */
     lua_settable(L, -3);  /* metatable.__index = metatable */
-	add("get_size",           TFA(l_mpi_get_size,1)   );
-	add("get_rank",           TFA(l_mpi_get_rank,1)   );
-	add("send",               TFA(l_mpi_send,1)       );
-	add("recv",               TFA(l_mpi_recv,1)       );
-	add("barrier",            TFA(l_mpi_barrier,1)    );
-	add("gather",             TFA(l_mpi_gather,1)     );
-	add("bcast",              TFA(l_mpi_bcast,1)      );
-	add("cart_create",        TFA(l_cart_create,1)    );
-	add("comm_split",         TFA(l_mpi_comm_split,1) );
+	add("get_size",           l_mpi_get_size<1>   );
+	add("get_rank",           l_mpi_get_rank<1>   );
+	add("send",               l_mpi_send<1>       );
+	add("recv",               l_mpi_recv<1>       );
+	add("barrier",            l_mpi_barrier<1>    );
+	add("gather",             l_mpi_gather<1>     );
+	add("bcast",              l_mpi_bcast<1>      );
+	add("cart_create",        l_cart_create<1>    );
+	add("comm_split",         l_mpi_comm_split<1> );
+	add("range",              l_mpi_splitrange<1> );
+	
 	add("__gc",               l_MPI_Comm_gc       );
 	add("__tostring",         l_MPI_Comm_tostring );
 	lua_pop(L,1); //metatable is registered
@@ -565,23 +617,19 @@ void registerMPI(lua_State* L)
 
 	lua_newtable(L);
 	add("get_processor_name", l_mpi_get_processor_name);
-	add("get_size",           TFA(l_mpi_get_size,0)          );
-	add("get_rank",           TFA(l_mpi_get_rank,0)          );
-	add("send",               TFA(l_mpi_send,0)              );
-	add("recv",               TFA(l_mpi_recv,0)              );
-	add("barrier",            TFA(l_mpi_barrier,0)           );
-	add("gather",             TFA(l_mpi_gather,0)            );
-	add("bcast",              TFA(l_mpi_bcast,0)             );
-	add("cart_create",        TFA(l_cart_create,0)           );
-	add("comm_split",         TFA(l_mpi_comm_split,0)        );
-// 	add("new_request",        l_mpi_newrequest        );
-// 	add("isend",              l_mpi_isend             );
-// 	add("irecv",              l_mpi_irecv             );
+	add("get_size",           l_mpi_get_size<0>       );
+	add("get_rank",           l_mpi_get_rank<0>       );
+	add("send",               l_mpi_send<0>           );
+	add("recv",               l_mpi_recv<0>           );
+	add("barrier",            l_mpi_barrier<0>        );
+	add("gather",             l_mpi_gather<0>         );
+	add("bcast",              l_mpi_bcast<0>          );
+	add("cart_create",        l_cart_create<0>        );
+	add("comm_split",         l_mpi_comm_split<0>     );
+	add("range",              l_mpi_splitrange<0>     );
+	add("get_comm_world",     l_mpi_comm_world        );
 	add("help",               l_mpi_help              );
 	add("metatable",          l_mpi_metatable         );
-// 	add("next_rank",          l_mpi_next_rank         );
-// 	add("prev_rank",          l_mpi_prev_rank         );
-// 	add("all2all",            l_mpi_all2all           );
 
 	lua_setglobal(L, "mpi");
 }
@@ -616,14 +664,38 @@ MPI_API int lib_main(lua_State* L);
 }
 
 
+#include "mpi_luafuncs.h"
+static int l_getmetatable(lua_State* L)
+{
+    if(!lua_isstring(L, 1))
+        return luaL_error(L, "First argument must be a metatable name");
+    luaL_getmetatable(L, lua_tostring(L, 1));
+    return 1;
+}
+
+
 MPI_API int lib_register(lua_State* L)
 {
+	
 #ifdef _MPI
 	registerMPI(L);
+	
+	lua_pushcfunction(L, l_getmetatable);
+	lua_setglobal(L, "maglua_getmetatable");
+	if(luaL_dostring(L, __mpi_luafuncs))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		return luaL_error(L, lua_tostring(L, -1));
+	}
+
+	lua_pushnil(L);
+	lua_setglobal(L, "maglua_getmetatable");
+
 #endif
 	return 0;
 }
 
+#include "info.h"
 MPI_API int lib_version(lua_State* L)
 {
 	return __revi;

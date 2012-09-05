@@ -1,3 +1,4 @@
+#include "luat.h"
 #include <math.h>
 #include "array_ops.h"
 #include <stdio.h>
@@ -231,6 +232,54 @@ void arraySetImagPart(floatComplex* dest, const float * src, const int n)
 	arraySetImagPart_<floatComplex,float>(dest, src, n);
 }
 
+
+template<typename T>
+T arrayExtreme_(const T* v, int e, const int n, int& idx)
+{
+	int _idx = 0;
+	T res = v[0];
+	if(e == -1)
+	{
+		for(int i=1; i<n; i++)
+			if(luaT<T>::lt(v[i], res))
+			{
+				res = v[i];
+				_idx = i;
+			}
+	}
+	if(e ==  1)
+	{
+		for(int i=1; i<n; i++)
+			if(luaT<T>::lt(res, v[i]))
+			{
+				res = v[i];
+				_idx = i;
+			}
+	}
+	idx = _idx;
+	return res;
+}
+
+void reduceExtreme(const double* d_a, const int min_max, const int n, double& v, int& idx)
+{
+	v = arrayExtreme_<double>(d_a, min_max, n, idx);
+}
+void reduceExtreme(const float* d_a, const int min_max, const int n, float& v, int& idx)
+{
+	v = arrayExtreme_<float>(d_a, min_max, n, idx);
+}
+void reduceExtreme(const int* d_a, const int min_max, const int n, int& v, int& idx)
+{
+	v = arrayExtreme_<int>(d_a, min_max, n, idx);
+}
+void reduceExtreme(const doubleComplex* d_a, const int min_max, const int n, doubleComplex& v, int& idx)
+{
+	v = arrayExtreme_<doubleComplex>(d_a, min_max, n, idx);
+}
+void reduceExtreme(const floatComplex* d_a, const int min_max, const int n, floatComplex& v, int& idx)
+{
+	v = arrayExtreme_<floatComplex>(d_a, min_max, n, idx);
+}
 
 
 

@@ -18,8 +18,8 @@
 #ifndef COMPLEX_TYPES
 #define COMPLEX_TYPES
 using namespace std;
-typedef complex<double> doubleComplex; //cpu version
-typedef complex<float>   floatComplex;
+typedef std::complex<double> doubleComplex; //cpu version
+typedef std::complex<float>   floatComplex;
 #endif
 
 
@@ -41,6 +41,7 @@ public:
 	static	T zero() {return 0;}
 	static	T one() {return 1;}
 	static	T neg_one() {return -1;}
+	static bool lt(const T& a, const T& b) {return false;}
 };
 
 template<>
@@ -54,6 +55,7 @@ public:
 	static	double zero() {return 0;}
 	static	double one() {return 1;}
 	static	double neg_one() {return -1;}
+	static bool lt(const double& a, const double& b) {return a<b;}
 };
 
 template<>
@@ -67,6 +69,7 @@ public:
 	static	float zero() {return 0;}
 	static	float one() {return 1;}
 	static	float neg_one() {return -1;}
+	static bool lt(const float& a, const float& b) {return a<b;}
 };
 
 template<>
@@ -80,6 +83,7 @@ public:
 	static	int zero() {return 0;}
 	static	int one() {return 1;}
 	static	int neg_one() {return -1;}
+	static bool lt(const int& a, const int& b) {return a<b;}
 };
 
 template<>
@@ -93,6 +97,7 @@ public:
 	static	doubleComplex zero() {return doubleComplex(0,0);}
 	static	doubleComplex one() {return doubleComplex(1,0);}
 	static	doubleComplex neg_one() {return doubleComplex(-1,0);}
+	static bool lt(const doubleComplex& a, const doubleComplex& b) {if(a.real() < b.real()) return true; if(a.real() == b.real() && a.imag() < b.imag()) return true; return false;}
 };
 
 template<>
@@ -106,6 +111,7 @@ public:
 	static	floatComplex zero() {return floatComplex(0,0);}
 	static	floatComplex one() {return floatComplex(1,0);}
 	static	floatComplex neg_one() {return floatComplex(-1,0);}
+	static bool lt(const floatComplex& a, const floatComplex& b) {if(a.real() < b.real()) return true; if(a.real() == b.real() && a.imag() < b.imag()) return true; return false;}
 };
 
 #endif

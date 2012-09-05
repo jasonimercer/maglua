@@ -93,6 +93,30 @@ static int l_dot(lua_State* L)
 }
 
 template<typename T>
+static int l_min(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	int idx;
+	T t = a->min(idx);
+
+	luaT<T>::push(L, t);
+	lua_pushinteger(L, idx+1);
+	return luaT<T>::elements() + 1;
+}
+
+template<typename T>
+static int l_max(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	int idx;
+	T t = a->max(idx);
+
+	luaT<T>::push(L, t);
+	lua_pushinteger(L, idx+1);
+	return luaT<T>::elements() + 1;
+}
+
+template<typename T>
 static const luaL_Reg* get_base_methods()
 {
 	static luaL_Reg m[128] = {_NULLPAIR128};
@@ -110,6 +134,8 @@ static const luaL_Reg* get_base_methods()
 		{"get",     l_get<T>},
 		{"set",     l_set<T>},
 		{"addAt",   l_addat<T>},
+		{"min",     l_min<T>},
+		{"max",     l_max<T>},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -205,18 +231,30 @@ int Array<T>::help(lua_State* L)
 	{
 		lua_pushstring(L, "Set an element of the array");
 		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value: indices(XYZ) of the element to set, default values are 1. Last argument is the new value");
-		lua_pushstring(L, "0");
+		lua_pushstring(L, "");
 		return 3;
 	}
 	if(func == &(l_addat<T>))
 	{
 		lua_pushstring(L, "Add a value to an element of the array");
 		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value: indices(XYZ) of the element to modify, default values are 1. Last argument is the value to add");
-		lua_pushstring(L, "0");
+		lua_pushstring(L, "");
 		return 3;
 	}
-
-
+	if(func == &(l_min<T>))
+	{
+		lua_pushstring(L, "Find minimum value and corresponding index");
+		lua_pushstring(L, "1 value and 1 integer");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == &(l_max<T>))
+	{
+		lua_pushstring(L, "Find maximum value and corresponding index");
+		lua_pushstring(L, "1 value and 1 integer");
+		lua_pushstring(L, "");
+		return 3;
+	}
 	return LuaBaseObject::help(L);
 }
 

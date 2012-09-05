@@ -13,7 +13,9 @@
 
 # MPICXX=mpicxx -D_MPI
 # CXX=g++
-include makefile.common.config
+
+BASEDIR=.
+include makefile.common.mpi
 CFLAGS=-O2 -g
 PKG=lua5.1 fftw3 fftw3f
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`

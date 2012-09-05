@@ -90,6 +90,13 @@ ARRAY_API void reduceMultSumAll(const int* d_a, const int* d_b, const int n, int
 ARRAY_API void reduceMultSumAll(const doubleComplex* d_a, const doubleComplex* d_b, const int n, doubleComplex& v);
 ARRAY_API void reduceMultSumAll(const floatComplex* d_a, const floatComplex* d_b, const int n, floatComplex& v);
 
+
+ARRAY_API void reduceExtreme(const double* d_a, const int min_max, const int n, double& v, int& idx);
+ARRAY_API void reduceExtreme(const float* d_a, const int min_max, const int n, float& v, int& idx);
+ARRAY_API void reduceExtreme(const int* d_a, const int min_max, const int n, int& v, int& idx);
+ARRAY_API void reduceExtreme(const doubleComplex* d_a, const int min_max, const int n, doubleComplex& v, int& idx);
+ARRAY_API void reduceExtreme(const floatComplex* d_a, const int min_max, const int n, floatComplex& v, int& idx);
+
 ARRAY_API void arrayScaleAdd(double* dest, double s1, const double* src1, const double s2, const double* src2, const int n);
 ARRAY_API void arrayScaleAdd(float* dest, float s1, const float* src1, float s2, const float* src2, const int n);
 ARRAY_API void arrayScaleAdd(int* dest, int s1, const int* src1, int s2, const int* src2, const int n);

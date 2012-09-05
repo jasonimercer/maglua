@@ -10,3 +10,4 @@
 #
 
 include $(BASEDIR)/makefile.common.config
+CXX=$(MPICXX)

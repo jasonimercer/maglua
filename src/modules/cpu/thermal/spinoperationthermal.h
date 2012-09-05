@@ -44,8 +44,8 @@ public:
 	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 	
-	bool apply(RNG* rand, SpinSystem* ss);
-	bool apply(SpinSystem* ss) {return false;};
+	bool apply(SpinSystem* ss, RNG* rand);
+	bool apply(SpinSystem* ss) {return apply(ss, 0);}
 
 	void scaleSite(int px, int py, int pz, double strength);
 
@@ -54,6 +54,8 @@ public:
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
+	
+	RNG* myRNG;
 };
 
 #endif

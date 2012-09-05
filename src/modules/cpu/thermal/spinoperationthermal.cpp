@@ -22,6 +22,8 @@ Thermal::Thermal(int nx, int ny, int nz)
 	scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	scale->setAll(1.0);
 	temperature = 0;
+	
+	myRNG = 0;
 }
 
 int Thermal::luaInit(lua_State* L)
@@ -33,6 +35,15 @@ int Thermal::luaInit(lua_State* L)
 	scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	scale->setAll(1.0);
 	temperature = 0;
+	
+	if(luaT_is<RNG>(L, -1))
+	{
+		myRNG = luaT_to<RNG>(L, -1);
+		luaT_inc<RNG>(myRNG);
+	}
+	else
+		myRNG = 0;
+	
 	return 0;
 }
 
@@ -65,13 +76,24 @@ int  Thermal::decode(buffer* b)
 Thermal::~Thermal()
 {
 	luaT_dec<dArray>(scale);
-
+	luaT_dec<RNG>(myRNG);
 }
 
-bool Thermal::apply(RNG* rand, SpinSystem* ss)
+bool Thermal::apply(SpinSystem* ss, RNG* useThisRNG)
 {
 	markSlotUsed(ss);
+	
+	RNG* rand = myRNG;
+	if(useThisRNG)
+		rand = useThisRNG;
 
+	if(rand == 0)
+	{
+		errormsg = "Missing RNG";
+		return false;
+	}
+	
+	
 	const double alpha = ss->alpha;
 	const double dt    = ss->dt;
 	const double gamma = ss->gamma;
@@ -117,10 +139,14 @@ void Thermal::scaleSite(int px, int py, int pz, double strength)
 static int l_apply(lua_State* L)
 {
 	LUA_PREAMBLE(Thermal, th, 1);
-	LUA_PREAMBLE(RNG,    rng, 2);
-	LUA_PREAMBLE(SpinSystem,ss,3);
+	LUA_PREAMBLE(SpinSystem,ss,2);
 
-	if(!th->apply(rng,ss))
+	if(luaT_is<RNG>(L, 3))
+	{
+		if(!th->apply(ss, luaT_to<RNG>(L, 3)))
+			return luaL_error(L, th->errormsg.c_str());
+	}
+	if(!th->apply(ss, 0))
 		return luaL_error(L, th->errormsg.c_str());
 	
 	return 0;
@@ -188,12 +214,20 @@ static int l_setscalearray(lua_State* L)
 	return 0;
 }
 
+static int l_rng(lua_State* L)
+{
+	LUA_PREAMBLE(Thermal, th, 1);
+
+	luaT_push<RNG>(L, th->myRNG);
+	return 1;
+}
+
 int Thermal::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
-		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
+		lua_pushstring(L, "1 *3Vector* or *SpinSystem*, 1 Optional *Random*: System Size and built in RNG"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
@@ -213,7 +247,7 @@ int Thermal::help(lua_State* L)
 	if(func == l_apply)
 	{
 		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
-		lua_pushstring(L, "1 *Random*, 1 *SpinSystem*: The first argument is a random number generator that is used as a source of random values. The second argument is the spin system which will receive the field.");
+		lua_pushstring(L, "1 *SpinSystem*, 1 Optional *Random*,: The first argument is the spin system which will receive the field. The second optional argument is a random number generator that is used as a source of random values, if absent then the RNG supplied in the constructor will be used.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -257,6 +291,14 @@ int Thermal::help(lua_State* L)
 		return 3;
 	}
 
+	if(func == l_rng)
+	{
+		lua_pushstring(L, "Get the *Random* number generator supplied at initialization");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 *Random* or 1 nil: RNG");
+		return 3;
+	}
+
 	return SpinOperation::help(L);
 }
 
@@ -276,6 +318,7 @@ const luaL_Reg* Thermal::luaMethods()
 		{"temperature",  l_gettemp},
 		{"arrayScale",  l_getscalearray},
 		{"setArrayScale",  l_setscalearray},
+		{"random",        l_rng},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

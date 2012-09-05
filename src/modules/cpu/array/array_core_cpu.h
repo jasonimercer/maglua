@@ -313,6 +313,7 @@ public:
 	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(data(), v, nxyz);}
 	void addValue(const T& v) {sync_hd(); arrayAddAll(data(), v, nxyz);}
 	
+	
 	static bool doublePrep(Array<T>* dest, const Array<T>* src)
 	{
 		if(!dest->sameSize(src)) return false;
@@ -359,6 +360,19 @@ public:
 		T t;
 		reduceMultSumAll(a->_data, b->_data, a->nxyz, t);
 		return t;
+	}
+
+	T max(int& idx)
+	{
+		T v;
+		reduceExtreme(_data, 1, nxyz, v, idx);
+		return v;
+	}
+	T min(int& idx)
+	{
+		T v;
+		reduceExtreme(_data,-1, nxyz, v, idx);
+		return v;
 	}
 
 	T sum()
