@@ -19,7 +19,11 @@ MAGLUA_COMPILER=
 #
 #    Placentia             pgcpp      /usr/local/openmpi.pgi-1.4.4/bin/mpicxx
 #
-
+#
+#
+#  orcinus.westgrid.ca
+# *    first run:     *     icc                   mpicc
+# * module load intel *
 
 if [ -z $MPI_COMPILER ]; then
 	echo "Set the compiler variables in this script and rerun"
@@ -30,12 +34,20 @@ if [ -z $MAGLUA_COMPILER ]; then
 	exit 1
 fi
 
+
 # don't want to bother looking for magic to tell if
-# portlan group has optimizations turned on
+# portland group has optimizations turned on
 if [ "$MAGLUA_COMPILER" = "pgcpp" ]; then
     MAGLUA_COMPILER="$MAGLUA_COMPILER -D__OPTIMIZE__"
     MPI_COMPILER="$MPI_COMPILER -D__OPTIMIZE__"
 fi
+
+#enabling MPI by default
+MAGLUA_COMPILER="$MAGLUA_COMPILER -D_MPI"
+MPI_COMPILER="$MPI_COMPILER -D_MPI"
+
+
+MAGLUA_COMPILER=$MPI_COMPILER
 
 
 #  Set BUILD_STEP to restart a failed build
