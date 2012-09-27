@@ -8,25 +8,14 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
+EXTRA_INCLUDE=-I../anisotropy
 
-DIRS=array anisotropy appliedfield core dipole disordereddipole \
-     exchange llg magnetostatics thermal longrange longrange3d \
-     ewald3d wood
+OBJECTS=wood.o Vector_stuff.o wood_calculations.o
+LIBNAME=Wood
+CATEGORY=cpu
 
-all:
-	@for d in $(DIRS); do (make -C $$d); done
-
-install:
-	@for d in $(DIRS); do (make -C $$d install); done
-
-uninstall:
-	@for d in $(DIRS); do (make -C $$d uninstall); done
-
-clean:
-	@for d in $(DIRS); do (make -C $$d clean); done
-	rm -f *~
-
-distclean:
-	@for d in $(DIRS); do (make -C $$d distclean); done
-	rm -f *~
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core luabaseobject anisotropy
+BASEDIR=../../..
+include $(BASEDIR)/makefile.common.cpu
 
