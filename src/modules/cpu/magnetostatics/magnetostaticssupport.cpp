@@ -808,7 +808,7 @@ void magnetostaticsLoad(
 	
 	lua_State* L = lua_open();
 	luaL_openlibs(L);
-	if(luaL_dostring(L, __extrapolate))
+	if(luaL_dostring(L, __extrapolate()))
 	{
 		fprintf(stderr, "(%s:%i) %s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 		lua_close(L);

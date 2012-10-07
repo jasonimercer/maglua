@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=appliedfield_luafuncs.o spinoperationappliedfield.o
+OBJECTS=appliedfield_luafuncs.lo spinoperationappliedfield.o
 LIBNAME=AppliedField
 CATEGORY=cpu
 
@@ -17,13 +17,6 @@ CATEGORY=cpu
 DEPEND=core luabaseobject array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
-
-
-appliedfield_luafuncs.h: appliedfield_luafuncs.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua appliedfield_luafuncs.lua
-
-appliedfield_luafuncs.cpp:
-	touch appliedfield_luafuncs.cpp
 
 EXTRA_CLEAN=appliedfield_luafuncs.cpp appliedfield_luafuncs.h
 

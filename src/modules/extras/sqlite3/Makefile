@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=sqlite_luafuncs.o libLuaSqlite.o
+OBJECTS=sqlite_luafuncs.lo libLuaSqlite.o
 LIBNAME=SQLite3
 CATEGORY=extra
 
@@ -17,11 +17,5 @@ DEPEND=luabaseobject
 EXTRA_PKG=sqlite3
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
-
-sqlite_luafuncs.h: sqlite_luafuncs.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua sqlite_luafuncs.lua
-
-sqlite_luafuncs.cpp:
-	touch sqlite_luafuncs.cpp
 
 EXTRA_CLEAN=sqlite_luafuncs.cpp sqlite_luafuncs.h

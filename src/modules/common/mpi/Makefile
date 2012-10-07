@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=mpi_luafuncs.o luampi.o
+OBJECTS=mpi_luafuncs.lo luampi.o
 LIBNAME=MPI
 CATEGORY=common
 DEPEND=luabaseobject
@@ -19,11 +19,5 @@ include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.mpi
 
 CXX=$(MPICXX)
-
-mpi_luafuncs.h: mpi_luafuncs.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua mpi_luafuncs.lua
-
-mpi_luafuncs.cpp:
-	touch mpi_luafuncs.cpp
 
 EXTRA_CLEAN=mpi_luafuncs.cpp mpi_luafuncs.h

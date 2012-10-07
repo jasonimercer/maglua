@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=extrapolate.o spinoperationmagnetostatics.o magnetostaticssupport.o gamma_ab_v.o
+OBJECTS=extrapolate.lo spinoperationmagnetostatics.o magnetostaticssupport.o gamma_ab_v.o
 LIBNAME=Magnetostatics
 CATEGORY=cpu
 
@@ -21,8 +21,3 @@ BASEDIR=../../..
 EXTRA_CLEAN=extrapolate.cpp extrapolate.h
 include $(BASEDIR)/makefile.common.cpu
 
-extrapolate.h: extrapolate.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua extrapolate.lua
-
-extrapolate.cpp: extrapolate.lua
-	touch extrapolate.cpp

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=llg_wrapper.o llg.o llgquat.o llgfake.o llgalign.o llgcartesian.o
+OBJECTS=llg_wrapper.lo llg.o llgquat.o llgfake.o llgalign.o llgcartesian.o
 LIBNAME=LLG
 CATEGORY=cpu
 
@@ -17,9 +17,3 @@ CATEGORY=cpu
 DEPEND=core luabaseobject array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
-
-llg_wrapper.h: llg_wrapper.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua llg_wrapper.lua
-
-llg_wrapper.cpp: llg_wrapper.lua
-	touch llg_wrapper.cpp

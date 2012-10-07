@@ -243,7 +243,7 @@ RANDOM_API int lib_register(lua_State* L)
 	luaT_register<CRand>(L);
 	luaT_register<MTRand>(L);
 	luaT_register<Isaac>(L);
-	if(luaL_dostring(L, __random_wrapper))
+	if(luaL_dostring(L, __random_wrapper()))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 	}

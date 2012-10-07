@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=longrange3d_luafuncs.o spinoperationlongrange3d.o
+OBJECTS=longrange3d_luafuncs.lo spinoperationlongrange3d.o
 LIBNAME=LongRange3D
 CATEGORY=cpu
 
@@ -17,11 +17,5 @@ CATEGORY=cpu
 DEPEND=core luabaseobject array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
-
-longrange3d_luafuncs.h: longrange3d_luafuncs.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua longrange3d_luafuncs.lua
-
-longrange3d_luafuncs.cpp:
-	touch longrange3d_luafuncs.cpp
 
 EXTRA_CLEAN=longrange3d_luafuncs.cpp longrange3d_luafuncs.h
