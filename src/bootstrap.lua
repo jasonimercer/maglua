@@ -30,7 +30,7 @@ local print_version = false
 local setup_module_path = nil
 local print_help = false
 local print_module_path_file = nil
-
+local write_documentation = nil
 
 -- trim info about bootstrap from error messages
 debug["trim_error"] = function(msg)
@@ -62,6 +62,10 @@ for k,v in pairs(arg) do
 		print_module_path_file = arg[k+1] or true
 	end
 	
+	if v == "--write_docs" and sub_process == nil then
+		write_documentation = arg[k+1] or true
+	end
+
 -- 	Moving this test to after dofile so that -q can be included removed by module_path_file
 -- 	if v == "-q" then
 -- 		be_quiet = k
@@ -217,7 +221,7 @@ help_args["--use_module_file <file>"] = "Use the given file to manage modules"
 help_args["--module_path <category>"] = "Print module directory for <category> module types"
 help_args["-v, --version"] =            "Print version"
 help_args["-h, --help"] =               "Show this help"
-
+help_args["--write_docs [file]"] =      "Write HTML documentation to given file or stdout"
 -- get the module path
 dofile(module_path_file)
 
@@ -318,10 +322,34 @@ function make_modules()
 end
 modules = make_modules()
 
-
 local function e(x)
 	io.stderr:write(x .. "\n")
 end
+
+if write_documentation ~= nil then
+	local f = nil
+	if write_documentation == true then
+		f = io.stdout
+		write_documentation = "stdout"
+	else
+		f = io.open(write_documentation, "w")
+		if f == nil then
+			error("Failed to open `" .. write_documentation .. "' for writing")
+		end
+	end
+	
+	dofile("maglua://Help.lua")
+
+	write_help(f)
+	
+	if f ~= io.stdout then
+		print("Documentation written to `" .. write_documentation .. "'")
+		f:close()
+	end
+	
+	return false --the is an end point for the script
+end
+
 
 if be_quiet == nil then
 	e("This evaluation version of MagLua is for academic, non-commercial use only")

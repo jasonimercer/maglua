@@ -9,11 +9,13 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-HELPFILE=maglua.html
+OBJECTS=CGS.lo RungeKutta.lo POVRay.lo scripts.o
+LIBNAME=Scripts
+CATEGORY=common
+DEPEND=luabaseobject
 
-all: help.lua
-	maglua help.lua $(HELPFILE)
+BASEDIR=../../..
+include $(BASEDIR)/makefile.common.cpu
+include $(BASEDIR)/makefile.common.mpi
 
-clean:
-	rm -f *~
-	rm -f $(HELPFILE)
+EXTRA_CLEAN=CGS.h RungeKutta.h POVRay.h CGS.cpp RungeKutta.cpp POVRay.cpp

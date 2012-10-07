@@ -15,17 +15,19 @@
 # CXX=g++
 
 BASEDIR=.
-include makefile.common.mpi
 CFLAGS=-O2 -g
 PKG=lua5.1 fftw3 fftw3f
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
 LIBS=`pkg-config --libs $(PKG)` -lpthread
-OBJECTS=libMagLua.o loader.o modules.o
+OBJECTS=help.lo dofile.lo bootstrap.lo libMagLua.o loader.o modules.o
 LIBNAME=libMagLua.a
+EXTRA_CLEAN=help.h dofile.h help.cpp dofile.cpp bootstrap.h bootstrap.cpp
 BIN=maglua
 
+include makefile.common.mpi
+include makefile.common.lua
 
-$(BIN): main.o $(LIBNAME)
+$(BIN): $(LIBNAME) $(OBJECTS) main.o 
 	$(MPICXX) $(CFLAGS) -o $(BIN) -Wl,--start-group  main.o $(LIBNAME) $(LIBS) -Wl,--end-group
 
 $(LIBNAME) : $(OBJECTS)
@@ -34,12 +36,8 @@ $(LIBNAME) : $(OBJECTS)
 %.o : %.cpp  %.h info.h Makefile bootstrap.h
 	$(CXX) -fPIC $(INCLUDEPATH) $(CFLAGS) -c $*.cpp -o $*.o 
 
-bootstrap.h: bootstrap.lua
-	lua hardcode.lua bootstrap.lua
-
-info.h:					#dev version
+info.h:						#dev version
 	lua premake.lua $(CXX) $(CFLAGS)	#dev version
-
 
 install: $(BIN)
 	mkdir -p $(HOME)/bin
@@ -53,7 +51,8 @@ clena: clean
 clean:
 	rm -f *~
 	rm -f *.o
-	rm -f $(LIBNAME)
+	rm -f $(LIBNAME) $(EXTRA_CLEAN) $(OBJECTS)
+	rm -f bootstrap.h
 
 pack:			#dev version
 	./pack.sh	#dev version

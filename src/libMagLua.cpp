@@ -18,9 +18,12 @@
 #include "loader.h"
 #include "import.h"
 #include "modules.h"
+#include "dofile.h"
+
 #include <string.h>
 
 #include "bootstrap.h"
+#include "help.h"
 
 #include <stdio.h>
 #include <string>
@@ -33,6 +36,15 @@ static vector<string> args;
 static void lua_setupPreamble(lua_State* L, int sub_process)
 {
 	luaL_openlibs(L);
+	
+	luaL_dostring(L, __dofile());
+		
+	lua_getglobal(L, "dofile_add");
+	lua_pushstring(L, "Help.lua");
+	lua_pushstring(L, __help());
+	lua_call(L, 2, 0);
+
+		
 	vector<string> _args = args;
 	if(sub_process)
 		_args.push_back("-q");
@@ -116,7 +128,7 @@ int libMagLua(lua_State* L, int sub_process, int force_quiet)
 	
 	pushtraceback(L);
 	
-	if(luaL_loadstring(L, __bootstrap))
+	if(luaL_loadstring(L, __bootstrap()))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 		return 2;
