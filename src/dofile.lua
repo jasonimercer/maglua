@@ -2,8 +2,8 @@ local dofile_original = dofile
 
 local internals = {}
 local protocol = "maglua://"
+
 function dofile(filename)
-	
 	local prefix = string.sub(filename, 1, string.len(protocol))
 	local suffix = string.sub(filename, string.len(protocol)+1)
 	if prefix == protocol then

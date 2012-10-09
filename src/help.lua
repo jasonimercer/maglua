@@ -6,7 +6,12 @@
 function write_help(file_handle)
 	local f = file_handle or io.stdout
 
+	local function nq(x) --nq = noquotes
+		return string.gsub(x, "\"", "")
+	end
+
 	function lp(txt) -- Link Process, change *TEXT* into <a href="#TEXT">TEXT</a>. Also changing \n for <br>\n
+
 		local function _ws(txt) --tab, br
 			txt = string.gsub(txt, "\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
 			txt = string.gsub(txt, "\n", "<br>")
@@ -17,7 +22,7 @@ function write_help(file_handle)
 			local a, b, c, d, e = string.find(txt, "^(.*)\*(.-)\*(.*)$")
 
 			if a then
-				return _lp(c .. "<a href=\"#" .. d .. "\">" .. d .. "</a>" .. e)
+				return _lp(c .. "<a href=\"#" .. nq(d) .. "\">" .. d .. "</a>" .. e)
 			end
 			return txt
 		end
@@ -137,8 +142,8 @@ function write_help(file_handle)
 	<p>The following is a list of the objects and functions which may be combined to create a simulation.]]))
 
 	-- table for the index
-	local index = {}
-	
+	local index = {}	
+
 	-- Add a section heading
 	local function addsection(name, level, effect, noadd)
 		if noadd ~= true then
@@ -146,14 +151,17 @@ function write_help(file_handle)
 		end
 
 		if effect then
-			f:write("<p>\n<h" .. level .. "><a name=\"" .. name .. "\"><" .. effect .. ">" .. name .. "</" .. effect .. "></a></h" .. level .. ">\n")
+			f:write("<p>\n<h" .. level .. "><a name=\"" .. nq(name) .. "\"><" .. effect .. ">" .. name .. "</" .. effect .. "></a></h" .. level .. ">\n")
 		else
-			f:write("<p>\n<h" .. level .. "><a name=\"" .. name .. "\">" .. name .. "</a></h" .. level .. ">\n")
+			f:write("<p>\n<h" .. level .. "><a name=\"" .. nq(name) .. "\">" .. name .. "</a></h" .. level .. ">\n")
 		end
 	end
 
 	-- write desc, input and output of a function/method
 	local function dl(a, b, c)
+		a = a or ""
+		b = b or ""
+		c = c or ""
 		f:write("<dl>\n")
 		if a ~= "" then f:write("<dt>Description</dt><dd>" .. lp(a) .. "</dd>\n") end
 		if b ~= "" then f:write("<dt>Input</dt><dd>" .. lp(b) .. "</dd>\n") end
@@ -233,6 +241,38 @@ function write_help(file_handle)
 		end
 	end
 
+
+	-- now to process all the dofiles available using the maglua:// protocol
+	for k,v in pairs(dofile_get()) do
+		local text = dofile_get(k)
+		local lines = {}
+
+		while text ~= "" do
+			local v1,v2,y,z = string.find(text,"^(.-)\n(.*)$")
+			if v1 then
+				table.insert(lines, y)
+				text = z
+			else
+				table.insert(lines, a)
+				text = ""
+			end
+		end
+
+		-- going to strip off the first X lines that start with comments
+		-- (documentation is done matlab style)
+
+		local docs = {}
+		local i = 1
+		while lines[i] and string.sub(lines[i], 1,2) == "--" do
+			table.insert(docs, string.sub(lines[i], 3,-1))
+			i = i + 1
+		end
+
+		addsection("dofile(\"maglua://" .. k .. "\")", 2)
+		dl(table.concat(docs, "\n"))
+	end
+	
+
 	-- here we will explain what a 3Vector is, it appears in the documentation
 	addsection("3Vector", 2, nil, true) --true - don't add index to index
 	dl("A 3Vector is an argument of some methods in MagLua, it can either be 3 numbers or a table with 3 values. If it is a table with less than 3 values, sensible defaults are used or an error is returned if none exist.", "", "") 
@@ -259,7 +299,7 @@ function write_help(file_handle)
 			f:write("<p>\n")
 		end
 
-		f:write("<a href=\"#"..a.."\">"..a.."</a><br>\n")
+		f:write("<a href=\"#"..nq(a).."\">"..a.."</a><br>\n")
 		rowcount = rowcount - 1
 	end
 

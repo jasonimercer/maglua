@@ -25,6 +25,7 @@ cp -r modules/common/interpolate       $version/modules/common
 cp -r modules/common/mpi               $version/modules/common
 cp -r modules/common/random            $version/modules/common
 cp -r modules/common/timer             $version/modules/common
+cp -r modules/common/scripts           $version/modules/common
 
 cp    modules/cpu/Makefile             $version/modules/cpu
 cp -r modules/cpu/array                $version/modules/cpu

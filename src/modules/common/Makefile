@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-DIRS=checkpoint luabaseobject interpolate mpi random timer
+DIRS=checkpoint luabaseobject interpolate mpi random timer scripts
 
 all:
 	@for d in $(DIRS); do (make -C $$d); done

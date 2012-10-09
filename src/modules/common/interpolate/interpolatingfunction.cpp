@@ -67,8 +67,52 @@ InterpolatingFunction::InterpolatingFunction()
 	compiled = false;
 }
 
+
+int l_adddata(lua_State* L)
+{
+	LUA_PREAMBLE(InterpolatingFunction, in, 1);
+
+	if(lua_istable(L, 2))
+	{
+		lua_pushnil(L);
+		while(lua_next(L, 2))
+		{
+			double k,v;
+
+			if(lua_istable(L, -1))
+			{
+				lua_pushinteger(L, 1);
+				lua_gettable(L, -2);
+				k = lua_tonumber(L, -1);
+				lua_pop(L, 1);
+				
+				lua_pushinteger(L, 2);
+				lua_gettable(L, -2);
+				v = lua_tonumber(L, -1);
+				lua_pop(L, 1);
+			}
+
+			in->addData(k, v);
+			lua_pop(L, 1);
+		}
+	}
+	else
+	{
+		in->addData(lua_tonumber(L, -2), lua_tonumber(L, -1));
+	}
+	return 0;
+}
+
 int InterpolatingFunction::luaInit(lua_State* L)
 {
+	if(lua_istable(L, -1))
+	{
+		lua_pushcfunction(L, l_adddata);
+		luaT_push<InterpolatingFunction>(L, this);
+		lua_pushvalue(L, -3);
+		lua_call(L, 2, 0);
+	}
+
 	return 0;
 }
 
@@ -210,12 +254,6 @@ int  InterpolatingFunction::decode(buffer* b)
 
 
 
-int l_adddata(lua_State* L)
-{
-	LUA_PREAMBLE(InterpolatingFunction, in, 1);
-	in->addData(lua_tonumber(L, -2), lua_tonumber(L, -1));
-	return 0;
-}
 
 int l_value(lua_State* L)
 {

@@ -34,10 +34,9 @@
   A the command line switch "-h" and "--help" will print information about
   command line options and how to correctly cite the code. 
 
-  MagLua has build in documentation. An HTML file can be built with the 
-  supplied script "help.lua" in the help directory. Run it with 
+  MagLua has build in documentation. An HTML file can be built with command
 
-     maglua help.lua
+     maglua --write_docs maglua.html
  
   to generate the help file. 
 

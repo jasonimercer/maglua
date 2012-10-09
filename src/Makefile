@@ -52,13 +52,16 @@ clean:
 	rm -f *~
 	rm -f *.o
 	rm -f $(LIBNAME) $(EXTRA_CLEAN) $(OBJECTS)
-	rm -f bootstrap.h
+	rm -f bootstrap.h maglua.html
 
 pack:			#dev version
 	./pack.sh	#dev version
 
 pack_cpu:			#dev version
 	./pack_cpu.sh	#dev version
+
+help: $(BIN)
+	./$(BIN) --write_docs maglua.html
 
 distclean: clean
 	make -C modules/cuda distclean #cuda version
