@@ -25,7 +25,7 @@ ani_str = 5/2
 
 for i=1,ss:nx() do
 	for j=1,ss:ny() do
-		ss:setSpin({i,j,1}, {1,0,0}, 1)
+		ss:setSpin({i,j}, {1,0,0}, 1)
 
  		ex:add({i,j}, {i+1,j}, ex_str)
 		ex:add({i,j}, {i-1,j}, ex_str)

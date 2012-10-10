@@ -189,13 +189,11 @@ cd ../..
 
 
 
-cd help
-maglua help.lua
+maglua --write_docs maglua.html
 echo "#####################################################"
 echo "######### Help Documentation Generated   ############"
 echo "#####################################################"
 echo -e "\nHelp file named \"maglua.html\" in:\n     `pwd`\n"
-cd ..
 
 
 

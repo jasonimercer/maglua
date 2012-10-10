@@ -12,7 +12,8 @@ grep -v '#cuda version' pack_makefile_del_this > $version/Makefile
 rm -f pack_makefile_del_this
 cp build_cpu.sh libMagLua.h libMagLua.cpp hardcode.lua bootstrap.lua COPYRIGHT modules.h modules.cpp loader.cpp loader.h import.h main.cpp makefile.common.cpu makefile.common.mpi makefile.common.config README main.h $version
 make distclean
-cp -r help $version
+cp Calibration_Tests.tar.gz $version
+
 
 mkdir -p $version/modules/cpu
 mkdir -p $version/modules/extras
