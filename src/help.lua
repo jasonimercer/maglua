@@ -200,6 +200,7 @@ function write_help(file_handle)
 	for i,v in ipairs(s) do
 		local t = v[2]
 		local n = v[1]
+		--print("Processing ", n, t)
 		local a, b, c = t.help()
 		if a then
 			addsection(n, 2)
