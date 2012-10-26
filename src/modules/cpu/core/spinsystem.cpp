@@ -77,6 +77,40 @@ SpinSystem* SpinSystem::copy(lua_State* L)
 	return c;
 }
 
+bool SpinSystem::sameSize(const SpinSystem* other) const
+{
+	return 	nx == other->nx && 
+			ny == other->ny && 
+			nz == other->nz;
+}
+
+	
+void SpinSystem::moveToward(SpinSystem* other, double r)
+{
+	if(!sameSize(other))
+		return;
+	
+	for(int idx=0; idx<nxyz; idx++)
+	{
+		(*x) [idx] += r * ((*other->x)[idx] - (*x)[idx]);
+		(*y) [idx] += r * ((*other->y)[idx] - (*y)[idx]);
+		(*z) [idx] += r * ((*other->z)[idx] - (*z)[idx]);
+		(*ms)[idx] += r * ((*other->ms)[idx] - (*ms)[idx]);
+	}
+	for(int i=0; i<nxyz; i++)
+	{
+		const double ll = (*x)[i] * (*x)[i] + (*y)[i] * (*y)[i] + (*z)[i] * (*z)[i];
+		double il = 0;
+		if(ll > 0)
+			il = 1.0 / sqrt(ll);
+		const double scale_to_fix = il*(*ms)[i];
+		(*x)[i] *= scale_to_fix;
+		(*y)[i] *= scale_to_fix;
+		(*z)[i] *= scale_to_fix;
+	}
+}
+
+	
 void SpinSystem::diff(SpinSystem* other, double* v4)
 {
 	v4[0] = x->diffSum(other->x);
@@ -472,6 +506,15 @@ int SpinSystem::getSlot(const char* name)
 	return -1;
 }
 
+void SpinSystem::invalidateFourierData()
+{
+	// should rethink this masterpiece 
+	fft_timeC[0] = -fft_timeC[0] -125978;
+	fft_timeC[1] = -fft_timeC[1] -125978;
+	fft_timeC[2] = -fft_timeC[2] -125978;
+}
+
+	
 void SpinSystem::fft()
 {
 	fft(0);
@@ -533,6 +576,7 @@ void  SpinSystem::set(const int i, double sx, double sy, double sz)
 	(*z)[i] = sz;
 
 	(*ms)[i]= sqrt(sx*sx+sy*sy+sz*sz);
+	invalidateFourierData();
 }
 
 
@@ -540,12 +584,25 @@ void SpinSystem::set(const int px, const int py, const int pz, const double sx, 
 {
 	const int i = getidx(px, py, pz);
 	set(i, sx, sy, sz);
-	if(i < 0 || i >= nxyz)
+	if(i < 0 || i >= nxyz) //force crash
 	{
 		int* i = 0;
 		*i = 4;
 	}
 }
+
+void SpinSystem::idx2xyz(int idx, int& x, int& y, int& z) const 
+{
+	while(idx < 0)
+		idx += 10*nxyz;
+	idx %= nxyz;
+	
+	z = idx / (nx*ny);
+	idx -= z*nx*ny;
+	y = idx / nx;
+	x = idx - y*nx;
+}
+
 
 int  SpinSystem::getidx(const int px, const int py, const int pz) const
 {
@@ -1004,12 +1061,17 @@ static int l_getfield(lua_State* L)
 	if(slot < 0)
 		return luaL_error(L, "Unknown field type`%s'", name);
 
+	const double xx = (*ss->hx[slot])[idx];
+	const double yy = (*ss->hy[slot])[idx];
+	const double zz = (*ss->hz[slot])[idx];
+	
+	lua_pushnumber(L, xx);
+	lua_pushnumber(L, yy);
+	lua_pushnumber(L, zz);
 
-	lua_pushnumber(L, (*ss->hx[slot])[idx]);
-	lua_pushnumber(L, (*ss->hy[slot])[idx]);
-	lua_pushnumber(L, (*ss->hz[slot])[idx]);
-
-	return 3;
+	lua_pushnumber(L, sqrt(xx*xx+yy*yy+zz*zz));
+	
+	return 4;
 }
 
 static int l_addfields(lua_State* L)
@@ -1330,6 +1392,22 @@ static int l_setarraym(lua_State* L)
 	return 0;
 }
 
+static int l_movetoward(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s1,  1);
+	LUA_PREAMBLE(SpinSystem, s2,  2);
+	const double r = lua_tonumber(L, 3);
+	
+	if(!s1->sameSize(s2))
+		return luaL_error(L, "Systems are not the same size");
+	if(r <0 || r > 1)
+		return luaL_error(L, "Ratio is not between 0 and 1");
+	s1->moveToward(s2, r);
+	return 0;
+}
+
+
+
 static int l_getarrayx(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, s,  1);
@@ -1389,6 +1467,13 @@ static int l_setslotused(lua_State* L)
 		s->slot_used[slot] = lua_tointeger(L, 3);
 	else
 		s->slot_used[slot] = 1;
+	return 0;
+}
+
+static int l_invalidatefourierdata(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	s->invalidateFourierData();
 	return 0;
 }
 
@@ -1529,7 +1614,7 @@ int SpinSystem::help(lua_State* L)
 	{
 		lua_pushstring(L, "Get the field at a site due to an interaction");
 		lua_pushfstring(L, "1 String, 1 *3Vector*: The first argument identifies the field interaction type, one of: %s. The second argument selects the lattice site.", buf);
-		lua_pushstring(L, "3 Numbers: The field vector at the site.");
+		lua_pushstring(L, "4 Numbers: The field vector at the site and the magnitude fo the field");
 		return 3;
 	}
 	
@@ -1747,7 +1832,13 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
-
+	if(func == l_movetoward)
+	{
+		lua_pushstring(L, "Make the calling *SpinSystem* look like a blend between itself and the given *SpinSystem* by a certain ratio. 0 = no change, 1 = completely like the given.");
+		lua_pushstring(L, "1 *SpinSystem*, 1 Number: The goal SpinSystem and the amount to change.");
+		lua_pushstring(L, "");
+		return 3;
+	}
 	if(func == l_getfieldarrayx)
 	{
 		lua_pushstring(L, "Get the X components of the field vectors for a given type");
@@ -1816,11 +1907,19 @@ int SpinSystem::help(lua_State* L)
 		return 3;
 	}
 #endif
+
+	if(func == l_invalidatefourierdata)
+	{
+		lua_pushstring(L, "Invalidates the cache of the Fourier transform of the spin system. If the time changes or :setSpin "
+						  "is called then the cache is invalidated but there are cases, such as when the internal arrays are exported "
+						  "and modified, when the SpinSystem isn't aware of changes. This function help to deal with those extreme cases");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
 	return LuaBaseObject::help(L);
 }
-
-
-
 
 static luaL_Reg m[128] = {_NULLPAIR128};
 const luaL_Reg* SpinSystem::luaMethods()
@@ -1831,6 +1930,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 	static const luaL_Reg _m[] =
 	{
 		{"__tostring",   l_tostring},
+		{"moveToward",   l_movetoward},
 		{"netMoment",    l_netmag},
 		{"netField",     l_netfield},
 		{"setSpin",      l_setspin},
@@ -1886,6 +1986,8 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"slotUsed", l_getslotused},
 		{"setSlotUsed", l_setslotused},
 
+		
+		{"invalidateFourierData", l_invalidatefourierdata},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

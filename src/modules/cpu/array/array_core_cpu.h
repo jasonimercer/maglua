@@ -278,6 +278,11 @@ public:
 		return 0;
 	}
 	
+	T get(int x=0, int y=0, int z=0)
+	{
+		return data()[xyz2idx(x,y,z)];
+	}
+	
 	int lua_get(lua_State* L, int base_idx)
 	{
 		sync_dh();
@@ -311,6 +316,7 @@ public:
 	
 	void setAll(const T& v) {sync_hd(); arraySetAll(data(), v, nxyz);}
 	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(data(), v, nxyz);}
+	void scaleAll_o(const T& v, const int offset, const int n) {sync_hd(); arrayScaleAll_o(data(), offset, v, n);}
 	void addValue(const T& v) {sync_hd(); arrayAddAll(data(), v, nxyz);}
 	
 	
@@ -367,6 +373,12 @@ public:
 		T v;
 		reduceExtreme(_data, 1, nxyz, v, idx);
 		return v;
+	}
+	T mean()
+	{
+		T v;
+		reduceSumAll(_data, nxyz, v);
+		return v / T(nxyz);
 	}
 	T min(int& idx)
 	{

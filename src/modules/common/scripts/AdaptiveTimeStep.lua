@@ -4,13 +4,14 @@
 -- where ss is a *SpinSystem*, step is a function that integrates over a timestep, tolerance is used to determine if two systems are the same, dynamics is an optional function (can be nil) that takes a *SpinSystem* and modifies the environment, llg is an LLG operator (only required if a thermal operator is specified) and optional_thermal_operator is a thermal operator.
 
 
-function make_adapt_step_function(ss_, step_, tolerance, dynamics, llg_, optional_thermal_operator)
+function make_adapt_step_function(ss_, step_, tolerance, dynamics_, llg_, optional_thermal_operator)
 	local tol = tolerance
 
 	local ss  = ss_
 	local ss2 = ss:copy()
 	local ss3 = ss:copy()
 	local llg = llg_
+	local dynamics = dynamics_
 	
 	local optional_temp = optional_thermal_operator
 	
@@ -51,7 +52,7 @@ function make_adapt_step_function(ss_, step_, tolerance, dynamics, llg_, optiona
 				s:resetFields()
 				optional_temp:apply(s)
 				s:sumFields()
-				llg:apply(ss, false) --false = don't advance timestep
+				llg:apply(s, false) --false = don't advance timestep
 			end
 			s:setTime(ss3:time())
 			

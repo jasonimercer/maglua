@@ -31,6 +31,7 @@ SpinOperation::~SpinOperation()
 
 int SpinOperation::luaInit(lua_State* L)
 {
+	LuaBaseObject::luaInit(L);
 	int n[3];
 	
 	if(luaT_is<SpinSystem>(L, 1))

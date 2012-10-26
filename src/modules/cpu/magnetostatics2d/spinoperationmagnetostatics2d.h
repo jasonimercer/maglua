@@ -10,51 +10,38 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifndef WOODDEF
-#define WOODDEF
+#ifndef SPINOPERATIONMAGNETOSTATICS2D
+#define SPINOPERATIONMAGNETOSTATICS2D
 
-
-#include "spinoperation.h"
-#include "spinoperationanisotropy.h"
+#include "../longrange2d/spinoperationlongrange2d.h"
+#include "array.h"
 
 #ifdef WIN32
- #define strcasecmp(A,B) _stricmp(A,B)
- #define strncasecmp(A,B,C) _strnicmp(A,B,C)
- #pragma warning(disable: 4251)
-
- #ifdef WOOD_EXPORTS
-  #define WOOD_API __declspec(dllexport)
+ #ifdef MAGNETOSTATICS2D_EXPORTS
+  #define MAGNETOSTATICS2D_API __declspec(dllexport)
  #else
-  #define WOOD_API __declspec(dllimport)
+  #define MAGNETOSTATICS2D_API __declspec(dllimport)
  #endif
 #else
- #define WOOD_API 
+ #define MAGNETOSTATICS2D_API 
 #endif
 
-class SpinSystem;
 
-class WOOD_API Wood : public SpinOperation
+// moving ABC and gmax etc to lua
+
+using namespace std;
+
+class MAGNETOSTATICS2D_API Magnetostatics2D : public LongRange2D
 {
 public:
-	Wood();
-	virtual ~Wood();
+	Magnetostatics2D(const char* name="Magnetostatics2D", const int field_slot=DIPOLE_SLOT, int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange2D"));
+	virtual ~Magnetostatics2D();
 	
-	LINEAGE2("Wood", "SpinOperation")
+	LINEAGE3("Magnetostatics2D", "LongRange2D", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);
 	static int help(lua_State* L);
-	
-	virtual bool apply(SpinSystem* ss_src, Anisotropy* ani, SpinSystem* ss_dest, int& updates, int index, const double* cell_size);
-
-	void encode(buffer* b);
-	int  decode(buffer* b);
-	
-	
-	void deinit();
-	void init();
-	
-	double DN;
 };
 
 

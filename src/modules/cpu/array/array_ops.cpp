@@ -36,30 +36,51 @@ void arraySetAll(floatComplex* a, const floatComplex& v, const int n)
 
 
 template<typename T>
-void scaleAll_(T* dest, const int n, const T& v)
+void scaleAll_o_(T* dest, const int offset, const int n, const T& v)
 {
 	for(int i=0; i<n; i++)
-		dest[i] *= v;
+		dest[i+offset] *= v;
 }
 void arrayScaleAll(double* a, const double& v, const int n)
 {
-	scaleAll_<double>(a, n, v);
+	scaleAll_o_<double>(a, 0, n, v);
 }
 void arrayScaleAll(float* a, const float& v, const int n)
 {
-	scaleAll_<float>(a, n, v);
+	scaleAll_o_<float>(a, 0, n, v);
 }
 void arrayScaleAll(int* a, const int& v, const int n)
 {
-	scaleAll_<int>(a, n, v);
+	scaleAll_o_<int>(a, 0, n, v);
 }
 void arrayScaleAll(doubleComplex* a, const doubleComplex& v, const int n)
 {
-	scaleAll_<doubleComplex>(a, n, v);
+	scaleAll_o_<doubleComplex>(a, 0, n, v);
 }
 void arrayScaleAll(floatComplex* a, const floatComplex& v, const int n)
 {
-	scaleAll_<floatComplex>(a, n, v);
+	scaleAll_o_<floatComplex>(a, 0, n, v);
+}
+
+void arrayScaleAll_o(double* a, const int offset, const double& v, const int n)
+{
+	scaleAll_o_<double>(a, offset, n, v);
+}
+void arrayScaleAll_o(float* a, const int offset, const float& v, const int n)
+{
+	scaleAll_o_<float>(a, offset, n, v);
+}
+void arrayScaleAll_o(int* a, const int offset, const int& v, const int n)
+{
+	scaleAll_o_<int>(a, offset, n, v);
+}
+void arrayScaleAll_o(doubleComplex* a, const int offset, const doubleComplex& v, const int n)
+{
+	scaleAll_o_<doubleComplex>(a, offset, n, v);
+}
+void arrayScaleAll_o(floatComplex* a, const int offset, const floatComplex& v, const int n)
+{
+	scaleAll_o_<floatComplex>(a, offset, n, v);
 }
 
 
@@ -150,7 +171,12 @@ void arrayNormAll(float* d, float* s1, const int n)
 void arrayNormAll(int* d, int* s1, const int n)
 {
 	for(int i=0; i<n; i++)
-		d[i] = abs(s1[i]);
+	{
+		if(d[i] < 0)
+			d[i] = -s1[i]; //dealing with problems with intel's compiler
+		else
+			d[i] = s1[i];
+	}
 }
 void arrayNormAll(doubleComplex* d, doubleComplex* s1, const int n)
 {
@@ -337,7 +363,13 @@ void reduceDiffSumAll(const int* d_a, const int* d_b, const int n, int& v)
 {
 	v = 0;
 	for(int i=0; i<n; i++)
-		v+= abs((d_a[i] - d_b[i]));
+	{
+		const int q = d_a[i] - d_b[i];
+		if(q < 0)
+			v -= q;
+		else
+			v += q;
+	}
 }
 void reduceDiffSumAll(const doubleComplex* d_a, const doubleComplex* d_b, const int n, doubleComplex& v)
 {
@@ -499,7 +531,6 @@ void arrayLayerMult_(T* d, int dl, const T* s1, int s1l, const T* s2, int s2l, T
 }
 
 
-
 void arrayLayerMult(double* dest, int dest_layer, const double* src1, int src1_layer, const double* src2, int src2_layer, double mult, int set, const int nxy)
 {
 	arrayLayerMult_<double>(dest, dest_layer, src1, src1_layer, src2, src2_layer, mult, set, nxy);
@@ -520,3 +551,42 @@ void arrayLayerMult(floatComplex* dest, int dest_layer, const floatComplex* src1
 {
 	arrayLayerMult_<floatComplex>(dest, dest_layer, src1, src1_layer, src2, src2_layer, mult, set, nxy);
 }
+
+
+
+
+
+template<typename T>
+void arrayScaleMultAdd_(T* dest, const int od, T scale, const T* src1, const int o1, const T* src2, const int o2, const T* src3, const int o3, const int nxy)
+{
+	for(int i=0; i<nxy; i++)
+	{
+		dest[i+od] = scale * src1[i+o1] * src2[i+o2] + src3[i+o3];
+	}
+}
+
+ARRAY_API void arrayScaleMultAdd_o(double* dest, const int od, double scale, const double* src1, const int o1, const double* src2, const int o2, const double* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<double>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+
+ARRAY_API void arrayScaleMultAdd_o(float* dest, const int od, float scale, const float* src1, const int o1, const float* src2, const int o2, const float* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<float>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+
+ARRAY_API void arrayScaleMultAdd_o(int* dest, const int od, int scale, const int* src1, const int o1, const int* src2, const int o2, const int* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<int>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+
+ARRAY_API void arrayScaleMultAdd_o(doubleComplex* dest, const int od, doubleComplex scale, const doubleComplex* src1, const int o1, const doubleComplex* src2, const int o2, const doubleComplex* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<doubleComplex>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+
+ARRAY_API void arrayScaleMultAdd_o(floatComplex* dest, const int od, floatComplex scale, const floatComplex* src1, const int o1, const floatComplex* src2, const int o2, const floatComplex* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<floatComplex>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+

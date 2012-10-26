@@ -357,7 +357,45 @@ static int l_get_text_width(lua_State* L)
 	return 1;
 }
 
+#include "../../cpu/array/array.h"
+static int l_drawarray(lua_State* L)
+{
+    Lpng* p = checkPNG(L, 1);
+    if(!p) return 0;
 
+	LUA_PREAMBLE(dArray, a, 2);
+	
+	double scale = lua_tonumber(L, 3);
+	
+	double r = lua_tonumber(L, 4);
+	double g = lua_tonumber(L, 5);
+	double b = lua_tonumber(L, 6);
+	
+
+	int imin, imax;
+	a->min(imin);
+	a->max(imax);
+	
+	double min = a->data()[imin];
+	double max = a->data()[imax];
+	
+	double idiff = max - min;
+	if(idiff > 0)
+		idiff = 1.0/idiff;
+	
+	for(int x=0; x<a->nx; x++)
+	{
+		for(int y=0; y<a->ny; y++)
+		{
+			double v = (a->get(x,y) - min) * idiff;
+			
+			p->w->filledsquare(x*scale, y*scale, (x+1)*scale, (y+1)*scale, r*v, g*v, b*v);
+		}
+	}
+	
+	
+	return 0;
+}
 
 static int l_filledsquare(lua_State* L)
 {
@@ -400,6 +438,7 @@ int lib_registerpngwriter(lua_State* L)
 		{"filledarrow",  l_filledarrow},
 		{"get_text_width", l_get_text_width},
 		{"filledsquare",  l_filledsquare},
+		{"drawArray", l_drawarray},
 		
 		{NULL, NULL}
 	};

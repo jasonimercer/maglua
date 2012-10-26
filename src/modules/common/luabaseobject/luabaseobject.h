@@ -107,7 +107,7 @@ public:
 
 	LINEAGE1("LuaBaseObject")
 	static luaL_Reg* luaMethods() {return 0;}
-	virtual int luaInit(lua_State* /*L*/) {return 0;}
+	virtual int luaInit(lua_State* _L) {L=_L; return 0;}
 	virtual void push(lua_State* /*L*/) {}
 	static int help(lua_State* /*L*/) {return 0;}
 

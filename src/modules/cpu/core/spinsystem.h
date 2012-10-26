@@ -41,10 +41,13 @@ public:
 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldFrom(lua_State* L, SpinSystem* src, int slot);
+	void moveToward(SpinSystem* other, double r);
+	
 	
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);
 	int  getidx(const int px, const int py, const int pz) const ;
+	void  idx2xyz(int idx, int& x, int& y, int& z) const ;
 	bool member(const int px, const int py, const int pz) const ;
 	void sumFields();
 	
@@ -54,7 +57,7 @@ public:
 	int getSlot(const char* name);
 	static const char* slotName(int index);
 	void ensureSlotExists(int slot);
-	
+	bool sameSize(const SpinSystem* other) const;
 	
 	void getNetMag(double* v4);
 	
@@ -91,7 +94,8 @@ public:
 	
 	void fft();
 	void fft(int component);
-		
+	void invalidateFourierData();
+	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 

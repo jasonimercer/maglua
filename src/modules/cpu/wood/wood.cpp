@@ -65,7 +65,9 @@ int  Wood::decode(buffer* b)
 // index = 0 : Choose the closest minimum orientation
 // index = 1 : Choose the farthest minimum orientation
 // index = 2 : Choose the lowest maximum
-bool Wood::apply(SpinSystem* ss_src, Anisotropy* ani, SpinSystem* ss_dest, int& updates, int index)
+
+// cell_size is the size of the cells on each layer
+bool Wood::apply(SpinSystem* ss_src, Anisotropy* ani, SpinSystem* ss_dest, int& updates, int index, const double* cell_size)
 {
 	updates = 0;
 	if(ss_src != ss_dest) //then need to make sure they're the same size
@@ -80,16 +82,22 @@ bool Wood::apply(SpinSystem* ss_src, Anisotropy* ani, SpinSystem* ss_dest, int& 
 	// populated)
 	for(int i=0; i<ani->num; i++)
 	{
+		const int site = ani->ops[i].site;
+		int sitex, sitey, sitez;
+		ss_src->idx2xyz(site, sitex, sitey, sitez);
+		const double CELL = cell_size[sitez];
+
+// 		printf("sitez: %i\n", sitez);
+		
 		double kx = ani->ops[i].axis[0];
 		double ky = ani->ops[i].axis[1];
 		double kz = ani->ops[i].axis[2];
-		double ks = ani->ops[i].strength;
-		int site = ani->ops[i].site;
-
+		double ks = ani->ops[i].strength/CELL;
+		
 		// now we are dealing with spin at "site". 
-		double mx = (*ss_src->x)[site];
-		double my = (*ss_src->y)[site];
-		double mz = (*ss_src->z)[site];
+		double mx = (*ss_src->x)[site]/CELL;
+		double my = (*ss_src->y)[site]/CELL;
+		double mz = (*ss_src->z)[site]/CELL;
 		
 		// here is the effective field at "site"
 		double hx = (*ss_src->hx)[SUM_SLOT][site];
@@ -107,9 +115,9 @@ bool Wood::apply(SpinSystem* ss_src, Anisotropy* ani, SpinSystem* ss_dest, int& 
 		if (index == 1) updates += do_wood_calculation_demag_min_far(H, M, K, Moutput, DN);
 		if (index == 2) updates += do_wood_calculation_demag_max(H, M, K, Moutput, DN);
 
-		(*ss_dest->x)[site] = Moutput.x;
-		(*ss_dest->y)[site] = Moutput.y;
-		(*ss_dest->z)[site] = Moutput.z;
+		(*ss_dest->x)[site] = Moutput.x*CELL;
+		(*ss_dest->y)[site] = Moutput.y*CELL;
+		(*ss_dest->z)[site] = Moutput.z*CELL;
 	}
 	
 	return true;
@@ -152,16 +160,46 @@ static int l_apply(lua_State* L)
 
 	LUA_PREAMBLE(Anisotropy, ani, 3);
 	
+	int offset = 0;
 	if(luaT_is<SpinSystem>(L, 4)) //if there is a spin sys at pos 4 (3rd arg) then make it the dest
 	{
 		ss[1] = luaT_to<SpinSystem>(L, 4);
+		offset = 1;
 	}
 
-	int index = lua_tonumber(L, 5);
+	int index = lua_tonumber(L, 4 + offset);
 	int updates;
 
-	if(!wood->apply(ss[0], ani, ss[1], updates,index))
+	double* cell_sizes = new double[ss[0]->nz];
+	if(lua_isnumber(L, 5 + offset))
+	{
+		for(int i=0; i<ss[0]->nz; i++)
+		{
+			cell_sizes[i] = lua_tonumber(L, 6);
+		}
+	}
+	else
+	{
+		if(!lua_istable(L, 5 + offset))
+		{
+			return luaL_error(L, "Last parameter of the Wood apply operator must be cell size information (a number or tabel of numbers)");
+		}
+		
+		for(int i=0; i<ss[0]->nz; i++)
+		{
+			lua_pushinteger(L, i+1);
+			lua_gettable(L, 5 + offset);
+			cell_sizes[i] = lua_tonumber(L, -1);
+			if(cell_sizes[i] == 0)
+				return luaL_error(L, "Missing or zero cell size");
+			lua_pop(L, 1);
+		}
+	}
+	
+	if(!wood->apply(ss[0], ani, ss[1], updates,index, cell_sizes))
 		return luaL_error(L, "Failed to apply Wood operator (system size mismatch?)");
+	
+	delete [] cell_sizes;
 	
 	lua_pushinteger(L, updates);
 	return 1; //1 piece of information: the update count;
@@ -257,10 +295,10 @@ int Wood::help(lua_State* L)
 	if(func == l_apply)
 	{
 		lua_pushstring(L, "Compute 1 Wood Step.");
-		lua_pushstring(L, "1 *SpinSystem*, 1 *Anisotropy*, 1 optional *SpinSystem*: " 
+		lua_pushstring(L, "1 *SpinSystem*, 1 *Anisotropy*, 1 optional *SpinSystem*, 1 Number or Table of Numbers: " 
 		"Calculate 1 Wood iteration from the 1st SpinSystem using the calculated effective fields and the "
 		"given Anisotropy operator writing the new state either into the 2nd SpinSystem (if provided) or "
-		"back into the 1st SpinSystem");
+		"back into the 1st SpinSystem. The last number or table of numbers is the cell sizes/volumes for each layer.");
 		lua_pushstring(L, "1 Integer: Number of sites that were updated");
 		return 3;
 	}

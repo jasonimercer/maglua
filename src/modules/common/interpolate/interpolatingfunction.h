@@ -55,6 +55,9 @@ public:
 	void encode(buffer* b);
 	int  decode(buffer* b);
 	
+	double maxX();
+	double minX();
+	
 private:
 	class _node
 	{

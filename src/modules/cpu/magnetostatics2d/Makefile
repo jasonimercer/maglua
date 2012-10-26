@@ -9,24 +9,15 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-DIRS=array anisotropy appliedfield core dipole disordereddipole \
-     exchange llg magnetostatics thermal longrange longrange3d \
-     longrange2d magnetostatics2d ewald3d wood
+OBJECTS=mag2d_luafuncs.lo demag.o spinoperationmagnetostatics2d.o
+LIBNAME=Magnetostatics2D
+CATEGORY=cpu
 
-all:
-	@for d in $(DIRS); do (make -C $$d); done
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core dipole luabaseobject longrange2d
+BASEDIR=../../..
 
-install:
-	@for d in $(DIRS); do (make -C $$d install); done
 
-uninstall:
-	@for d in $(DIRS); do (make -C $$d uninstall); done
-
-clean:
-	@for d in $(DIRS); do (make -C $$d clean); done
-	rm -f *~
-
-distclean:
-	@for d in $(DIRS); do (make -C $$d distclean); done
-	rm -f *~
+EXTRA_CLEAN=mag2d_luafuncs.cpp mag2d_luafuncs.h
+include $(BASEDIR)/makefile.common.cpu
 

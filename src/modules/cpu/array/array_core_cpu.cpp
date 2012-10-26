@@ -117,6 +117,15 @@ static int l_max(lua_State* L)
 }
 
 template<typename T>
+static int l_mean(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	T t = a->mean();
+	luaT<T>::push(L, t);
+	return luaT<T>::elements();
+}
+
+template<typename T>
 static const luaL_Reg* get_base_methods()
 {
 	static luaL_Reg m[128] = {_NULLPAIR128};
@@ -136,6 +145,7 @@ static const luaL_Reg* get_base_methods()
 		{"addAt",   l_addat<T>},
 		{"min",     l_min<T>},
 		{"max",     l_max<T>},
+		{"mean",    l_mean<T>},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -244,15 +254,22 @@ int Array<T>::help(lua_State* L)
 	if(func == &(l_min<T>))
 	{
 		lua_pushstring(L, "Find minimum value and corresponding index");
-		lua_pushstring(L, "1 value and 1 integer");
 		lua_pushstring(L, "");
+		lua_pushstring(L, "1 value and 1 integer");
 		return 3;
 	}
 	if(func == &(l_max<T>))
 	{
 		lua_pushstring(L, "Find maximum value and corresponding index");
-		lua_pushstring(L, "1 value and 1 integer");
 		lua_pushstring(L, "");
+		lua_pushstring(L, "1 value and 1 integer");
+		return 3;
+	}
+	if(func == &(l_mean<T>))
+	{
+		lua_pushstring(L, "Find mean of array");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 value");
 		return 3;
 	}
 	return LuaBaseObject::help(L);

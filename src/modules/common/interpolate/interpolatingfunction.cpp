@@ -186,17 +186,38 @@ void InterpolatingFunction::compile()
 	compiled = true;
 }
 
+double InterpolatingFunction::maxX()
+{
+	if(!compiled)
+		compile();
+	_node* t = root;
+	while(t->c[1])
+		t = t->c[1];
+	return t->x[1];
+}
+
+double InterpolatingFunction::minX()
+{
+	if(!compiled)
+		compile();
+	_node* t = root;
+	while(t->c[0])
+		t = t->c[0];
+	return t->x[0];
+}
+
+
 // #include <stdio.h>
 bool InterpolatingFunction::getValue(double in, double* out)
 {
 	if(!compiled)
 		compile();
 
-	if(!root || !root->inrange(in))
-	{
-		*out = 0;
-		return false;
-	}
+// 	if(!root || !root->inrange(in))
+// 	{
+// 		*out = 0;
+// 		return false;
+// 	}
 
 	_node* t = root;
 
@@ -208,6 +229,17 @@ bool InterpolatingFunction::getValue(double in, double* out)
 			t = t->c[1];
 	}
 	
+	if(in <= t->x[0])
+	{
+		*out = t->y[0];
+		return true;
+	}
+
+	if(in >= t->x[1])
+	{
+		*out = t->y[1];
+		return true;
+	}
 // 	printf("\n     %g between %g %g", in, t->x[0], t->x[1]);
 // 	printf("[%g:%g] [%g:%g] m=%g\n", t->x[0], t->y[0], t->x[1], t->y[1], t->m);
 
@@ -265,7 +297,20 @@ int l_value(lua_State* L)
 		return 1;
 	}
 
-	return luaL_error(L, "Empty interpolator or data out of range");
+	return luaL_error(L, "Empty interpolator");
+}
+
+int l_minx(lua_State* L)
+{
+	LUA_PREAMBLE(InterpolatingFunction, in, 1);
+	lua_pushnumber(L, in->minX());
+	return 1;
+}
+int l_maxx(lua_State* L)
+{
+	LUA_PREAMBLE(InterpolatingFunction, in, 1);
+	lua_pushnumber(L, in->maxX());
+	return 1;
 }
 
 #if 0
@@ -283,7 +328,7 @@ int InterpolatingFunction::help(lua_State* L)
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Interpolate creates a 1D linear interpolating function");
-		lua_pushstring(L, ""); //input, empty
+		lua_pushstring(L, "1 Optional Table of Tables: A table of pairs can be passed into the .new function. Each pair will be effectively passed to the addData function."); //input, empty
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
@@ -316,6 +361,23 @@ int InterpolatingFunction::help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_maxx)
+	{
+		lua_pushstring(L, "Get maximum X value.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: Maximum X value");
+		return 3;
+	}	
+	
+	if(func == l_minx)
+	{
+		lua_pushstring(L, "Get minimum X value.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: Minimum X value");
+		return 3;
+	}	
+	
+	
 	return LuaBaseObject::help(L);
 }
 
@@ -329,6 +391,9 @@ const luaL_Reg* InterpolatingFunction::luaMethods()
 	{
 		{"addData",      l_adddata},
 		{"value",        l_value},
+		{"maxX", l_maxx},
+		{"minX", l_minx},
+		{"__call",        l_value},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
