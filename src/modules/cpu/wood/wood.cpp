@@ -15,6 +15,12 @@
 #include "Vector_stuff.h"
 #include "wood_calculations.h"
 
+
+#define W_MIN_CLOSE 0
+#define W_MIN_FAR   1
+#define W_MAX       2
+	
+
 // create a unique identifier for the Wood object based on 
 // a hash of the string "Wood"
 #define ENCODE_WOOD (hash32("Wood"))
@@ -167,7 +173,22 @@ static int l_apply(lua_State* L)
 		offset = 1;
 	}
 
-	int index = lua_tonumber(L, 4 + offset);
+	int index = -1;
+	const char* method_name = lua_tostring(L, 4+offset);
+	
+	if(strcasecmp(method_name, "MIN_CLOSE") == 0)
+		index = W_MIN_CLOSE;
+	if(strcasecmp(method_name, "MIN_FAR") == 0)
+		index = W_MIN_FAR;
+	if(strcasecmp(method_name, "MAX") == 0)
+		index = W_MAX;
+	
+	if(index == -1)
+		return luaL_error(L, "Method argument of apply should be one of `Min_close', `Min_far' or `Max'");
+	
+	
+	
+	
 	int updates;
 
 	double* cell_sizes = new double[ss[0]->nz];
@@ -295,10 +316,11 @@ int Wood::help(lua_State* L)
 	if(func == l_apply)
 	{
 		lua_pushstring(L, "Compute 1 Wood Step.");
-		lua_pushstring(L, "1 *SpinSystem*, 1 *Anisotropy*, 1 optional *SpinSystem*, 1 Number or Table of Numbers: " 
+		lua_pushstring(L, "1 *SpinSystem*, 1 *Anisotropy*, 1 optional *SpinSystem*, 1 String or Table of Numbers: " 
 		"Calculate 1 Wood iteration from the 1st SpinSystem using the calculated effective fields and the "
 		"given Anisotropy operator writing the new state either into the 2nd SpinSystem (if provided) or "
-		"back into the 1st SpinSystem. The last number or table of numbers is the cell sizes/volumes for each layer.");
+		"back into the 1st SpinSystem. The string defines the method and should be one of `Min_close', `Min_far' or `Max'."
+		"The last number or table of numbers is the cell sizes/volumes for each layer.");
 		lua_pushstring(L, "1 Integer: Number of sites that were updated");
 		return 3;
 	}

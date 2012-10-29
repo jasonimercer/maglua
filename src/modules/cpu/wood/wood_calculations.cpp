@@ -2,7 +2,15 @@
 #include <complex>
 using namespace std;
 
-#define pi 3.14159265358
+#ifndef M_PI
+#define M_PI 3.14159265358979535
+#endif
+#define pi M_PI
+
+
+
+
+
 /*
 // dummy calculation to align with local field, ignoring anisotropy
 int do_wood_calculation(Cvctr& H, Cvctr& M, Cvctr& K, Cvctr& M0)
