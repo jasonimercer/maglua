@@ -133,12 +133,11 @@ local function setTruncation(mag, trunc)
 	t.truncation = trunc
 	mag:setInternalData(t)
 end
+
 local function truncation(mag, trunc)
 	local t = initializeInternalData(mag, mag:internalData())
 	return t.truncation
 end
-
-
 
 
 -- Magnetostatics2D File I/O routines
@@ -152,14 +151,56 @@ local function write_tensor(f, array, name, d, s)
 			if v == 0 then
 				table.insert(t, "0")
 			else
-				table.insert(t, string.format("%E", v))
+				table.insert(t, string.format("% 16.15E", v))
 			end
 		end
 		f:write(table.concat(t, ", ") .. "\n")
 	end
-	f:write("]]\n")
-	
+	f:write("]]\n")	
 end
+
+local function get_basename(mag)
+	return string.format("MAB_%dx%dx%d", mag:nx(), mag:ny(), mag:nz())
+end
+
+local function get_possible_files(mag)
+    local possibles = {}
+	local basename = get_basename(mag)
+	local filenames = os.ls()
+	for k,v in pairs(filenames) do
+		local a,b,x = string.find(v, basename .. "%.(%d+)%.lua")
+		if a then
+			table.insert(possibles, {v, tonumber(x)})
+		end
+	end
+	return possibles
+end
+
+local function get_new_filename(mag)
+	local basename = get_basename(mag)
+	local fns = get_possible_files(mag)
+
+	local n = {}
+	for k,v in pairs(fns) do
+		n[v[2]] = 1
+	end
+
+	local next = nil
+	for i=0,1000 do
+		if next == nil then
+			if n[i] == nil then
+				next = i
+			end
+		end
+	end
+
+	if next == nil then
+		next = 0
+	end
+
+	return basename .. "." .. next .. ".lua"
+end
+
 
 
 local function mag2d_save(mag, filename)
@@ -270,8 +311,43 @@ local function parse()
 end
 ]])
 	-- this function makes the given mag2d object look like this one
-	f:write([[
-return function(mag)
+	f:write(
+string.format([[
+local function sameInternals(mag)
+    local id = mag:internalData()
+
+    if id == nil then
+        return false
+    end
+
+    local targetx, targety, targetz = %d, %d, %d
+    if mag:nx() ~= targetx or mag:ny() ~= targety or mag:nz() ~= targetz then
+        return false
+    end 
+
+    for k=1,targetz do
+    for i=1,3 do
+        if id.grainSize[k][i] ~= internal.grainSize[k][i] then
+            return false
+        end
+        for j=1,3 do
+            if id.ABC[k][i][j] ~= internal.ABC[k][i][j] then
+                return false
+            end
+        end
+    end
+    end
+
+    if id.truncation ~= internal.truncation then
+        return false
+    end
+
+    return true
+end
+]], mag:nx(), mag:ny(), mag:nz())
+
+.. [[
+return sameInternals, function(mag)
 	if mag:nx() ~= nx or mag:ny() ~= ny or mag:nz() ~= nz then
 		error("Size Mismatch", 2) --report a size mismatch at the calling location
 	end
@@ -317,9 +393,6 @@ end
 	f:close()
 end
 
-
-
-
 local function mag2d_load(mag, filename)
 	local f = io.open(filename, "r")
 	if f == nil then
@@ -328,9 +401,13 @@ local function mag2d_load(mag, filename)
 	
 	local data = f:read("*a")
 	
-	local loadfunc = assert(loadstring(data))()
+	local sameInternals, loadfunc = assert(loadstring(data))()
 
-	loadfunc(mag)
+	if sameInternals(mag) then
+		loadfunc(mag)
+		return true
+	end
+	return false
 end
 
 
@@ -350,13 +427,14 @@ t.setGrainSize = setGrainSize
 t.grainSize    = grainSize
 t.setTruncation= setTruncation
 t.truncation   = truncation
-t.save         = mag2d_save
-t.load         = mag2d_load
+--t.save         = mag2d_save
+--t.load         = mag2d_load
 
 
 local help = MODTAB.help
 
 MODTAB.help = function(x)
+--[[
 	if x == mag2d_save then
 		return
 			"Save the tensor and internal data of the " .. MODNAME .. " to a MagLua parsable script",
@@ -369,6 +447,7 @@ MODTAB.help = function(x)
 			"1 String: Filename to load from",
 			""
 	end
+--]]
 	if x == getMatrix then
 		return
 			"Get an element of the interaction tensor",
@@ -420,6 +499,19 @@ end
 
 
 local function makeData(mag)
+	-- first we'll see if the data already exists
+	local fns = get_possible_files(mag)
+
+	-- try each shoe for a match
+	for k,v in pairs(fns) do
+		local f = v[1] 
+
+		if mag2d_load(mag, f) then --we don't need to do work
+			return
+		end
+	end
+
+
 	local id = initializeInternalData(mag, mag:internalData())
 	local ABC = id.ABC
 	local grainSize = id.grainSize
@@ -549,6 +641,10 @@ local function makeData(mag)
 -- 	end
 	
 	mag:setCompileRequired(true)
+
+	-- save so we can be lazy later
+	local fn = get_new_filename(mag)
+	mag2d_save(mag, fn)
 end
 
 -- create a function that the C code can call to make the longrange2d operator a magnetostatic2d operator

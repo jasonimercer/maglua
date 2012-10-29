@@ -24,6 +24,7 @@
 
 #include "bootstrap.h"
 #include "help.h"
+#include "os_extensions.h"
 
 #include <stdio.h>
 #include <string>
@@ -36,6 +37,8 @@ static vector<string> args;
 static void lua_setupPreamble(lua_State* L, int sub_process)
 {
 	luaL_openlibs(L);
+
+	register_os_extensions(L);
 	
 	luaL_dostring(L, __dofile());
 		
