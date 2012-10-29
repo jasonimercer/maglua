@@ -8,14 +8,14 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-EXTRA_INCLUDE=-I../anisotropy
+EXTRA_INCLUDE=-I../anisotropy -I../magnetostatics2d
 
 OBJECTS=wood.o Vector_stuff.o wood_calculations.o
 LIBNAME=Wood
 CATEGORY=cpu
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=core luabaseobject anisotropy
+DEPEND=core luabaseobject anisotropy magnetostatics2d
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 

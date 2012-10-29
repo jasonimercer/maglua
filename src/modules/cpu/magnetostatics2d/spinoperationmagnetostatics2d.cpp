@@ -24,6 +24,37 @@ Magnetostatics2D::~Magnetostatics2D()
 {
 }
 
+// this is a base 0 function
+double Magnetostatics2D::getGrainSize(const int layer)
+{
+	// info in longrange_ref
+	lua_rawgeti(L, LUA_REGISTRYINDEX, longrange_ref);
+	
+	lua_pushstring(L, "grainSize"); 
+	lua_gettable(L, -2);// grain size table on stack
+	
+	if(layer >= nz || layer < 0)
+		luaL_error(L, "getGrainSize: invalid layer");
+	
+	lua_pushinteger(L, layer+1);
+	lua_gettable(L, -2); // grain size for requested table on stack
+		
+	double xyz[3];
+	
+	for(int i=0; i<3; i++)
+	{
+		lua_pushinteger(L, i+1);
+		lua_gettable(L, -2);
+		xyz[i] = lua_tonumber(L, -1);
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 3);
+	
+	return xyz[0] * xyz[1] * xyz[2];
+	
+}
+
+
 void Magnetostatics2D::push(lua_State* L)
 {
 	luaT_push<Magnetostatics2D>(L, this);

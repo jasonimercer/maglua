@@ -38,6 +38,7 @@ public:
 	virtual ~Magnetostatics2D();
 	
 	LINEAGE3("Magnetostatics2D", "LongRange2D", "SpinOperation")
+	double getGrainSize(const int layer);
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	virtual void push(lua_State* L);

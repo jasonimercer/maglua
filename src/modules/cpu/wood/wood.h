@@ -16,6 +16,7 @@
 
 #include "spinoperation.h"
 #include "spinoperationanisotropy.h"
+#include "spinoperationmagnetostatics2d.h"
 
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
@@ -45,8 +46,11 @@ public:
 	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 	
-	virtual bool apply(SpinSystem* ss_src, Anisotropy* ani, SpinSystem* ss_dest, int& updates, int index, const double* cell_size);
-
+	virtual bool apply(SpinSystem* ss_src, Anisotropy* ani, Magnetostatics2D* mag, SpinSystem* ss_dest, int& updates, int index);
+	void calcAllEnergyBarrier(SpinSystem* ss_src, Anisotropy* ani, Magnetostatics2D* mag);
+	
+	void adjustMagnetostatics(Magnetostatics2D* mag);
+	
 	void encode(buffer* b);
 	int  decode(buffer* b);
 	
@@ -54,7 +58,10 @@ public:
 	void deinit();
 	void init();
 	
-	double DN;
+	double* DN;
+	double* grain_size;
+	
+	dArray* energyBarriers; //EB calc at each site
 };
 
 

@@ -283,6 +283,11 @@ public:
 		return data()[xyz2idx(x,y,z)];
 	}
 	
+	void set(int x, int y, int z, T v)
+	{
+		data()[xyz2idx(x,y,z)] = v;
+	}
+	
 	int lua_get(lua_State* L, int base_idx)
 	{
 		sync_dh();
