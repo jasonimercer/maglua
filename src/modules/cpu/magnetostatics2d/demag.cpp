@@ -149,7 +149,7 @@ double magnetostatic_Nxx(const double X,   const double Y,   const double Z,
 	const DOUBLE dx1 = p1[0];
 	const DOUBLE dx2 = p2[0];
 	const DOUBLE v = p1[0]*p1[1]*p1[2];
-	return (1.0/(4.0*M_PI * v)) * (
+	return -(1.0/(4.0*M_PI * v)) * (
 		  F(X,         Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
 		+ F(X+dx2-dx1, Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
 		- F(X-dx1,     Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
@@ -190,7 +190,7 @@ double magnetostatic_Nxy(const double X,   const double Y,   const double Z,
 	const DOUBLE dy1 = p1[1];
 	const DOUBLE dy2 = p2[1];
 	const DOUBLE v = p1[0]*p1[1]*p1[2];
-	return (1.0 / (4.0*M_PI*v)) * (
+	return -(1.0 / (4.0*M_PI*v)) * (
 		  G(X,     Y,     Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
 		- G(X-dx1, Y,     Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
 		- G(X,     Y+dy2, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 

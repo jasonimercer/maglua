@@ -33,42 +33,37 @@ end
 local function getMatrix(mag, dest, src, ab, x, y)
 	mag:makeData() -- if needed
 	if dest == nil then	error("Destination Layer is nil", 2) end
-	if  src == nil then	error("Source Layer is nil", 2) end
-	if   ab == nil then	error("Tensor Name is nil", 2) end
-	if    x == nil then	error("X Offset is nil", 2) end
-	if    y == nil then	error("Y Offset is nil", 2) end
+	if  src == nil then	error("Source Layer is nil", 2)      end
+	if   ab == nil then	error("Tensor Name is nil", 2)       end
+	if    x == nil then	error("X Offset is nil", 2)          end
+	if    y == nil then	error("Y Offset is nil", 2)          end
 
-	x = x + 1 --c code decs idxs
-	y = y + 1
 	local q = mag:tensorArray(dest, src, ab)
 	if q == nil then
 		error("No tensor found at given layers or bad tensor name", 2)
 	end
-	return q:get(x,y)
+	return q:get(x+ 1,y+ 1) --c code decs idxs
 end
 
 local function setMatrix(mag, dest, src, ab, x, y,v)
 	mag:makeData() -- if needed
-
 	if dest == nil then	error("Destination Layer is nil", 2) end
-	if  src == nil then	error("Source Layer is nil", 2) end
-	if   ab == nil then	error("Tensor Name is nil", 2) end
-	if    x == nil then	error("X Offset is nil", 2) end
-	if    y == nil then	error("Y Offset is nil", 2) end
-	
-	x = x + 1 --c code decs idxs
-	y = y + 1
+	if  src == nil then	error("Source Layer is nil", 2)      end
+	if   ab == nil then	error("Tensor Name is nil", 2)       end
+	if    x == nil then	error("X Offset is nil", 2)          end
+	if    y == nil then	error("Y Offset is nil", 2)          end
+
 	local q = mag:tensorArray(dest, src, ab)
 	if q == nil then
 		error("No tensor found at given layers or bad tensor name", 2)
 	end
 	mag:setCompileRequired(true)
-	return q:set(x,y,v)
+	return q:set(x+1,y+1,v) --c code decs idxs
 end
 
 
 local function setUnitCell(mag, layer, A, B, C)
-	if not isNumber(layer) then
+	if not isNumber(layer) then 
 		error("Layer expected as first argument",2)
 	end
 	if layer < 1 or layer > mag:nz() then
@@ -77,11 +72,10 @@ local function setUnitCell(mag, layer, A, B, C)
 	if not isTable(A) or not isTable(B) or not isTable(C) then
 		error("Tables expected for the A, B, C components (2nd through 4th arguments)",2)
 	end
-	local t = initializeInternalData(mag, mag:internalData())
+	local id = initializeInternalData(mag, mag:internalData())
 	
-	t.ABC[layer] = {A,B,C}
-	
-	mag:setInternalData(t)
+	id.ABC[layer] = {A,B,C}
+	mag:setInternalData(id)
 end
 
 local function unitCell(mag, layer, A, B, C)
@@ -92,9 +86,9 @@ local function unitCell(mag, layer, A, B, C)
 		error("Layer must be in the range [1:"..mag:nz().."]",2)
 	end
 
-	local t = initializeInternalData(mag, mag:internalData())
+	local id = initializeInternalData(mag, mag:internalData())
 	
-	return t.ABC[layer][1], t.ABC[layer][2], t.ABC[layer][3]
+	return id.ABC[layer][1], id.ABC[layer][2], id.ABC[layer][3]
 end
 
 local function setGrainSize(mag, layer, X, Y, Z)
@@ -107,11 +101,10 @@ local function setGrainSize(mag, layer, X, Y, Z)
 	if not isNumber(X) or not isNumber(Y) or not isNumber(Z) then
 		error("Numbers expected for the X, Y, Z components (2nd through 4th arguments)",2)
 	end
-	local t = initializeInternalData(mag, mag:internalData())
+	local id = initializeInternalData(mag, mag:internalData())
 	
-	t.grainSize[layer] = {X, Y, Z}
--- 	mag:setStrength(layer, -4.0*math.pi/(X*Y*Z))
-	mag:setInternalData(t)
+	id.grainSize[layer] = {X, Y, Z}
+	mag:setInternalData(id)
 end
 
 local function grainSize(mag, layer)
@@ -122,25 +115,25 @@ local function grainSize(mag, layer)
 		error("Layer must be in the range [1:"..mag:nz().."]",2)
 	end
 	
-	local t = initializeInternalData(mag, mag:internalData())
-	local x,y,z = t.grainSize[layer][1], t.grainSize[layer][2], t.grainSize[layer][3]
+	local id = initializeInternalData(mag, mag:internalData())
+	local x,y,z = id.grainSize[layer][1], id.grainSize[layer][2], id.grainSize[layer][3]
 	return x,y,z,x*y*z
 end
 
 
 local function setTruncation(mag, trunc)
-	local t = initializeInternalData(mag, mag:internalData())
-	t.truncation = trunc
-	mag:setInternalData(t)
+	local id = initializeInternalData(mag, mag:internalData())
+	id.truncation = trunc
+	mag:setInternalData(id)
 end
 
 local function truncation(mag, trunc)
-	local t = initializeInternalData(mag, mag:internalData())
-	return t.truncation
+	local id = initializeInternalData(mag, mag:internalData())
+	return id.truncation
 end
 
 
--- Magnetostatics2D File I/O routines
+-- many of the next several functions are for automatically saving and loading tensor data
 local function write_tensor(f, array, name, d, s)
 	f:write(name .. "[" .. d .. "][" .. s .. "] = [[\n")
 	local nx, ny = array:nx(), array:ny()
@@ -168,7 +161,7 @@ local function get_possible_files(mag)
 	local basename = get_basename(mag)
 	local filenames = os.ls()
 	for k,v in pairs(filenames) do
-		local a,b,x = string.find(v, basename .. "%.(%d+)%.lua")
+		local a,b,x = string.find(v, basename .. "%.(%d+)%.lua$")
 		if a then
 			table.insert(possibles, {v, tonumber(x)})
 		end
@@ -186,7 +179,7 @@ local function get_new_filename(mag)
 	end
 
 	local next = nil
-	for i=0,1000 do
+	for i=0,1000 do --looking for a free number
 		if next == nil then
 			if n[i] == nil then
 				next = i
@@ -204,7 +197,7 @@ end
 
 
 local function mag2d_save(mag, filename)
-	f = io.open(filename, "w")
+	local f = io.open(filename, "w")
 	if f == nil then
 		error("Failed to open `" .. filename .. "' for writing")
 	end
@@ -212,7 +205,7 @@ local function mag2d_save(mag, filename)
 	f:write([[
 -- Magnetostatics2D Data File
 --
-
+MagLua_Version = ]] .. version() .. "\n\n" .. [[
 -- system size
 local nx, ny, nz = ]] .. table.concat({mag:nx(), mag:ny(), mag:nz()}, ", ") .. "\n" ..
 [[	
@@ -400,7 +393,7 @@ local function mag2d_load(mag, filename)
 	end
 	
 	local data = f:read("*a")
-	
+	f:close()
 	local sameInternals, loadfunc = assert(loadstring(data))()
 
 	if sameInternals(mag) then

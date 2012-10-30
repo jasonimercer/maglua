@@ -19,7 +19,7 @@ INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
 		-I$(BASEDIR)/modules/cpu/array \
 		-I$(BASEDIR)/modules/cpu/core $(EXTRA_INCLUDE)
 
-LIBS=`pkg-config --libs $(PKG)` -lpthread $(EXTRALIBS)
+LIBS=`pkg-config --libs $(PKG)` -lpthread $(EXTRALIBS) -ldl
 MODDIR=$(shell maglua --module_path $(CATEGORY) 2> /dev/null)
 
 

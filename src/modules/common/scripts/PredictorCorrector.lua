@@ -66,8 +66,9 @@ function make_pc_step_function(s_, calcField_, llg_, tol_, optional_temp_)
 		local function same(ssA, ssB)
 			local dx, dy, dz, dxyz = ssA:diff(ssB)
 			if dxyz == last_same then --not improving
-				error("Failing to converge in Predictor Corrector, timestep too large?", 6)
+				error("Failing to converge in Predictor Corrector, timestep too large?", 3)
 			end
+			print(dx, dy, dz, dxyz)
 			last_same = dxyz
 			return dxyz < tol
 		end
@@ -75,7 +76,7 @@ function make_pc_step_function(s_, calcField_, llg_, tol_, optional_temp_)
 		-- ssPredict = ss + dt ss'
 		calcFields(ss)
 		llg:apply(ss, ss, ssPredict)
-
+		local q = 0
 		repeat
 			-- ssCorrect = ss + dt 1/2(ss' + ssPredict')
 			llg:apply(ss,  1/2, ss,  ssCorrect)
@@ -84,8 +85,13 @@ function make_pc_step_function(s_, calcField_, llg_, tol_, optional_temp_)
 
 			-- swap them: use corrector for next prediction
 			ssPredict, ssCorrect = ssCorrect, ssPredict 
+			
+			q = q + 1
+			if q > 100 then
+				error("Failing to converge in Predictor Corrector, timestep too large?", 2)
+			end
 		until same(ssPredict, ssCorrect)
-
+		
 		ssPredict:copySpinsTo(ss)
 		ss:setTime(ssPredict:time())
 

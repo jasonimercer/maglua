@@ -41,6 +41,7 @@ Magnetostatic::Magnetostatic(int nx, int ny, int nz)
 
 int Magnetostatic::luaInit(lua_State* L)
 {
+	fprintf(stderr, "\n\nNOTICE:\nThe Magnetostatic operator is depreciated.\nPlease migrate your code to Magnetostatics2D.\n\n");
 	return LongRange::luaInit(L); //gets nx, ny, nz, nxyz
 }
 
@@ -142,7 +143,7 @@ int Magnetostatic::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "Calculates the magnetostatic field of a *SpinSystem*");
+		lua_pushstring(L, "DEPRECIATED: Please transition to *Magnetostatics2D*. Calculates the magnetostatic field of a *SpinSystem*");
 		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;

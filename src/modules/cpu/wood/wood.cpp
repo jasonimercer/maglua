@@ -110,7 +110,7 @@ void Wood::adjustMagnetostatics(Magnetostatics2D* mag)
 		dArray* ZZ = mag->ZZ[i][i];
 		double xx = XX->get(0);
 		double zz = ZZ->get(0);
-		DN[i] = -4.0 * M_PI * (zz-xx);
+		DN[i] = 4.0 * M_PI * (zz-xx);
 		
 		mag->XX[i][i]->set(0,0,0,  0);
 		mag->YY[i][i]->set(0,0,0,  0);

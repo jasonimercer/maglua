@@ -351,7 +351,13 @@ void reduceDiffSumAll(const double* d_a, const double* d_b, const int n, double&
 {
 	v = 0;
 	for(int i=0; i<n; i++)
-		v+= fabs((d_a[i] - d_b[i]));
+	{
+		const double q = d_a[i] - d_b[i];
+		if(q < 0)
+			v -= q;
+		else
+			v += q;	
+	}
 }
 void reduceDiffSumAll(const float* d_a, const float* d_b, const int n, float& v)
 {
