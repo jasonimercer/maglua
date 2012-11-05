@@ -21,6 +21,13 @@ using namespace std;
 
 
 using namespace std;
+#include <math.h>
+static int l_math_isnan(lua_State* L)
+{
+	double d = lua_tonumber(L, 1);
+	lua_pushboolean(L, isnan(d));
+	return 1;
+}
 
 static int l_os_pwd(lua_State* L)
 {
@@ -147,5 +154,12 @@ void register_os_extensions(lua_State* L)
 	lua_pushcfunction(L, l_os_pwd);
 	lua_settable(L, -3);
 
+	lua_pop(L, 1);
+	
+	
+	lua_getglobal(L, "math");
+	lua_pushstring(L, "isnan");
+	lua_pushcfunction(L, l_math_isnan);
+	lua_settable(L, -3);
 	lua_pop(L, 1);
 }

@@ -1,5 +1,11 @@
 #include <math.h>
 #include <stdio.h>
+extern "C" {
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+}
+
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932385
@@ -19,7 +25,10 @@
 #define DOUBLE double
 #endif
 
-DOUBLE invtan(const DOUBLE num, const DOUBLE denom)
+
+
+
+static DOUBLE invtan(const DOUBLE num, const DOUBLE denom)
 {
 	if(denom == 0)
 	{
@@ -27,7 +36,10 @@ DOUBLE invtan(const DOUBLE num, const DOUBLE denom)
 			return M_PI * 0.5;
 		return -M_PI * 0.5;
 	}
-	return ATAN(num/denom);
+	const DOUBLE v = ATAN(num/denom);
+// 	if(isnan(v))
+// // 		printf("%Lf  %Lf\n", num, denom);
+	return v;
 }
 
 static DOUBLE sign(const DOUBLE x)
@@ -41,12 +53,26 @@ static DOUBLE sign(const DOUBLE x)
 
 static DOUBLE phi(const DOUBLE n, const DOUBLE d)
 {
+	DOUBLE v =  0;
 	if(n == 0)
-		return 0;
-	if(d == 0)
-		return 1000 * sign(n); //arcsinh(10^500) ~= 1000. 10^500 is like infinity
-	const DOUBLE p = n / d;
-	return LOG(p + SQRT(1.0 + p*p));
+		v = 0;
+	else
+	{
+		if(d == 0)
+			v = 1000 * sign(n); //arcsinh(10^500) ~= 1000. 10^500 is like infinity
+		else
+		{
+			const DOUBLE p = n / d;
+			const DOUBLE t = p + SQRT(1.0 + p*p);
+			if(t == 0)
+			{
+				v = 1000 * sign(n);
+			}
+			else
+				v = LOG(t);
+		}
+	}
+	return v;
 }
 
 
@@ -110,27 +136,34 @@ static DOUBLE F2(const DOUBLE X,   const DOUBLE Y,   const DOUBLE Z,
 		 const DOUBLE dx1, const DOUBLE dy1, const DOUBLE dz1, 
 		 const DOUBLE dx2, const DOUBLE dy2, const DOUBLE dz2) 
 {
-	return f(X,Y,Z) - f(0,Y,Z) - f(X,0,Z) + f(X,Y,0);
+	const DOUBLE v = 
+	       f(X,Y,Z) - f(0,Y,Z) - f(X,0,Z) + f(X,Y,0);
+	return v;
 }
 
 static DOUBLE F1(const DOUBLE X,   const DOUBLE Y,   const DOUBLE Z,
 		 const DOUBLE dx1, const DOUBLE dy1, const DOUBLE dz1, 
 		 const DOUBLE dx2, const DOUBLE dy2, const DOUBLE dz2) 
 {
-	return  F2(X, Y,     Z,     dx1, dy1, dz1, dx2, dy2, dz2)
+	const DOUBLE v =
+	        F2(X, Y,     Z,     dx1, dy1, dz1, dx2, dy2, dz2)
 	      - F2(X, Y-dy1, Z,     dx1, dy1, dz1, dx2, dy2, dz2)
 		  - F2(X, Y,     Z-dz1, dx1, dy1, dz1, dx2, dy2, dz2)
 		  + F2(X, Y-dy1, Z-dz1, dx1, dy1, dz1, dx2, dy2, dz2);
+	return v;
 }
 
 static DOUBLE F(const DOUBLE X,   const DOUBLE Y,   const DOUBLE Z,
 		 const DOUBLE dx1, const DOUBLE dy1, const DOUBLE dz1, 
 		 const DOUBLE dx2, const DOUBLE dy2, const DOUBLE dz2) 
 {
-	return   F1(X, Y+dy2, Z+dz2, dx1, dy1, dz1, dx2, dy2, dz2) 
+	const DOUBLE v = 
+	         F1(X, Y+dy2, Z+dz2, dx1, dy1, dz1, dx2, dy2, dz2) 
 		   - F1(X, Y,     Z+dz2, dx1, dy1, dz1, dx2, dy2, dz2)  
 		   - F1(X, Y+dy2, Z,     dx1, dy1, dz1, dx2, dy2, dz2)  
 		   + F1(X, Y,     Z,     dx1, dy1, dz1, dx2, dy2, dz2);	
+		   
+	return v;
 }
 
 static void shuffle(double* dest, const double* src, const int* o)
@@ -149,11 +182,13 @@ double magnetostatic_Nxx(const double X,   const double Y,   const double Z,
 	const DOUBLE dx1 = p1[0];
 	const DOUBLE dx2 = p2[0];
 	const DOUBLE v = p1[0]*p1[1]*p1[2];
-	return -(1.0/(4.0*M_PI * v)) * (
-		  F(X,         Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
-		+ F(X+dx2-dx1, Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
-		- F(X-dx1,     Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
-		- F(X+dx2,     Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2])  );
+	
+	const DOUBLE FF1 = F(X,         Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
+	const DOUBLE FF2 = F(X+dx2-dx1, Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
+	const DOUBLE FF3 = F(X-dx1,     Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
+	const DOUBLE FF4 = F(X+dx2,     Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
+
+	return -(1.0/(4.0*M_PI * v)) * (FF1 + FF2 - FF3 - FF4);
 }
 
 
@@ -248,5 +283,95 @@ double magnetostatic_Nzy(const double X,   const double Y,   const double Z,
 	shuffle(t, target, o);
 	shuffle(s, source, o);
 	return magnetostatic_Nxy(Z, Y, X, t, s);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+#define PROTO(func) static int l_ ## func(lua_State* L) {
+
+#define FUNC1(func) \
+PROTO(func) \
+	const DOUBLE v1 = lua_tonumber(L, 1); \
+	lua_pushnumber(L,  func(v1) ); return 1; }
+
+#define FUNC2(func) \
+PROTO(func) \
+	const DOUBLE v1 = lua_tonumber(L, 1); \
+	const DOUBLE v2 = lua_tonumber(L, 2); \
+	lua_pushnumber(L,  func(v1,v2) ); return 1; }
+
+#define FUNC3(func) \
+PROTO(func) \
+	const DOUBLE v1 = lua_tonumber(L, 1); \
+	const DOUBLE v2 = lua_tonumber(L, 2); \
+	const DOUBLE v3 = lua_tonumber(L, 3); \
+	lua_pushnumber(L,  func(v1,v2,v3) ); return 1; }
+
+#define FUNC6(func) \
+PROTO(func) \
+	const DOUBLE v1 = lua_tonumber(L, 1); \
+	const DOUBLE v2 = lua_tonumber(L, 2); \
+	const DOUBLE v3 = lua_tonumber(L, 3); \
+	const DOUBLE v4 = lua_tonumber(L, 4); \
+	const DOUBLE v5 = lua_tonumber(L, 5); \
+	const DOUBLE v6 = lua_tonumber(L, 6); \
+	lua_pushnumber(L,  func(v1,v2,v3,v4,v5,v6) ); return 1; }
+
+#define FUNC9(func) \
+PROTO(func) \
+	const DOUBLE v1 = lua_tonumber(L, 1); \
+	const DOUBLE v2 = lua_tonumber(L, 2); \
+	const DOUBLE v3 = lua_tonumber(L, 3); \
+	const DOUBLE v4 = lua_tonumber(L, 4); \
+	const DOUBLE v5 = lua_tonumber(L, 5); \
+	const DOUBLE v6 = lua_tonumber(L, 6); \
+	const DOUBLE v7 = lua_tonumber(L, 7); \
+	const DOUBLE v8 = lua_tonumber(L, 8); \
+	const DOUBLE v9 = lua_tonumber(L, 9); \
+	lua_pushnumber(L,  func(v1,v2,v3,v4,v5,v6,v7,v8,v9) ); return 1; }
+
+
+
+FUNC1(sign)
+FUNC2(invtan)
+FUNC2(phi)
+FUNC3(g)
+FUNC3(f)
+FUNC3(G2)
+FUNC6(G1)
+FUNC9(G)
+FUNC9(F)
+FUNC9(F1)
+FUNC9(F2)
+
+#define REG(func) lua_pushstring(L, #func); lua_pushcfunction(L, l_##func); lua_settable(L, -3);
+
+void register_mag2d_internal_functions(lua_State* L)
+{
+	lua_getglobal(L, "Magnetostatics2D");
+	
+	REG(sign);
+	REG(invtan);
+	REG(phi);
+	REG(g);
+	REG(f);
+	REG(G1);
+	REG(G2);
+	REG(G);
+	REG(F1);
+	REG(F2);
+	REG(F);
+	
+	lua_pop(L, 1);
 }
 

@@ -457,6 +457,10 @@ bool LongRange2D::apply(SpinSystem* ss)
 		hy->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
 		hz->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
 	}
+// 	hx->scaleAll(global_scale);
+// 	hy->scaleAll(global_scale);
+// 	hz->scaleAll(global_scale);
+
 	return true;
 }
 

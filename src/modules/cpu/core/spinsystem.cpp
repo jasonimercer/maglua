@@ -497,7 +497,7 @@ int SpinSystem::getSlot(const char* name)
 		return ANISOTROPY_SLOT;
 	if(strcasecmp(name, "thermal") == 0 || strcasecmp(name, "stochastic") == 0 || strcasecmp(name, "temperature") == 0)
 		return THERMAL_SLOT;
-	if(strcasecmp(name, "dipole") == 0)
+	if(strcasecmp(name, "dipole") == 0 || strcasecmp(name, "magnetostatics") == 0 || strcasecmp(name, "magnetostatic") == 0  || strcasecmp(name, "longrange") == 0)
 		return DIPOLE_SLOT;
 	if(strcasecmp(name, "applied") == 0 || strcasecmp(name, "zeeman") == 0)
 		return APPLIEDFIELD_SLOT;

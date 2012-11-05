@@ -172,6 +172,8 @@ MAGNETOSTATICS2D_API int lib_register(lua_State* L)
 	lua_pushcfunction(L, l_zz);	lua_setfield(L, -2, "NZZ");
 	lua_pop(L, 1); //pop table
 	
+	register_mag2d_internal_functions(L);
+	
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
 	if(luaL_dostring(L, __mag2d_luafuncs()))

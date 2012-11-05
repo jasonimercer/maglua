@@ -313,27 +313,45 @@ local function sameInternals(mag)
         return false
     end
 
-    local targetx, targety, targetz = %d, %d, %d
-    if mag:nx() ~= targetx or mag:ny() ~= targety or mag:nz() ~= targetz then
+	local function sameNumber(a,b)
+		if a == b then
+			return true
+		end
+
+		if a == 0 or b == 0 then
+			return false
+		end
+
+		local c = math.abs(a-b)
+		local d = math.abs(a+b)
+		if c/d < 1e-8 then
+			return true
+		end
+		return false
+	end
+	
+	local targetx, targety, targetz = %d, %d, %d
+    if not 	sameNumber(mag:nx(), targetx) or not sameNumber(mag:ny(), targety) or not sameNumber(mag:nz(), targetz) then
         return false
     end 
 
     for k=1,targetz do
     for i=1,3 do
-        if id.grainSize[k][i] ~= internal.grainSize[k][i] then
+        if not sameNumber(id.grainSize[k][i], internal.grainSize[k][i]) then
             return false
         end
         for j=1,3 do
-            if id.ABC[k][i][j] ~= internal.ABC[k][i][j] then
+            if not sameNumber(id.ABC[k][i][j], internal.ABC[k][i][j]) then
                 return false
             end
         end
     end
     end
 
-    if id.truncation ~= internal.truncation then
+    if not sameNumber(id.truncation, internal.truncation) then
         return false
     end
+
 
     return true
 end
@@ -365,17 +383,17 @@ return sameInternals, function(mag)
 
 			for x=1,nx do
 				for y=1,ny do
-					tXX:set(y,x,XX[i][j][x][y])
-					tXY:set(y,x,XY[i][j][x][y])
-					tXZ:set(y,x,XZ[i][j][x][y])
+					tXX:set(x,y,XX[i][j][y][x])
+					tXY:set(x,y,XY[i][j][y][x])
+					tXZ:set(x,y,XZ[i][j][y][x])
 
-					tYX:set(y,x,YX[i][j][x][y])
-					tYY:set(y,x,YY[i][j][x][y])
-					tYZ:set(y,x,YZ[i][j][x][y])
+					tYX:set(x,y,YX[i][j][y][x])
+					tYY:set(x,y,YY[i][j][y][x])
+					tYZ:set(x,y,YZ[i][j][y][x])
 
-					tZX:set(y,x,ZX[i][j][x][y])
-					tZY:set(y,x,ZY[i][j][x][y])
-					tZZ:set(y,x,ZZ[i][j][x][y])
+					tZX:set(x,y,ZX[i][j][y][x])
+					tZY:set(x,y,ZY[i][j][y][x])
+					tZZ:set(x,y,ZZ[i][j][y][x])
 				end
 			end
 		end
@@ -498,7 +516,6 @@ local function makeData(mag)
 	-- try each shoe for a match
 	for k,v in pairs(fns) do
 		local f = v[1] 
-
 		if mag2d_load(mag, f) then --we don't need to do work
 			return
 		end
@@ -595,18 +612,24 @@ local function makeData(mag)
 					x = math.mod(x, nx)
 					y = math.mod(y, ny)
 					
-					local vXX = Magnetostatics2D.NXX(rx,ry,rz, dGrain, sGrain)
-					local vXY = Magnetostatics2D.NXY(rx,ry,rz, dGrain, sGrain)
-					local vXZ = Magnetostatics2D.NXZ(rx,ry,rz, dGrain, sGrain)
+					local vXX = Magnetostatics2D.NXX(rx,ry,rz, sGrain, dGrain)
+					local vXY = Magnetostatics2D.NXY(rx,ry,rz, sGrain, dGrain)
+					local vXZ = Magnetostatics2D.NXZ(rx,ry,rz, sGrain, dGrain)
 					
-					local vYX = Magnetostatics2D.NYX(rx,ry,rz, dGrain, sGrain)
-					local vYY = Magnetostatics2D.NYY(rx,ry,rz, dGrain, sGrain)
-					local vYZ = Magnetostatics2D.NYZ(rx,ry,rz, dGrain, sGrain)
+					local vYX = Magnetostatics2D.NYX(rx,ry,rz, sGrain, dGrain)
+					local vYY = Magnetostatics2D.NYY(rx,ry,rz, sGrain, dGrain)
+					local vYZ = Magnetostatics2D.NYZ(rx,ry,rz, sGrain, dGrain)
 					
-					local vZX = Magnetostatics2D.NZX(rx,ry,rz, dGrain, sGrain)
-					local vZY = Magnetostatics2D.NZY(rx,ry,rz, dGrain, sGrain)
-					local vZZ = Magnetostatics2D.NZZ(rx,ry,rz, dGrain, sGrain)
+					local vZX = Magnetostatics2D.NZX(rx,ry,rz, sGrain, dGrain)
+					local vZY = Magnetostatics2D.NZY(rx,ry,rz, sGrain, dGrain)
+					local vZZ = Magnetostatics2D.NZZ(rx,ry,rz, sGrain, dGrain)
 
+					
+					if math.isnan(vZZ) then
+						print(vZZ)
+						local pos = "(" .. table.concat({rx,ry,rz}, ", ") .. ")"
+						error("ZZ(" .. table.concat({dest,src,x,y}, ":") .. ")" .. pos .. "   " .. table.concat(dGrain, ",") .. "     " .. table.concat(sGrain, ","))
+					end
 					
 					-- adding one to indices here because the c++ code decrements them
 					NXX[dest][src]:addAt(x+1, y+1, vXX)

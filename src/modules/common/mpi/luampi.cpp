@@ -567,7 +567,7 @@ static int l_mpi_help(lua_State* L)
 	if(func == &l_mpi_splitrange<0> || func == &l_mpi_splitrange<1>)
 	{
 		lua_pushstring(L, "Make an iterator that iterates over different balanced sequential chunks of a range for each MPI process. Example use:\n"
-			"<pre>for i=mpi.range(1,10) do\n\tprint(mpi.get_rank(), i)\nend\n</pre>");
+			"<pre>for i in mpi.range(1,10) do\n\tprint(mpi.get_rank(), i)\nend\n</pre>");
 		lua_pushstring(L, "2 Numbers, 1 Optional Number: The first two numbers represent the start and end points (inclusive) of the range. The optional third number gives a step size (default 1)."); 
 		lua_pushstring(L, "1 Function: The function will return sequential values in the local chunk for each function call. The function will return nil when the range has been exhausted.");
 		return 3;
