@@ -42,6 +42,8 @@ public:
 	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldFrom(lua_State* L, SpinSystem* src, int slot);
 	void moveToward(SpinSystem* other, double r);
+
+	void rotateToward(SpinSystem* other, double max_angle, dArray* max_by_site);
 	
 	
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);

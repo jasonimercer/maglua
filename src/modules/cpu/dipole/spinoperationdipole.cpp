@@ -105,9 +105,46 @@ DIPOLE_API const char* lib_name(lua_State* L);
 DIPOLE_API int lib_main(lua_State* L);
 }
 
+#include "dipolesupport.h"
+#define __d(F)					   \
+	double X = lua_tonumber(L, 1); \
+	double Y = lua_tonumber(L, 2); \
+	double Z = lua_tonumber(L, 3); \
+	lua_pushnumber(L, F(X, Y, Z)); \
+	return 1; \
+	
+static int l_xx(lua_State* L){ __d(gamma_xx_dip) }
+static int l_xy(lua_State* L){ __d(gamma_xy_dip) }
+static int l_xz(lua_State* L){ __d(gamma_xz_dip) }
+
+static int l_yx(lua_State* L){ __d(gamma_xy_dip) }
+static int l_yy(lua_State* L){ __d(gamma_yy_dip) }
+static int l_yz(lua_State* L){ __d(gamma_yz_dip) }
+
+static int l_zx(lua_State* L){ __d(gamma_xz_dip) }
+static int l_zy(lua_State* L){ __d(gamma_xy_dip) }
+static int l_zz(lua_State* L){ __d(gamma_zz_dip) }
+
 DIPOLE_API int lib_register(lua_State* L)
 {
 	luaT_register<Dipole>(L);
+
+	lua_getglobal(L, "Dipole");
+	
+	lua_pushcfunction(L, l_xx);	lua_setfield(L, -2, "XX");
+	lua_pushcfunction(L, l_xy);	lua_setfield(L, -2, "XY");
+	lua_pushcfunction(L, l_xz);	lua_setfield(L, -2, "XZ");
+
+	lua_pushcfunction(L, l_yx);	lua_setfield(L, -2, "YX");
+	lua_pushcfunction(L, l_yy);	lua_setfield(L, -2, "YY");
+	lua_pushcfunction(L, l_yz);	lua_setfield(L, -2, "YZ");
+
+	lua_pushcfunction(L, l_zx);	lua_setfield(L, -2, "ZX");
+	lua_pushcfunction(L, l_zy);	lua_setfield(L, -2, "ZY");
+	lua_pushcfunction(L, l_zz);	lua_setfield(L, -2, "ZZ");
+	lua_pop(L, 1);
+	
+	
 	return 0;
 }
 

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=CGS.lo RungeKutta.lo POVRay.lo PredictorCorrector.lo AdaptiveTimeStep.lo scripts.o
+OBJECTS=CGS.lo ColorMap.lo RungeKutta.lo POVRay.lo PredictorCorrector.lo AdaptiveTimeStep.lo scripts.o
 LIBNAME=Scripts
 CATEGORY=common
 DEPEND=luabaseobject
@@ -18,4 +18,4 @@ BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.mpi
 
-EXTRA_CLEAN=CGS.h RungeKutta.h POVRay.h CGS.cpp RungeKutta.cpp POVRay.cpp PredictorCorrector.h PredictorCorrector.cpp AdaptiveTimeStep.h AdaptiveTimeStep.cpp
+EXTRA_CLEAN=ColorMap.h ColorMap.cpp CGS.h RungeKutta.h POVRay.h CGS.cpp RungeKutta.cpp POVRay.cpp PredictorCorrector.h PredictorCorrector.cpp AdaptiveTimeStep.h AdaptiveTimeStep.cpp

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=mag2d_luafuncs.lo demag.o spinoperationmagnetostatics2d.o
+OBJECTS=mag2d_luafuncs.lo pointfunc_demag.o demag.o spinoperationmagnetostatics2d.o
 LIBNAME=Magnetostatics2D
 CATEGORY=cpu
 

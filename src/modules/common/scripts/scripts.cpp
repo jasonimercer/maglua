@@ -38,6 +38,7 @@ typedef struct ss
 #include "RungeKutta.h"
 #include "POVRay.h"
 #include "PredictorCorrector.h"
+#include "ColorMap.h"
 #include "AdaptiveTimeStep.h"
 
 SCRIPTS_API int lib_register(lua_State* L)
@@ -48,6 +49,7 @@ SCRIPTS_API int lib_register(lua_State* L)
 		{__RungeKutta_name(),  __RungeKutta()},
 		{__PredictorCorrector_name(), __PredictorCorrector()},
 		{__AdaptiveTimeStep_name(),  __AdaptiveTimeStep()},
+		{__ColorMap_name(),  __ColorMap()},
 		{0,0}
 	};
 	

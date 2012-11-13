@@ -140,6 +140,7 @@ static int l_getmetatable(lua_State* L)
 	} \
 	lua_pushnumber(L, F(X, Y, Z, p[0], p[1])); \
 	return 1; \
+	
 
 static int l_xx(lua_State* L){ ___(magnetostatic_Nxx) }
 static int l_xy(lua_State* L){ ___(magnetostatic_Nxy) }
@@ -152,6 +153,37 @@ static int l_yz(lua_State* L){ ___(magnetostatic_Nyz) }
 static int l_zx(lua_State* L){ ___(magnetostatic_Nzx) }
 static int l_zy(lua_State* L){ ___(magnetostatic_Nzy) }
 static int l_zz(lua_State* L){ ___(magnetostatic_Nzz) }
+
+
+
+#include "pointfunc_demag.h"
+#define __p(F)					   \
+	double X = lua_tonumber(L, 1); \
+	double Y = lua_tonumber(L, 2); \
+	double Z = lua_tonumber(L, 3); \
+ \
+	double s[3]; \
+	for(int j=0; j<3; j++) \
+	{ \
+		lua_pushinteger(L, 1+j); \
+		lua_gettable(L, 4); \
+		s[j] = lua_tonumber(L, -1); \
+		lua_pop(L, 1); \
+	} \
+	lua_pushnumber(L, F(X, Y, Z, s)); \
+	return 1; \
+	
+static int l_pxx(lua_State* L){ __p(magnetostatic_Pxx) }
+static int l_pxy(lua_State* L){ __p(magnetostatic_Pxy) }
+static int l_pxz(lua_State* L){ __p(magnetostatic_Pxz) }
+
+static int l_pyx(lua_State* L){ __p(magnetostatic_Pyx) }
+static int l_pyy(lua_State* L){ __p(magnetostatic_Pyy) }
+static int l_pyz(lua_State* L){ __p(magnetostatic_Pyz) }
+
+static int l_pzx(lua_State* L){ __p(magnetostatic_Pzx) }
+static int l_pzy(lua_State* L){ __p(magnetostatic_Pzy) }
+static int l_pzz(lua_State* L){ __p(magnetostatic_Pzz) }
 
 MAGNETOSTATICS2D_API int lib_register(lua_State* L)
 {
@@ -170,6 +202,19 @@ MAGNETOSTATICS2D_API int lib_register(lua_State* L)
 	lua_pushcfunction(L, l_zx);	lua_setfield(L, -2, "NZX");
 	lua_pushcfunction(L, l_zy);	lua_setfield(L, -2, "NZY");
 	lua_pushcfunction(L, l_zz);	lua_setfield(L, -2, "NZZ");
+	
+		
+	lua_pushcfunction(L, l_pxx);	lua_setfield(L, -2, "PXX");
+	lua_pushcfunction(L, l_pxy);	lua_setfield(L, -2, "PXY");
+	lua_pushcfunction(L, l_pxz);	lua_setfield(L, -2, "PXZ");
+
+	lua_pushcfunction(L, l_pyx);	lua_setfield(L, -2, "PYX");
+	lua_pushcfunction(L, l_pyy);	lua_setfield(L, -2, "PYY");
+	lua_pushcfunction(L, l_pyz);	lua_setfield(L, -2, "PYZ");
+
+	lua_pushcfunction(L, l_pzx);	lua_setfield(L, -2, "PZX");
+	lua_pushcfunction(L, l_pzy);	lua_setfield(L, -2, "PZY");
+	lua_pushcfunction(L, l_pzz);	lua_setfield(L, -2, "PZZ");
 	lua_pop(L, 1); //pop table
 	
 	register_mag2d_internal_functions(L);

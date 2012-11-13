@@ -1,9 +1,7 @@
 -- Magnetostatics2D
-
 local MODNAME = "Magnetostatics2D"
 local MODTAB = _G[MODNAME]
 local t = maglua_getmetatable(MODNAME) -- this is a special function available only at registration time
-
 -- at first the internal data is nil. If it is it
 -- needs to be setup for mag2d
 local function initializeInternalData(mag, t)
@@ -20,12 +18,10 @@ local function initializeInternalData(mag, t)
 	end
 	return t
 end
-	
 
 local function isNumber(x) 
 	return type(x) == "number"
 end
-
 local function isTable(x)
 	return type(x) == "table"
 end
@@ -288,17 +284,11 @@ end
 local function parse()
 	for i=1,nz do
 		for j=1,nz do
-			XX[i][j] = parseMatrix(XX[i][j])
-			XY[i][j] = parseMatrix(XY[i][j])
-			XZ[i][j] = parseMatrix(XZ[i][j])
-
-			YX[i][j] = parseMatrix(YX[i][j])
-			YY[i][j] = parseMatrix(YY[i][j])
-			YZ[i][j] = parseMatrix(YZ[i][j])
-
-			ZX[i][j] = parseMatrix(ZX[i][j])
-			ZY[i][j] = parseMatrix(ZY[i][j])
-			ZZ[i][j] = parseMatrix(ZZ[i][j])
+			]])
+			for k,v in pairs(tnames) do
+				f:write( v .. "[i][j] = parseMatrix(" .. v .. "[i][j])\n")
+			end
+f:write([[
 		end
 	end
 end
@@ -368,32 +358,19 @@ return sameInternals, function(mag)
 	parse()
 	
 	for i=1,nz do
-		for j=1,nz do
-			local tXX = mag:tensorArray(i, j, "XX")
-			local tXY = mag:tensorArray(i, j, "XY")
-			local tXZ = mag:tensorArray(i, j, "XZ")
+		for j=1,nz do]] .. "\n")
+		
+	for k,v in pairs(tnames) do
+		f:write("local t" .. v .. " = mag:tensorArray(i, j, \"" .. v .. "\")\n")
+	end
 
-			local tYX = mag:tensorArray(i, j, "YX")
-			local tYY = mag:tensorArray(i, j, "YY")
-			local tYZ = mag:tensorArray(i, j, "YZ")
-			
-			local tZX = mag:tensorArray(i, j, "ZX")
-			local tZY = mag:tensorArray(i, j, "ZY")
-			local tZZ = mag:tensorArray(i, j, "ZZ")
-
-			for x=1,nx do
-				for y=1,ny do
-					tXX:set(x,y,XX[i][j][y][x])
-					tXY:set(x,y,XY[i][j][y][x])
-					tXZ:set(x,y,XZ[i][j][y][x])
-
-					tYX:set(x,y,YX[i][j][y][x])
-					tYY:set(x,y,YY[i][j][y][x])
-					tYZ:set(x,y,YZ[i][j][y][x])
-
-					tZX:set(x,y,ZX[i][j][y][x])
-					tZY:set(x,y,ZY[i][j][y][x])
-					tZZ:set(x,y,ZZ[i][j][y][x])
+	f:write([[			for x=1,nx do
+				for y=1,ny do]] .. "\n")
+	
+	for k,v in pairs(tnames) do
+		f:write("					t" .. v .. ":set(x,y," .. v .. "[i][j][y][x])\n")
+	end
+	f:write([[
 				end
 			end
 		end
@@ -623,13 +600,6 @@ local function makeData(mag)
 					local vZX = Magnetostatics2D.NZX(rx,ry,rz, sGrain, dGrain)
 					local vZY = Magnetostatics2D.NZY(rx,ry,rz, sGrain, dGrain)
 					local vZZ = Magnetostatics2D.NZZ(rx,ry,rz, sGrain, dGrain)
-
-					
-					if math.isnan(vZZ) then
-						print(vZZ)
-						local pos = "(" .. table.concat({rx,ry,rz}, ", ") .. ")"
-						error("ZZ(" .. table.concat({dest,src,x,y}, ":") .. ")" .. pos .. "   " .. table.concat(dGrain, ",") .. "     " .. table.concat(sGrain, ","))
-					end
 					
 					-- adding one to indices here because the c++ code decrements them
 					NXX[dest][src]:addAt(x+1, y+1, vXX)

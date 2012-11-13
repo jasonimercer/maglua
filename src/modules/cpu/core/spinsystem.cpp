@@ -84,7 +84,134 @@ bool SpinSystem::sameSize(const SpinSystem* other) const
 			nz == other->nz;
 }
 
+static void cross3(
+	const double ax, const double ay, const double az,
+	const double bx, const double by, const double bz,
+	      double&cx,       double&cy,       double&cz)
+{
+	cx = ay*bz - az*by;
+	cy = az*bx - ax*bz;
+	cz = ax*by - ay*bx;
+}
+
+static double dot3(
+	const double ax, const double ay, const double az,
+	const double bx, const double by, const double bz)
+{
+	return ax*bx + ay*by + az*bz;
+}
+
+static double random_double(const double a=0, const double b=1)
+{
+	return a + (b-a) * ((double)rand()) / ((double)RAND_MAX);
+}
+
+static void rotateSpinToward(double& x, double& y, double& z, const double l1, const double gx, const double gy, const double gz, const double l2, const double max_theta)
+{
+	const double l12 = l1 * l2; 
+	if(l12 == 0)
+	{
+		x = 0;
+		y = 0;
+		z = 0;
+		return;
+	}
+
+	const double dotProduct = dot3(x,y,z,   gx,gy,gz);
+
+	const double normalizedDotProduct = dotProduct / (l12);
+
+	if(acos(normalizedDotProduct) <= max_theta)
+	{
+		x = gx;
+		y = gy;
+		z = gz;
+		return;
+	}
+
+	if(acos(normalizedDotProduct) <= -max_theta) //rotate away
+	{
+		x = -gx;
+		y = -gy;
+		z = -gz;
+		return;
+	}
+
+	// now we need a vector ortho to the inputs to rotate about
+
+	double nx, ny, nz;
+
+	if(normalizedDotProduct == -1) //then colinear, choose a random vector
+	{
+		int rand(void);
+
+		do
+		{
+			cross3(x, y, z, 
+				  random_double(-1,1), 
+				  random_double(-1,1), 
+				  random_double(-1,1), nx, ny, nz);
+		}while(dot3(nx,nx,ny,ny,nz,nz) == 0);
+	}
+	else
+	{
+		cross3(x, y, z, gx, gy, gz, nx, ny, nz);
+	}
+
+
+	const double n2 = dot3(nx,ny,nz,   nx,ny,nz);
+	const double in = 1.0/sqrt(n2);
 	
+	nx *= in;
+	ny *= in;
+	nz *= in;
+
+	// now we have a unit vector ortho to source and destination
+	// we need to rotate about it by max_theta to get our goal
+
+	const double _x = x;
+	const double _y = y;
+	const double _z = z;
+
+	const double _u = nx;
+	const double _v = ny;
+	const double _w = nz;
+
+	const double cost = cos(max_theta);
+	const double sint = sin(max_theta);
+	const double ux_vy_wz =  _u*_x+_v*_y+_w*_z;
+
+	x = (_u*(ux_vy_wz)+(_x*(_v*_v+_w*_w)-_u*(_v*_y+_w*_z))*cost + (-_w*_y+_v*_z)*sint);
+	y = (_v*(ux_vy_wz)+(_y*(_u*_u+_w*_w)-_v*(_u*_x+_w*_z))*cost + ( _w*_x-_u*_z)*sint);
+    z = (_w*(ux_vy_wz)+(_z*(_u*_u+_v*_v)-_w*(_u*_x+_v*_y))*cost + (-_v*_x+_u*_y)*sint);
+}
+
+
+void SpinSystem::rotateToward(SpinSystem* other, double max_angle, dArray* max_by_site)
+{
+	if(!sameSize(other))
+		return;
+
+	if(max_by_site == 0)
+	{
+		for(int idx=0; idx<nxyz; idx++)
+		{
+			rotateSpinToward((*x) [idx], (*y) [idx], (*z) [idx], (*ms) [idx],
+							 (*other->x)[idx], (*other->y)[idx], (*other->z)[idx], (*other->ms)[idx],
+							 max_angle);
+		}
+	}
+	else
+	{
+		for(int idx=0; idx<nxyz; idx++)
+		{
+			rotateSpinToward((*x) [idx], (*y) [idx], (*z) [idx], (*ms) [idx],
+							 (*other->x)[idx], (*other->y)[idx], (*other->z)[idx], (*other->ms)[idx],
+							 (*max_by_site)[idx]);
+		}
+	}
+}
+
 void SpinSystem::moveToward(SpinSystem* other, double r)
 {
 	if(!sameSize(other))
@@ -1408,6 +1535,35 @@ static int l_movetoward(lua_State* L)
 
 
 
+static int l_rotatetoward(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s1,  1);
+	LUA_PREAMBLE(SpinSystem, s2,  2);
+	const double r = lua_tonumber(L, 3);
+	
+	if(lua_isnumber(L, 3))
+	{
+		const double max_angle = lua_tonumber(L, 3);
+		s1->rotateToward(s2, max_angle, 0);
+		return 0;
+	}
+	else
+	{
+		if(luaT_is<dArray>(L, 3))
+		{
+			dArray* max_per_site = luaT_to<dArray>(L, 3);
+			if(max_per_site->nxyz != s1->nxyz)
+				return luaL_error(L, "Array size mismatch");
+			s1->rotateToward(s2, 0, max_per_site);
+			return 0;
+		}
+	}
+
+	return luaL_error(L, "rotateToward expects a goal SpinSystem and a max angle number or max angle array");
+}
+
+
+
 static int l_getarrayx(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, s,  1);
@@ -1839,6 +1995,13 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+	if(func == l_rotatetoward)
+	{
+		lua_pushstring(L, "Make the calling *SpinSystem* look like a blend between itself and the given *SpinSystem* by rotating the calling system toward the goal system.");
+		lua_pushstring(L, "1 *SpinSystem*, 1 Number or 1 Array: The goal SpinSystem and the maximum rotation angle (global value for the Number, site by site maximum for the array).");
+		lua_pushstring(L, "");
+		return 3;
+	}
 	if(func == l_getfieldarrayx)
 	{
 		lua_pushstring(L, "Get the X components of the field vectors for a given type");
@@ -1931,6 +2094,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 	{
 		{"__tostring",   l_tostring},
 		{"moveToward",   l_movetoward},
+		{"rotateToward",   l_rotatetoward},
 		{"netMoment",    l_netmag},
 		{"netField",     l_netfield},
 		{"setSpin",      l_setspin},
