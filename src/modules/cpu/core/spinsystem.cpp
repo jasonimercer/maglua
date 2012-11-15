@@ -119,8 +119,11 @@ static void rotateSpinToward(double& x, double& y, double& z, const double l1, c
 
 	const double dotProduct = dot3(x,y,z,   gx,gy,gz);
 
-	const double normalizedDotProduct = dotProduct / (l12);
+	double normalizedDotProduct = dotProduct / (l12);
 
+	if(normalizedDotProduct > 1)
+		normalizedDotProduct = 1;
+	
 	if(acos(normalizedDotProduct) <= max_theta)
 	{
 		x = gx;
