@@ -68,7 +68,7 @@ function make_pc_step_function(s_, calcField_, llg_, tol_, optional_temp_)
 			if dxyz == last_same then --not improving
 				error("Failing to converge in Predictor Corrector, timestep too large?", 3)
 			end
-			print(dx, dy, dz, dxyz)
+-- 			print(dx, dy, dz, dxyz)
 			last_same = dxyz
 			return dxyz < tol
 		end

@@ -231,6 +231,16 @@ static int l_sethighlighter(lua_State* L)
 	return 0;
 }
 
+static int l_settransback(lua_State* L)
+{
+	LUA_PREAMBLE(QTextEditItemLua, d, 1);
+	if(!d->widget()) return 0;
+
+	d->setTransparent(lua_tonumber(L, 2));
+	return 0;
+}
+
+
 const luaL_Reg* QTextEditItemLua::luaMethods()
 {
 	static luaL_Reg m[128] = {_NULLPAIR128};
@@ -250,6 +260,7 @@ const luaL_Reg* QTextEditItemLua::luaMethods()
 		{"setHighlighter",    l_sethighlighter},
 		{"setFontFamily",     l_setfontfamily},
 		{"setScrollBarPolicy",l_setsb},
+		{"setTransparentBackground",l_settransback},
 		{NULL,NULL}
 	};
 	merge_luaL_Reg(m, _m);

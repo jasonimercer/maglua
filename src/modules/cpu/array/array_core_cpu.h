@@ -134,25 +134,59 @@ public:
 		return ifft3DTo(dest,ws->data());
 	}
 
+	bool areAllSameValue(T& v)
+	{
+		sync_hd();
+		v = _data[0];
+		for(int i=1; i<nxyz; i++)
+		{
+			if(v != _data[i])
+				return false;
+		}
+		return true;
+	}
+
 	void encode(buffer* b)
 	{
 		sync_hd();
 		encodeInteger(nx, b);
 		encodeInteger(ny, b);
 		encodeInteger(nz, b);
-		for(int i=0; i<nxyz; i++)
-			luaT<T>::encode(_data[i], b);
+		int flag = 0;
+		T v;
+		if(areAllSameValue(v))
+		{
+			flag = 1;
+			encodeInteger(flag, b);
+			luaT<T>::encode(v, b);
+		}
+		else
+		{
+			flag = 0;
+			encodeInteger(flag, b);
+			for(int i=0; i<nxyz; i++)
+				luaT<T>::encode(_data[i], b);
+		}
 	}
 	int decode(buffer* b)
 	{
-		int x = decodeInteger(b);
-		int y = decodeInteger(b);
-		int z = decodeInteger(b);
+		int x    = decodeInteger(b);
+		int y    = decodeInteger(b);
+		int z    = decodeInteger(b);
+		int flag = decodeInteger(b);
 		
 		setSize(x,y,z);
 		
-		for(int i=0; i<nxyz; i++)
-			_data[i] = luaT<T>::decode(b);
+		if(flag == 1)
+		{
+			setAll( luaT<T>::decode(b) );
+		}
+		else
+		{
+			for(int i=0; i<nxyz; i++)
+				_data[i] = luaT<T>::decode(b);
+
+		}
 		return 0;
 	}
 

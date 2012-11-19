@@ -15,6 +15,7 @@ MainWindow::MainWindow(QWidget *parent) :
 //	menuBar()->setVisible(false);
 
     L = lua_open();
+
 	scene.registerFunctions(L);
 	scene.setSceneRect(0, 0, 200000, 200000);
 	scene.setBackgroundBrush(Qt::white);
