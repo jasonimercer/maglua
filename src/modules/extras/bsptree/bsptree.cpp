@@ -446,18 +446,21 @@ int BSPTree::help(lua_State* L)
 		lua_pushstring(L, "Add data to the BSPTree");
 		lua_pushstring(L, "3 Numbers, 1 Data: The numbers are the coordinates and must be inside the bounding box, the data can be any single value including a table");
 		lua_pushstring(L, "");
+		return 3;
 	}
 	if(func == l_split)
 	{
 		lua_pushstring(L, "Compile the BSPTree, must be done before queried.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "");
+		return 3;
 	}
 	if(func == l_getdatsph)
 	{
 		lua_pushstring(L, "Return all data in the provided sphere.");
 		lua_pushstring(L, "4 Nubmers: center of sphere and radius");
 		lua_pushstring(L, "1 Table: List of data");
+		return 3;
 	}
 	
 // d	if(func == l_invalidatefourierdata)

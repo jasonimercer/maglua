@@ -2,6 +2,17 @@
 -- This script uses the built in help features of maglua to build an html help file
 -- If an argument is supplied, that will be the output filename
 --
+-- Also provides the default Global Scope help function
+-- 
+
+help = help or
+function(f)
+	if f == nil then --want description for Global Scope
+		return "This is the Global Scope for MagLua. The following are custom functions added to the base language to help " ..
+			   "create and run simulations." --only returning 1 string
+	end
+end
+
 
 function write_help(file_handle)
 	local f = file_handle or io.stdout
@@ -73,17 +84,25 @@ function write_help(file_handle)
 		font-style: italic ;
 	}
 
-	h2 {
+	h1 {
 		padding-top: 0.4em ;
 		padding-bottom: 0.4em ;
 		padding-left: 20px ;
 		margin-left: -20px ;
-		background-color: #E0E0FF ;
+		background-color: #AAAAAA;
+	}
+	
+	h2 {
+		padding-top: 0.1em ;
+		padding-bottom: 0.1em ;
+		padding-left: 20px ;
+		margin-left: -20px ;
+		background-color: #AAAAAA;
 	}
 
 	h3 {
 		padding-left: 8px ;
-		border-left: solid #E0E0FF 1em ;
+		border-left: solid #AAAAAA 1em ;
 	}
 
 	table h3 {
@@ -119,8 +138,7 @@ function write_help(file_handle)
 	}
 
 	:target {
-		background-color: #F8F8F8 ;
-		padding: 8px ;
+		background-color: #AAAAAA ;
 		border: solid #a0a0a0 2px ;
 	}
 	</style>
@@ -198,8 +216,8 @@ function write_help(file_handle)
 
 	-- over all sorted tables
 	for i,v in ipairs(s) do
-		local t = v[2]
-		local n = v[1]
+		local t = v[2] --table
+		local n = v[1] --name
 		--print("Processing ", n, t)
 		local a, b, c = t.help()
 		if a then
@@ -221,19 +239,27 @@ function write_help(file_handle)
 		end
 		table.sort(xx, comp)
 		for k,v in ipairs(xx) do
-			addsection(n .. "." .. v[1], 3)
+			if n ~= "_G" then
+				addsection(n .. "." .. v[1], 3)
+			else
+				addsection(v[1], 3)
+			end
 			dl(v[2], v[3], v[4])
 		end
 
 		-- write documentation about all methods
 		local yy = {}
-		for k,v in pairs(t.metatable()) do
-			if k ~= "__index" then
-				a, b, c = t.help(v)
-				if a then
-					table.insert(yy, {k, a, b, c})
+		if t.metatable ~= nil then
+			for k,v in pairs(t.metatable()) do
+				if k ~= "__index" then
+					a, b, c = t.help(v)
+					if a then
+						table.insert(yy, {k, a, b, c})
+					end
 				end
 			end
+-- 		else
+			
 		end
 		table.sort(yy, comp)
 		for k,v in ipairs(yy) do

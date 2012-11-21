@@ -485,6 +485,8 @@ void registerCheckPoint(lua_State* L)
 	
 }
 
+#include "checkpoint_luafuncs.h"
+
 extern "C"
 {
 CHECKPOINT_API int lib_register(lua_State* L);
@@ -496,6 +498,12 @@ CHECKPOINT_API int lib_main(lua_State* L);
 CHECKPOINT_API int lib_register(lua_State* L)
 {
 	registerCheckPoint(L);
+	
+	if(luaL_dostring(L, __checkpoint_luafuncs()))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+	}
+	
 	return 0;
 }
 

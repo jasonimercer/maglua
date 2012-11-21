@@ -446,7 +446,7 @@ int Wood::help(lua_State* L)
 		return 3;
 	}
 
-	return 0;
+	return SpinOperation::help(L);
 }
 
 

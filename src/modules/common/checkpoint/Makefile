@@ -9,10 +9,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=checkpoint.o
+OBJECTS=checkpoint_luafuncs.lo checkpoint.o
 LIBNAME=CheckPoint
 CATEGORY=common
 
 DEPEND=luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
+
+EXTRA_CLEAN=checkpoint_luafuncs.h checkpoint_luafuncs.cpp
