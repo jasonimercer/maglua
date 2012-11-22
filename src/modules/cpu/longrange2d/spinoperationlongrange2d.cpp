@@ -594,7 +594,7 @@ int LongRange2D::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "Calculates a Long Range field for a *SpinSystem*. This is an abstract base class inherited by other operators. This operator by itself does nothing.");
+		lua_pushstring(L, "Calculates a Long Range field for a *SpinSystem*. This is a base class used by other operators. This operator by itself does nothing.");
 		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
@@ -630,7 +630,7 @@ int LongRange2D::help(lua_State* L)
 	{
 		lua_pushstring(L, "Get the tensor array for one layer interacting with another. Layers indices are base 1.");
 		lua_pushstring(L, "1 Integer, 1 Integer, 1 String: Destination layer, Source Layer, Tensor name.");
-		lua_pushstring(L, "1 Array: strength of the field");
+		lua_pushstring(L, "1 Array: Tensor");
 		return 3;
 	}
 	if(func == l_setTensorArray)

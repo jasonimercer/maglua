@@ -579,11 +579,11 @@ local function makeData(mag)
 -- 					print(rx,ry,rz)
 					
 					-- wrap to [0:na-1] bounds
-					if x < 0 then
-						x = x + (math.floor( -x / nx) + 1)* nx
+					while x < 0 do
+						x = x + 1000*nx
 					end
-					if y < 0 then
-						y = y + (math.floor( -y / ny) + 1)* ny
+					while y < 0 do
+						y = y + 1000*ny
 					end
 					
 					x = math.mod(x, nx)

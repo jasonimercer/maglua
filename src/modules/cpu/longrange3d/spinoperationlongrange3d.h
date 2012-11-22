@@ -1,4 +1,4 @@
-/******************************************************************************
+/********************************************************************
 * Copyright (C) 2008-2011 Jason Mercer.  All rights reserved.
 *
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
@@ -8,7 +8,7 @@
 * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-******************************************************************************/
+**********************************************************************/
 
 #ifndef SPINOPERATIONLONGRANGE
 #define SPINOPERATIONLONGRANGE
@@ -32,7 +32,7 @@ using namespace std;
 class LONGRANGE_API LongRange3D : public SpinOperation
 {
 public:
-	LongRange3D(int nx=1, int ny=1, int nz=1);
+	LongRange3D(const char* name="LongRange3D", const int field_slot=DIPOLE_SLOT, int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange3D"));
 	virtual ~LongRange3D();
 	
 	LINEAGE2("LongRange3D", "SpinOperation")
@@ -42,55 +42,36 @@ public:
 	static int help(lua_State* L);
 
 	bool apply(SpinSystem* ss);
-// 	void getMatrices();
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 
-	double ABC[9]; //unit cell vectors (not shape of sites)
 	double g; //scale
-	int gmax[4]; //cuttoff r, x, y, z
 
 	virtual void init();
 	virtual void deinit();
 	
-	virtual void loadMatrixFunction(double* XX, double* XY, double* XZ, double* YY, double* YZ, double* ZZ);
+	dArray* getAB(const char* AB);
+	void setAB(const char* AB, dArray* newArray);
 
-	double getXX(int ox, int oy, int oz);
-	void   setXX(int ox, int oy, int oz, double value);
-
-	double getXY(int ox, int oy, int oz);
-	void   setXY(int ox, int oy, int oz, double value);
-	
-	double getXZ(int ox, int oy, int oz);
-	void   setXZ(int ox, int oy, int oz, double value);
-
-	double getYY(int ox, int oy, int oz);
-	void   setYY(int ox, int oy, int oz, double value);
-
-	double getYZ(int ox, int oy, int oz);
-	void   setYZ(int ox, int oy, int oz, double value);
-
-	double getZZ(int ox, int oy, int oz);
-	void   setZZ(int ox, int oy, int oz, double value);
-	
-	double getAB(int matrix, int ox, int oy, int oz);
-	void   setAB(int matrix, int ox, int oy, int oz, double value);
-	
 	dArray* XX;
 	dArray* XY;
 	dArray* XZ;
+	
+	dArray* YX;
 	dArray* YY;
 	dArray* YZ;
+
+	dArray* ZX;
+	dArray* ZY;
 	dArray* ZZ;
+
+	bool compileRequired;
+	void compile();
 	
-private:
-	void loadMatrix();
-	bool updateData();
-	
-	bool newdata;
-	bool hasMatrices;
-	bool matrixLoaded;
+	bool newDataRequired;
+	void makeNewData();
+
 
 	dcArray* srx;
 	dcArray* sry;
@@ -104,21 +85,27 @@ private:
 	dcArray* hry;
 	dcArray* hrz;
 
-
+	// these are [destination layer][source layer]
 	dcArray* qXX;
 	dcArray* qXY;
 	dcArray* qXZ;
 
+	dcArray* qYX;
 	dcArray* qYY;
 	dcArray* qYZ;
+	
+	dcArray* qZX;
+	dcArray* qZY;
 	dcArray* qZZ;
 
 	dcArray* ws1;
 	dcArray* ws2;
-
 	dcArray* wsX;
 	dcArray* wsY;
 	dcArray* wsZ;
+
+	int longrange_ref;
+	int function_ref;
 };
 
 
