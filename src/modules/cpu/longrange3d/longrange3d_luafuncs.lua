@@ -86,6 +86,18 @@ local function trace()
 	return table.concat(t, "\n") .. "\n" 
 end
 
+local function setMatrix(lr, ab, x,y,z, value) --expecting base 0
+	if type(x) == "table" then
+		return setMatrix(lr, ab, x[1], x[2], x[3], value)
+	end
+	
+	local a = lr:tensorArray(ab)
+	a:set(x+1,y+1,z+1, value)
+	
+	lr:setNewDataRequired(false)
+	lr:setCompileRequired(true)
+end
+
 local function saveTensors(lr, filename, notes)
 	if notes then
 		notes = "-- " .. string.gsub(notes, "\n", "\n-- ") .. "\n"
@@ -202,6 +214,7 @@ end
 
 t.saveTensors = saveTensors
 t.loadTensors = loadTensors
+t.setMatrix  = setMatrix
 
 local help = MODTAB.help
 
@@ -217,6 +230,12 @@ MODTAB.help = function(x)
 		return
 		"Convenience method to load interaction tensors from a file",
 		"1 String: The filename of the tensor file.",
+		""
+	end
+	if x == setMatrix then
+		return
+		"Set a tensor element",
+		"1 String, 3 Numbers or 1 Table of 3 Numbers, 1 Number: Tensor name, base 0 element coordinate in the tensor, new value",
 		""
 	end
 	

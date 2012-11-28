@@ -752,23 +752,44 @@ int  SpinSystem::getidx(const int px, const int py, const int pz) const
 }
 
 // return numspins * {<x>, <y>, <z>, <M>, <x^2>, <y^2>, <z^2>, <M^2>}
-void SpinSystem::getNetMag(double* v8)
+
+void SpinSystem::getNetMag(dArray* a, double* v8, const double m)
 {
 	for(int i=0; i<8; i++)
 		v8[i] = 0;
-	
-	for(int i=0; i<nxyz; i++)
-	{
-		v8[0] += (*x)[i];
-		v8[4] += (*x)[i] * (*x)[i];
-		v8[1] += (*y)[i];
-		v8[5] += (*y)[i] * (*y)[i];
-		v8[2] += (*z)[i];
-		v8[6] += (*z)[i] * (*z)[i];
-	}
 
+	if(a)
+		if(a->nxyz != nxyz)
+			return;
+
+	if(a)
+	{
+		for(int i=0; i<nxyz; i++)
+		{
+			const double d = (*a)[i] * m;
+			v8[0] += (*x)[i] * d;
+			v8[4] += (*x)[i] * (*x)[i] * d * d;
+			v8[1] += (*y)[i] * d;
+			v8[5] += (*y)[i] * (*y)[i] * d * d;
+			v8[2] += (*z)[i] * d;
+			v8[6] += (*z)[i] * (*z)[i] * d * d;
+		}
+	}
+	else
+	{
+		for(int i=0; i<nxyz; i++)
+		{
+			const double d = m;
+			v8[0] += (*x)[i] * d;
+			v8[4] += (*x)[i] * (*x)[i] * d * d;
+			v8[1] += (*y)[i] * d;
+			v8[5] += (*y)[i] * (*y)[i] * d * d;
+			v8[2] += (*z)[i] * d;
+			v8[6] += (*z)[i] * (*z)[i] * d * d;
+		}
+	}
 	v8[3] = sqrt(v8[0]*v8[0] + v8[1]*v8[1] + v8[2]*v8[2]);
-	v8[7] = sqrt(v8[4]*v8[4] + v8[5]*v8[5] + v8[6]*v8[6]);
+	v8[7] = sqrt(v8[4]*v8[4] + v8[5]*v8[5] + v8[6]*v8[6]);	
 }
 
 
@@ -826,22 +847,29 @@ static int l_getgamma(lua_State* L)
 }
 
 
-static int l_netmag(lua_State* L)
+static int l_netmoment(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-	double m = 1;
-	if(lua_isnumber(L, 2))
-		m = lua_tonumber(L, 2);
-
-	double v8[8];
 	
-	ss->getNetMag(v8);
+	double v8[8];
+	double m = 1;
+	if(lua_isnumber(L, -1))
+		m = lua_tonumber(L, -1);
+	
+	if(luaT_is<dArray>(L, 2))
+	{
+		dArray* a = luaT_to<dArray>(L, 2);
+		ss->getNetMag(a, v8, m);
+	}
+	else
+	{
+		ss->getNetMag(0, v8, m);
+	}
 
 	for(int i=0; i<8; i++)
 	{
-		lua_pushnumber(L, v8[i]*m);
+		lua_pushnumber(L, v8[i]);
 	}
-	
 	return 8;
 }
 
@@ -1672,10 +1700,10 @@ int SpinSystem::help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 
-	if(func == l_netmag)
+	if(func == l_netmoment)
 	{
 		lua_pushstring(L, "Calculate and return net magnetization of a spin system");
-		lua_pushstring(L, "1 Optional Number: The return values will be multiplied by this number, default 1.");
+		lua_pushstring(L, "1 Optional Array.Double, 1 Optional Number: The optional double array scales each site by a certain value, the optional number scales all sites by a single number. Both arguments can be supplied.");
 		lua_pushstring(L, "8 numbers: mean(x), mean(y), mean(z), mean(M), mean(xx), mean(yy), mean(zz), mean(MM)");
 		return 3;
 	}
@@ -2098,7 +2126,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"__tostring",   l_tostring},
 		{"moveToward",   l_movetoward},
 		{"rotateToward",   l_rotatetoward},
-		{"netMoment",    l_netmag},
+		{"netMoment",    l_netmoment},
 		{"netField",     l_netfield},
 		{"setSpin",      l_setspin},
 		{"spin"   ,      l_getspin},

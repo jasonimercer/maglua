@@ -42,6 +42,7 @@ cp -r modules/cpu/longrange2d          $version/modules/cpu
 cp -r modules/cpu/longrange3d          $version/modules/cpu
 cp -r modules/cpu/magnetostatics       $version/modules/cpu
 cp -r modules/cpu/magnetostatics2d     $version/modules/cpu
+cp -r modules/cpu/magnetostatics3d     $version/modules/cpu
 cp -r modules/cpu/thermal              $version/modules/cpu
 cp -r modules/cpu/ewald3d              $version/modules/cpu
 cp -r modules/cpu/wood                 $version/modules/cpu

@@ -51,7 +51,7 @@
 -- end
 -- </pre>
 
-function make_rk_step_function(ss, type, calcFieldFunc, llg, optional_temp)
+function make_rk_step_function(ss, type, calcFieldFunc, dynamics_, llg, optional_temp)
 	-- Butcher Table, the c_{i} column isn't included
 	local butcher = {}
 
@@ -139,6 +139,7 @@ function make_rk_step_function(ss, type, calcFieldFunc, llg, optional_temp)
 	local cff = calcFieldFunc
 	local temp = optional_temp
 	local llgOp = llg
+	local dynamics = dynamics_ or function() end
 	ss_k[1] = ss
 	for i=2,nstep do
 		ss_k[i] = ss_k[1]:copy() -- make copies for RK
@@ -153,10 +154,12 @@ function make_rk_step_function(ss, type, calcFieldFunc, llg, optional_temp)
 	end
 	local function sfunc(ss_input, skip_temperature)
 		ss_k[1] = ss_input or ss -- can operate on default ss or a given system
+		dynamics(ss_k[1])
 		cff(ss_k[1]) -- calc field for base system
 		for i = 1,nstep-1 do
 			ss_k[i+1]:setTimeStep(ss_k[1]:timeStep())
 			istep(ss_k[1], butcher[i], ss_k[i+1])
+			dynamics(ss_k[i+1])
 			cff(ss_k[i+1])
 		end
 		istep(ss_k[1], butcher[nstep], ss_k[1])

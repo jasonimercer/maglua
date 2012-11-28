@@ -12,6 +12,9 @@ local function initializeInternalData(mag, t)
 	t.ABC = {}
 	t.grainSize = {}
 	t.truncation = 25
+	t.truncationX = 25
+	t.truncationY = 25
+	t.truncationZ = 25
 	for i=1,mag:nz() do
 		t.ABC[i]       = {{1,0,0}, {0,1,0}, {0,0,1}}
 		t.grainSize[i] =  {1,1,1}
@@ -117,15 +120,20 @@ local function grainSize(mag, layer)
 end
 
 
-local function setTruncation(mag, trunc)
+
+local function setTruncation(mag, trunc, truncX, truncY, truncZ)
 	local id = initializeInternalData(mag, mag:internalData())
-	id.truncation = trunc
+	id.truncation  = trunc  or id.truncation
+	id.truncationX = truncX or id.truncationX
+	id.truncationY = truncY or id.truncationY
+	id.truncationZ = truncZ or id.truncationZ
+
 	mag:setInternalData(id)
 end
 
-local function truncation(mag, trunc)
+local function truncation(mag)
 	local id = initializeInternalData(mag, mag:internalData())
-	return id.truncation
+	return id.truncation, id.truncationX, id.truncationY, id.truncationZ
 end
 
 
@@ -224,7 +232,10 @@ internal.grainSize = {}
 	for i=1,mag:nz() do
 		f:write("internal.grainSize[" .. i .. "] = {" .. table.concat(internal.grainSize[i], ", ") .. "}\n")
 	end
-	f:write("internal.truncation = " .. internal.truncation .. "\n")
+	f:write("internal.truncation  = " .. internal.truncation .. "\n")
+	f:write("internal.truncationX = " .. internal.truncationX .. "\n")
+	f:write("internal.truncationY = " .. internal.truncationY .. "\n")
+	f:write("internal.truncationZ = " .. internal.truncationZ .. "\n")
 	f:write("\n")
 	f:write("-- interaction tensors. Format is AB[desitination_layer][source_layer]\n")
 	tnames = {"XX", "XY", "XZ", "YX", "YY", "YZ", "ZX", "ZY", "ZZ"}
@@ -338,7 +349,16 @@ local function sameInternals(mag)
     end
     end
 
-    if not sameNumber(id.truncation, internal.truncation) then
+    if not sameNumber(id.truncation,  internal.truncation)  then
+        return false
+    end
+	if not sameNumber(id.truncationX, internal.truncationX) then
+        return false
+    end
+	if not sameNumber(id.truncationY, internal.truncationY) then
+        return false
+    end
+	if not sameNumber(id.truncationZ, internal.truncationZ) then
         return false
     end
 
@@ -468,15 +488,15 @@ MODTAB.help = function(x)
 	end
 	if x == setTruncation then
 		return
-			"Set the truncation site radius (actually a square) in the tensor generation",
-			"1 Integer",
+			"Set the truncation site radii in the tensor generation",
+			"Up to 4 Integers: Radial truncation, truncation in X direction, truncation in Y, truncation in Z",
 			""
 	end
 	if x == truncation then
 		return
-			"Get the truncation site radius (actually a square) in the tensor generation",
+			"Get the truncation site radii in the tensor generation",
 			"",
-			"1 Integer"
+			"Integers: Radial truncation, truncation in X direction, truncation in Y, truncation in Z"
 	end	
 	
 	if x == nil then
@@ -539,6 +559,16 @@ local function makeData(mag)
 		end
 	end
 	
+		-- max function
+	local function mf(a,b)
+		if a>b then
+			return a
+		end
+		return b
+	end
+	
+	local max = mf(id.truncation, mf(id.truncationX, mf(id.truncationY, id.truncationZ)))
+	
 	local cumC = {{0,0,0}} --cumulative C vectors
 	
 	for i=1,nz do
@@ -567,8 +597,13 @@ local function makeData(mag)
 			end
 			local cx, cy, cz = scx-dcx, scy-dcy, scz-dcz
 			local max = id.truncation
+			if math.abs(src - dest) <= id.truncationZ then
+
 			for X=-max,max do
+				if math.abs(X) <= id.truncationX then
+				
 				for Y=-max,max do
+				if math.abs(Y) <= id.truncationY then
 			
 					local x = X
 					local y = Y
@@ -614,6 +649,9 @@ local function makeData(mag)
 					NZY[dest][src]:addAt(x+1, y+1, vZY)
 					NZZ[dest][src]:addAt(x+1, y+1, vZZ)
 				end
+			end
+			end
+			end
 			end
 		end
 	end

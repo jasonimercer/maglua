@@ -288,7 +288,6 @@ function POVRay(filename, ss, custom)
 	local cam_at = custom.camera_focus or {nx/2+1 ,ny/2+1 - (1/8)*nn, nz/2}
 	local lights = custom.lights or {{20,0,20}, {0, 20,20}, {-20,0,20}, {0,-20,20}}
 	local scale = custom.scale or 1
-	scale = scale * 0.5
 	
 	local function switch_yz(t)
 		return {t[1], t[3], t[2]}
@@ -313,21 +312,42 @@ function POVRay(filename, ss, custom)
 
 	pov:write( povprefix(cam_pos, cam_at, lights) )
 
-	local c = 1
-	for z=1,nz do
-		for y=1,ny do
-			for x=1,nx do
-				local sx, sy, sz, ss = ss:spin(x,y,z)
+	local pov_string = {}
 
-				if ss > 0 then
-					local xx,yy,zz = pos(x,y,z)
-					local r, g, b = color_func(sx, sy, sz) 
-					pov:write(spin(sx*scale, sy*scale, sz*scale, xx,zz,yy, r, g, b)) --coord twiddle
-					c = c + 1
+	if type(scale) == "number" then -- not an array
+		scale = scale * 0.5
+		for z=1,nz do
+			for y=1,ny do
+				for x=1,nx do
+					local sx, sy, sz, mm = ss:spin(x,y,z)
+
+					if mm*scale > 1e-8 then
+						local xx,yy,zz = pos(x,y,z)
+						local r, g, b = color_func(sx, sy, sz) 
+						table.insert(pov_string, spin(sx*scale, sy*scale, sz*scale, xx,zz,yy, r, g, b)) --coord twiddle
+					end
+				end
+			end
+		end
+	else -- scale may be an array. we'll see!
+		local sa = scale --array
+		for z=1,nz do
+			for y=1,ny do
+				for x=1,nx do
+					local sx, sy, sz, mm = ss:spin(x,y,z)
+					local scale = sa:get(x,y,z) * 0.5
+
+					if mm*scale > 1e-8 then
+						local xx,yy,zz = pos(x,y,z)
+						local r, g, b = color_func(sx, sy, sz) 
+						table.insert(pov_string, spin(sx*scale, sy*scale, sz*scale, xx,zz,yy, r, g, b)) --coord twiddle
+					end
 				end
 			end
 		end
 	end
+	pov:write( table.concat(pov_string, "\n"))
+
 	pov:close()
 end
 
