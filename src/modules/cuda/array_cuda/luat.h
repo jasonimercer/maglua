@@ -6,60 +6,84 @@
 #ifndef LUA_TYPE_TRANSLATE
 #define LUA_TYPE_TRANSLATE
 
+
+#ifdef WIN32
+ #define strcasecmp(A,B) _stricmp(A,B)
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+ #pragma warning(disable: 4251)
+
+ #ifdef ARRAYCUDA_EXPORTS
+  #define ARRAYCUDA_API __declspec(dllexport)
+ #else
+  #define ARRAYCUDA_API __declspec(dllimport)
+ #endif
+#else
+ #define ARRAYCUDA_API 
+#endif
+
 // These static methods define Lua and buffer interaction for different data types
 
 template<typename T>
-class luaT
+class ARRAYCUDA_API luaT
 {
 public:
-	static int push(lua_State* L, const T& v){return 0;}
+	static int elements() {return 0;}
+	static int push(lua_State* L, const T& v){return elements();}
 	static T to(lua_State* L, int idx){return 0;}
 	static	void encode(const T& v, buffer* b){}
 	static	T decode(buffer* b){return 0;}
 	static	T zero() {return 0;}
 	static	T one() {return 1;}
 	static	T neg_one() {return -1;}
+	static bool lt(const T& a, const T& b) {return false;}
 };
 
 template<>
-class luaT<double>{
+class ARRAYCUDA_API luaT<double>{
 public:
-	static int push(lua_State* L, const double& v){lua_pushnumber(L, v);return 1;}
+	static int elements() {return 1;}
+	static int push(lua_State* L, const double& v){lua_pushnumber(L, v);return elements();}
 	static double to(lua_State* L, int idx){return lua_tonumber(L, idx);}
 	static	void encode(const double& v, buffer* b){	encodeDouble(v, b);	}
 	static	double decode(buffer* b){return decodeDouble(b);}
 	static	double zero() {return 0;}
 	static	double one() {return 1;}
 	static	double neg_one() {return -1;}
+	static bool lt(const double& a, const double& b) {return a<b;}
 };
 
 template<>
-class luaT<float>{
+class ARRAYCUDA_API luaT<float>{
 public:
-	static int push(lua_State* L, const float& v){lua_pushnumber(L, v);return 1;}
-	static float to(lua_State* L, int idx){return lua_tonumber(L, idx);}
+	static int elements() {return 1;}
+	static int push(lua_State* L, const float& v){lua_pushnumber(L, v);return elements();}
+	static float to(lua_State* L, int idx){return (float)lua_tonumber(L, idx);}
 	static	void encode(const float& v, buffer* b){	encodeDouble(v, b);	}
-	static	float decode(buffer* b){return decodeDouble(b);}
+	static	float decode(buffer* b){return (float)decodeDouble(b);}
 	static	float zero() {return 0;}
 	static	float one() {return 1;}
 	static	float neg_one() {return -1;}
+	static bool lt(const float& a, const float& b) {return a<b;}
 };
 
 template<>
-class luaT<int>{
+class ARRAYCUDA_API luaT<int>{
 public:
-	static int push(lua_State* L, const int& v){lua_pushnumber(L, v);return 1;}
+	static int elements() {return 1;}
+	static int push(lua_State* L, const int& v){lua_pushnumber(L, v);return elements();}
 	static int to(lua_State* L, int idx){return lua_tointeger(L, idx);}
 	static	void encode(const int& v, buffer* b){	encodeInteger(v, b);	}
 	static	int decode(buffer* b){return decodeInteger(b);}
 	static	int zero() {return 0;}
 	static	int one() {return 1;}
 	static	int neg_one() {return -1;}
+	static bool lt(const int& a, const int& b) {return a<b;}
 };
 
 template<>
-class luaT<cuDoubleComplex>{
+class ARRAYCUDA_API luaT<cuDoubleComplex>{
 public:
+	static int elements() {return 2;}
 	static int push(lua_State* L, const cuDoubleComplex& v){lua_pushnumber(L, v.x);lua_pushnumber(L, v.y);return 2;}
 	static cuDoubleComplex to(lua_State* L, int idx){double a = lua_tonumber(L, idx); double b = lua_tonumber(L, idx+1); return make_cuDoubleComplex(a,b);}
 	static	void encode(const cuDoubleComplex& v, buffer* b){	encodeDouble(v.x, b);encodeDouble(v.y, b);}
@@ -70,8 +94,9 @@ public:
 };
 
 template<>
-class luaT<cuFloatComplex>{
+class ARRAYCUDA_API luaT<floatComplex>{
 public:
+	static int elements() {return 2;}
 	static int push(lua_State* L, const cuFloatComplex& v){lua_pushnumber(L, v.x);lua_pushnumber(L, v.y);return 2;}
 	static cuFloatComplex to(lua_State* L, int idx){float a = lua_tonumber(L, idx); float b = lua_tonumber(L, idx+1); return make_cuFloatComplex(a,b);}
 	static	void encode(const cuFloatComplex& v, buffer* b){	encodeDouble(v.x, b);encodeDouble(v.y, b);}
@@ -82,4 +107,3 @@ public:
 };
 
 #endif
-

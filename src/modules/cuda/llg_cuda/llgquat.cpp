@@ -55,6 +55,9 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 	const double gamma = dmdt->gamma;
 	const double alpha = dmdt->alpha;
 	const double dt    = dmdt->dt * scaledmdt;
+
+	const double* d_gamma = dmdt->site_gamma?(dmdt->site_gamma->ddata()):0;
+	const double* d_alpha = dmdt->site_alpha?(dmdt->site_alpha->ddata()):0;
 	
 	const int nxyz = nx*ny*nz;
 
@@ -75,7 +78,7 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
             dmdt->hx[T]->ddata(), dmdt->hy[T]->ddata(), dmdt->hz[T]->ddata(),
 			dmdt->hx[S]->ddata(), dmdt->hy[S]->ddata(), dmdt->hz[S]->ddata(),
 			          d_ws1,         d_ws2,         d_ws3,         d_ws4,
-			alpha, dt, gamma);	
+			dt, alpha, d_alpha, gamma, d_gamma);	
 
 	// mark spins as new for future d->h syncing
 // 	spinto->new_device_spins = true;

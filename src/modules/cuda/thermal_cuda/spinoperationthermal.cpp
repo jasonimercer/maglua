@@ -18,7 +18,6 @@
 #include <time.h>
 #endif
 
-#include "spinsystem.hpp"
 #include "spinoperationthermal.hpp"
 
 Thermal::Thermal(int nx, int ny, int nz)
@@ -108,11 +107,16 @@ bool Thermal::applyToSum(RNG* rng, SpinSystem* ss)
 	const double dt    = ss->dt;
 	const double gamma = ss->gamma;
 	
+	const double* d_gamma = ss->site_gamma?(ss->site_gamma->ddata()):0;
+	const double* d_alpha = ss->site_alpha?(ss->site_alpha->ddata()):0;
+
 	cuda_thermal(d_rngs, twiddle, 
-		alpha, gamma, dt, temperature * global_scale,
+		temperature * global_scale,
 		d_wsx, d_wsy, d_wsz, ss->ms->ddata(),
 		scale->ddata(),
-		nx*ny*nz);
+		nx*ny*nz,
+		dt, alpha, d_alpha, gamma, d_gamma);
+
 
 	const int nxyz = nx*ny*nz;
 	arraySumAll(ss->hx[SUM_SLOT]->ddata(), ss->hx[SUM_SLOT]->ddata(), d_wsx, nxyz);
@@ -154,11 +158,16 @@ bool Thermal::apply(RNG* rng, SpinSystem* ss)
 	double* d_hy = ss->hy[slot]->ddata();
 	double* d_hz = ss->hz[slot]->ddata();
 
+	const double* d_gamma = ss->site_gamma?(ss->site_gamma->ddata()):0;
+	const double* d_alpha = ss->site_alpha?(ss->site_alpha->ddata()):0;
+
+	
 	cuda_thermal(d_rngs, twiddle, 
-		alpha, gamma, dt, temperature * global_scale,
+		temperature * global_scale,
 		d_hx, d_hy, d_hz, ss->ms->ddata(),
 		scale->ddata(),
-		nx*ny*nz);
+		nx*ny*nz,
+		dt, alpha, d_alpha, gamma, d_gamma);
 	
 	ss->hx[slot]->new_device = true;
 	ss->hy[slot]->new_device = true;

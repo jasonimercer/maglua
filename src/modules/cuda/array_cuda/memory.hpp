@@ -21,10 +21,19 @@ cudaError_t ARRAYCUDA_API malloc_host_(void** d_v, size_t n, const char* file, c
 #define malloc_device(v,n) malloc_device_((void**)v,n,__FILE__, __LINE__)
 #define malloc_host(v,n) malloc_host_((void**)v,n,__FILE__, __LINE__)
 
+
+cudaError_t ARRAYCUDA_API malloc_dh_(void** d, void** h, size_t n, const char* file, const unsigned int line);
+#define malloc_dh(d,h,n) malloc_dh_((void**)d,(void**)h,n,__FILE__, __LINE__)
+
+
 void ARRAYCUDA_API free_device_(void* d_v, const char* file, unsigned int line);
 void ARRAYCUDA_API free_host_(void* d_v, const char* file, unsigned int line);
 #define free_device(v) free_device_((void*)v,__FILE__,__LINE__)
 #define free_host(v) free_host_((void*)v,__FILE__,__LINE__)
+
+
+void ARRAYCUDA_API free_dh_(void* d, void* h, const char* file, unsigned int line);
+#define free_dh(d,h) free_dh_((void*)d,(void*)h,__FILE__,__LINE__)
 
 
 

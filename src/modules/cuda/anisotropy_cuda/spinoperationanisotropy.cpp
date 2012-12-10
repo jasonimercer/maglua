@@ -432,7 +432,7 @@ bool Anisotropy::applyToSum(SpinSystem* ss)
 	getWSMem3(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
 	
 //	markSlotUsed(ss);
-	ss->sync_spins_hd();
+//	ss->sync_spins_hd();
 	ss->ensureSlotExists(SUM_SLOT);
 
 	if(!make_compressed())
@@ -650,3 +650,4 @@ ANISOTROPYCUDA_API int lib_main(lua_State* L)
 {
 	return 0;
 }
+

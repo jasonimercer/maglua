@@ -15,18 +15,23 @@
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
 using namespace std;
+int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);
 
 SpinOperation::SpinOperation(std::string Name, int Slot, int NX, int NY, int NZ, int etype)
 	: LuaBaseObject(etype), nx(NX), ny(NY), nz(NZ), operationName(Name), slot(Slot)
 {
 	nxyz = nx * ny * nz;
-	compressing = false;
-	compressAttempted = false;
 	global_scale = 1.0;
+}
+
+SpinOperation::~SpinOperation()
+{
+	
 }
 
 int SpinOperation::luaInit(lua_State* L)
 {
+	LuaBaseObject::luaInit(L);
 	int n[3];
 	
 	if(luaT_is<SpinSystem>(L, 1))
@@ -44,9 +49,10 @@ int SpinOperation::luaInit(lua_State* L)
 	nx = n[0];
 	ny = n[1];
 	nz = n[2];
-	nxyz = nx * ny * nz;	
+	nxyz = nx * ny * nz;
 	return 0;
 }
+
 
 void SpinOperation::encode(buffer* b)
 {
@@ -61,35 +67,11 @@ int SpinOperation::decode(buffer* b)
 	nx = decodeInteger(b);
 	ny = decodeInteger(b);
 	nz = decodeInteger(b);
+	nxyz = nx*ny*nz;
 	global_scale = decodeDouble(b);
 	return 0;
 }
 
-SpinOperation::~SpinOperation()
-{
-	
-}
-
-bool SpinOperation::make_uncompressed()
-{
-	return true;
-}
-
-bool SpinOperation::make_compressed()
-{
-	return true;
-}
-
-	
-void SpinOperation::delete_uncompressed()
-{
-	
-}
-
-void SpinOperation::delete_compressed()
-{
-	
-}
 
 const string& SpinOperation::name()
 {
@@ -131,6 +113,10 @@ int  SpinOperation::getidx(int px, int py, int pz)
 	return px + nx * (py + ny * pz);
 }
 
+bool SpinOperation::apply(SpinSystem* ss)
+{
+	return 0;
+}
 
 
 int lua_getNint(lua_State* L, int N, int* vec, int pos, int def)
@@ -170,6 +156,54 @@ int lua_getNint(lua_State* L, int N, int* vec, int pos, int def)
 	return N;
 }
 
+int lua_getnewargs(lua_State* L, int* vec, int pos)
+{
+	if(lua_istable(L, pos))
+	{
+		for(int i=0; i<3; i++)
+		{
+			lua_pushinteger(L, i+1);
+			lua_gettable(L, pos);
+			if(lua_isnil(L, -1))
+			{
+				vec[i] = 1;
+			}
+			else
+			{
+				vec[i] = lua_tointeger(L, -1);
+			}
+			lua_pop(L, 1);
+		}
+		return 1;
+	}
+	
+	if(luaT_is<SpinSystem>(L, pos))
+	{
+		SpinSystem* ss = luaT_to<SpinSystem>(L, pos);
+		vec[0] = ss->nx;
+		vec[1] = ss->ny;
+		vec[2] = ss->nz;
+		return 1;
+	}
+
+	vec[0] = 1;
+	vec[1] = 1;
+	vec[2] = 1;
+
+	for(int i=0; i<3; i++)
+	{
+		if(lua_isnumber(L, pos+i))
+		{
+			vec[i] = lua_tointeger(L, pos+i);
+		}
+		else
+			return 3;
+	}
+	
+	return 3;
+}
+
+
 int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def)
 {
 	if(lua_istable(L, pos))
@@ -204,21 +238,7 @@ int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def)
 	return N;
 }
 
-
-
-
-
 #include "spinsystem.h"
-static int l_applytosum(lua_State* L)
-{
-	LUA_PREAMBLE(SpinOperation,so,1);
-	LUA_PREAMBLE(SpinSystem,ss,2);
-	
-	if(!so->applyToSum(ss))
-		return luaL_error(L, so->errormsg.c_str());
-	return 0;
-}
-
 static int l_apply(lua_State* L)
 {
 	LUA_PREAMBLE(SpinOperation,so,1);
@@ -228,7 +248,6 @@ static int l_apply(lua_State* L)
 		return luaL_error(L, so->errormsg.c_str());
 	return 0;
 }
-
 
 static int l_member(lua_State* L)
 {
@@ -255,7 +274,26 @@ static int l_getscale(lua_State* L)
 {
 	LUA_PREAMBLE(SpinOperation,so,1);
 	lua_pushnumber(L, so->global_scale);
-	return 0;
+	return 1;
+}
+
+static int l_nx(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	lua_pushinteger(L, so->nx);
+	return 1;
+}
+static int l_ny(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	lua_pushinteger(L, so->ny);
+	return 1;
+}
+static int l_nz(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	lua_pushinteger(L, so->nz);
+	return 1;
 }
 
 static int l_tostring(lua_State* L)
@@ -275,9 +313,9 @@ int SpinOperation::help(lua_State* L)
 		return 3;
 	}
 	
-	if(!lua_iscfunction(L, 1))
+	if(!lua_isfunction(L, 1))
 	{
-		return luaL_error(L, "help expect zero arguments or 1 function.");
+		return luaL_error(L, "(%s:%i) Help expects zero arguments or 1 function.", __FILE__, __LINE__);
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
@@ -296,13 +334,6 @@ int SpinOperation::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
-	if(func == l_applytosum)
-	{
-		lua_pushstring(L, "Apply the operator to the SpinSystem");
-		lua_pushstring(L, "1 SpinSystem: System that will receive the resulting fields (added to the Heff slot)");
-		lua_pushstring(L, "");
-		return 3;
-	}
 	if(func == l_setscale)
 	{
 		lua_pushstring(L, "Set a scale to field calculatons (default value is 1.0)");
@@ -315,6 +346,28 @@ int SpinOperation::help(lua_State* L)
 		lua_pushstring(L, "Get the scale applied to field calculatons (default value is 1.0)");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Number: The scale");
+		return 3;
+	}
+	
+	if(func == l_nx)
+	{
+		lua_pushstring(L, "Get the size in the x direction that this operator was created with.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: size");
+		return 3;
+	}
+	if(func == l_ny)
+	{
+		lua_pushstring(L, "Get the size in the y direction that this operator was created with.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: size");
+		return 3;
+	}
+	if(func == l_nz)
+	{
+		lua_pushstring(L, "Get the size in the z direction that this operator was created with.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: size");
 		return 3;
 	}
 
@@ -332,12 +385,15 @@ const luaL_Reg* SpinOperation::luaMethods()
 		{"__tostring",   l_tostring},
 		{"member",       l_member},
 		{"apply",        l_apply},
-		{"applyToSum",   l_applytosum},
 		{"setScale",     l_setscale},
 		{"scale",        l_getscale},
+		{"nx",        l_nx},
+		{"ny",        l_ny},
+		{"nz",        l_nz},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
 	m[127].name = (char*)1;
 	return m;
 }
+

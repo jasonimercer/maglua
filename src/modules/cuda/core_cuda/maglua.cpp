@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (C) 2008-2011 Jason Mercer.  All rights reserved.
+* Copyright (C) 2012 Jason Mercer.  All rights reserved.
 *
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -11,9 +11,9 @@
 ******************************************************************************/
 
 #include "maglua.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-
+#include "info.h"
+#include "array.h"
+#include "spinsystem.h"
 extern "C"
 {
 #include <lua.h>
@@ -21,21 +21,15 @@ extern "C"
 #include <lauxlib.h>
         
 CORECUDA_API int lib_register(lua_State* L);
-CORECUDA_API int lib_deps(lua_State* L);
 CORECUDA_API int lib_version(lua_State* L);
 CORECUDA_API const char* lib_name(lua_State* L);
 CORECUDA_API int lib_main(lua_State* L);
 }
 
-#include "info.h"
-#include "spinsystem.h"
-#include "spinoperation.h"
-#include <string.h>
-
+#include <stdio.h>
 CORECUDA_API int lib_register(lua_State* L)
 {
 	luaT_register<SpinSystem>(L);
-
 	return 0;
 }
 
@@ -44,7 +38,7 @@ CORECUDA_API int lib_version(lua_State* L)
 	return __revi;
 }
 
-CORECUDA_API const char* lib_name(lua_State* L)
+const char* lib_name(lua_State* L)
 {
 #if defined NDEBUG || defined __OPTIMIZE__
 	return "Core-Cuda";
@@ -52,56 +46,6 @@ CORECUDA_API const char* lib_name(lua_State* L)
 	return "Core-Cuda-Debug";
 #endif
 }
-
-#if 0
-#ifndef WIN32
-#if CUDART_VERSION >= 2000
-static int ConvertSMVer2Cores(int major, int minor)
-{
-	// Defines for GPU Architecture types (using the SM version to determine the # of cores per SM
-	typedef struct {
-			int SM; // 0xMm (hexidecimal notation), M = SM Major version, and m = SM minor version
-			int Cores;
-	} sSMtoCores;
-
-	sSMtoCores nGpuArchCoresPerSM[] = 
-	{ { 0x10,  8 },
-		{ 0x11,  8 },
-		{ 0x12,  8 },
-		{ 0x13,  8 },
-		{ 0x20, 32 },
-		{ 0x21, 48 },
-		{   -1, -1 }
-	};
-
-	int index = 0;
-	while (nGpuArchCoresPerSM[index].SM != -1)
-	{
-		if(nGpuArchCoresPerSM[index].SM == ((major << 4) + minor) )
-		{
-			return nGpuArchCoresPerSM[index].Cores;
-		}
-                index++;
-	}
-	printf("MapSMtoCores undefined SMversion %d.%d!\n", major, minor);
-	return -1;
-}
-#endif
-#endif
-
-// This function wraps the CUDA Driver API into a template function
-template <class T>
-inline void getCudaAttribute(T *attribute, CUdevice_attribute device_attribute, int device)
-{
-    CUresult error =    cuDeviceGetAttribute( attribute, device_attribute, device );
-
-    if( CUDA_SUCCESS != error) {
-        fprintf(stderr, "cuSafeCallNoSync() Driver API error = %04d from file <%s>, line %i.\n",
-                error, __FILE__, __LINE__);
-        exit(-1);
-    }
-}
-#endif
 
 const char* get_gpu_from_arg = 
 "for k,v in pairs(arg) do if v == \"-gpu\" then local a = arg[k+1] table.remove(arg, k+1) table.remove(arg,k) return a end end";
@@ -218,3 +162,4 @@ CORECUDA_API int lib_main(lua_State* L)
 	}
 #endif
 }
+

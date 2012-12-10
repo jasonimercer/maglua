@@ -13,7 +13,7 @@
 #include "spinoperationexchange.h"
 #include "spinoperationexchange.hpp"
 #include "spinsystem.h"
-#include "spinsystem.hpp"
+#include "array_core_cuda.h"
 
 #include <stdlib.h>
 #include <stdio.h>

@@ -1,3 +1,5 @@
+#if 0
+
 #include "array.h"
 #include "memory.hpp"
 
@@ -383,3 +385,5 @@ ARRAYCUDA_API const char* lib_name(lua_State* L)
 	return "Array-Cuda-Debug";
 #endif
 }
+
+#endif

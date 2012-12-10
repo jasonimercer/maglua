@@ -1,4 +1,7 @@
 #include "array_core_cuda.h"
+
+
+#if 0
 #include "luabaseobject.h"
 
 #ifndef ARRAY_H
@@ -33,4 +36,5 @@ typedef Array<double>         dArray;
 typedef Array<float>          fArray;
 typedef Array<int>            iArray;
 
+#endif
 #endif

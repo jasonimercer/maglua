@@ -158,3 +158,125 @@ __host__ __device__ inline void sincosT<double>(double x, double* sin, double* c
 }
 
 
+
+
+
+
+
+template<typename T>
+__host__ __device__ inline bool less_than(const T& a, const T& b)
+{
+	return false;
+}
+template<>
+__host__ __device__ inline bool less_than<int>(const int& a, const int& b) 
+{
+	return a < b;
+}
+template<>
+__host__ __device__ inline bool less_than<float>(const float& a, const float& b) 
+{
+	return a < b;
+}
+template<>
+__host__ __device__ inline bool less_than<double>(const double& a, const double& b) 
+{
+	return a < b;
+}
+template<>
+__host__ __device__ inline bool less_than<floatComplex>(const floatComplex& a, const floatComplex& b) 
+{
+	return a.x*a.x + a.y*a.y < b.x*b.x + b.y*b.y;
+}
+template<>
+__host__ __device__ inline bool less_than<doubleComplex>(const doubleComplex& a, const doubleComplex& b)
+{
+	return a.x*a.x + a.y*a.y < b.x*b.x + b.y*b.y;
+}
+
+
+
+
+
+
+
+template<typename T>
+__host__ __device__ inline void divide(T& dest, const T& a, const T& b)
+{
+	dest = a/b;	
+}
+template<>
+__host__ __device__ inline void divide<floatComplex>(floatComplex& dest, const floatComplex& v1, const floatComplex& v2)
+{
+	const float a  = v1.x;
+	const float b  = v1.y;
+	const float c  = v2.x;
+	const float d  = v2.y;
+	
+	const float num_r = a*c+b*d;
+	const float num_i = b*c-a*d;
+	
+	const float denom = c*c+d*d;
+	
+	dest.x = num_r / denom;
+	dest.y = num_i / denom;
+}
+template<>
+__device__ inline void divide<doubleComplex>(doubleComplex& dest, const doubleComplex& v1, const doubleComplex& v2)
+{
+	const double a  = v1.x;
+	const double b  = v1.y;
+	const double c  = v2.x;
+	const double d  = v2.y;
+	
+	const double num_r = a*c+b*d;
+	const double num_i = b*c-a*d;
+	
+	const double denom = c*c+d*d;
+	
+	dest.x = num_r / denom;
+	dest.y = num_i / denom;
+}
+
+
+
+
+template<typename T>
+__host__ __device__ inline void divide_real(T& dest, const T& a, double b)
+{
+	dest = a/b;
+}
+template<>
+__host__ __device__ inline void divide_real<floatComplex>(floatComplex& dest, const floatComplex& a, double b)
+{
+	dest.x = a.x / b;
+	dest.y = a.y / b;
+}
+template<>
+__device__ inline void divide_real<doubleComplex>(doubleComplex& dest, const doubleComplex& a, double b)
+{
+	dest.x = a.x / b;
+	dest.y = a.y / b;
+}
+
+
+
+
+
+
+template<typename T>
+__host__ __device__ inline bool equal(const T& lhs, const T& rhs)
+{
+	return lhs == rhs;
+}
+template<>
+__host__ __device__ inline bool equal<floatComplex>(const floatComplex& lhs, const floatComplex& rhs)
+{
+	return lhs.x == rhs.x && lhs.y == rhs.y;
+}
+template<>
+__device__ inline bool equal<doubleComplex>(const doubleComplex& lhs, const doubleComplex& rhs)
+{
+	return lhs.x == rhs.x && lhs.y == rhs.y;
+}
+

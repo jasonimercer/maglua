@@ -8,6 +8,7 @@
 typedef cuDoubleComplex doubleComplex; //cuda version
 typedef cuFloatComplex floatComplex;
 
+
 #ifndef ARRAYCORECUDA
 #define ARRAYCORECUDA
 
@@ -20,20 +21,39 @@ typedef cuFloatComplex floatComplex;
 #include "hd_helper_tfuncs.hpp"
 #include <stdlib.h>
 
+#include "luabaseobject.h"
+
 template<typename T>
-class ArrayCore
+inline const char* array_lua_name() {return "Array.Unnamed";}
+
+template<>inline const char* array_lua_name<int>() {return "Array.Integer";}
+template<>inline const char* array_lua_name<float>() {return "Array.Float";}
+template<>inline const char* array_lua_name<double>() {return "Array.Double";}
+template<>inline const char* array_lua_name<floatComplex>() {return "Array.FloatComplex";}
+template<>inline const char* array_lua_name<doubleComplex>() {return "Array.DoubleComplex";}
+
+#define ARRAYCUDA_API
+
+template<typename T>
+class ARRAYCUDA_API Array : public LuaBaseObject	
 {
 public:
-	ArrayCore(int x, int y, int z, T* device_memory=0) 
+	LINEAGE1(array_lua_name<T>())
+	static const luaL_Reg* luaMethods(); 
+	virtual int luaInit(lua_State* L); 
+	static int help(lua_State* L); 	
+
+	Array(int x=4, int y=4, int z=1, T* device_memory=0) 
 	: 	 fft_plan_1D(0),  fft_plan_2D(0),  fft_plan_3D(0),
 		ifft_plan_1D(0), ifft_plan_2D(0), ifft_plan_3D(0),
-		nx(x-1), ny(y-1), nz(z-1), h_data(0), d_data(0)
+		nx(x-1), ny(y-1), nz(z-1), h_data(0), d_data(0),
+		LuaBaseObject(hash32((array_lua_name<T>())))
 	{
 		i_own_my_device_memory = !device_memory;
 		setSize(x,y,z, device_memory);
 	}
 	
-	~ArrayCore() {setSize(0,0,0);}
+	~Array() {setSize(0,0,0);}
 	 
 	void setSize(int x, int y, int z, T* use_this_device_memory = 0)
 	{
@@ -73,8 +93,13 @@ public:
 	}
 	
 private:
-	bool internal_fft(ArrayCore<T>* dest, T* ws, int dims, int direction, FFT_PLAN** plan)
+	bool internal_fft(Array<T>* dest, T* ws, int dims, int direction, FFT_PLAN** plan)
 	{
+		if(ws == 0)
+		{
+			fprintf(stderr, "CUDA FFT requires workspace for FFTs\n");
+			return false;
+		}
 		if(!sameSize(dest)) return false;
 		if(!*plan)
 		{
@@ -97,104 +122,39 @@ private:
 	
 	bool i_own_my_device_memory;
 
+	T* h_data;
+	T* d_data;
+
 public:
-	bool fft1DTo(ArrayCore<T>* dest, T* ws){
-		return internal_fft(dest, ws, 1, FFT_FORWARD, &fft_plan_1D);
-	}
-	bool fft1DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
-		return fft1DTo(dest, ws->ddata());
-	}
-	bool fft2DTo(ArrayCore<T>* dest, T* ws){
-		return internal_fft(dest, ws, 2, FFT_FORWARD, &fft_plan_2D);
-	}
-	bool fft2DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
-		return fft2DTo(dest, ws->ddata());
-	}
-	bool fft3DTo(ArrayCore<T>* dest, T* ws){
-		return internal_fft(dest, ws, 3, FFT_FORWARD, &fft_plan_3D);
-	}
-	bool fft3DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
-		return fft3DTo(dest, ws->ddata());
-	}
+	// flags indicating if there is new data on host/device
+	bool new_device;
+	bool new_host;
 	
-	bool ifft1DTo(ArrayCore<T>* dest, T* ws){
-		return internal_fft(dest, ws, 1, FFT_BACKWARD, &ifft_plan_1D);
-	}
-	bool ifft1DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
-		return ifft1DTo(dest, ws->ddata());
-	}
-	bool ifft2DTo(ArrayCore<T>* dest, T* ws){
-		return internal_fft(dest, ws, 2, FFT_BACKWARD, &ifft_plan_2D);
-	}
-	bool ifft2DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
-		return ifft2DTo(dest, ws->ddata());
-	}
-	bool ifft3DTo(ArrayCore<T>* dest, T* ws){
-		return internal_fft(dest, ws, 3, FFT_BACKWARD, &ifft_plan_3D);
-	}
-	bool ifft3DTo(ArrayCore<T>* dest, ArrayCore<T>* ws){
-		return ifft3DTo(dest, ws->ddata());
-	}
+	int nx, ny, nz, nxyz;
+	
+	// get the host memory:
+	// the sync_dh doesn't sync if there isn't any device memory 
+	// allocated (which is the desired action)
+	T*  data() {sync_dh(); return h_data;}
 
-	void encodeCore(buffer* b)
+	// get the device memory:
+	// this call will sync any new host memory before returning
+	// device memory pointer. If "false" is passed in then
+	// this will return a null pointer when device memory isn't allocated
+	T* ddata(bool allocate_if_needed=true)
 	{
-		sync_hd();
-		encodeInteger(nx, b);
-		encodeInteger(ny, b);
-		encodeInteger(nz, b);
-		for(int i=0; i<nxyz; i++)
-			luaT<T>::encode(h_data[i], b);
-	}
-	int decodeCore(buffer* b)
-	{
-		int x = decodeInteger(b);
-		int y = decodeInteger(b);
-		int z = decodeInteger(b);
-		
-		setSize(x,y,z);
-		
-		for(int i=0; i<nxyz; i++)
-			h_data[i] = luaT<T>::decode(b);
-
-		new_host = true;
-		new_device = false;
-		return 0;
-	}
-
-	
-	bool sameSize(const ArrayCore<T>* other) const
-	{
-		if(!other) return false;
-		if(other-> nx != nx) return false;
-		if(other-> ny != ny) return false;
-		if(other-> nz != nz) return false;
-		return true;
+		if(!d_data && allocate_if_needed)
+		{
+			malloc_device(&d_data, sizeof(T) * nxyz);
+			i_own_my_device_memory = true;
+			new_host = true;
+			new_device = false;
+		}
+		sync_hd(); 
+		return d_data;
 	}
 	
-	int xyz2idx(const int x, const int y, const int z) const
-	{
-		return x + y*nx + z*nx*ny;
-	}
-	
-	bool member(const int x, const int y, const int z) const
-	{
-		if(x<0 || x>=nx) return false;
-		if(y<0 || y>=ny) return false;
-		if(z<0 || z>=nz) return false;
-		return true;
-	}
-
-	bool member(const int x, const int y, const int z, int& idx) const
-	{
-		if(x<0 || x>=nx) return false;
-		if(y<0 || y>=ny) return false;
-		if(z<0 || z>=nz) return false;
-		idx = xyz2idx(x,y,z);
-		return true;
-	}
-	
-	
-	//sync host to device (if needed)
+		//sync host to device (if needed)
 	void sync_hd()
 	{
 		if(!d_data)
@@ -228,9 +188,130 @@ public:
 		new_host = false;
 	}
 	
+
+	bool fft1DTo(Array<T>* dest, T* ws){
+		return internal_fft(dest, ws, 1, FFT_FORWARD, &fft_plan_1D);
+	}
+	bool fft1DTo(Array<T>* dest, Array<T>* ws){
+		return fft1DTo(dest, ws->ddata());
+	}
+	bool fft2DTo(Array<T>* dest, T* ws){
+		return internal_fft(dest, ws, 2, FFT_FORWARD, &fft_plan_2D);
+	}
+	bool fft2DTo(Array<T>* dest, Array<T>* ws){
+		return fft2DTo(dest, ws->ddata());
+	}
+	bool fft3DTo(Array<T>* dest, T* ws){
+		return internal_fft(dest, ws, 3, FFT_FORWARD, &fft_plan_3D);
+	}
+	bool fft3DTo(Array<T>* dest, Array<T>* ws){
+		return fft3DTo(dest, ws->ddata());
+	}
+	
+	bool ifft1DTo(Array<T>* dest, T* ws){
+		return internal_fft(dest, ws, 1, FFT_BACKWARD, &ifft_plan_1D);
+	}
+	bool ifft1DTo(Array<T>* dest, Array<T>* ws){
+		return ifft1DTo(dest, ws->ddata());
+	}
+	bool ifft2DTo(Array<T>* dest, T* ws){
+		return internal_fft(dest, ws, 2, FFT_BACKWARD, &ifft_plan_2D);
+	}
+	bool ifft2DTo(Array<T>* dest, Array<T>* ws){
+		return ifft2DTo(dest, ws->ddata());
+	}
+	bool ifft3DTo(Array<T>* dest, T* ws){
+		return internal_fft(dest, ws, 3, FFT_BACKWARD, &ifft_plan_3D);
+	}
+	bool ifft3DTo(Array<T>* dest, Array<T>* ws){
+		return ifft3DTo(dest, ws->ddata());
+	}
+	
+	bool areAllSameValue(T& v)
+	{
+		sync_hd();
+		return arrayAreAllSameValue(d_data, nxyz, v);
+	}
+
+	void encode(buffer* b)
+	{
+		encodeInteger(nx, b);
+		encodeInteger(ny, b);
+		encodeInteger(nz, b);
+		int flag = 0;
+		T v;
+		if(areAllSameValue(v))
+		{
+			flag = 1;
+			encodeInteger(flag, b);
+			luaT<T>::encode(v, b);
+		}
+		else
+		{
+			flag = 0;
+			T* d = data();
+			encodeInteger(flag, b);
+			for(int i=0; i<nxyz; i++)
+				luaT<T>::encode(d[i], b);
+		}
+	}
+	int decode(buffer* b)
+	{
+		int x    = decodeInteger(b);
+		int y    = decodeInteger(b);
+		int z    = decodeInteger(b);
+		int flag = decodeInteger(b);
+		
+		setSize(x,y,z);
+		
+		if(flag == 1)
+		{
+			setAll( luaT<T>::decode(b) );
+		}
+		else
+		{
+			T* d = data();
+			for(int i=0; i<nxyz; i++)
+				d[i] = luaT<T>::decode(b);
+		}
+		new_host = true;
+		return 0;
+	}
+
+	
+	bool sameSize(const Array<T>* other) const
+	{
+		if(!other) return false;
+		if(other-> nx != nx) return false;
+		if(other-> ny != ny) return false;
+		if(other-> nz != nz) return false;
+		return true;
+	}
+	
+	int xyz2idx(const int x, const int y, const int z) const
+	{
+		return x + y*nx + z*nx*ny;
+	}
+	
+	bool member(const int x, const int y, const int z) const
+	{
+		if(x<0 || x>=nx) return false;
+		if(y<0 || y>=ny) return false;
+		if(z<0 || z>=nz) return false;
+		return true;
+	}
+	
+	bool member(const int x, const int y, const int z, int& idx) const
+	{
+		if(x<0 || x>=nx) return false;
+		if(y<0 || y>=ny) return false;
+		if(z<0 || z>=nz) return false;
+		idx = xyz2idx(x,y,z);
+		return true;
+	}
+
 	int lua_set(lua_State* L, int base_idx)
 	{
-		sync_dh();
 		int c[3] = {0,0,0};
 		int offset = 0;
 		if(lua_istable(L, base_idx))
@@ -248,29 +329,82 @@ public:
 		else
 		{
 			offset = 0;
-			for(int i=0; i<3; i++)
+			const int e = luaT<T>::elements();
+			const int end = lua_gettop(L) - e;
+			int v = 0;
+			for(int i=base_idx; i<=end && v<3; i++)
 			{
-				if(lua_isnumber(L, base_idx+i))
+				if(lua_isnumber(L, i))
 				{
-					if(lua_isnumber(L, base_idx+i))
-					{
-						c[i] = lua_tointeger(L, base_idx+i)-1;
-						offset++;
-					}
+					c[v] = lua_tointeger(L, i)-1;
+					offset++;
+					v++;
 				}
 			}
 		}
 		if(!member(c[0], c[1], c[2]))
 			return luaL_error(L, "invalid site");
 		c[0] = xyz2idx(c[0], c[1], c[2]);
-		h_data[c[0]] = luaT<T>::to(L, base_idx + offset);
+		data()[c[0]] = luaT<T>::to(L, base_idx + offset);
 		new_host = true;
 		return 0;
 	}
 	
+		
+	int lua_addat(lua_State* L, int base_idx)
+	{
+		int c[3] = {0,0,0};
+		int offset = 0;
+		if(lua_istable(L, base_idx))
+		{
+			for(int i=0; i<3; i++)
+			{
+				lua_pushinteger(L, i+1);
+				lua_gettable(L, base_idx);
+				if(lua_isnumber(L, -1))
+					c[i] = lua_tointeger(L, -1)-1;
+				lua_pop(L, 1);
+			}
+			offset = 1;
+		}
+		else
+		{
+			offset = 0;
+			const int e = luaT<T>::elements();
+			const int end = lua_gettop(L) - e;
+			int v = 0;
+			for(int i=base_idx; i<=end && v<3; i++)
+			{
+				if(lua_isnumber(L, i))
+				{
+					c[v] = lua_tointeger(L, i)-1;
+					offset++;
+					v++;
+				}
+			}
+		}
+		if(!member(c[0], c[1], c[2]))
+			return luaL_error(L, "invalid site");
+		c[0] = xyz2idx(c[0], c[1], c[2]);
+		
+		plus_equal( data()[c[0]], luaT<T>::to(L, base_idx + offset) );
+		new_host = true;
+		return 0;
+	}
+	
+	T get(int x=0, int y=0, int z=0)
+	{
+		return data()[xyz2idx(x,y,z)];
+	}
+	
+	void set(int x, int y, int z, T v)
+	{
+		data()[xyz2idx(x,y,z)] = v;
+		new_host = true;
+	}
+	
 	int lua_get(lua_State* L, int base_idx)
 	{
-		sync_dh();
 		int c[3] = {0,0,0};
 		if(lua_istable(L, base_idx))
 		{
@@ -299,189 +433,138 @@ public:
 		return luaT<T>::push(L, data()[c[0]]);
 	}
 	
-	void setAll(const T& v)
+	void setAll(const T& v) {sync_hd(); arraySetAll(ddata(), v, nxyz);}
+	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(ddata(), v, nxyz);}
+	void scaleAll_o(const T& v, const int offset, const int n) {sync_hd(); arrayScaleAll_o(ddata(), offset, v, n);}
+	void addValue(const T& v) {sync_hd(); arrayAddAll(ddata(), v, nxyz);}
+	
+	
+	static bool doublePrep(Array<T>* dest, const Array<T>* src)
 	{
-		if(ddata())
-		{
-			arraySetAll(ddata(),  v, nxyz);
-			new_device = true;
-			new_host = false;
-		}
-		else
-		{
-			T* d = data();
-			for(int i=0; i<nxyz; i++)
-			{
-				d[i] = v;
-			}
-			new_device = false;
-			new_host = true;
-		}
-	}
-
-	void scaleAll(const T& v)
-	{
-		if(ddata())
-		{
-			arrayScaleAll(d_data, v, nxyz);
-			new_device = true;
-			new_host = false;
-		}
-		else
-		{
-			T* d = data();
-			for(int i=0; i<nxyz; i++)
-			{
-				times_equal(d[i], v);
-			}
-			new_device = false;
-			new_host = true;
-		}
-	}
-	void addValue(const T& v)
-	{
-		if(ddata())
-		{
-			arrayAddAll(d_data, v, nxyz);
-			new_device = true;
-			new_host = false;
-		}
-		else
-		{
-			T* d = data();
-			for(int i=0; i<nxyz; i++)
-			{
-				plus_equal(d[i], v);
-			}
-			new_device = false;
-			new_host = true;
-		}
-	}
-
-	static bool doublePrep(ArrayCore<T>* dest, const ArrayCore<T>* src)
-	{
-		if(!sameSize(dest, src)) return false;
-		dest->sync_hd();
-		 src->sync_hd();
+		if(!dest->sameSize(src)) return false;
 		return true;
 	}
-	static bool triplePrep(ArrayCore<T>* dest, const ArrayCore<T>* src1, const ArrayCore<T>* src2)
+	static bool triplePrep(Array<T>* dest, const Array<T>* src1, const Array<T>* src2)
 	{
 		if(!doublePrep(dest, src1)) return false;
 		if(!doublePrep(dest, src2)) return false;
 		return true;
 	}
 	
-	static bool pairwiseMult(ArrayCore<T>* dest, const ArrayCore<T>* src1, const ArrayCore<T>* src2)
+	static bool pairwiseMult(Array<T>* dest, Array<T>* src1, Array<T>* src2)
 	{
-		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
-		arrayMultAll(dest->d_data, src1->d_data, src2->d_data, dest->nxyz);
-		dest->new_device=true;
+		if(!Array<T>::triplePrep(dest, src1, src2)) return false;
+		arrayMultAll(dest->ddata(), src1->ddata(), src2->ddata(), dest->nxyz);
 		return true;
 	}
 
-	static bool pairwiseDiff(ArrayCore<T>* dest, const ArrayCore<T>* src1, const ArrayCore<T>* src2)
+	static bool pairwiseDiff(Array<T>* dest, Array<T>* src1, Array<T>* src2)
 	{
-		if(!ArrayCore<T>::triplePrep(dest, src1, src2)) return false;
-		arrayDiffAll(dest->d_data, src1->d_data, src2->d_data, dest->nxyz);
-		dest->new_device=true;
+		if(!Array<T>::triplePrep(dest, src1, src2)) return false;
+		arrayDiffAll(dest->ddata(), src1->ddata(), src2->ddata(), dest->nxyz);
+		return true;
+	}
+	
+	static bool pairwiseScaleAdd(Array<T>* dest, const T& s1, Array<T>* src1, const T& s2, Array<T>* src2)
+	{
+		if(!Array<T>::triplePrep(dest, src1, src2)) return false;
+		arrayScaleAdd(dest->ddata(), s1, src1->ddata(), s2, src2->ddata(), dest->nxyz);
 		return true;
 	}
 
-	static bool norm(ArrayCore<T>* dest, const ArrayCore<T>* src)
+	static bool norm(Array<T>* dest, Array<T>* src)
 	{
 		if(!doublePrep(dest, src)) return false;
-		arrayNormAll(dest->d_data, src->d_data, dest->nxyz);
-		dest->new_device=true;
+		arrayNormAll(dest->ddata(), src->ddata(), dest->nxyz);
 		return true;
+	}
+	
+	static T dot(Array<T>* a, Array<T>* b)
+	{
+		if(!doublePrep(a, b)) return luaT<T>::zero();
+		T t;
+		reduceMultSumAll(a->ddata(), b->ddata(), a->nxyz, t);
+		return t;
+	}
+
+	T max(int& idx)
+	{
+		T v;
+		reduceExtreme(ddata(), 1, nxyz, v, idx);
+		return v;
+	}
+	T mean()
+	{
+		T v;
+		reduceSumAll(ddata(), nxyz, v);
+		divide_real<T>(v, v, nxyz);
+		return v;
+	}
+	T min(int& idx)
+	{
+		T v;
+		reduceExtreme(ddata(),-1, nxyz, v, idx);
+		return v;
 	}
 
 	T sum()
 	{
 		sync_hd(); 
 		T v;
-		reduceSumAll(d_data, nxyz, v);
+		reduceSumAll(ddata(), nxyz, v);
 		return v;
 	}
 
-
-	T diffSum(ArrayCore<T>* other)
+	T diffSum(Array<T>* other)
 	{
 		sync_hd(); 
 		T v;
-		reduceDiffSumAll(data(), other->data(), nxyz, v);
+		reduceDiffSumAll(ddata(), other->ddata(), nxyz, v);
 		return v;
 	}
 	
-	void copyFrom(ArrayCore<T>* other)
+	void copyFrom(Array<T>* other)
 	{
-		if(ddata(false) && other->ddata(false))
-		{
-			memcpy_d2d(ddata(), other->ddata(), sizeof(T)*nxyz);
-			new_device = true;
-			new_host = false;
-		}
-		else
-		{
-			memcpy(data(), other->data(), sizeof(T)*nxyz);
-			new_device = !true;
-			new_host = !false;
-		}
-
+		memcpy(data(), other->data(), sizeof(T)*nxyz);
 	}
 	
 	void zero()
 	{
-		setAll(luaT<T>::zero());
+		arraySetAll(data(),  luaT<T>::zero(), nxyz);
 	}
-
-	ArrayCore<T>& operator+=(ArrayCore<T> &rhs);
 	
+	Array<T>& operator+=(Array<T> &rhs)
+	{
+		arraySumAll(ddata(), ddata(), rhs.ddata(), nxyz);
+		return *this;
+	}
 	T& operator[](int index){
-		sync_dh();
-		new_host = true;
 		return data()[index];
 	}
-
-	// flags indicating if there is new data on host/device
-	bool new_device;
-	bool new_host;
-	
-	int nx, ny, nz, nxyz;
-	
-	// get the host memory:
-	// the sync_dh doesn't sync if there isn't any device memory 
-	// allocated (which is the desired action)
-	T*  data() {sync_dh(); return h_data;}
-
-	// get the device memory:
-	// this call will sync any new host memory before returning
-	// device memory pointer. If "false" is passed in then
-	// this will return a null pointer when device memory isn't allocated
-	T* ddata(bool allocate_if_needed=true)
-	{
-		if(!d_data && allocate_if_needed)
-		{
-			malloc_device(&d_data, sizeof(T) * nxyz);
-			i_own_my_device_memory = true;
-			new_host = true;
-			new_device = false;
-		}
-		sync_hd(); 
-		return d_data;
-	}
-	
-private:
-	T* h_data;
-	T* d_data;
 };
 
-template <typename T>
-ArrayCore<T>& ArrayCore<T>::operator+=(ArrayCore<T> &rhs)
-{
-	arraySumAll(ddata(), ddata(), rhs.ddata(), nxyz);
-	return *this;
-}
-	
-
+#ifdef WIN32
+ #ifndef DUMMYWINDOWS_ARRYA_INSTANTIATION
+  #define DUMMYWINDOWS_ARRYA_INSTANTIATION
+  //forcing instantiation so they get exported
+  template class Array<doubleComplex>;
+  template class Array<double>;
+  template class Array<floatComplex>;
+  template class Array<float>;
+  template class Array<int>;
+ #endif
 #endif
+
+typedef Array<doubleComplex> dcArray;
+typedef Array<floatComplex>  fcArray;
+typedef Array<double>         dArray;
+typedef Array<float>          fArray;
+typedef Array<int>            iArray;
+
+
+
+
+
+
+#endif //#ifndef ARRAYCORECUDA
+

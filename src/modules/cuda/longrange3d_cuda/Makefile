@@ -1,4 +1,4 @@
-# Copyright (C) 2011 Jason Mercer.  All rights reserved.
+# Copyright (C) 2012 Jason Mercer.  All rights reserved.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -9,13 +9,15 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationdipole.o dipolesupport.o
-LIBNAME=DipoleCuda
+OBJECTS=longrange3d_luafuncs.lo spinoperationlongrange3d.o
+LIBNAME=LongRange3D
 CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=luabaseobject corecuda longrangecuda
+DEPEND=luabaseobject corecuda arraycuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
+
+EXTRA_CLEAN=longrange3d_luafuncs.cpp longrange3d_luafuncs.h

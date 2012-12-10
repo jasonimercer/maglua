@@ -53,17 +53,20 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 	const double alpha = dmdt->alpha;
 	const double dt    = dmdt->dt * scaledmdt;
 	
+	const double* d_gamma = dmdt->site_gamma?(dmdt->site_gamma->ddata()):0;
+	const double* d_alpha = dmdt->site_alpha?(dmdt->site_alpha->ddata()):0;
+
 	cuda_llg_cart_apply(nx, ny, nz,
 			  spinto->x->ddata(),   spinto->y->ddata(),   spinto->z->ddata(),   spinto->ms->ddata(),
 			spinfrom->x->ddata(), spinfrom->y->ddata(), spinfrom->z->ddata(), spinfrom->ms->ddata(),
 			    dmdt->x->ddata(),     dmdt->y->ddata(),     dmdt->z->ddata(),     dmdt->ms->ddata(),
 			    dmdt->hx[T]->ddata(), dmdt->hy[T]->ddata(), dmdt->hz[T]->ddata(),
 			    dmdt->hx[S]->ddata(), dmdt->hy[S]->ddata(), dmdt->hz[S]->ddata(),
-			alpha, dt, gamma);	
+			dt, alpha, d_alpha, gamma, d_gamma);	
 	
-	spinto->x->new_device = true;
-	spinto->y->new_device = true;
-	spinto->z->new_device = true;
+	spinto->x->new_device  = true;
+	spinto->y->new_device  = true;
+	spinto->z->new_device  = true;
 	spinto->ms->new_device = true;
 
 	if(advancetime)

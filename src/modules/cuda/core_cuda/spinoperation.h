@@ -19,12 +19,12 @@
 #define ANISOTROPY_SLOT   3
 #define THERMAL_SLOT      4
 #define DIPOLE_SLOT       5
-#define SHORTRANGE_SLOT   6
-#define NSLOTS            7
+#define NSLOTS            6
 
 //#include <omp.h>
 #include "maglua.h"
 #include <string>
+#include "luabaseobject.h"
 
 class SpinSystem;
 
@@ -43,8 +43,7 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
-	virtual bool apply(SpinSystem* ss) {return false;}
-	virtual bool applyToSum(SpinSystem* ss) {return false;}
+	virtual bool apply(SpinSystem* ss);
 	int getSite(int x, int y, int z);
 
 	bool member(int px, int py, int pz);
@@ -55,20 +54,11 @@ public:
 	const std::string& name();
 
 	std::string errormsg;
-
+	
 	double global_scale;
+// 	virtual void encode(buffer* b) = 0;
+// 	virtual int  decode(buffer* b) = 0;
 
-	//eventually these will be pure-abstract
-	virtual bool make_uncompressed();
-	virtual bool make_compressed();
-	
-	virtual void delete_uncompressed();
-	virtual void delete_compressed();
-	
-	bool compressing;
-	bool compressed;
-	bool compressAttempted;
-	
 protected:
 	void markSlotUsed(SpinSystem* ss);
 	

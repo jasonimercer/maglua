@@ -14,16 +14,20 @@
 #define SPINSYSTEM
 
 #include "maglua.h"
+#include "luabaseobject.h"
 #include "array.h"
 
+#ifdef WIN32
+ #define strcasecmp(A,B) _stricmp(A,B)
+ #define strncasecmp(A,B,C) _strnicmp(A,B,C)
+#endif
+
 using namespace std;
-
-
 
 class CORECUDA_API SpinSystem : public LuaBaseObject
 {
 public:
-	SpinSystem(const int nx=32, const int ny=32, const int nz=1);
+	SpinSystem(const int nx=32, const int ny=32, const int nz=32);
 	~SpinSystem();
 
 	LINEAGE1("SpinSystem")
@@ -37,25 +41,39 @@ public:
 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldFrom(lua_State* L, SpinSystem* src, int slot);
+	void moveToward(SpinSystem* other, double r);
 
-	void ensureSlotExists(int slot);
+	void rotateToward(SpinSystem* other, double max_angle, dArray* max_by_site);
+	
+	
+	void setSiteAlpha(const int px, const int py, const int pz, const double a);
+	void setSiteAlpha(const int idx, double a);
+	void setAlpha(const double a);
 
+	void setSiteGamma(const int px, const int py, const int pz, const double g);
+	void setSiteGamma(const int idx, double g);
+	void setGamma(const double g);
+	
+	
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);
 	int  getidx(const int px, const int py, const int pz) const ;
+	void  idx2xyz(int idx, int& x, int& y, int& z) const ;
 	bool member(const int px, const int py, const int pz) const ;
 	void sumFields();
 	
 	void zeroFields();
-	void zeroField(int slot);
 	bool addFields(double mult, SpinSystem* addThis);
 	
 	int getSlot(const char* name);
 	static const char* slotName(int index);
+	void ensureSlotExists(int slot);
+	bool sameSize(const SpinSystem* other) const;
 	
-	void getNetMag(double* v4);
+	void getNetMag(dArray* site_scale, double* v4, const double m = 1);
+	
 	void diff(SpinSystem* other, double* v4);
-	
+
 	dArray* x;
 	dArray* y;
 	dArray* z;
@@ -77,6 +95,9 @@ public:
 	double gamma;
 	double dt;
 	
+	dArray* site_alpha;
+	dArray* site_gamma;
+	
 	int nx, ny, nz;
 
 	int nxyz;
@@ -87,20 +108,23 @@ public:
 	
 	void fft();
 	void fft(int component);
-		
+	void invalidateFourierData();
+	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
-
-	void sync_spins_hd() { x->sync_hd(); y->sync_hd(); y->sync_hd(); }
-	void sync_spins_dh() { x->sync_dh(); y->sync_dh(); y->sync_dh(); }
 
 private:
 	void init();
 	void deinit();
 
-// 	dcArray* rx;
-// 	dcArray* ry;
-// 	dcArray* rz;
+	dcArray* ws;
+	dcArray* ws2;
 };
+
+// CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
+// CORE_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
+// CORE_API int lua_isSpinSystem(lua_State* L, int idx);
+// CORE_API void lua_pushSpinSystem(lua_State* L, LuaBaseObject* ss);
+// CORE_API void registerSpinSystem(lua_State* L);
 
 #endif

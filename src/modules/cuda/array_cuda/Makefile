@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=array.o memory.cuo array_ops.cuo fourier.o fourier_kernel.cuo  array_core_cuda.o
+OBJECTS=array.o memory.cuo array_ops.cuo fourier.lo fourier_kernel.cuo  array_core_cuda.o
 LIBNAME=ArrayCUDA
 CATEGORY=cuda
 
@@ -20,8 +20,3 @@ EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
 
-fourier.h: fourier.lua $(BASEDIR)/hardcode.lua
-	lua $(BASEDIR)/hardcode.lua fourier.lua
-
-fourier.cpp: fourier.lua
-	touch fourier.cpp

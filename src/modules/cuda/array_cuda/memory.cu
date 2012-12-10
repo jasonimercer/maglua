@@ -114,6 +114,19 @@ void free_host_(void* h_v, const char* file, unsigned int line)
 
 
 
+cudaError_t ARRAYCUDA_API malloc_dh_(void** d, void** h, size_t n, const char* file, const unsigned int line)
+{
+	        malloc_host_(h, n, file, line);
+	return  malloc_device_(d, n, file, line);
+}
+
+
+void ARRAYCUDA_API free_dh_(void* d, void* h, const char* file, unsigned int line)
+{
+	free_device_(d, file, line);
+	free_host_(h, file, line);
+}
+
 
 
 void memcpy_d2d_(void* d_dest, void* d_src, size_t n, const char* file, const unsigned int line)

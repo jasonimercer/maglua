@@ -83,6 +83,9 @@ private:
 	int compress_max_neighbours;
 	ex_compressed_struct* d_LUT;
 	unsigned char* d_idx;
+	
+	bool compressed;
+	bool compressAttempted;
 };
 
 

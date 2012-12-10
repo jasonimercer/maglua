@@ -1,6 +1,5 @@
 #include "hybridtaus.hpp"
-#include "spinsystem.hpp"
-
+#include "array_core_cuda.h"
 #include <stdio.h>
 #include <stdlib.h>
 

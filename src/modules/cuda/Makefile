@@ -9,9 +9,10 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-DIRS=array_cuda anisotropy_cuda appliedfield_cuda core_cuda dipole_cuda \
-     exchange_cuda llg_cuda thermal_cuda magnetostatics_cuda \
-     longrange_cuda random_cuda
+DIRS=array_cuda anisotropy_cuda appliedfield_cuda core_cuda \
+     longrange2d_cuda longrange3d_cuda	magnetostatics2d_cuda \
+     magnetostatics3d_cuda random_cuda \
+     exchange_cuda llg_cuda thermal_cuda
 
 all:
 	@for d in $(DIRS); do (make -C $$d); done

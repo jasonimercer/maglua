@@ -12,7 +12,6 @@
 
 #include "spinoperationappliedfield.h"
 #include "spinsystem.h"
-#include "spinsystem.hpp"
 
 #include <stdlib.h>
 

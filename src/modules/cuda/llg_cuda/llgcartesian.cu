@@ -28,13 +28,37 @@ __global__ void llg_cart_apply(
 	const double*     dmdt_hx, const double*     dmdt_hy, const double*     dmdt_hz,
 	const double*     dmdt_sx, const double*     dmdt_sy, const double*     dmdt_sz,
 	      double*   spinto_sx,       double*   spinto_sy,       double*   spinto_sz,       double* spinto_m,
-	const double alpha, const double gamma_dt)
+	const double dt, const double _alpha, const double* d_alpha, const double _gamma, const double* d_gamma)
 {
 	const int i = blockDim.x * blockIdx.x + threadIdx.x;
 	
 	if(i >= nxyz)
 		return;
 
+	double alpha;
+	double gamma;
+	
+	if(d_alpha)
+	{
+		alpha = d_alpha[i];
+	}
+	else
+	{
+		alpha =  _alpha;
+	}
+
+	if(d_gamma)
+	{
+		gamma = d_gamma[i];
+	}
+	else
+	{
+		gamma = _gamma;
+	}
+	
+	const double gamma_dt = gamma * dt;
+	
+	
 	spinto_m[i] = spinfrom_m[i];
 	
 	if(spinto_m[i] > 0)
@@ -77,7 +101,7 @@ void cuda_llg_cart_apply(const int nx, const int ny, const int nz,
 	double* ddx, double* ddy, double* ddz, double* dds, // dm/dt spins
 	double* htx, double* hty, double* htz,              // dm/dt thermal fields
 	double* dhx, double* dhy, double* dhz,              // dm/dt fields
-	const double alpha, const double dt, const double gamma)
+	const double dt, const double alpha, const double* d_alpha, const double gamma, const double* d_gamma)
 {
 	const int nxyz = nx*ny*nz;
 	const int threads = 512;
@@ -88,7 +112,7 @@ void cuda_llg_cart_apply(const int nx, const int ny, const int nz,
 					dhx, dhy, dhz,
 					ddx, ddy, ddz,
 					dsx, dsy, dsz, dms,
-					alpha, gamma*dt);
+					dt, alpha, d_alpha, gamma, d_gamma);
 	CHECK
 }
 

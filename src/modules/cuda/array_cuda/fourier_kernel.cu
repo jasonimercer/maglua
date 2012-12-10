@@ -178,7 +178,7 @@ static fft_plan* make_plan(int n)
 	}
 	lua_setglobal(L, "indices");
 	
-	if(luaL_dostring(L, __fourier))
+	if(luaL_dostring(L, __fourier()))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 		lua_close(L);

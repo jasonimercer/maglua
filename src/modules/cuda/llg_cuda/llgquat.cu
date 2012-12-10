@@ -3,6 +3,13 @@
 #include <math_functions.h>
 #include <stdio.h>
 
+// 
+// A lot of the routines here have both alpha and d_alpha
+// passed in. This is for local vs global values. Ditto
+// for gamma
+// 
+
+
 #define CROSS(v, a, b) \
 	v.x = a.y * b.z - a.z * b.y; \
 	v.y = a.z * b.x - a.x * b.z; \
@@ -64,10 +71,10 @@ __device__ double4 qmultXYZ(const double4 a, const double4 b)
 __global__ void llg_quat_apply_1(
 //	const int nx, const int ny, const int offset,
 	const int nxyz,
-	double alpha,
+	double alpha, const double* d_alpha,
 	double* sx, double* sy, double* sz, double* sms,
 	double* hx, double* hy, double* hz,
-        double* htx, double* hty, double* htz,              // dm/dt thermal fields
+    double* htx, double* hty, double* htz,              // dm/dt thermal fields
 	// ws1, ws2, ws3,     ws4
 	double* wx, double* wy, double* wz, double* ww) 
 {
@@ -88,7 +95,14 @@ __global__ void llg_quat_apply_1(
 	ww[i] = sms[i];
 	if(ww[i] != 0)
 	{
-		ww[i] = FAST_DIV(alpha, ww[i]);
+		if(d_alpha)
+		{
+			ww[i] = FAST_DIV(alpha, ww[i]);
+		}
+		else
+		{
+			ww[i] = FAST_DIV(d_alpha[i], ww[i]);
+		}
 	}
 	wx[i] *= ww[i];
 	wy[i] *= ww[i];
@@ -104,6 +118,7 @@ __global__ void llg_quat_apply_1(
 	// ww = | (wx, wy, wz) |
 }
 
+
 // _2 will compute the rest
 // dS    -g           a
 // -- = ---- S X (H +---S X H)
@@ -114,7 +129,7 @@ __global__ void llg_quat_apply_2(
 	const int nxyz,
 	double* ssx, double* ssy, double* ssz, // src
 	double* wx, double* wy, double* wz, double* ww,
-	double alpha, double gadt)
+	const double dt, double alpha, const double* d_alpha, double gamma, const double* d_gamma)
 {
 	const int i = blockDim.x * blockIdx.x + threadIdx.x;
 	
@@ -135,6 +150,31 @@ __global__ void llg_quat_apply_2(
 	qVec.z = ssz[i];
 	qVec.w = 0;
 			
+	// the 0.5 is for the quaternions
+	double gadt;
+	if(d_alpha)
+	{
+		if(d_gamma)
+		{
+			gadt = (0.5 * d_gamma[i] * dt) / (1.0 + d_alpha[i] * d_alpha[i]);
+		}
+		else
+		{
+			gadt = (0.5 * gamma * dt) / (1.0 + d_alpha[i] * d_alpha[i]);
+		}
+	}
+	else
+	{
+		if(d_gamma)
+		{
+			gadt = (0.5 * d_gamma[i] * dt) / (1.0 + alpha * alpha);
+		}
+		else
+		{
+			gadt = (0.5 * gamma * dt) / (1.0 + alpha * alpha);
+		}
+	}
+	
 	const double theta = ww[i] * gadt;
 
 	double cost, sint;
@@ -236,11 +276,8 @@ void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
     double* htx, double* hty, double* htz,              // dm/dt thermal fields
 	double* dhx, double* dhy, double* dhz,              // dm/dt fields
 	double* ws1, double* ws2, double* ws3, double* ws4,
-	const double alpha, const double dt, const double gamma)
+	const double dt, const double alpha, const double* d_alpha, const double gamma, const double* d_gamma)
 {
-	// the 0.5 is for the quaternions
-	double gadt = (0.5 * gamma * dt) / (1.0 + alpha * alpha);
-
 	const int nxyz = nx*ny*nz;
 	const int threads = 512;
 	const int blocks = nxyz / threads + 1;
@@ -248,19 +285,20 @@ void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
 	// _1 calculates rhs of S x (damped field)
 	// the (damped field) is done with dm/dt terms
 	// result is stored in W
+	//	const int nx, const int ny, const int offset,
 	llg_quat_apply_1<<<blocks, threads>>>(nxyz,
-					alpha,
-					ddx, ddy, ddz, dds,
-					dhx, dhy, dhz,
-					htx, hty, htz,
-					ws1, ws2, ws3, ws4);
+						alpha, d_alpha,
+						ddx, ddy, ddz, dds,
+						dhx, dhy, dhz,
+						htx, hty, htz,
+						ws1, ws2, ws3, ws4);
 	CHECK
 	
 	// spinfrom x W (via quats)
 	llg_quat_apply_2<<<blocks, threads>>>(nxyz,
-					ssx, ssy, ssz,
-					ws1, ws2, ws3, ws4,
-					alpha, gadt);
+				ssx, ssy, ssz,
+				ws1, ws2, ws3, ws4,
+				dt, alpha, d_alpha, gamma, d_gamma);
 	CHECK
 
 	// normalize

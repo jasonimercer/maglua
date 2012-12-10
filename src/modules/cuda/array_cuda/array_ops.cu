@@ -32,50 +32,253 @@
 
 
 
-
 template<typename T>
-__global__ void setValue(T* dest, const int n, const T v)
+__global__ void arraySetAll__(T* dest, const T v, const int n)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= n)
 		return;
 	dest[idx] = v;
 }
 
 template<typename T>
-void setAll_(T* d_dest, const int n, const T& v)
+void arraySetAll_(T* a, const T& v, const int n)
 {
 	const int threads = THREAD_COUNT;
 	const int blocks = n / threads + 1;
 
-	setValue<T><<<blocks, threads>>>(d_dest, n, v);
+	arraySetAll__<T><<<blocks, threads>>>(a, v, n);
 	KCHECK
 }
 
-void arraySetAll(double* a, const double& v, const int n)
+void arraySetAll(double* d_a, const double& v, const int n)
 {
-	setAll_<double>(a, n, v);
+	arraySetAll_<double>(d_a, v, n);
 }
-void arraySetAll(float* a, const float& v, const int n)
+void arraySetAll(float* d_a,  const float& v, const int n)
 {
-	setAll_<float>(a, n, v);
+	arraySetAll_<float>(d_a, v, n);
 }
-void arraySetAll(int* a, const int& v, const int n)
+void arraySetAll(int* d_a, const int& v, const int n)
 {
-	setAll_<int>(a, n, v);
+	arraySetAll_<int>(d_a, v, n);
 }
-void arraySetAll(doubleComplex* a, const doubleComplex& v, const int n)
+void arraySetAll(doubleComplex* d_a, const doubleComplex& v, const int n)
 {
-	setAll_<doubleComplex>(a, n, v);
+	arraySetAll_<doubleComplex>(d_a, v, n);
 }
-void arraySetAll(floatComplex* a, const floatComplex& v, const int n)
+void arraySetAll(floatComplex* d_a,  const floatComplex& v, const int n)
 {
-	setAll_<floatComplex>(a, n, v);
+	arraySetAll_<floatComplex>(d_a, v, n);
 }
 
 
 
+
+
+
+template<typename T>
+__global__ void arrayScaleAll_o__(T* d, const T v, const int n, const int offset)
+{
+	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(idx >= n)
+		return;
+
+	times_equal(d[idx + offset], v);
+}
+
+
+template<typename T>
+void arrayScaleAll_o_(T* d_dest, const T& v, const int n, const int offset=0)
+{
+	const int threads = THREAD_COUNT;
+	const int blocks = n / threads + 1;
+
+	arrayScaleAll_o__<T><<<blocks, threads>>>(d_dest, v, n, offset);
+	KCHECK
+}
+
+void arrayScaleAll(double* d_a, const double& v, const int n)
+{
+	arrayScaleAll_o_<double>(d_a, v, n);
+}
+void arrayScaleAll(float* d_a, const float& v, const int n)
+{
+	arrayScaleAll_o_<float>(d_a, v, n);
+}
+void arrayScaleAll(int* d_a, const int& v, const int n)
+{
+	arrayScaleAll_o_<int>(d_a, v, n);
+}
+void arrayScaleAll(doubleComplex* d_a, const doubleComplex& v, const int n)
+{
+	arrayScaleAll_o_<doubleComplex>(d_a, v, n);
+}
+void arrayScaleAll(floatComplex* d_a, const floatComplex& v, const int n)
+{
+	arrayScaleAll_o_<floatComplex>(d_a, v, n);
+}
+
+
+
+
+void arrayScaleAll_o(double* d_a, const int offset, const double& v, const int n)
+{
+	arrayScaleAll_o_<double>(d_a, v, n, offset);
+}
+void arrayScaleAll_o(float* d_a, const int offset, const float& v, const int n)
+{
+	arrayScaleAll_o_<float>(d_a, v, n, offset);
+}
+void arrayScaleAll_o(int* d_a, const int offset, const int& v, const int n)
+{
+	arrayScaleAll_o_<int>(d_a, v, n, offset);
+}
+void arrayScaleAll_o(doubleComplex* d_a, const int offset, const doubleComplex& v, const int n)
+{
+	arrayScaleAll_o_<doubleComplex>(d_a, v, n, offset);
+}
+void arrayScaleAll_o(floatComplex* d_a, const int offset, const floatComplex& v, const int n)
+{
+	arrayScaleAll_o_<floatComplex>(d_a, v, n, offset);
+}
+
+
+
+
+
+template<typename T>
+__global__ void arrayAddAll_o__(T* d, const T v, const int n, const int offset)
+{
+	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(idx >= n)
+		return;
+
+	plus_equal(d[idx + offset], v);
+}
+template<typename T>
+void arrayAddAll_o_(T* d_dest, const T& v, const int n, const int offset=0)
+{
+	const int threads = THREAD_COUNT;
+	const int blocks = n / threads + 1;
+
+	arrayAddAll_o__<T><<<blocks, threads>>>(d_dest, v, n, offset);
+	KCHECK
+}
+void arrayAddAll(double* d_a, const double& v, const int n)
+{
+	arrayScaleAll_o_<double>(d_a, v, n);
+}
+void arrayAddAll(float* d_a, const float& v, const int n)
+{
+	arrayScaleAll_o_<float>(d_a, v, n);
+}
+void arrayAddAll(int* d_a, const int& v, const int n)
+{
+	arrayScaleAll_o_<int>(d_a, v, n);
+}
+void arrayAddAll(doubleComplex* d_a, const doubleComplex& v, const int n)
+{
+	arrayScaleAll_o_<doubleComplex>(d_a, v, n);
+}
+void arrayAddAll(floatComplex* d_a, const floatComplex& v, const int n)
+{
+	arrayScaleAll_o_<floatComplex>(d_a, v, n);
+}
+
+
+
+
+template<typename T>
+__global__ void arrayMultAll__(T* d_dest, T* d_src1, T* d_src2, const int n)
+{
+	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(idx >= n)
+		return;
+
+	T t = d_src1[idx];
+	times_equal(t, d_src2[idx]);
+	d_dest[idx] = t;
+}
+template<typename T>
+void arrayMultAll_(T* d_dest, T* d_src1, T* d_src2, const int n)
+{
+	const int threads = THREAD_COUNT;
+	const int blocks = n / threads + 1;
+
+	arrayMultAll__<T><<<blocks, threads>>>(d_dest, d_src1, d_src2, n);
+	KCHECK
+}
+void arrayMultAll(double* d_dest, double* d_src1, double* d_src2, const int n)
+{
+	arrayMultAll_<double>(d_dest, d_src1, d_src2, n);
+}
+void arrayMultAll(float* d_dest, float* d_src1, float* d_src2, const int n)
+{
+	arrayMultAll_<float>(d_dest, d_src1, d_src2, n);
+}
+void arrayMultAll(int* d_dest, int* d_src1, int* d_src2, const int n)
+{
+	arrayMultAll_<int>(d_dest, d_src1, d_src2, n);
+}
+void arrayMultAll(doubleComplex* d_dest, doubleComplex* d_src1, doubleComplex* d_src2, const int n)
+{
+	arrayMultAll_<doubleComplex>(d_dest, d_src1, d_src2, n);
+}
+void arrayMultAll(floatComplex* d_dest, floatComplex* d_src1, floatComplex* d_src2, const int n)
+{
+	arrayMultAll_<floatComplex>(d_dest, d_src1, d_src2, n);
+}
+
+
+
+template<typename T>
+__global__ void arrayDiffAll__(T* d_dest, T* d_src1, T* d_src2, const int n)
+{
+	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(idx >= n)
+		return;
+
+	T t1 = d_src1[idx];
+	T t2 = d_src2[idx];
+	times_equal(t2, negone<T>());
+	plus_equal(t1, t2);
+	d_dest[idx] = t1;
+}
+template<typename T>
+void arrayDiffAll_(T* d_dest, T* d_src1, T* d_src2, const int n)
+{
+	const int threads = THREAD_COUNT;
+	const int blocks = n / threads + 1;
+
+	arrayDiffAll__<T><<<blocks, threads>>>(d_dest, d_src1, d_src2, n);
+	KCHECK
+}
+void arrayDiffAll(double* d_dest, double* d_src1, double* d_src2, const int n)
+{
+	arrayDiffAll_<double>(d_dest, d_src1, d_src2, n);
+}
+void arrayDiffAll(float* d_dest, float* d_src1, float* d_src2, const int n)
+{
+	arrayDiffAll_<float>(d_dest, d_src1, d_src2, n);
+}
+void arrayDiffAll(int* d_dest, int* d_src1, int* d_src2, const int n)
+{
+	arrayDiffAll_<int>(d_dest, d_src1, d_src2, n);
+}
+void arrayDiffAll(doubleComplex* d_dest, doubleComplex* d_src1, doubleComplex* d_src2, const int n)
+{
+	arrayDiffAll_<doubleComplex>(d_dest, d_src1, d_src2, n);
+}
+void arrayDiffAll(floatComplex* d_dest, floatComplex* d_src1, floatComplex* d_src2, const int n)
+{
+	arrayDiffAll_<floatComplex>(d_dest, d_src1, d_src2, n);
+}
 
 
 
@@ -85,14 +288,15 @@ template<typename T>
 __global__ void arraySumAll__(T* d_dest, const T* d_src1, const T* d_src2, const int n)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= n)
 		return;
-	
-	d_dest[idx] = d_src1[idx];
-	plus_equal(d_dest[idx], d_src2[idx]);
-}
 
+	T t1 = d_src1[idx];
+	const T t2 = d_src2[idx];
+	plus_equal(t1, t2);
+	d_dest[idx] = t1;
+}
 template<typename T>
 void arraySumAll_(T* d_dest, const T* d_src1, const T* d_src2, const int n)
 {
@@ -106,11 +310,11 @@ void arraySumAll(double* d_dest, const double* d_src1, const double* d_src2, con
 {
 	arraySumAll_<double>(d_dest, d_src1, d_src2, n);
 }
-void arraySumAll( float* d_dest,  const float* d_src1,  const float* d_src2, const int n)
+void arraySumAll(float* d_dest, const float* d_src1, const float* d_src2, const int n)
 {
 	arraySumAll_<float>(d_dest, d_src1, d_src2, n);
 }
-void arraySumAll(   int* d_dest,    const int* d_src1,    const int* d_src2, const int n)
+void arraySumAll(int* d_dest, const int* d_src1, const int* d_src2, const int n)
 {
 	arraySumAll_<int>(d_dest, d_src1, d_src2, n);
 }
@@ -118,7 +322,7 @@ void arraySumAll(doubleComplex* d_dest, const doubleComplex* d_src1, const doubl
 {
 	arraySumAll_<doubleComplex>(d_dest, d_src1, d_src2, n);
 }
-void arraySumAll( floatComplex* d_dest,  const floatComplex* d_src1,  const floatComplex* d_src2, const int n)
+void arraySumAll(floatComplex* d_dest, const floatComplex* d_src1, const floatComplex* d_src2, const int n)
 {
 	arraySumAll_<floatComplex>(d_dest, d_src1, d_src2, n);
 }
@@ -126,100 +330,134 @@ void arraySumAll( floatComplex* d_dest,  const floatComplex* d_src1,  const floa
 
 
 
-// dest[i] = (mult1 * src1[i] + add1) * (mult2 * src2[i] + add2)
+
+
 template<typename T>
-__global__ void multi_op(       T* dest, const T* src1, T* src2, const int n,
-						  const T mult1,  const T add1, 
-						  const T mult2,  const T add2)
+__global__ void arrayNormAll__(T* d_dest, T* d_src1, const int n)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= n)
 		return;
-	
-	T t1 = src2[idx];
-	T t2 = src1[idx];
 
-	times_equal(t1, mult1);
-	plus_equal(t1, add1);
-	
-	times_equal(t2, mult2);
-	plus_equal(t2, add2);
-	
-	times_equal(t1, t2);
-	dest[idx] = t1;
+	set_norm(d_dest[idx], d_src1[idx]);
 }
-
-
 template<typename T>
-void scaleAll_(T* d_dest, const int n, const T& v)
+void arrayNormAll_(T* d_dest, T* d_src1, const int n)
 {
 	const int threads = THREAD_COUNT;
 	const int blocks = n / threads + 1;
 
-	multi_op<T><<<blocks, threads>>>(d_dest, d_dest, d_dest, n,
-									 v, zero<T>(), zero<T>(), one<T>()); 
+	arrayNormAll__<T><<<blocks, threads>>>(d_dest, d_src1, n);
 	KCHECK
 }
-
-
-void arrayScaleAll(double* a, const double& v, const int n)
+void arrayNormAll(double* d_dest, double* d_src1, const int n)
 {
-	scaleAll_<double>(a, n, v);
+	arrayNormAll_<double>(d_dest, d_src1, n);
 }
-void arrayScaleAll(float* a, const float& v, const int n)
+void arrayNormAll(float* d_dest, float* d_src1, const int n)
 {
-	scaleAll_<float>(a, n, v);
+	arrayNormAll_<float>(d_dest, d_src1, n);
 }
-void arrayScaleAll(int* a, const int& v, const int n)
+void arrayNormAll(int* d_dest, int* d_src1, const int n)
 {
-	scaleAll_<int>(a, n, v);
+	arrayNormAll_<int>(d_dest, d_src1, n);
 }
-void arrayScaleAll(doubleComplex* a, const doubleComplex& v, const int n)
+void arrayNormAll(doubleComplex* d_dest, doubleComplex* d_src1, const int n)
 {
-	scaleAll_<doubleComplex>(a, n, v);
+	arrayNormAll_<doubleComplex>(d_dest, d_src1, n);
 }
-void arrayScaleAll(floatComplex* a, const floatComplex& v, const int n)
+void arrayNormAll(floatComplex* d_dest, floatComplex* d_src1, const int n)
 {
-	scaleAll_<floatComplex>(a, n, v);
+	arrayNormAll_<floatComplex>(d_dest, d_src1, n);
 }
 
 
 
 
 
-// dest[i] = (mult1 * src1[i] + add1) * (mult2 * src2[i] + add2)
+
+
+template <unsigned int blockSize, typename T>
+__global__ void reduceSumAll__(T *g_odata, const T *g_idata, unsigned int n)
+{
+	__shared__ T sdata[blockSize];
+
+	// each block of threads will work on blocksize^2 elements
+	unsigned int work = blockSize * blockSize;
+
+	unsigned int base = blockIdx.x * work;
+	unsigned int tid = threadIdx.x;
+	T mysum = zero<T>();
+
+#pragma unroll
+	for(int j=0; j<blockSize; j++)
+	{
+		const int k = base + j*blockSize + tid;
+		if(k < n) plus_equal<T>(mysum, g_idata[k]);
+	}
+	sdata[tid] = mysum;
+	__syncthreads();
+
+// #pragma unroll
+	for(int j=2; j<=blockSize; j*=2)
+	{
+		if(tid < blockSize/j)// < n/(j-1))
+			plus_equal<T>(sdata[tid], sdata[tid + blockSize/j]);
+		__syncthreads();
+	}
+
+	if(tid == 0)
+		g_odata[blockIdx.x] = sdata[0];
+}
+
+#define BS 64
 template<typename T>
-void arrayDot_(T* d_dest, T* d_s1, T* d_s2, const int n)
+T reduceSumAll_(const T* d_v, const int n)
 {
-	const int threads = THREAD_COUNT;
-	const int blocks = n / threads + 1;
+	const int work = BS*BS;
+	const int blocks = 1 + n / work;
+	const int threads = BS;
 
-	multi_op<T><<<blocks, threads>>>(d_dest, d_s1, d_s2, n,
-									 one<T>(), zero<T>(), one<T>(), zero<T>()); 
+	T* d_ws1;
+	T* h_ws1;
+
+	malloc_dh(&d_ws1,&h_ws1, sizeof(T)*n);
+
+	reduceSumAll__<BS><<<blocks, threads>>>(d_ws1, d_v, n);
 	KCHECK
+
+	memcpy_d2h(h_ws1, d_ws1, sizeof(T)*blocks);
+
+	for(int i=1; i<blocks; i++)
+		plus_equal<T>(h_ws1[0], h_ws1[i]);
+
+	T res = h_ws1[0];
+
+	free_dh(d_ws1, h_ws1);
+
+	return res;
 }
-
-
-void arrayMultAll(double* d, double* s1, double* s2, const int n)
+#undef BS
+void reduceSumAll(const double* a, const int n, double& v)
 {
-	arrayDot_<double>(d, s1, s2, n);
+	v = reduceSumAll_<double>(a, n);
 }
-void arrayMultAll(float* d, float* s1, float* s2, const int n)
+void reduceSumAll(const float* a, const int n, float& v)
 {
-	arrayDot_<float>(d, s1, s2, n);
+	v = reduceSumAll_<float>(a, n);
 }
-void arrayMultAll(int* d, int* s1, int* s2, const int n)
+void reduceSumAll(const int* a, const int n, int& v)
 {
-	arrayDot_<int>(d, s1, s2, n);
+	v = reduceSumAll_<int>(a, n);
 }
-void arrayMultAll(doubleComplex* d, doubleComplex* s1, doubleComplex* s2, const int n)
+void reduceSumAll(const doubleComplex* a, const int n, doubleComplex& v)
 {
-	arrayDot_<doubleComplex>(d, s1, s2, n);
+	v = reduceSumAll_<doubleComplex>(a, n);
 }
-void arrayMultAll(floatComplex* d, floatComplex* s1, floatComplex* s2, const int n)
+void reduceSumAll(const floatComplex* a, const int n, floatComplex& v)
 {
-	arrayDot_<floatComplex>(d, s1, s2, n);
+	v = reduceSumAll_<floatComplex>(a, n);
 }
 
 
@@ -229,116 +467,409 @@ void arrayMultAll(floatComplex* d, floatComplex* s1, floatComplex* s2, const int
 
 
 
-// dest[i] = (mult1 * src1[i] + add1) * (mult2 * src2[i] + add2)
+
+
+
+
+
+
+
+template <unsigned int blockSize, typename T>
+__global__ void reduceDiffSumAll__(T *g_odata, const T *g_idata1, const T *g_idata2, unsigned int n)
+{
+	__shared__ T sdata[blockSize];
+
+	// each block of threads will work on blocksize^2 elements
+	unsigned int work = blockSize * blockSize;
+
+	unsigned int base = blockIdx.x * work;
+	unsigned int tid = threadIdx.x;
+	T mysum = zero<T>();
+
+#pragma unroll
+	for(int j=0; j<blockSize; j++)
+	{
+		const int k = base + j*blockSize + tid;
+		if(k < n)
+		{
+			T a = g_idata1[k];
+			T b = g_idata2[k];
+
+			times_equal(b,  negone<T>());
+			plus_equal(a, b);
+			set_norm(b, a);
+			plus_equal<T>(mysum, b);
+		}
+	}
+	sdata[tid] = mysum;
+	__syncthreads();
+
+// #pragma unroll
+	for(int j=2; j<=blockSize; j*=2)
+	{
+		if(tid < blockSize/j)// < n/(j-1))
+			plus_equal<T>(sdata[tid], sdata[tid + blockSize/j]);
+		__syncthreads();
+	}
+
+	if(tid == 0)
+		g_odata[blockIdx.x] = sdata[0];
+}
+
+#define BS 64
 template<typename T>
-void arrayDiff_(T* d_dest, T* d_s1, T* d_s2, const int n)
+T reduceDiffSumAll_(const T* a, const T* b, const int n)
 {
-	const int threads = THREAD_COUNT;
-	const int blocks = n / threads + 1;
+	const int work = BS*BS;
+	const int blocks = 1 + n / work;
+	const int threads = BS;
 
-	multi_op<T><<<blocks, threads>>>(d_dest, d_s1, d_s2, n,
-									 one<T>(), zero<T>(), negone<T>(), zero<T>()); 
+	T* d_ws1;
+	T* h_ws1;
+
+	malloc_dh(&d_ws1,&h_ws1, sizeof(T)*n);
+
+	reduceDiffSumAll__<BS><<<blocks, threads>>>(d_ws1, a, b, n);
 	KCHECK
-}
 
-void arrayDiffAll(double* d, double* s1, double* s2, const int n)
+	memcpy_d2h(h_ws1, d_ws1, sizeof(T)*blocks);
+
+	for(int i=1; i<blocks; i++)
+		plus_equal<T>(h_ws1[0], h_ws1[i]);
+
+	T res = h_ws1[0];
+
+	free_dh(d_ws1, h_ws1);
+
+	return res;
+}
+#undef BS
+void reduceDiffSumAll(const double* a, const double* b, const int n, double& v)
 {
-	arrayDiff_<double>(d, s1, s2, n);
+	v = reduceDiffSumAll_<double>(a, b, n);
 }
-void arrayDiffAll(float* d, float* s1, float* s2, const int n)
+void reduceDiffSumAll(const float* a, const float* b, const int n, float& v)
 {
-	arrayDiff_<float>(d, s1, s2, n);
+	v = reduceDiffSumAll_<float>(a, b, n);
 }
-void arrayDiffAll(int* d, int* s1, int* s2, const int n)
+void reduceDiffSumAll(const int* a, const int* b, const int n, int& v)
 {
-	arrayDiff_<int>(d, s1, s2, n);
+	v = reduceDiffSumAll_<int>(a, b, n);
 }
-void arrayDiffAll(doubleComplex* d, doubleComplex* s1, doubleComplex* s2, const int n)
+void reduceDiffSumAll(const doubleComplex* a, const doubleComplex* b, const int n, doubleComplex& v)
 {
-	arrayDiff_<doubleComplex>(d, s1, s2, n);
+	v = reduceDiffSumAll_<doubleComplex>(a, b, n);
 }
-void arrayDiffAll(floatComplex* d, floatComplex* s1, floatComplex* s2, const int n)
+void reduceDiffSumAll(const floatComplex* a, const floatComplex* b, const int n, floatComplex& v)
 {
-	arrayDiff_<floatComplex>(d, s1, s2, n);
+	v = reduceDiffSumAll_<floatComplex>(a, b, n);
 }
 
 
 
 
 
+
+
+
+template <unsigned int blockSize, typename T>
+__global__ void reduceMultSumAll__(T *g_odata, const T *g_idata1, const T *g_idata2, unsigned int n)
+{
+	__shared__ T sdata[blockSize];
+
+	// each block of threads will work on blocksize^2 elements
+	unsigned int work = blockSize * blockSize;
+
+	unsigned int base = blockIdx.x * work;
+	unsigned int tid = threadIdx.x;
+	T mysum = zero<T>();
+
+#pragma unroll
+	for(int j=0; j<blockSize; j++)
+	{
+		const int k = base + j*blockSize + tid;
+		if(k < n)
+		{
+			T a = g_idata1[k];
+			const T b = g_idata2[k];
+
+			times_equal(a, b);
+			plus_equal<T>(mysum, a);
+		}
+	}
+	sdata[tid] = mysum;
+	__syncthreads();
+
+// #pragma unroll
+	for(int j=2; j<=blockSize; j*=2)
+	{
+		if(tid < blockSize/j)// < n/(j-1))
+			plus_equal<T>(sdata[tid], sdata[tid + blockSize/j]);
+		__syncthreads();
+	}
+
+	if(tid == 0)
+		g_odata[blockIdx.x] = sdata[0];
+}
+
+#define BS 64
+template<typename T>
+T reduceMultSumAll_(const T* a, const T* b, const int n)
+{
+	const int work = BS*BS;
+	const int blocks = 1 + n / work;
+	const int threads = BS;
+
+	T* d_ws1;
+	T* h_ws1;
+
+	malloc_dh(&d_ws1,&h_ws1, sizeof(T)*n);
+
+	reduceMultSumAll__<BS><<<blocks, threads>>>(d_ws1, a, b, n);
+	KCHECK
+
+	memcpy_d2h(h_ws1, d_ws1, sizeof(T)*blocks);
+
+	for(int i=1; i<blocks; i++)
+		plus_equal<T>(h_ws1[0], h_ws1[i]);
+
+	T res = h_ws1[0];
+
+	free_dh(d_ws1, h_ws1);
+
+	return res;
+}
+#undef BS
+void reduceMultSumAll(const double* a, const double* b, const int n, double& v)
+{
+	v = reduceMultSumAll_<double>(a, b, n);
+}
+void reduceMultSumAll(const float* a, const float* b, const int n, float& v)
+{
+	v = reduceMultSumAll_<float>(a, b, n);
+}
+void reduceMultSumAll(const int* a, const int* b, const int n, int& v)
+{
+	v = reduceMultSumAll_<int>(a, b, n);
+}
+void reduceMultSumAll(const doubleComplex* a, const doubleComplex* b, const int n, doubleComplex& v)
+{
+	v = reduceMultSumAll_<doubleComplex>(a, b, n);
+}
+void reduceMultSumAll(const floatComplex* a, const floatComplex* b, const int n, floatComplex& v)
+{
+	v = reduceMultSumAll_<floatComplex>(a, b, n);
+}
+
+
+
+
+
+
+
+template <unsigned int blockSize, unsigned int do_max, typename T>
+__global__ void reduceExtreme__(const T *idata, T *odata, int* oidx, const int n)
+{
+	__shared__ T   sdata[blockSize];
+	__shared__ int sidx[blockSize];
+
+	// each block of threads will work on blocksize^2 elements
+	unsigned int work = blockSize * blockSize;
+
+	unsigned int base = blockIdx.x * work;
+	unsigned int tid = threadIdx.x;
+
+	int my_idx = base + tid;
+	T   my_extreme = idata[my_idx];
+
+	if(do_max) //hope this gets optimized
+	{	
+		#pragma unroll
+		for(int j=0; j<blockSize; j++)
+		{
+			const int k = base + j*blockSize + tid;
+			if(k < n)
+			{
+				const T a = idata[k];
+
+				if(less_than<T>(my_extreme, a))
+				//if(a > my_extreme)
+				{
+					my_idx  = k;
+					my_extreme = a;
+				}
+			}
+		}
+	}
+	else
+	{
+		#pragma unroll
+		for(int j=0; j<blockSize; j++)
+		{
+			const int k = base + j*blockSize + tid;
+			if(k < n)
+			{
+				const T a = idata[k];
+
+
+				if(less_than<T>(a, my_extreme))
+				//if(a < my_extreme)
+				{
+					my_idx  = k;
+					my_extreme = a;
+				}
+			}
+		}
+	}
+	sdata[tid] = my_extreme;
+	sidx[tid] = my_idx;
+	__syncthreads();
+
+// #pragma unroll
+	for(int j=2; j<=blockSize; j*=2)
+	{
+		if(tid < blockSize/j)// < n/(j-1))
+		{
+			if(do_max)
+			{
+				if(less_than<T>(sdata[tid], sdata[tid + blockSize/j]))
+				//if(sdata[tid] < sdata[tid + blockSize/j])
+				{
+					sdata[tid] = sdata[tid + blockSize/j];
+					sidx[tid] = sidx[tid + blockSize/j];
+				}
+			}
+			else
+			{
+				if(less_than<T>(sdata[tid + blockSize/j], sdata[tid]))
+				//if(sdata[tid] > sdata[tid + blockSize/j])
+				{
+					sdata[tid] = sdata[tid + blockSize/j];
+					sidx[tid] = sidx[tid + blockSize/j];
+				}
+			}
+		}
+		__syncthreads();
+	}
+
+	if(tid == 0)
+	{
+		odata[blockIdx.x] = sdata[0];
+		oidx[blockIdx.x] = sidx[0];
+	}
+}
+
+#define BS 64
+template<typename T>
+T reduceExtreme_(const T* d_a, const int min_max, const int n, T& v, int& idx)
+{
+	const int work = BS*BS;
+	const int blocks = 1 + n / work;
+	const int threads = BS;
+
+	T* d_ws1;
+	T* h_ws1;
+
+	int* d_idx;
+	int* h_idx;
+
+	malloc_dh(&d_ws1,&h_ws1, sizeof(T)*n);
+	malloc_dh(&d_idx,&h_idx, sizeof(int)*n);
+
+	if(min_max)
+		reduceExtreme__<BS, 1, T><<<blocks, threads>>>(d_a, d_ws1, d_idx, n);
+	else
+		reduceExtreme__<BS, 0, T><<<blocks, threads>>>(d_a, d_ws1, d_idx, n);
+	KCHECK
+
+	memcpy_d2h(h_ws1, d_ws1, sizeof(T)*blocks);
+	memcpy_d2h(h_idx, d_idx, sizeof(int)*n);
+
+
+	T res_val = h_ws1[0];
+	int res_idx = h_idx[0];
+	if(min_max)
+	{
+		for(int i=1; i<blocks; i++)
+		{
+			if(less_than<T>(res_val, h_ws1[i]))
+// 			if(h_ws1[i] > res_val)
+			{
+				res_val = h_ws1[i];
+				res_idx = h_idx[i];
+			}
+		}
+	}
+	else
+	{
+		for(int i=1; i<blocks; i++)
+		{
+			if(less_than<T>(h_ws1[i], res_val))
+			//if(h_ws1[i] < res_val)
+			{
+				res_val = h_ws1[i];
+				res_idx = h_idx[i];
+			}
+		}
+	}
+
+	free_dh(d_ws1, h_ws1);
+	free_dh(d_idx, h_idx);
+
+	v = res_val;
+	idx = res_idx;
+
+	return v;
+}
+#undef BS
+void reduceExtreme(const double* d_a, const int min_max, const int n, double& v, int& idx)
+{
+	v = reduceExtreme_<double>(d_a, min_max, n, v, idx);
+}
+void reduceExtreme(const float* d_a, const int min_max, const int n, float& v, int& idx)
+{
+	v = reduceExtreme_<float>(d_a, min_max, n, v, idx);
+}
+void reduceExtreme(const int* d_a, const int min_max, const int n, int& v, int& idx)
+{
+	v = reduceExtreme_<int>(d_a, min_max, n, v, idx);
+}
+void reduceExtreme(const doubleComplex* d_a, const int min_max, const int n, doubleComplex& v, int& idx)
+{
+	v = reduceExtreme_<doubleComplex>(d_a, min_max, n, v, idx);
+}
+void reduceExtreme(const floatComplex* d_a, const int min_max, const int n, floatComplex& v, int& idx)
+{
+	v = reduceExtreme_<floatComplex>(d_a, min_max, n, v, idx);
+}
 
 
 
 template<typename T>
-__global__ void norm_op(T* dest, const T* src, const int n)
+__global__ void arrayScaleAdd__(T* dest, T s1, const T* src1, const T s2, const T* src2, const int n)
+
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= n)
 		return;
-	
-	set_norm(dest[idx], src[idx]);
-}
 
-// dest[i] = (mult1 * src1[i] + add1) * (mult2 * src2[i] + add2)
+	T a = s1;
+	times_equal(a, src1[idx]);
+	T b = s2;
+	times_equal(b, src2[idx]);
+
+	plus_equal(a, b);
+
+	dest[idx] = a;
+}
 template<typename T>
-void arrayNorm_(T* d_dest, const T* d_s1, const int n)
+void arrayScaleAdd_(T* dest, T s1, const T* src1, const T s2, const T* src2, const int n)
 {
 	const int threads = THREAD_COUNT;
 	const int blocks = n / threads + 1;
 
-	norm_op<T><<<blocks, threads>>>(d_dest, d_s1, n); 
-	KCHECK
-}
-
-void arrayNormAll(double* d, const double* s1, const int n)
-{
-	arrayNorm_<double>(d, s1, n);
-}
-void arrayNormAll(float* d, const float* s1, const int n)
-{
-	arrayNorm_<float>(d, s1, n);
-}
-void arrayNormAll(int* d, int* const s1, const int n)
-{
-	arrayNorm_<int>(d, s1, n);
-}
-void arrayNormAll(doubleComplex* d, const doubleComplex* s1, const int n)
-{
-	arrayNorm_<doubleComplex>(d, s1, n);
-}
-void arrayNormAll(floatComplex* d, const floatComplex* s1, const int n)
-{
-	arrayNorm_<floatComplex>(d, s1, n);
-}
-
-
-
-template<typename T>
-__global__ void arrayScaleAdd__(T* d_dest, T s1, const T* src1, T s2, const T* src2, const int n)
-{
-	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
-	if(idx >= n)
-		return;
-	
-	T a = src1[idx];
-	T b = src2[idx];
-	
-	times_equal<T>(a, s1);
-	times_equal<T>(b, s2);
-	plus_equal<T>(a, b);
-	
-	d_dest[idx] = a;
-}
-// dest[i] = (mult1 * src1[i] + add1) * (mult2 * src2[i] + add2)
-template<typename T>
-void arrayScaleAdd_(T* d_dest, T s1, const T* src1, T s2, const T* src2, const int n)
-{
-	const int threads = THREAD_COUNT;
-	const int blocks = n / threads + 1;
-
-	arrayScaleAdd__<T><<<blocks, threads>>>(d_dest, s1, src1, s2, src2, n); 
+	arrayScaleAdd__<T><<<blocks, threads>>>(dest, s1, src1, s2, src2, n);
 	KCHECK
 }
 
@@ -346,6 +877,7 @@ void arrayScaleAdd(double* dest, double s1, const double* src1, const double s2,
 {
 	arrayScaleAdd_<double>(dest, s1, src1, s2, src2, n);
 }
+
 void arrayScaleAdd(float* dest, float s1, const float* src1, float s2, const float* src2, const int n)
 {
 	arrayScaleAdd_<float>(dest, s1, src1, s2, src2, n);
@@ -364,13 +896,11 @@ void arrayScaleAdd(floatComplex* dest, floatComplex s1, const floatComplex* src1
 }
 
 
-
-
 template<typename A, typename B>
 __global__ void real_op(A* d_dest, const B* d_src, const int n)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= n)
 		return;
 	d_dest[idx] = d_src[idx].x;
@@ -379,7 +909,7 @@ template<typename A, typename B>
 __global__ void imag_op(A* d_dest, const B* d_src, const int n)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= n)
 		return;
 	d_dest[idx] = d_src[idx].y;
@@ -391,7 +921,7 @@ void arrayGetRealPart_(A* d_dest, const B* d_src, const int n)
 	const int threads = THREAD_COUNT;
 	const int blocks = n / threads + 1;
 
-	real_op<A,B><<<blocks, threads>>>(d_dest, d_src, n); 
+	real_op<A,B><<<blocks, threads>>>(d_dest, d_src, n);
 	KCHECK
 }
 template<typename A, typename B>
@@ -400,7 +930,7 @@ void arrayGetImagPart_(A* d_dest, const B* d_src, const int n)
 	const int threads = THREAD_COUNT;
 	const int blocks = n / threads + 1;
 
-	imag_op<A,B><<<blocks, threads>>>(d_dest, d_src, n); 
+	imag_op<A,B><<<blocks, threads>>>(d_dest, d_src, n);
 	KCHECK
 }
 
@@ -432,7 +962,7 @@ template<typename A, typename B>
 __global__ void set_real_op(A* d_dest, const B* d_src, const int n)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= n)
 		return;
 	d_dest[idx].x = d_src[idx];
@@ -441,7 +971,7 @@ template<typename A, typename B>
 __global__ void set_imag_op(A* d_dest, const B* d_src, const int n)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= n)
 		return;
 	d_dest[idx].y = d_src[idx];
@@ -454,7 +984,7 @@ void arraySetRealPart_(A* d_dest, const B* d_src, const int n)
 	const int threads = THREAD_COUNT;
 	const int blocks = n / threads + 1;
 
-	set_real_op<A,B><<<blocks, threads>>>(d_dest, d_src, n); 
+	set_real_op<A,B><<<blocks, threads>>>(d_dest, d_src, n);
 	KCHECK
 }
 template<typename A, typename B>
@@ -463,7 +993,7 @@ void arraySetImagPart_(A* d_dest, const B* d_src, const int n)
 	const int threads = THREAD_COUNT;
 	const int blocks = n / threads + 1;
 
-	set_imag_op<A,B><<<blocks, threads>>>(d_dest, d_src, n); 
+	set_imag_op<A,B><<<blocks, threads>>>(d_dest, d_src, n);
 	KCHECK
 }
 
@@ -491,247 +1021,6 @@ void arraySetImagPart(floatComplex* d_dest, const float * d_src, const int n)
 
 
 
-template <unsigned int blockSize, typename T>
-__global__ void reduce_sum_kernel(T *g_odata, T *g_idata, unsigned int n)
-{
-	__shared__ T sdata[blockSize];
-
-	// each block of threads will work on blocksize^2 elements
-	unsigned int work = blockSize * blockSize;
-	
-	unsigned int base = blockIdx.x * work;
-	unsigned int tid = threadIdx.x;
-	T mysum = zero<T>();
-	
-#pragma unroll
-	for(int j=0; j<blockSize; j++)
-	{
-		const int k = base + j*blockSize + tid;
-		if(k < n) plus_equal<T>(mysum, g_idata[k]);
-	}
-	sdata[tid] = mysum;
-	__syncthreads();
-
-// #pragma unroll
-	for(int j=2; j<=blockSize; j*=2)
-	{
-		if(tid < blockSize/j)// < n/(j-1))
-			plus_equal<T>(sdata[tid], sdata[tid + blockSize/j]);
-		__syncthreads();
-	}
-	
-	if(tid == 0)
-		g_odata[blockIdx.x] = sdata[0];
-}
-
-#define BS 64
-template<typename T>
-T arraySumAll_(T* d_v, const int n)
-{
-	const int work = BS*BS;
-	const int blocks = 1 + n / work;
-	const int threads = BS;
-
-	T* d_ws1;
-	T* h_ws1;
-	
-	malloc_device(&d_ws1, sizeof(T)*n);
-	malloc_host(&h_ws1, sizeof(T)*n);
-	
-	reduce_sum_kernel<BS><<<blocks, threads>>>(d_ws1, d_v, n);
-	KCHECK
-	
-	memcpy_d2h(h_ws1, d_ws1, sizeof(T)*blocks);
-
-	for(int i=1; i<blocks; i++)
-		plus_equal<T>(h_ws1[0], h_ws1[i]);
-
-	T res = h_ws1[0];
-	
-	free_device(d_ws1);
-	free_host(h_ws1);
-	
-	return res;
-}
-#undef BS
-
-
-
-void reduceSumAll(double* a, const int n, double& v)
-{
-	v = arraySumAll_<double>(a, n);
-}
-void reduceSumAll(float* a, const int n, float& v)
-{
-	v = arraySumAll_<float>(a, n);
-}
-void reduceSumAll(int* a, const int n, int& v)
-{
-	v = arraySumAll_<int>(a, n);
-}
-void reduceSumAll(doubleComplex* a, const int n, doubleComplex& v)
-{
-	v = arraySumAll_<doubleComplex>(a, n);
-}
-void reduceSumAll(floatComplex* a, const int n, floatComplex& v)
-{
-	v = arraySumAll_<floatComplex>(a, n);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-template <unsigned int blockSize, typename T>
-__global__ void reduce_diffsum_kernel(T *g_odata, const T *g_idataA, const T *g_idataB, unsigned int n)
-{
-	__shared__ T sdata[blockSize];
-
-	// each block of threads will work on blocksize^2 elements
-	unsigned int work = blockSize * blockSize;
-	
-	unsigned int base = blockIdx.x * work;
-	unsigned int tid = threadIdx.x;
-	T mysum = zero<T>();
-	
-#pragma unroll
-	for(int j=0; j<blockSize; j++)
-	{
-		const int k = base + j*blockSize + tid;
-		if(k < n) plus_equal<T>(mysum, subtract<T>(g_idataA[k],g_idataA[k]));
-	}
-	sdata[tid] = mysum;
-	__syncthreads();
-
-// #pragma unroll
-	for(int j=2; j<=blockSize; j*=2)
-	{
-		if(tid < blockSize/j)// < n/(j-1))
-			plus_equal<T>(sdata[tid], sdata[tid + blockSize/j]);
-		__syncthreads();
-	}
-	
-	if(tid == 0)
-		g_odata[blockIdx.x] = sdata[0];
-}
-
-
-#define BS 64
-template<typename T>
-T arrayDiffSumAll_(const T* d_a, const T* d_b, const int n)
-{
-	const int work = BS*BS;
-	const int blocks = 1 + n / work;
-	const int threads = BS;
-
-	T* d_ws1;
-	T* h_ws1;
-	
-	malloc_device(&d_ws1, sizeof(T)*n);
-	malloc_host(&h_ws1, sizeof(T)*n);
-	
-	reduce_diffsum_kernel<BS><<<blocks, threads>>>(d_ws1, d_a, d_b, n);
-	KCHECK
-	
-	memcpy_d2h(h_ws1, d_ws1, sizeof(T)*blocks);
-
-	for(int i=1; i<blocks; i++)
-		plus_equal<T>(h_ws1[0], h_ws1[i]);
-
-	T res = h_ws1[0];
-	
-	free_device(d_ws1);
-	free_host(h_ws1);
-	
-	return res;
-}
-#undef BS
-
-void reduceDiffSumAll(const double* a, const double* b, const int n, double& v)
-{
-	v = arrayDiffSumAll_<double>(a, b, n);
-}
-void reduceDiffSumAll(const float* a, const float* b, const int n, float& v)
-{
-	v = arrayDiffSumAll_<float>(a, b, n);
-}
-void reduceDiffSumAll(const int* a, const int* b, const int n, int& v)
-{
-	v = arrayDiffSumAll_<int>(a, b, n);
-}
-void reduceDiffSumAll(const doubleComplex* a, const doubleComplex* b, const int n, doubleComplex& v)
-{
-	v = arrayDiffSumAll_<doubleComplex>(a, b, n);
-}
-void reduceDiffSumAll(const floatComplex* a, const floatComplex* b, const int n, floatComplex& v)
-{
-	v = arrayDiffSumAll_<floatComplex>(a, b, n);
-}
-
-
-
-
-
-
-
-
-template<typename T>
-__global__ void arrayAddAll__(T* d, const T v, const int n)
-{
-	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
-	if(idx >= n)
-		return;
-	
-	plus_equal(d[idx] , v);
-}
-// dest[i] = (mult1 * src1[i] + add1) * (mult2 * src2[i] + add2)
-template<typename T>
-void arrayAddAll_(T* d, const T v, const int n)
-{
-	const int threads = THREAD_COUNT;
-	const int blocks = n / threads + 1;
-
-	arrayAddAll__<T><<<blocks, threads>>>(d, v, n); 
-	KCHECK
-}
-
-void arrayAddAll(double* d_a, const double& v, const int n)
-{
-	arrayAddAll_<double>(d_a, v, n);
-}
-void arrayAddAll(float* d_a, const float& v, const int n)
-{
-	arrayAddAll_<float>(d_a, v, n);
-}
-void arrayAddAll(int* d_a, const int& v, const int n)
-{
-	arrayAddAll_<int>(d_a, v, n);
-}
-void arrayAddAll(doubleComplex* d_a, const doubleComplex& v, const int n)
-{
-	arrayAddAll_<doubleComplex>(d_a, v, n);
-}
-void arrayAddAll(floatComplex* d_a, const floatComplex& v, const int n)
-{
-	arrayAddAll_<floatComplex>(d_a, v, n);
-}
-
-
-
-
-
-
-
 
 
 
@@ -741,10 +1030,10 @@ template<typename T>
 __global__ void arrayLayerMultSet__(T* d, int dl, const T* s1, int s1l, const T* s2, int s2l, T mult, const int nxy)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= nxy)
 		return;
-	
+
 	d[idx + dl*nxy] = s1[idx + s1l*nxy];
 	times_equal(d[idx + dl*nxy], s2[idx + s2l*nxy]);
 	times_equal(d[idx + dl*nxy], mult);
@@ -754,10 +1043,10 @@ template<typename T>
 __global__ void arrayLayerMultTotal__(T* d, int dl, const T* s1, int s1l, const T* s2, int s2l, T mult, const int nxy)
 {
 	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	
+
 	if(idx >= nxy)
 		return;
-	
+
 	T t = d[idx + dl*nxy];
 	d[idx + dl*nxy] = s1[idx + s1l*nxy];
 	times_equal(d[idx + dl*nxy], s2[idx + s2l*nxy]);
@@ -797,4 +1086,199 @@ void arrayLayerMult(doubleComplex* dest, int dest_layer, const doubleComplex* sr
 void arrayLayerMult(floatComplex* dest, int dest_layer, const floatComplex* src1, int src1_layer, const floatComplex* src2, int src2_layer, floatComplex mult, int set, const int nxy)
 {
 	arrayLayerMult_<floatComplex>(dest, dest_layer, src1, src1_layer, src2, src2_layer, mult, set, nxy);
+}
+
+
+
+
+
+
+
+
+
+template<typename T>
+__global__ void arrayScaleMultAdd__(T* dest, const int od, T scale, const T* src1, const int o1, const T* src2, const int o2, const T* src3, const int o3, const int nxy)
+{
+	const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if(idx >= nxy)
+		return;
+
+	T a = src1[idx+o1];
+	times_equal(a, src2[idx+o2]);
+	times_equal(a, scale);
+	plus_equal(a, src3[idx+o3]);
+
+	dest[idx + od] = a;
+}
+template<typename T>
+void arrayScaleMultAdd_(T* dest, const int od, T scale, const T* src1, const int o1, const T* src2, const int o2, const T* src3, const int o3, const int nxy)
+{
+	const int threads = THREAD_COUNT;
+	const int blocks = nxy / threads + 1;
+
+	arrayScaleMultAdd__<T><<<blocks, threads>>>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+	KCHECK
+}
+
+// _o arbitrarily means offset
+void arrayScaleMultAdd_o(double* dest, const int od, double scale, const double* src1, const int o1, const double* src2, const int o2, const double* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<double>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+
+void arrayScaleMultAdd_o(float* dest, const int od, float scale, const float* src1, const int o1, const float* src2, const int o2, const float* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<float>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+
+void arrayScaleMultAdd_o(int* dest, const int od, int scale, const int* src1, const int o1, const int* src2, const int o2, const int* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<int>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+
+void arrayScaleMultAdd_o(doubleComplex* dest, const int od, doubleComplex scale, const doubleComplex* src1, const int o1, const doubleComplex* src2, const int o2, const doubleComplex* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<doubleComplex>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+
+void arrayScaleMultAdd_o(floatComplex* dest, const int od, floatComplex scale, const floatComplex* src1, const int o1, const floatComplex* src2, const int o2, const floatComplex* src3, const int o3, const int nxy)
+{
+	arrayScaleMultAdd_<floatComplex>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+template <unsigned int blockSize, typename T>
+__global__ void arrayAreAllSameValue__(const T *idata, T *odata, int* oflag, const int n)
+{
+	__shared__ T   sdata[blockSize];
+	__shared__ int sflag[blockSize];
+
+	// each block of threads will work on blocksize^2 elements
+	unsigned int work = blockSize * blockSize;
+
+	unsigned int base = blockIdx.x * work;
+	unsigned int tid = threadIdx.x;
+
+	int my_flag = 1; //all same to start
+	T   my_value = idata[base + tid];
+
+	#pragma unroll
+	for(int j=0; j<blockSize; j++)
+	{
+		const int k = base + j*blockSize + tid;
+		if(k < n)
+		{
+			const T a = idata[k];
+
+			my_flag &= equal<T>(a, my_value);
+		}
+	}
+
+	sdata[tid] = my_value;
+	sflag[tid] = my_flag;
+	__syncthreads();
+
+// #pragma unroll
+	for(int j=2; j<=blockSize; j*=2)
+	{
+		if(tid < blockSize/j)// < n/(j-1))
+		{
+			sflag[tid] &= sflag[tid + blockSize/j];
+		}
+		__syncthreads();
+	}
+
+	if(tid == 0)
+	{
+		odata[blockIdx.x] = sdata[0];
+		oflag[blockIdx.x] = sflag[0];
+	}
+}
+
+#define BS 64
+template <typename T>
+bool arrayAreAllSameValue_(T* d_data, const int n, T& v)
+{
+	const int work = BS*BS;
+	const int blocks = 1 + n / work;
+	const int threads = BS;
+
+	T* d_ws1;
+	T* h_ws1;
+
+	int* d_flag;
+	int* h_flag;
+
+	malloc_dh(&d_ws1,&h_ws1, sizeof(T)*n);
+	malloc_dh(&d_flag,&h_flag, sizeof(int)*n);
+
+	arrayAreAllSameValue__<BS, T><<<blocks, threads>>>(d_data, d_ws1, d_flag, n);
+	KCHECK
+
+	memcpy_d2h(h_ws1, d_ws1, sizeof(T)*blocks);
+	memcpy_d2h(h_flag, d_flag, sizeof(int)*n);
+
+
+	T res_val = h_ws1[0];
+	int res_flag = h_flag[0];
+	for(int i=1; i<blocks; i++)
+	{
+		res_flag &= h_flag[i];
+	}
+
+	free_dh(d_ws1, h_ws1);
+	free_dh(d_flag, h_flag);
+
+	v = res_val;
+
+	return res_flag;
+}
+
+bool arrayAreAllSameValue(double* d_data, const int n, double& v)
+{
+	return arrayAreAllSameValue_<double>(d_data, n, v);
+}
+bool arrayAreAllSameValue(float* d_data, const int n, float& v)
+{
+	return arrayAreAllSameValue_<float>(d_data, n, v);
+}
+bool arrayAreAllSameValue(int* d_data, const int n, int& v)
+{
+	return arrayAreAllSameValue_<int>(d_data, n, v);
+}
+bool arrayAreAllSameValue(doubleComplex* d_data, const int n, doubleComplex& v)
+{
+	return arrayAreAllSameValue_<doubleComplex>(d_data, n, v);
+}
+bool arrayAreAllSameValue(floatComplex* d_data, const int n, floatComplex& v)
+{
+	return arrayAreAllSameValue_<floatComplex>(d_data, n, v);
 }

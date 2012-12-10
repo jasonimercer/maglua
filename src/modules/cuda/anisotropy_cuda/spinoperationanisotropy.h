@@ -74,6 +74,10 @@ public:
 	void delete_uncompressed();
 	void delete_compressed();
 	void delete_host();
+	
+	bool compressed;
+	bool compressing;
+	bool compressAttempted;
 private:
 	int unique; //number of LUT entries
 };

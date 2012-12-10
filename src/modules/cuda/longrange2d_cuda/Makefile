@@ -9,14 +9,15 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationlongrange.o
-LIBNAME=LongRangeCuda
+OBJECTS=longrange2d_luafuncs.lo spinoperationlongrange2d.o
+LIBNAME=LongRange2D
 CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
 DEPEND=luabaseobject corecuda arraycuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
-
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
+
+EXTRA_CLEAN=longrange2d_luafuncs.cpp longrange2d_luafuncs.h
