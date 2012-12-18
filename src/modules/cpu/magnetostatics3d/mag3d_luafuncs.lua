@@ -587,5 +587,6 @@ end
 -- create a function that the C code can call to make the longrange3d operator a magnetostatic3d operator
 Magnetostatics3D.internalSetup = function(mag)
 	mag:setMakeDataFunction(makeData)
-	mag:setInternalData(nil)
+	-- the following used to be not commented out but gives problems when checkpoint loading
+	-- mag:setInternalData(nil) 
 end

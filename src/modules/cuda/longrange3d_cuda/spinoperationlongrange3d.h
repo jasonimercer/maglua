@@ -100,7 +100,6 @@ public:
 
 	dcArray* ws1;
 	dcArray* ws2;
-	dcArray* ws3; //for GPU ffts
 	dcArray* wsX;
 	dcArray* wsY;
 	dcArray* wsZ;

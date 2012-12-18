@@ -31,6 +31,9 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 		nx(NX), ny(NY), nz(NZ),
 		nslots(NSLOTS), time(0)
 {
+	registerWS();
+
+	
 	site_alpha = 0;
 	site_gamma = 0;
 	
@@ -69,6 +72,7 @@ int SpinSystem::luaInit(lua_State* L)
 SpinSystem::~SpinSystem()
 {
 	deinit();
+	unregisterWS();
 }
 
 SpinSystem* SpinSystem::copy(lua_State* L)
@@ -424,8 +428,8 @@ void SpinSystem::deinit()
 		delete [] hy;
 		delete [] hz;
 
-		luaT_dec<dcArray>(ws);
-		luaT_dec<dcArray>(ws2);
+// 		luaT_dec<dcArray>(ws);
+// 		luaT_dec<dcArray>(ws2);
 		
 		luaT_dec<dcArray>(qx);
 		luaT_dec<dcArray>(qy);
@@ -481,9 +485,10 @@ void SpinSystem::init()
 	}
 	zeroFields();
 	
-	ws = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-	ws2= luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-
+// 	ws = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+// 	ws2= luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+	ws = getWSdcArray(nx,ny,nz,hash32("SpinSystem_FFT_Help"));
+	
 	qx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	qy = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	qz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
@@ -755,15 +760,15 @@ void SpinSystem::fft(int component)
 	{
 	case 0:	
 		arraySetRealPart(ws->data(), x->data(), x->nxyz);
-		ws->fft2DTo(qx, ws2); 
+		ws->fft2DTo(qx); 
 		break;
 	case 1:	
 		arraySetRealPart(ws->data(), y->data(), y->nxyz);
-		ws->fft2DTo(qy, ws2); 
+		ws->fft2DTo(qy); 
 		break;
 	case 2:	
 		arraySetRealPart(ws->data(), z->data(), z->nxyz);
-		ws->fft2DTo(qz, ws2); 
+		ws->fft2DTo(qz); 
 		break;
 	}
 }
@@ -774,9 +779,12 @@ void SpinSystem::zeroFields()
 	for(int i=0; i<NSLOTS; i++)
 	{
 		slot_used[i] = false;
-		hx[i]->zero();
-		hy[i]->zero();
-		hz[i]->zero();
+		if(hx[i])
+		{
+			hx[i]->zero();
+			hy[i]->zero();
+			hz[i]->zero();
+		}
 	}
 }
 
@@ -854,6 +862,12 @@ void  SpinSystem::set(const int i, double sx, double sy, double sz)
 	(*z)[i] = sz;
 
 	(*ms)[i]= sqrt(sx*sx+sy*sy+sz*sz);
+	
+	x->new_host = true;
+	y->new_host = true;
+	z->new_host = true;
+	ms->new_host = true;
+	
 	invalidateFourierData();
 }
 

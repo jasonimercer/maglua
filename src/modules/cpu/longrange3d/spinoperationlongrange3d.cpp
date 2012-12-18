@@ -95,9 +95,13 @@ void LongRange3D::encode(buffer* b)
 	for(int i=0; i<2; i++)
 	{
 		if(ref[i] != LUA_REFNIL)
+		{
 			lua_rawgeti(L, LUA_REGISTRYINDEX, ref[i]);
+		}
 		else
+		{
 			lua_pushnil(L);
+		}
 
 		_exportLuaVariable(L, lua_gettop(L), b);
 		lua_pop(L, 1);
@@ -118,13 +122,17 @@ int  LongRange3D::decode(buffer* b)
 
 	_importLuaVariable(L, b);
 	longrange_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
+	
 	_importLuaVariable(L, b);
 	function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
 	while(lua_gettop(L) > n)
 		lua_pop(L, 1);
 
+	
+	deinit();
+	init();
+	
 	return 0;
 }
 

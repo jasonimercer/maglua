@@ -77,6 +77,52 @@ LLGQuaternion::LLGQuaternion()
 	v[1] = a[2] * b[0] - a[0] * b[2]; \
 	v[2] = a[0] * b[1] - a[1] * b[0];
 
+class gamma_alpha
+{
+public:
+	gamma_alpha(SpinSystem* ss)
+	{
+		// making local refcounted references to data so the
+		// arrays don't get free'd in mid-operation (from another thread)
+		site_alpha = luaT_inc<dArray>(ss->site_alpha);
+		site_gamma = luaT_inc<dArray>(ss->site_gamma);
+		
+		a_alpha = (site_alpha)?ss->site_alpha->data():0;
+		a_gamma = (site_gamma)?ss->site_gamma->data():0;
+		
+		v_alpha = ss->alpha;
+		v_gamma = ss->gamma;
+	}
+	
+	~gamma_alpha()
+	{
+		luaT_dec<dArray>(site_alpha);
+		luaT_dec<dArray>(site_gamma);
+	}
+	
+	double gamma(int idx)
+	{
+		if(a_gamma)
+			return a_gamma[idx];
+		return v_gamma;
+	}
+	double alpha(int idx)
+	{
+		if(a_alpha)
+			return a_alpha[idx];
+		return v_alpha;
+	}
+	
+	dArray* site_alpha;
+	dArray* site_gamma;
+	
+	double* a_gamma;
+	double* a_alpha;
+	
+	double v_gamma;
+	double v_alpha;
+};
+
 bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
 	const double* sx = spinfrom->x->data();
@@ -98,8 +144,9 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 	      double* y  = spinto->y->data();
 	      double* z  = spinto->z->data();
 		  
-	const double gamma = dmdt->gamma;
-	const double alpha = dmdt->alpha;
+	gamma_alpha ga(dmdt);
+// 	const double gamma = dmdt->gamma;
+// 	const double alpha = dmdt->alpha;
 	const double dt    = dmdt->dt * scaledmdt;
 
 // dS    -g
@@ -127,6 +174,9 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 			const double inv = 1.0 / ms[i];
 			double ra; //rotate amount
 			double sint, cost;
+			
+			const double alpha = ga.alpha(i);
+			const double gamma = ga.gamma(i);
 			
 // dS    -g                  a
 // -- = ---- S X ((H+Hth) + ---S X H)

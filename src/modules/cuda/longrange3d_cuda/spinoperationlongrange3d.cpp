@@ -32,6 +32,7 @@
 LongRange3D::LongRange3D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
 	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
 {
+	registerWS();
     qXX = 0;
     XX = 0;
 	ws1 = 0;
@@ -54,6 +55,7 @@ LongRange3D::LongRange3D(const char* Name, const int field_slot, int nx, int ny,
 
 	compileRequired = true;
 	newDataRequired = true;
+	
 }
 
 LongRange3D::~LongRange3D()
@@ -66,6 +68,8 @@ LongRange3D::~LongRange3D()
 	if(function_ref != LUA_REFNIL)
 		luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
 	function_ref = LUA_REFNIL;
+	
+	unregisterWS();
 }
 
 int LongRange3D::luaInit(lua_State* L)
@@ -191,7 +195,7 @@ void LongRange3D::init()
 	if(XX) return;
 
 	deinit();
-
+	nxyz = nx*ny*nz;
 	hqx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	hqy = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	hqz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
@@ -232,12 +236,12 @@ void LongRange3D::init()
 	ZY->zero();
 	ZZ->zero();
 	
-	ws1 = new dcArray(nx,ny,nz);
-	ws2 = new dcArray(nx,ny,nz);
-	ws3 = new dcArray(nx,ny,nz);
-	wsX = new dcArray(nx,ny,nz);
-	wsY = new dcArray(nx,ny,nz);
-	wsZ = new dcArray(nx,ny,nz);
+	ws1 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_1"));
+	ws2 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_2"));
+	wsX = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_3"));
+	wsY = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_4"));
+	wsZ = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_5"));
+
 }
 
 static int offsetOK(int nx, int ny, int nz,  int x, int y, int z, int& offset)
@@ -291,15 +295,8 @@ void LongRange3D::deinit()
 	
 	if(ws1)
 	{
-		delete ws1;
-		delete ws2;
-		delete ws3;
-		delete wsX;
-		delete wsY;
-		delete wsZ;
 		ws1 = 0;
 		ws2 = 0;
-		ws3 = 0;
 		wsX = 0;
 		wsY = 0;
 		wsZ = 0;
@@ -335,20 +332,19 @@ void LongRange3D::compile()
 		return;
 	compileRequired = false;
 
-	dcArray* wsZ = new dcArray(nx,ny,nz);
+	dcArray* wsZ = ws1;
 
-	wsZ->zero();
-	arraySetRealPart(wsZ->ddata(), XX->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qXX, ws3);
-	arraySetRealPart(wsZ->ddata(), XY->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qXY, ws3);
-	arraySetRealPart(wsZ->ddata(), XZ->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qXZ, ws3);
+	arraySetRealPart(wsZ->ddata(), XX->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qXX);
+	arraySetRealPart(wsZ->ddata(), XY->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qXY);
+	arraySetRealPart(wsZ->ddata(), XZ->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qXZ);
 
-	arraySetRealPart(wsZ->ddata(), YX->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qYX, ws3);
-	arraySetRealPart(wsZ->ddata(), YY->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qYY, ws3);
-	arraySetRealPart(wsZ->ddata(), YZ->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qYZ, ws3);
+	arraySetRealPart(wsZ->ddata(), YX->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qYX);
+	arraySetRealPart(wsZ->ddata(), YY->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qYY);
+	arraySetRealPart(wsZ->ddata(), YZ->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qYZ);
 			
-	arraySetRealPart(wsZ->ddata(), ZX->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qZX, ws3);
-	arraySetRealPart(wsZ->ddata(), ZY->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qZY, ws3);
-	arraySetRealPart(wsZ->ddata(), ZZ->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qZZ, ws3);
+	arraySetRealPart(wsZ->ddata(), ZX->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qZX);
+	arraySetRealPart(wsZ->ddata(), ZY->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qZY);
+	arraySetRealPart(wsZ->ddata(), ZZ->ddata(), wsZ->nxyz);  wsZ->fft3DTo(qZZ);
 
 	//prescaling by 1/xyz for unscaled fft
 	qXX->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny*nz)), 0));
@@ -363,7 +359,6 @@ void LongRange3D::compile()
 	qZY->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny*nz)), 0));
 	qZZ->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny*nz)), 0));
 
-	delete wsZ;
 }
 
 bool LongRange3D::apply(SpinSystem* ss)
@@ -379,10 +374,10 @@ bool LongRange3D::apply(SpinSystem* ss)
 	const int nxyz = nx*ny*nz;
 
 	doubleComplex one = luaT<doubleComplex>::one();
-	
-	arraySetRealPart(ws1->ddata(), ss->x->ddata(), ws1->nxyz); ws1->fft3DTo(wsX, ws3);
-	arraySetRealPart(ws1->ddata(), ss->y->ddata(), ws1->nxyz); ws1->fft3DTo(wsY, ws3);
-	arraySetRealPart(ws1->ddata(), ss->z->ddata(), ws1->nxyz); ws1->fft3DTo(wsZ, ws3);
+
+	arraySetRealPart(ws1->ddata(), ss->x->ddata(), ws1->nxyz); ws1->fft3DTo(wsX);
+	arraySetRealPart(ws1->ddata(), ss->y->ddata(), ws1->nxyz); ws1->fft3DTo(wsY);
+	arraySetRealPart(ws1->ddata(), ss->z->ddata(), ws1->nxyz); ws1->fft3DTo(wsZ);
 	
 	dcArray* sqx = wsX;
 	dcArray* sqy = wsY;
@@ -394,18 +389,19 @@ bool LongRange3D::apply(SpinSystem* ss)
 	
 	// HX
 	ws1->zero();
+// 	printf("(%s:%i)   %p %p %p %p\n", __FILE__, __LINE__, ws1->ddata(), qXX->ddata(), sqx->ddata(), ws1->ddata());
 	arrayScaleMultAdd_o(ws1->ddata(), 0, one, qXX->ddata(), 0, sqx->ddata(), 0, ws1->ddata(), 0, nxyz); 
 	arrayScaleMultAdd_o(ws1->ddata(), 0, one, qXY->ddata(), 0, sqy->ddata(), 0, ws1->ddata(), 0, nxyz); 
 	arrayScaleMultAdd_o(ws1->ddata(), 0, one, qXZ->ddata(), 0, sqz->ddata(), 0, ws1->ddata(), 0, nxyz); 
-	ws1->ifft3DTo(ws2, ws3);
-	arrayGetRealPart(hx->ddata(),  ws2->ddata(), nxyz);
+ 	ws1->ifft3DTo(ws2);
+ 	arrayGetRealPart(hx->ddata(),  ws2->ddata(), nxyz);
 
 	// HY
 	ws1->zero();
 	arrayScaleMultAdd_o(ws1->ddata(), 0, one, qYX->ddata(), 0, sqx->ddata(), 0, ws1->ddata(), 0, nxyz); 
 	arrayScaleMultAdd_o(ws1->ddata(), 0, one, qYY->ddata(), 0, sqy->ddata(), 0, ws1->ddata(), 0, nxyz); 
 	arrayScaleMultAdd_o(ws1->ddata(), 0, one, qYZ->ddata(), 0, sqz->ddata(), 0, ws1->ddata(), 0, nxyz); 
-	ws1->ifft3DTo(ws2, ws3);
+	ws1->ifft3DTo(ws2);
 	arrayGetRealPart(hy->ddata(),  ws2->ddata(), nxyz);
 	
 	// HZ
@@ -413,7 +409,7 @@ bool LongRange3D::apply(SpinSystem* ss)
 	arrayScaleMultAdd_o(ws1->ddata(), 0, one, qZX->ddata(), 0, sqx->ddata(), 0, ws1->ddata(), 0, nxyz); 
 	arrayScaleMultAdd_o(ws1->ddata(), 0, one, qZY->ddata(), 0, sqy->ddata(), 0, ws1->ddata(), 0, nxyz); 
 	arrayScaleMultAdd_o(ws1->ddata(), 0, one, qZZ->ddata(), 0, sqz->ddata(), 0, ws1->ddata(), 0, nxyz); 
-	ws1->ifft3DTo(ws2, ws3);
+	ws1->ifft3DTo(ws2);
 	arrayGetRealPart(hz->ddata(),  ws2->ddata(), nxyz);
 
 	hx->scaleAll(g * global_scale);

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=array.o memory.cuo array_ops.cuo fourier.lo fourier_kernel.cuo  array_core_cuda.o
+OBJECTS=memory.cuo array_ops.cuo fourier.lo fourier_kernel.cuo  array_core_cuda.o
 LIBNAME=ArrayCUDA
 CATEGORY=cuda
 

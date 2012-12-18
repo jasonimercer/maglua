@@ -23,9 +23,9 @@
 Thermal::Thermal(int nx, int ny, int nz)
 	: SpinOperation(Thermal::typeName(), THERMAL_SLOT, nx, ny, nz, hash32(Thermal::typeName()))
 {
+ 	registerWS();
 	scale = 0;
 	temperature = 0;
- 	registerWS();
 
 	init();
 }
@@ -74,8 +74,8 @@ void Thermal::deinit()
 	
 Thermal::~Thermal()
 {
-	unregisterWS();
 	deinit();
+	unregisterWS();
 }
 
 #include "../random_cuda/hybridtaus.h"
@@ -94,15 +94,15 @@ bool Thermal::applyToSum(RNG* rng, SpinSystem* ss)
 	int twiddle = 0;
 	float* d_rngs = ht->get6Normals(nx,ny,nz,twiddle);
 
-	const int sz = sizeof(double)*nxyz;
 	double* d_wsx;
 	double* d_wsy;
 	double* d_wsz;
 	
-	getWSMem3(&d_wsx, sz,
-			  &d_wsy, sz,
-			  &d_wsz, sz);
-
+	const int sz = sizeof(double)*nxyz;
+	getWSMemD(&d_wsx, sz, hash32("SpinOperation::apply_1"));
+	getWSMemD(&d_wsy, sz, hash32("SpinOperation::apply_2"));
+	getWSMemD(&d_wsz, sz, hash32("SpinOperation::apply_3"));
+	
 	const double alpha = ss->alpha;
 	const double dt    = ss->dt;
 	const double gamma = ss->gamma;

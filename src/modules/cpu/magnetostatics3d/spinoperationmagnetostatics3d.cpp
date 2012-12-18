@@ -16,13 +16,34 @@
 
 
 Magnetostatics3D::Magnetostatics3D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
-	: LongRange3D(Name, field_slot, nx, ny, nz, encode_tag)
+	: LongRange3D("Magnetostatics3D", field_slot, nx, ny, nz, encode_tag)
 {
 }
 
 Magnetostatics3D::~Magnetostatics3D()
 {
 }
+
+void Magnetostatics3D::encode(buffer* b)
+{
+	LongRange3D::encode(b);
+}
+
+int  Magnetostatics3D::decode(buffer* b)
+{
+	int i = LongRange3D::decode(b);
+	
+	int s = lua_gettop(L);
+	lua_getglobal(L, "Magnetostatics3D");
+	lua_getfield(L, -1, "internalSetup");
+	luaT_push<Magnetostatics3D>(L, this);
+	lua_call(L, 1, 0);
+	while(lua_gettop(L) > s)
+		lua_pop(L, 1);
+	
+	return i;
+}
+
 
 // this is a base 0 function
 double Magnetostatics3D::getGrainSize()
@@ -57,10 +78,13 @@ void Magnetostatics3D::push(lua_State* L)
 int Magnetostatics3D::luaInit(lua_State* L)
 {
 	LongRange3D::luaInit(L);
+	int s = lua_gettop(L);
 	lua_getglobal(L, "Magnetostatics3D");
 	lua_getfield(L, -1, "internalSetup");
 	luaT_push<Magnetostatics3D>(L, this);
 	lua_call(L, 1, 0);
+	while(lua_gettop(L) > s)
+		lua_pop(L, 1);
 	return 0;
 }
 

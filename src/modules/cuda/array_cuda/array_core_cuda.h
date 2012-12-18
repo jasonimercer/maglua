@@ -43,19 +43,25 @@ public:
 	virtual int luaInit(lua_State* L); 
 	static int help(lua_State* L); 	
 
-	Array(int x=4, int y=4, int z=1, T* device_memory=0) 
+	Array(int x=1, int y=1, int z=1, T* device_memory=0, T* host_memory=0) 
 	: 	 fft_plan_1D(0),  fft_plan_2D(0),  fft_plan_3D(0),
 		ifft_plan_1D(0), ifft_plan_2D(0), ifft_plan_3D(0),
-		nx(x-1), ny(y-1), nz(z-1), h_data(0), d_data(0),
+		nx(x-1), ny(y-1), nz(z-1), h_data(0), d_data(0),ws(0),  //offsets on sizes to make sure "old" sizes are different
 		LuaBaseObject(hash32((array_lua_name<T>())))
 	{
-		i_own_my_device_memory = !device_memory;
-		setSize(x,y,z, device_memory);
+		registerWS();
+		i_own_my_device_memory = (device_memory == 0);
+		i_own_my_host_memory = (host_memory == 0);
+		setSize(x,y,z, device_memory, host_memory);
 	}
 	
-	~Array() {setSize(0,0,0);}
+	~Array()
+	{
+		unregisterWS();
+		setSize(0,0,0);
+	}
 	 
-	void setSize(int x, int y, int z, T* use_this_device_memory = 0)
+	void setSize(int x, int y, int z, T* use_this_device_memory = 0, T* use_this_host_memory = 0)
 	{
 		if(x != nx || y != ny || z != nz)
 		{
@@ -68,9 +74,10 @@ public:
 
 			if(i_own_my_device_memory)
 				if(d_data) free_device(d_data);
-			if(h_data) free_host(h_data);
+			if(i_own_my_host_memory)
+				if(h_data) free_host(h_data);
 			d_data = use_this_device_memory;
-			h_data = 0;
+			h_data = use_this_host_memory;
 			fft_plan_1D = 0;
 			fft_plan_2D = 0;
 			fft_plan_3D = 0;
@@ -83,21 +90,25 @@ public:
 			if(nxyz)
 			{
 				//malloc_device(&d_data, sizeof(T) * nxyz); //going to malloc device lazily
-				malloc_host(&h_data, sizeof(T) * nxyz);
+				if(!h_data)
+					malloc_host(&h_data, sizeof(T) * nxyz);
 				for(int i=0; i<nxyz; i++)
 					h_data[i] = luaT<T>::zero();
 				new_host = true;
 				new_device = false;
+				
+				getWSMemD(&ws, sizeof(T) * nxyz, hash32("Array_WS"));
+				//printf("New array %p %p %p\n", d_data, h_data, ws);
 			}
 		}
 	}
 	
 private:
-	bool internal_fft(Array<T>* dest, T* ws, int dims, int direction, FFT_PLAN** plan)
+	bool internal_fft(Array<T>* dest, int dims, int direction, FFT_PLAN** plan)
 	{
 		if(ws == 0)
 		{
-			fprintf(stderr, "CUDA FFT requires workspace for FFTs\n");
+			fprintf(stderr, "(%s:%i) CUDA FFT requires workspace\n", __FILE__, __LINE__);
 			return false;
 		}
 		if(!sameSize(dest)) return false;
@@ -121,9 +132,12 @@ private:
 	FFT_PLAN* ifft_plan_3D;
 	
 	bool i_own_my_device_memory;
+	bool i_own_my_host_memory;
 
 	T* h_data;
 	T* d_data;
+	
+	T* ws; //work space for FFT and other operations
 
 public:
 	// flags indicating if there is new data on host/device
@@ -154,7 +168,7 @@ public:
 		return d_data;
 	}
 	
-		//sync host to device (if needed)
+	//sync host to device (if needed)
 	void sync_hd()
 	{
 		if(!d_data)
@@ -189,43 +203,27 @@ public:
 	}
 	
 
-	bool fft1DTo(Array<T>* dest, T* ws){
-		return internal_fft(dest, ws, 1, FFT_FORWARD, &fft_plan_1D);
+	bool fft1DTo(Array<T>* dest){
+		return internal_fft(dest, 1, FFT_FORWARD, &fft_plan_1D);
 	}
-	bool fft1DTo(Array<T>* dest, Array<T>* ws){
-		return fft1DTo(dest, ws->ddata());
+	bool fft2DTo(Array<T>* dest){
+		return internal_fft(dest, 2, FFT_FORWARD, &fft_plan_2D);
 	}
-	bool fft2DTo(Array<T>* dest, T* ws){
-		return internal_fft(dest, ws, 2, FFT_FORWARD, &fft_plan_2D);
+	bool fft3DTo(Array<T>* dest){
+		return internal_fft(dest, 3, FFT_FORWARD, &fft_plan_3D);
 	}
-	bool fft2DTo(Array<T>* dest, Array<T>* ws){
-		return fft2DTo(dest, ws->ddata());
-	}
-	bool fft3DTo(Array<T>* dest, T* ws){
-		return internal_fft(dest, ws, 3, FFT_FORWARD, &fft_plan_3D);
-	}
-	bool fft3DTo(Array<T>* dest, Array<T>* ws){
-		return fft3DTo(dest, ws->ddata());
-	}
+
 	
-	bool ifft1DTo(Array<T>* dest, T* ws){
-		return internal_fft(dest, ws, 1, FFT_BACKWARD, &ifft_plan_1D);
+	bool ifft1DTo(Array<T>* dest){
+		return internal_fft(dest, 1, FFT_BACKWARD, &ifft_plan_1D);
 	}
-	bool ifft1DTo(Array<T>* dest, Array<T>* ws){
-		return ifft1DTo(dest, ws->ddata());
+	bool ifft2DTo(Array<T>* dest){
+		return internal_fft(dest, 2, FFT_BACKWARD, &ifft_plan_2D);
 	}
-	bool ifft2DTo(Array<T>* dest, T* ws){
-		return internal_fft(dest, ws, 2, FFT_BACKWARD, &ifft_plan_2D);
+	bool ifft3DTo(Array<T>* dest){
+		return internal_fft(dest, 3, FFT_BACKWARD, &ifft_plan_3D);
 	}
-	bool ifft2DTo(Array<T>* dest, Array<T>* ws){
-		return ifft2DTo(dest, ws->ddata());
-	}
-	bool ifft3DTo(Array<T>* dest, T* ws){
-		return internal_fft(dest, ws, 3, FFT_BACKWARD, &ifft_plan_3D);
-	}
-	bool ifft3DTo(Array<T>* dest, Array<T>* ws){
-		return ifft3DTo(dest, ws->ddata());
-	}
+
 	
 	bool areAllSameValue(T& v)
 	{
@@ -384,7 +382,7 @@ public:
 			}
 		}
 		if(!member(c[0], c[1], c[2]))
-			return luaL_error(L, "invalid site");
+			return luaL_error(L, "invalid site (%i, %i, %i)", c[0], c[1], c[2]);
 		c[0] = xyz2idx(c[0], c[1], c[2]);
 		
 		plus_equal( data()[c[0]], luaT<T>::to(L, base_idx + offset) );
@@ -433,7 +431,7 @@ public:
 		return luaT<T>::push(L, data()[c[0]]);
 	}
 	
-	void setAll(const T& v) {sync_hd(); arraySetAll(ddata(), v, nxyz);}
+	void setAll(const T& v){arraySetAll(ddata(), v, nxyz);}
 	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(ddata(), v, nxyz);}
 	void scaleAll_o(const T& v, const int offset, const int n) {sync_hd(); arrayScaleAll_o(ddata(), offset, v, n);}
 	void addValue(const T& v) {sync_hd(); arrayAddAll(ddata(), v, nxyz);}
@@ -525,12 +523,12 @@ public:
 	
 	void copyFrom(Array<T>* other)
 	{
-		memcpy(data(), other->data(), sizeof(T)*nxyz);
+		memcpy_d2d(ddata(), other->ddata(), sizeof(T)*nxyz);
 	}
 	
 	void zero()
 	{
-		arraySetAll(data(),  luaT<T>::zero(), nxyz);
+		arraySetAll(ddata(),  luaT<T>::zero(), nxyz);
 	}
 	
 	Array<T>& operator+=(Array<T> &rhs)
@@ -563,6 +561,12 @@ typedef Array<int>            iArray;
 
 
 
+
+ARRAYCUDA_API dcArray* getWSdcArray(int nx, int ny, int nz, long level);
+ARRAYCUDA_API fcArray* getWSfcArray(int nx, int ny, int nz, long level);
+ARRAYCUDA_API dArray* getWSdArray(int nx, int ny, int nz, long level);
+ARRAYCUDA_API fArray* getWSfArray(int nx, int ny, int nz, long level);
+ARRAYCUDA_API iArray* getWSiArray(int nx, int ny, int nz, long level);
 
 
 

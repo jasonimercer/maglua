@@ -27,6 +27,7 @@
 LongRange2D::LongRange2D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
 	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
 {
+	registerWS();
     qXX = 0;
     XX = 0;
 	ws1 = 0;
@@ -228,9 +229,14 @@ void LongRange2D::init()
 	ZY = initAB<dArray>(nx,ny,nz);
 	ZZ = initAB<dArray>(nx,ny,nz);
 	
-	ws1 = new dcArray(nx,ny,nz);
-	ws2 = new dcArray(nx,ny,nz);
-	ws3 = new dcArray(nx,ny,nz);
+	// these tags are the same as lr3d but we're assuming that we can't
+	// apply 2 operators simultaneously (this is a safe assumption)
+	ws1 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_1"));
+	ws2 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_2"));
+	
+// 	ws1 = new dcArray(nx,ny,nz);
+// 	ws2 = new dcArray(nx,ny,nz);
+// 	ws3 = new dcArray(nx,ny,nz);
 }
 
 template <typename T>
@@ -287,14 +293,6 @@ void LongRange2D::deinit()
 		decAB<dArray>(ZZ, nz);
 	}
 
-	if(ws1)
-	{
-		delete ws1;
-		delete ws2;
-		delete ws3;
-		ws1 = 0;
-	}
-	
 	if(g)
 	{
 		delete [] g;
@@ -310,6 +308,8 @@ LongRange2D::~LongRange2D()
 		luaL_unref(L, LUA_REGISTRYINDEX, longrange_ref);
 	if(function_ref != LUA_REFNIL)
 		luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
+
+	unregisterWS();
 }
 
 void LongRange2D::makeNewData()
@@ -347,17 +347,17 @@ void LongRange2D::compile()
 		for(int j=0; j<nz; j++)
 		{
 			wsZ->zero();
-			arraySetRealPart(wsZ->ddata(), XX[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qXX[i][j], ws3);
-			arraySetRealPart(wsZ->ddata(), XY[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qXY[i][j], ws3);
-			arraySetRealPart(wsZ->ddata(), XZ[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qXZ[i][j], ws3);
+			arraySetRealPart(wsZ->ddata(), XX[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qXX[i][j]);
+			arraySetRealPart(wsZ->ddata(), XY[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qXY[i][j]);
+			arraySetRealPart(wsZ->ddata(), XZ[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qXZ[i][j]);
 
-			arraySetRealPart(wsZ->ddata(), YX[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qYX[i][j], ws3);
-			arraySetRealPart(wsZ->ddata(), YY[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qYY[i][j], ws3);
-			arraySetRealPart(wsZ->ddata(), YZ[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qYZ[i][j], ws3);
+			arraySetRealPart(wsZ->ddata(), YX[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qYX[i][j]);
+			arraySetRealPart(wsZ->ddata(), YY[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qYY[i][j]);
+			arraySetRealPart(wsZ->ddata(), YZ[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qYZ[i][j]);
 			
-			arraySetRealPart(wsZ->ddata(), ZX[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qZX[i][j], ws3);
-			arraySetRealPart(wsZ->ddata(), ZY[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qZY[i][j], ws3);
-			arraySetRealPart(wsZ->ddata(), ZZ[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qZZ[i][j], ws3);
+			arraySetRealPart(wsZ->ddata(), ZX[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qZX[i][j]);
+			arraySetRealPart(wsZ->ddata(), ZY[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qZY[i][j]);
+			arraySetRealPart(wsZ->ddata(), ZZ[i][j]->ddata(), wsZ->nxyz);  wsZ->fft2DTo(qZZ[i][j]);
 
 			//prescaling by 1/xy for unscaled fft
 			qXX[i][j]->scaleAll(make_cuDoubleComplex(1.0/((double)(nx*ny)), 0));
@@ -374,7 +374,6 @@ void LongRange2D::compile()
 
 		}
 	}
-	delete wsZ;
 }
 
 bool LongRange2D::apply(SpinSystem* ss)
@@ -409,15 +408,14 @@ bool LongRange2D::apply(SpinSystem* ss)
 		for(int s=0; s<nz; s++) //src
 		{
 			const int j = s*nxy;
-			//ARRAY_API void arrayScaleMultAdd_o(doubleComplex* dest, const int od, doubleComplex scale, const doubleComplex* src1, const int o1, const doubleComplex* src2, const int o2, const doubleComplex* src3, const int o3, const int nxy);		arrayScaleMultAdd(ws1->ddata(), one, qXX[d][s], sqx
 			arrayScaleMultAdd_o(ws1->ddata(), k, one, qXX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
 			arrayScaleMultAdd_o(ws1->ddata(), k, one, qXY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
 			arrayScaleMultAdd_o(ws1->ddata(), k, one, qXZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
 		}
 	}
-	ws1->ifft2DTo(ws2, ws3);
+	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hx->ddata(),  ws2->ddata(), nxyz);
-
+#if 0
 	// HY
 	ws1->zero();
 	for(int d=0; d<nz; d++) //dest
@@ -426,13 +424,12 @@ bool LongRange2D::apply(SpinSystem* ss)
 		for(int s=0; s<nz; s++) //src
 		{
 			const int j = s*nxy;
-			//ARRAY_API void arrayScaleMultAdd_o(doubleComplex* dest, const int od, doubleComplex scale, const doubleComplex* src1, const int o1, const doubleComplex* src2, const int o2, const doubleComplex* src3, const int o3, const int nxy);		arrayScaleMultAdd(ws1->ddata(), one, qXX[d][s], sqx
 			arrayScaleMultAdd_o(ws1->ddata(), k, one, qYX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
 			arrayScaleMultAdd_o(ws1->ddata(), k, one, qYY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
 			arrayScaleMultAdd_o(ws1->ddata(), k, one, qYZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
 		}
 	}
-	ws1->ifft2DTo(ws2, ws3);
+	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hy->ddata(),  ws2->ddata(), nxyz);
 
 
@@ -444,14 +441,15 @@ bool LongRange2D::apply(SpinSystem* ss)
 		for(int s=0; s<nz; s++) //src
 		{
 			const int j = s*nxy;
-			//ARRAY_API void arrayScaleMultAdd_o(doubleComplex* dest, const int od, doubleComplex scale, const doubleComplex* src1, const int o1, const doubleComplex* src2, const int o2, const doubleComplex* src3, const int o3, const int nxy);		arrayScaleMultAdd(ws1->ddata(), one, qXX[d][s], sqx
 			arrayScaleMultAdd_o(ws1->ddata(), k, one, qZX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
 			arrayScaleMultAdd_o(ws1->ddata(), k, one, qZY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
 			arrayScaleMultAdd_o(ws1->ddata(), k, one, qZZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
 		}
 	}
-	ws1->ifft2DTo(ws2, ws3);
+	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hz->ddata(),  ws2->ddata(), nxyz);
+#endif
+
 
 	for(int i=0; i<nz; i++)
 	{

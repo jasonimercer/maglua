@@ -79,6 +79,53 @@ Thermal::~Thermal()
 	luaT_dec<RNG>(myRNG);
 }
 
+
+class gamma_alpha
+{
+public:
+	gamma_alpha(SpinSystem* ss)
+	{
+		// making local refcounted references to data so the
+		// arrays don't get free'd in mid-operation (from another thread)
+		site_alpha = luaT_inc<dArray>(ss->site_alpha);
+		site_gamma = luaT_inc<dArray>(ss->site_gamma);
+		
+		a_alpha = (site_alpha)?ss->site_alpha->data():0;
+		a_gamma = (site_gamma)?ss->site_gamma->data():0;
+		
+		v_alpha = ss->alpha;
+		v_gamma = ss->gamma;
+	}
+	
+	~gamma_alpha()
+	{
+		luaT_dec<dArray>(site_alpha);
+		luaT_dec<dArray>(site_gamma);
+	}
+	
+	double gamma(int idx)
+	{
+		if(a_gamma)
+			return a_gamma[idx];
+		return v_gamma;
+	}
+	double alpha(int idx)
+	{
+		if(a_alpha)
+			return a_alpha[idx];
+		return v_alpha;
+	}
+	
+	dArray* site_alpha;
+	dArray* site_gamma;
+	
+	double* a_gamma;
+	double* a_alpha;
+	
+	double v_gamma;
+	double v_alpha;
+};
+
 bool Thermal::apply(SpinSystem* ss, RNG* useThisRNG)
 {
 	markSlotUsed(ss);
@@ -93,7 +140,6 @@ bool Thermal::apply(SpinSystem* ss, RNG* useThisRNG)
 		return false;
 	}
 	
-	
 	const double alpha = ss->alpha;
 	const double dt    = ss->dt;
 	const double gamma = ss->gamma;
@@ -102,12 +148,16 @@ bool Thermal::apply(SpinSystem* ss, RNG* useThisRNG)
 	double* hy = ss->hy[slot]->data();
 	double* hz = ss->hz[slot]->data();
 	const double* ms = ss->ms->data();
+
+	
+	gamma_alpha ga(ss);
 	
 	for(int i=0; i<ss->nxyz; i++)
 	{
 		if(ms[i] != 0 && temperature != 0)
 		{
-// 			double stddev = sqrt((2.0 * alpha * temperature * scale[i]) / (ms * dt * gamma * (1+alpha*alpha)));
+			const double alpha = ga.alpha(i);
+			const double gamma = ga.gamma(i);
 			const double stddev = sqrt((2.0 * alpha * global_scale * temperature * (*scale)[i]) / (ms[i] * dt * gamma));
 			
 			hx[i] = stddev * rand->randNorm(0, 1);
@@ -121,6 +171,7 @@ bool Thermal::apply(SpinSystem* ss, RNG* useThisRNG)
 			hz[i] = 0;
 		}
 	}
+
 	return true;
 }
 

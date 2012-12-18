@@ -15,7 +15,7 @@ erg = gram*cm^2/s^2
 uerg = erg*10^(-6)
 Gauss = math.sqrt(gram/(cm*s^2))
 emu = cm^2*math.sqrt(gram*cm)/s
-
+Hz = 1/s
 Oe = Gauss
 
 cc = cm^3

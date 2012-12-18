@@ -103,7 +103,6 @@ public:
 
 	dcArray* ws1;
 	dcArray* ws2;
-	dcArray* ws3; //gpu fft
 
 	int longrange_ref;
 	int function_ref;

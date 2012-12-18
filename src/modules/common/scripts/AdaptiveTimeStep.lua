@@ -4,7 +4,29 @@
 -- where ss is a *SpinSystem*, step is a function that integrates over a timestep, tolerance is used to determine if two systems are the same, dynamics is an optional function (can be nil) that takes a *SpinSystem* and modifies the environment, llg is an LLG operator (only required if a thermal operator is specified) and optional_thermal_operator is a thermal operator.
 
 
-function make_adapt_step_function(ss_, step_, tolerance, dynamics_, llg_, optional_thermal_operator)
+--function make_adapt_step_function(ss_, step_, tolerance, dynamics_, llg_, optional_thermal_operator)
+function make_adapt_step_function(a1, a2, a3, a4, a5, a6)
+	-- working on making args adaptive
+	local args = {}
+	args["userdata"] = {}
+	args["function"] = {}
+	args["number"] = {}
+
+	local a = {a1,a2,a3,a4,a5,a6}
+
+	for k,v in pairs(a) do
+		local t = type(v)
+		args[t] = args[t] or {}
+		table.insert(args[t], v)
+	end
+
+	local ss_ = args["userdata"][1]
+	local step_ = args["function"][1]
+	local tolerance = args["number"][1]
+	local dynamics_ = args["function"][2]
+	local llg_ = args["userdata"][2]
+	local optional_thermal_operator = args["userdata"][3]
+
 	local tol = tolerance
 
 	local ss  = ss_

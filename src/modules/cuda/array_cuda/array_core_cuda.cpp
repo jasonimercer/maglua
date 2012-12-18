@@ -1,6 +1,5 @@
 #include "array_core_cuda.h"
 
-
 template<typename T>
 static int l_sameSize(lua_State* L)
 {
@@ -283,9 +282,7 @@ static int l_fft1D(lua_State *L)
 {
 	LUA_PREAMBLE( Array<T>, a, 1);
 	LUA_PREAMBLE( Array<T>, b, 2);
-	T* ws; malloc_device(&ws, sizeof(T) * a->nxyz);
-	a->fft1DTo(b, ws);
-	free_device(ws);
+	a->fft1DTo(b);
 	return 0;
 }
 template<typename T>
@@ -293,9 +290,7 @@ static int l_fft2D(lua_State *L)
 {
 	LUA_PREAMBLE( Array<T>, a, 1);
 	LUA_PREAMBLE( Array<T>, b, 2);
-	T* ws; malloc_device(&ws, sizeof(T) * a->nxyz);
-	a->fft2DTo(b, ws);
-	free_device(ws);
+	a->fft2DTo(b);
 	return 0;
 }
 template<typename T>
@@ -303,9 +298,7 @@ static int l_fft3D(lua_State *L)
 {
 	LUA_PREAMBLE( Array<T>, a, 1);
 	LUA_PREAMBLE( Array<T>, b, 2);
-	T* ws; malloc_device(&ws, sizeof(T) * a->nxyz);
-	a->fft3DTo(b, ws);
-	free_device(ws);
+	a->fft3DTo(b);
 	return 0;
 }
 
@@ -316,9 +309,7 @@ static int l_ifft1D(lua_State *L)
 {
 	LUA_PREAMBLE( Array<T>, a, 1);
 	LUA_PREAMBLE( Array<T>, b, 2);
-	T* ws; malloc_device(&ws, sizeof(T) * a->nxyz);
-	a->ifft1DTo(b, ws);
-	free_device(ws);
+	a->ifft1DTo(b);
 	return 0;
 }
 template<typename T>
@@ -326,9 +317,7 @@ static int l_ifft2D(lua_State *L)
 {
 	LUA_PREAMBLE( Array<T>, a, 1);
 	LUA_PREAMBLE( Array<T>, b, 2);
-	T* ws; malloc_device(&ws, sizeof(T) * a->nxyz);
-	a->ifft2DTo(b, ws);
-	free_device(ws);
+	a->ifft2DTo(b);
 	return 0;
 }
 template<typename T>
@@ -336,9 +325,7 @@ static int l_ifft3D(lua_State *L)
 {
 	LUA_PREAMBLE( Array<T>, a, 1);
 	LUA_PREAMBLE( Array<T>, b, 2);
-	T* ws; malloc_device(&ws, sizeof(T) * a->nxyz);
-	a->ifft3DTo(b, ws);
-	free_device(ws);
+	a->ifft3DTo(b);
 	return 0;
 }
 
@@ -369,6 +356,43 @@ static const luaL_Reg* get_fft_methods()
 
 
 
+// the level argument below prevents WSs from overlapping. This is useful for multi-level 
+// operations that all use WSs: example long range interaction. FFTs at lowest level with a WS acting as an accumulator
+template<typename T>
+ Array<T>* getWSArray(int nx, int ny, int nz, long level)
+{
+	T* d;
+	T* h;
+	getWSMemD(&d, sizeof(T)*nx*ny*nz, level);
+	getWSMemH(&h, sizeof(T)*nx*ny*nz, level);
+	//printf("New WS Array %p %p\n", d, h);
+	Array<T>* a =  new Array<T>(nx,ny,nz,d,h);
+
+	//printf("ddata = %p\n", a->ddata());
+
+	return a;
+}
+
+ARRAYCUDA_API dcArray* getWSdcArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<doubleComplex>(nx,ny,nz,level);
+}
+ARRAYCUDA_API fcArray* getWSfcArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<floatComplex>(nx,ny,nz,level);
+}
+ARRAYCUDA_API dArray* getWSdArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<double>(nx,ny,nz,level);
+}
+ARRAYCUDA_API fArray* getWSfArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<float>(nx,ny,nz,level);
+}
+ARRAYCUDA_API iArray* getWSiArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<int>(nx,ny,nz,level);
+}
 
 
 
@@ -402,6 +426,9 @@ static int l_init( Array<T>* a, lua_State* L)
 	a->setSize(c[0], c[1], c[2]);
 	return 0;
 }
+
+
+
 
 
 

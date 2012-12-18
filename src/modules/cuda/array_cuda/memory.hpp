@@ -48,33 +48,17 @@ void ARRAYCUDA_API memcpy_h2d_(void* d_dest, void* h_src, size_t n,const char* f
 
 
 
-
 ARRAYCUDA_API void  registerWS();
 ARRAYCUDA_API void  unregisterWS();
+// the level argument below prevents WSs from overlapping. This is useful for multi-level 
+// operations that all use WSs: example long range interaction. FFTs at lowest level with a WS acting as an accumulator
+ARRAYCUDA_API bool getWSMemD_(void** ptr, size_t size, long level);
+#define getWSMemD(p1,s1,level) getWSMemD_((void**)p1, s1, level)
 
-ARRAYCUDA_API void  getWSMem5_(
-			   void** ptr1, size_t size1, 
-			   void** ptr2, size_t size2, 
-			   void** ptr3, size_t size3,
-			   void** ptr4, size_t size4,
-			   void** ptr5, size_t size5);
-ARRAYCUDA_API void  getWSMem4_(
-			   void** ptr1, size_t size1, 
-			   void** ptr2, size_t size2, 
-			   void** ptr3, size_t size3,
-			   void** ptr4, size_t size4);
-ARRAYCUDA_API void  getWSMem3_(
-			   void** ptr1, size_t size1, 
-			   void** ptr2, size_t size2, 
-			   void** ptr3, size_t size3);
-ARRAYCUDA_API void  getWSMem2_(
-			   void** ptr1, size_t size1, 
-			   void** ptr2, size_t size2);
-ARRAYCUDA_API void  getWSMem1_(
-			   void** ptr1, size_t size1);
+ARRAYCUDA_API bool getWSMemH_(void** ptr, size_t size, long level);
+#define getWSMemH(p1,s1,level) getWSMemH_((void**)p1, s1, level)
 
-#define getWSMem1(p1,s1) getWSMem1_((void**)p1, s1)
-#define getWSMem2(p1,s1, p2,s2) getWSMem2_((void**)p1, s1, (void**)p2, s2)
-#define getWSMem3(p1,s1, p2,s2, p3,s3) getWSMem3_((void**)p1, s1, (void**)p2, s2, (void**)p3, s3)
-#define getWSMem4(p1,s1, p2,s2, p3,s3, p4,s4) getWSMem4_((void**)p1, s1, (void**)p2, s2, (void**)p3, s3, (void**)p4, s4)
-#define getWSMem5(p1,s1, p2,s2, p3,s3, p4,s4, p5,s5) getWSMem5_((void**)p1, s1, (void**)p2, s2, (void**)p3, s3, (void**)p4, s4, (void**)p5, s5)
+
+void log_print(const char* msg);
+
+

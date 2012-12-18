@@ -67,22 +67,50 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 	double* d_ws4;
 	
 	const int sz = sizeof(double)*nxyz;
-	getWSMem4(&d_ws1, sz, &d_ws2, sz, &d_ws3, sz, &d_ws4, sz);
-
+	getWSMemD(&d_ws1, sz, hash32("SpinOperation::apply_1"));
+	getWSMemD(&d_ws2, sz, hash32("SpinOperation::apply_2"));
+	getWSMemD(&d_ws3, sz, hash32("SpinOperation::apply_3"));
+	getWSMemD(&d_ws4, sz, hash32("SpinOperation::apply_4"));
+	
 #define S SUM_SLOT
 #define T THERMAL_SLOT
+
+#define dd(xx)  (xx?xx->ddata():0);
+
+	double* Tx = dd(dmdt->hx[T]);
+	double* Ty = dd(dmdt->hy[T]);
+	double* Tz = dd(dmdt->hz[T]);
+	
+	double* Sx = dd(dmdt->hx[S]);
+	double* Sy = dd(dmdt->hy[S]);
+	double* Sz = dd(dmdt->hz[S]);
+
+	double* stx = dd(spinto->x);
+	double* sty = dd(spinto->y);
+	double* stz = dd(spinto->z);
+	double* stms= dd(spinto->ms);
+	
+	double* sfx = dd(spinfrom->x);
+	double* sfy = dd(spinfrom->y);
+	double* sfz = dd(spinfrom->z);
+	double* sfms= dd(spinfrom->ms);
+	
+	double* dmx = dd(dmdt->x);
+	double* dmy = dd(dmdt->y);
+	double* dmz = dd(dmdt->z);
+	double* dmms= dd(dmdt->ms);
+	
+
 	cuda_llg_quat_apply(nx, ny, nz,
-			  spinto->x->ddata(),   spinto->y->ddata(),   spinto->z->ddata(),   spinto->ms->ddata(),
-			spinfrom->x->ddata(), spinfrom->y->ddata(), spinfrom->z->ddata(), spinfrom->ms->ddata(),
-			    dmdt->x->ddata(),     dmdt->y->ddata(),     dmdt->z->ddata(),     dmdt->ms->ddata(),
-            dmdt->hx[T]->ddata(), dmdt->hy[T]->ddata(), dmdt->hz[T]->ddata(),
-			dmdt->hx[S]->ddata(), dmdt->hy[S]->ddata(), dmdt->hz[S]->ddata(),
-			          d_ws1,         d_ws2,         d_ws3,         d_ws4,
+			stx, sty, stz, stms,
+			sfx, sfy, sfz, sfms,
+			dmx, dmy, dmz, dmms,
+            Tx, Ty, Tz,
+            Sx, Sy, Sz,
+            d_ws1, d_ws2, d_ws3, d_ws4,
 			dt, alpha, d_alpha, gamma, d_gamma);	
 
 	// mark spins as new for future d->h syncing
-// 	spinto->new_device_spins = true;
-
 	spinto->x->new_device = true;
 	spinto->y->new_device = true;
 	spinto->z->new_device = true;

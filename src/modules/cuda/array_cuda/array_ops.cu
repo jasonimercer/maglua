@@ -7,19 +7,20 @@
 #include "memory.hpp"
 #include "hd_helper_tfuncs.hpp"
 
-#define KCHECK \
-{ \
-	const cudaError_t i = cudaGetLastError();\
-	if(i) \
-		printf("(%s:%i) %s\n",  __FILE__, __LINE__-1, cudaGetErrorString(i));\
-}
+
 
 #define KCHECK_FL(f,l) \
 { \
 	const cudaError_t i = cudaGetLastError();\
 	if(i) \
-		printf("(%s:%i) %s\n",  f, l, cudaGetErrorString(i));\
+	{ \
+		char msg[512];\
+		snprintf(msg, 512, "(%s:%i) %s\n",  f, l, cudaGetErrorString(i));\
+		log_print(msg); \
+	} \
 }
+
+#define KCHECK KCHECK_FL(__FILE__, __LINE__-1)
 
 
 #define SEGFAULT \
@@ -48,6 +49,10 @@ void arraySetAll_(T* a, const T& v, const int n)
 	const int threads = THREAD_COUNT;
 	const int blocks = n / threads + 1;
 
+	char msg[256];
+	//sprintf(msg, "set all %p\n", a);
+	//log_print(msg);
+	
 	arraySetAll__<T><<<blocks, threads>>>(a, v, n);
 	KCHECK
 }
@@ -1139,6 +1144,11 @@ void arrayScaleMultAdd_o(int* dest, const int od, int scale, const int* src1, co
 
 void arrayScaleMultAdd_o(doubleComplex* dest, const int od, doubleComplex scale, const doubleComplex* src1, const int o1, const doubleComplex* src2, const int o2, const doubleComplex* src3, const int o3, const int nxy)
 {
+	if(dest == 0)
+	{
+ 		fprintf(stderr, "dest pointer for arrayScaleMultAdd_o is nil, I'm going to crash here to help with tracing the error\n");
+ 		((int*)dest)[0] = 5;
+	}
 	arrayScaleMultAdd_<doubleComplex>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
 }
 

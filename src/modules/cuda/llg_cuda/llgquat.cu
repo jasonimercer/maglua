@@ -68,6 +68,8 @@ __device__ double4 qmultXYZ(const double4 a, const double4 b)
 // dS    -g           a
 // -- = ---- S X (H +---S X H)
 // dt   1+aa         |S|
+
+
 __global__ void llg_quat_apply_1(
 //	const int nx, const int ny, const int offset,
 	const int nxyz,
@@ -97,11 +99,11 @@ __global__ void llg_quat_apply_1(
 	{
 		if(d_alpha)
 		{
-			ww[i] = FAST_DIV(alpha, ww[i]);
+			ww[i] = FAST_DIV(d_alpha[i], ww[i]);
 		}
 		else
 		{
-			ww[i] = FAST_DIV(d_alpha[i], ww[i]);
+			ww[i] = FAST_DIV(alpha, ww[i]);
 		}
 	}
 	wx[i] *= ww[i];

@@ -27,12 +27,12 @@ using namespace std;
 Exchange::Exchange(int nx, int ny, int nz)
 	: SpinOperation(Exchange::typeName(), EXCHANGE_SLOT, nx, ny, nz, hash32(Exchange::typeName()))
 {
+	registerWS();
 	pathways = 0;
 	
 	d_strength = 0;
 	d_fromsite = 0;
 	maxFromSites = -1;
-	registerWS();
 
 	d_LUT = 0;
 	d_idx = 0;
@@ -40,6 +40,7 @@ Exchange::Exchange(int nx, int ny, int nz)
 	
 	new_host = true;
 	compressed = false;
+	compressAttempted = false;
 	init();
 }
 
@@ -59,8 +60,8 @@ void Exchange::push(lua_State* L)
 
 Exchange::~Exchange()
 {
-	unregisterWS();
 	deinit();
+	unregisterWS();
 }
 
 void Exchange::init()
@@ -213,7 +214,7 @@ bool ex_comp_same(const ex_comp& d1, const ex_comp& d2)
 }
 
 
-//#define DEBUG_EX_COMP 1
+// #define DEBUG_EX_COMP 1
 bool Exchange::make_compressed()
 {
 	if(compressAttempted)
@@ -536,8 +537,10 @@ bool Exchange::applyToSum(SpinSystem* ss)
 	double* d_wsz;
 	
 	const int sz = sizeof(double)*nxyz;
-	getWSMem3(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
-	
+	getWSMemD(&d_wsx, sz, hash32("SpinOperation::apply_1"));
+	getWSMemD(&d_wsy, sz, hash32("SpinOperation::apply_2"));
+	getWSMemD(&d_wsz, sz, hash32("SpinOperation::apply_3"));
+
 	if(!make_compressed())
 	{
 		printf("compressed FAILED\n");

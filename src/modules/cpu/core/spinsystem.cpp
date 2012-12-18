@@ -31,6 +31,8 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 		nx(NX), ny(NY), nz(NZ),
 		nslots(NSLOTS), time(0)
 {
+	site_alpha = 0;
+	site_gamma = 0;
 	L = 0;
     init();
 }
@@ -67,6 +69,7 @@ SpinSystem::~SpinSystem()
 {
 	deinit();
 }
+
 
 SpinSystem* SpinSystem::copy(lua_State* L)
 {
@@ -252,6 +255,7 @@ void SpinSystem::diff(SpinSystem* other, double* v4)
 
 bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 {
+	if(src == this) return true;
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
@@ -264,6 +268,30 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	y->copyFrom(src->y);
 	z->copyFrom(src->z);
 	ms->copyFrom(src->ms);
+	
+	if(src->site_alpha)
+	{
+		luaT_dec<dArray>(site_alpha);
+		site_alpha = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		site_alpha->copyFrom( src->site_alpha );
+	}
+	else
+	{
+		luaT_dec<dArray>(site_alpha);
+		site_alpha = 0;
+	}
+		
+	if(src->site_gamma)
+	{
+		luaT_dec<dArray>(site_gamma);
+		site_gamma = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		site_gamma->copyFrom( src->site_gamma );
+	}
+	else
+	{
+		luaT_dec<dArray>(site_gamma);
+		site_gamma = 0;
+	}	
 	
 	alpha = src->alpha;
 	gamma = src->gamma;
@@ -352,6 +380,9 @@ void SpinSystem::deinit()
 		luaT_dec<dArray>(z);
 		luaT_dec<dArray>(ms);
 
+		luaT_dec<dArray>(site_alpha); site_alpha = 0;
+		luaT_dec<dArray>(site_gamma); site_gamma = 0;
+
 		delete [] slot_used;
 		
 		for(int i=0; i<nslots; i++)
@@ -391,6 +422,10 @@ void SpinSystem::init()
 	y->setAll(0);
 	z->setAll(0);
 	ms->setAll(0);
+
+	// decs are real. Init is empty, clearing old if (by some chance) they exist
+	luaT_dec<dArray>(site_alpha); site_alpha = 0;
+	luaT_dec<dArray>(site_gamma); site_gamma = 0;
 	
 // 	for(int i=0; i<nxyz; i++)
 // 		set(i, 0, 0, 0);
@@ -460,6 +495,18 @@ void SpinSystem::encode(buffer* b)
 	z->encode(b);
 	ms->encode(b);
 
+	int site_alpha_exists = (site_alpha?1:0);
+	int site_gamma_exists = (site_gamma?1:0);
+	
+	encodeInteger(site_alpha_exists, b);
+	if(site_alpha_exists)
+		site_alpha->encode(b);
+	
+	encodeInteger(site_gamma_exists, b);
+	if(site_gamma_exists)
+		site_gamma->encode(b);
+	
+	
 	int numExtraData = 0;
 	
 	for(int i=0; i<nxyz; i++)
@@ -523,6 +570,21 @@ int  SpinSystem::decode(buffer* b)
 	y->decode(b);
 	z->decode(b);
 	ms->decode(b);
+	
+	const int site_alpha_exists = decodeInteger(b);
+	if(site_alpha_exists)
+	{
+		site_alpha = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		site_alpha->decode(b);
+	}
+
+	const int site_gamma_exists = decodeInteger(b);
+	if(site_gamma_exists)
+	{
+		site_gamma = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		site_gamma->decode(b);
+	}
+
 	
 	int numPartialData = decodeInteger(b);
 	if(numPartialData < 0) //then all, implicitly
@@ -699,6 +761,64 @@ bool SpinSystem::member(const int px, const int py, const int pz) const
 	return true;
 }
 
+
+void SpinSystem::setSiteAlpha(const int px, const int py, const int pz, const double a)
+{
+	const int i = getidx(px, py, pz);
+	if(i < 0 || i >= nxyz) //force crash
+	{
+		int* i = 0;
+		*i = 4;
+	}
+	setSiteAlpha(i, a);
+}
+void SpinSystem::setSiteAlpha(const int idx, double a)
+{
+	if(!site_alpha)
+	{
+		site_alpha = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		site_alpha->setAll(alpha);
+	}
+	(*site_alpha)[idx] = a;
+}
+void SpinSystem::setAlpha(const double a)
+{
+	luaT_dec<dArray>(site_alpha);
+	site_alpha = 0;
+	alpha = a;
+}
+
+
+
+void SpinSystem::setSiteGamma(const int px, const int py, const int pz, const double g)
+{
+	const int i = getidx(px, py, pz);
+	if(i < 0 || i >= nxyz) //force crash
+	{
+		int* i = 0;
+		*i = 4;
+	}
+	setSiteGamma(i, g);
+}
+
+void SpinSystem::setSiteGamma(const int idx, double g)
+{
+	if(!site_gamma)
+	{
+		site_gamma = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		site_gamma->setAll(gamma);
+	}
+	(*site_gamma)[idx] = g;
+}
+void SpinSystem::setGamma(const double g)
+{
+	luaT_dec<dArray>(site_gamma);
+	site_gamma = 0;
+	gamma = g;
+}
+
+
+
 void  SpinSystem::set(const int i, double sx, double sy, double sz)
 {
 	(*x)[i] = sx;
@@ -713,12 +833,12 @@ void  SpinSystem::set(const int i, double sx, double sy, double sz)
 void SpinSystem::set(const int px, const int py, const int pz, const double sx, const double sy, const double sz)
 {
 	const int i = getidx(px, py, pz);
-	set(i, sx, sy, sz);
 	if(i < 0 || i >= nxyz) //force crash
 	{
 		int* i = 0;
 		*i = 4;
 	}
+	set(i, sx, sy, sz);
 }
 
 void SpinSystem::idx2xyz(int idx, int& x, int& y, int& z) const 
@@ -823,7 +943,7 @@ static int l_gettimestep(lua_State* L)
 static int l_setalpha(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-	ss->alpha = lua_tonumber(L, 2);
+	ss->setAlpha(lua_tonumber(L, 2));
 	return 0;
 }
 static int l_getalpha(lua_State* L)
@@ -836,7 +956,7 @@ static int l_getalpha(lua_State* L)
 static int l_setgamma(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-	ss->gamma = lua_tonumber(L, 2);
+	ss->setGamma(lua_tonumber(L, 2));
 	return 0;
 }
 static int l_getgamma(lua_State* L)
@@ -1657,6 +1777,177 @@ static int l_setslotused(lua_State* L)
 	return 0;
 }
 
+
+
+		// new site a, g
+static int l_setsitealphaarray(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	LUA_PREAMBLE(dArray, a, 2);
+	
+	if(s->x->sameSize(a))
+	{
+		dArray* old = s->site_alpha;
+		s->site_alpha = luaT_inc<dArray>(a);
+		luaT_dec<dArray>(old);
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+	
+	
+	return 0;
+}
+static int l_setsitegammaarray(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	LUA_PREAMBLE(dArray, a, 2);
+	
+	if(s->x->sameSize(a))
+	{
+		dArray* old = s->site_gamma;
+		s->site_gamma = luaT_inc<dArray>(a);
+		luaT_dec<dArray>(old);
+	}
+	else
+	{
+		return luaL_error(L, "Array size mismatch");
+	}
+
+	
+	return 0;
+}
+static int l_getsitealphaarray(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	
+	if(! s->site_alpha)
+	{
+		s->site_alpha = luaT_inc<dArray>(new dArray(s->nx,s->ny,s->nz));
+		s->site_alpha->setAll(s->alpha);
+	}
+	luaT_push<dArray>(L, s->site_alpha);
+	
+	return 1;
+}
+static int l_getsitegammaarray(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+
+	if(! s->site_gamma)
+	{
+		s->site_gamma = luaT_inc<dArray>(new dArray(s->nx,s->ny,s->nz));
+		s->site_gamma->setAll(s->gamma);
+	}
+	luaT_push<dArray>(L, s->site_gamma);
+	
+	return 1;
+}
+
+
+static int l_setsitealpha(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	
+	int r1;
+	int site[3];
+	double value;
+	
+	r1 = lua_getNint(L, 3, site, 2, 1);
+	if(r1 < 0)
+		return luaL_error(L, "invalid site");
+
+	if(!lua_isnumber(L, 2+r1))
+		return luaL_error(L, "missing numeric value");
+	
+	value = lua_tonumber(L, 2+r1);
+	
+	int px = site[0] - 1;
+	int py = site[1] - 1;
+	int pz = site[2] - 1;
+	
+	ss->setSiteAlpha(px, py, pz, value);
+	
+	return 0;
+}
+
+static int l_setsitegamma(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	
+	int r1;
+	int site[3];
+	double value;
+	
+	r1 = lua_getNint(L, 3, site, 2, 1);
+	if(r1 < 0)
+		return luaL_error(L, "invalid site");
+
+	if(!lua_isnumber(L, 2+r1))
+		return luaL_error(L, "missing numeric value");
+	
+	value = lua_tonumber(L, 2+r1);
+	
+	int px = site[0] - 1;
+	int py = site[1] - 1;
+	int pz = site[2] - 1;
+	
+	ss->setSiteGamma(px, py, pz, value);
+	
+	return 0;
+}
+static int l_getsitealpha(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+
+	int r1;
+	int site[3];
+	double value;
+	
+	r1 = lua_getNint(L, 3, site, 2, 1);
+	if(r1 < 0)
+		return luaL_error(L, "invalid site");
+	const int idx = s->getidx(site[0], site[1], site[2]);
+
+	if(s->site_alpha)
+	{
+		lua_pushnumber(L, (*(s->site_alpha))[idx] );
+	}
+	else
+	{
+		lua_pushnumber(L, s->alpha);
+	}
+	
+	return 1;
+}
+static int l_getsitegamma(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+
+	int r1;
+	int site[3];
+	double value;
+	
+	r1 = lua_getNint(L, 3, site, 2, 1);
+	if(r1 < 0)
+		return luaL_error(L, "invalid site");
+	const int idx = s->getidx(site[0], site[1], site[2]);
+
+	if(s->site_gamma)
+	{
+		lua_pushnumber(L, (*(s->site_gamma))[idx] );
+	}
+	else
+	{
+		lua_pushnumber(L, s->gamma);
+	}
+	
+	return 1;
+}
+
+
+
 static int l_invalidatefourierdata(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, s,  1);
@@ -2102,6 +2393,63 @@ int SpinSystem::help(lua_State* L)
 	}
 #endif
 
+	if(func == l_setsitealphaarray)
+	{
+		lua_pushstring(L, "Set the internal site by site damping array to a new array");
+		lua_pushstring(L, "1 Array: New damping array");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_setsitegammaarray)
+	{
+		lua_pushstring(L, "Set the internal site by site gyromagnetic array to a new array");
+		lua_pushstring(L, "1 Array: New gyromagnetic array");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_getsitealphaarray)
+	{
+		lua_pushstring(L, "Get the internal site by site damping array");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: Internal damping array");
+		return 3;
+	}
+	if(func == l_getsitegammaarray)
+	{
+		lua_pushstring(L, "Get the internal site by site gyromagnetic array");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: Internal gyromagnetic array");
+		return 3;
+	}
+	if(func == l_setsitealpha)
+	{
+		lua_pushstring(L, "Set an individual site's damping to a unique value");
+		lua_pushstring(L, "1 *3Vector*, 1 Number: Site and value");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_setsitegamma)
+	{
+		lua_pushstring(L, "Set an individual site's gyromagnetic value to a unique value");
+		lua_pushstring(L, "1 *3Vector*, 1 Number: Site and value");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_getsitealpha)
+	{
+		lua_pushstring(L, "Get an individual site's damping value");
+		lua_pushstring(L, "1 *3Vector*: Site");
+		lua_pushstring(L, "1 Number: Value");
+		return 3;
+	}	
+	if(func == l_getsitegamma)
+	{
+		lua_pushstring(L, "Get an individual site's gyromagnetic value");
+		lua_pushstring(L, "1 *3Vector*: Site");
+		lua_pushstring(L, "1 Number: Value");
+		return 3;
+	}	
+
 	if(func == l_invalidatefourierdata)
 	{
 		lua_pushstring(L, "Invalidates the cache of the Fourier transform of the spin system. If the time changes or :setSpin "
@@ -2181,6 +2529,17 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"slotUsed", l_getslotused},
 		{"setSlotUsed", l_setslotused},
 
+		// new site a, g
+		{"setSiteAlphaArray", l_setsitealphaarray},
+		{"setSiteGammaArray", l_setsitegammaarray},
+		{"siteAlphaArray",    l_getsitealphaarray},
+		{"siteGammaArray",    l_getsitegammaarray},
+		{"setSiteAlpha",      l_setsitealpha},
+		{"setSiteGamma",      l_setsitegamma},
+		{"siteAlpha",         l_getsitealpha},
+		{"siteGamma",         l_getsitegamma},
+		
+		
 		
 		{"invalidateFourierData", l_invalidatefourierdata},
 		{NULL, NULL}

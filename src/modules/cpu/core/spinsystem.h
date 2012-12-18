@@ -45,7 +45,14 @@ public:
 
 	void rotateToward(SpinSystem* other, double max_angle, dArray* max_by_site);
 	
-	
+	void setSiteAlpha(const int px, const int py, const int pz, const double a);
+	void setSiteAlpha(const int idx, double a);
+	void setAlpha(const double a);
+
+	void setSiteGamma(const int px, const int py, const int pz, const double g);
+	void setSiteGamma(const int idx, double g);
+	void setGamma(const double g);
+
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);
 	int  getidx(const int px, const int py, const int pz) const ;
@@ -85,6 +92,9 @@ public:
 	double alpha;
 	double gamma;
 	double dt;
+	
+	dArray* site_alpha;
+	dArray* site_gamma;
 	
 	int nx, ny, nz;
 

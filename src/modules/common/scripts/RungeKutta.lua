@@ -51,7 +51,30 @@
 -- end
 -- </pre>
 
-function make_rk_step_function(ss, type, calcFieldFunc, dynamics_, llg, optional_temp)
+--function make_rk_step_function(ss, type, calcFieldFunc, dynamics_, llg, optional_temp)
+function make_rk_step_function(a1,a2,a3,a4,a5,a6)
+	-- working on making args adaptive
+	local a = {a1,a2,a3,a4,a5,a6}
+	local args = {}
+
+	args["userdata"] = {}
+	args["function"] = {}
+	args["string"] = {}
+
+	for k,v in pairs(a) do
+		local t = type(v)
+		args[t] = args[t] or {}
+		table.insert(args[t], v)
+	end
+
+	local ss = args["userdata"][1]
+	local calcFieldFunc = args["function"][1]
+	local dynamics_ = args["function"][2]
+	local llg = args["userdata"][2]
+	local optional_temp = args["userdata"][2]
+	local type = args["string"][1]	
+
+
 	-- Butcher Table, the c_{i} column isn't included
 	local butcher = {}
 

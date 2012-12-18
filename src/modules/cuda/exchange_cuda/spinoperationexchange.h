@@ -86,6 +86,7 @@ private:
 	
 	bool compressed;
 	bool compressAttempted;
+
 };
 
 

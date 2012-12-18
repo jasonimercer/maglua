@@ -23,6 +23,7 @@ using namespace std;
 Anisotropy::Anisotropy(int nx, int ny, int nz)
 	: SpinOperation(Anisotropy::typeName(), ANISOTROPY_SLOT, nx, ny, nz, hash32(Anisotropy::typeName()))
 {
+	registerWS();
 	d_nx = 0;
 	d_ny = 0;
 	d_nz = 0;
@@ -32,7 +33,6 @@ Anisotropy::Anisotropy(int nx, int ny, int nz)
 	d_idx = 0;
 	h_nx = 0;
 	new_host = true;
-	registerWS();
 	compressed = false;
 	
 	init();
@@ -54,8 +54,8 @@ void Anisotropy::push(lua_State* L)
 
 Anisotropy::~Anisotropy()
 {
-	unregisterWS();
 	deinit();
+	unregisterWS();
 }
 
 void Anisotropy::init()
@@ -428,8 +428,14 @@ bool Anisotropy::applyToSum(SpinSystem* ss)
 	double* d_wsx;
 	double* d_wsy;
 	double* d_wsz;
+	
 	const int sz = sizeof(double)*nxyz;
-	getWSMem3(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
+	getWSMemD(&d_wsx, sz, hash32("SpinOperation::apply_1"));
+	getWSMemD(&d_wsy, sz, hash32("SpinOperation::apply_2"));
+	getWSMemD(&d_wsz, sz, hash32("SpinOperation::apply_3"));
+	
+// 	const int sz = sizeof(double)*nxyz;
+// 	getWSMem3(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
 	
 //	markSlotUsed(ss);
 //	ss->sync_spins_hd();
