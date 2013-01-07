@@ -223,7 +223,12 @@ help_args["-v, --version"] =            "Print version"
 help_args["-h, --help"] =               "Show this help"
 help_args["--write_docs [file]"] =      "Write HTML documentation to given file or stdout"
 -- get the module path
-dofile(module_path_file)
+local mod_test = io.open(module_path_file, "r") --this file does not exist on a clean install
+if mod_test then 
+   dofile(module_path_file)
+   mod_test:close()
+end
+
 
 if print_help then
 	print("MagLua-r" .. version()..  " by Jason Mercer (c) 2012\n")
@@ -265,7 +270,7 @@ end
 
 
 if use_modules == nil then
-	error("use_modules not defined in `module_path.lua'")
+	error("use_modules not defined in `module_path.lua', do you need to --setup?")
 end
 
 -- build a big flat list of modules to load
