@@ -155,94 +155,184 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 	
 // 	#pragma omp parallel for private (qRot, qVec, qRes) shared(hx, hy, hz, sx, sy, sz, x, y, z)
 	const int nxyz = spinfrom->nxyz;
-	#pragma omp parallel for shared(x, y, z)
-	for(int i=0; i<nxyz; i++)
+	if(thermalOnlyFirstTerm)
 	{
-		Quaternion qRot;
-		Quaternion qVec;
-		Quaternion qRes;
-		
-		mt[i] = ms[i];
-		if(ms[i] > 0)
+// 		#pragma omp parallel for shared(x, y, z)
+		for(int i=0; i<nxyz; i++)
 		{
-			double HLen;
-			double S[3];
-			double H[3];
-			double h[3];
-			double M[3];
-			double Sh[3];
-			const double inv = 1.0 / ms[i];
-			double ra; //rotate amount
-			double sint, cost;
+			Quaternion qRot;
+			Quaternion qVec;
+			Quaternion qRes;
 			
-			const double alpha = ga.alpha(i);
-			const double gamma = ga.gamma(i);
-			
-// dS    -g                  a
-// -- = ---- S X ((H+Hth) + ---S X H)
-// dt   1+aa                |S|
-
-			// here the thermal field is bundled up in Heff
-			// we need to subtract out that contribution for the
-			// second term of the LLG equation
-
-			S[0]=sx[i]; S[1]=sy[i]; S[2]=sz[i];
-			M[0]=mx[i]; M[1]=my[i]; M[2]=mz[i];
-			H[0]=hx[i]; H[1]=hy[i]; H[2]=hz[i];
-
-			h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
-			h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
-			h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
-
-			CROSS(Sh, M, h);
-			for(int j=0; j<3; j++)
-				H[j] += alpha * Sh[j] * inv;
-
-
-			HLen = sqrt(H[0]*H[0] + H[1]*H[1] + H[2]*H[2]);
-
-			qVec.w = 0;
-			qVec.x = S[0]; //rotate this vector
-			qVec.y = S[1];
-			qVec.z = S[2];
-			
-			if(HLen > 0)
+			mt[i] = ms[i];
+			if(ms[i] > 0)
 			{
-				double iHLen = 1.0 / HLen;
-				ra = 1.0 * gamma * HLen / (1.0 + alpha * alpha);
-
-				cost = cos(0.5 * ra * dt);
-				sint = sin(0.5 * ra * dt);
+				double HLen;
+				double S[3];
+				double H[3];
+				double h[3];
+				double M[3];
+				double Sh[3];
+				const double inv = 1.0 / ms[i];
+				double ra; //rotate amount
+				double sint, cost;
 				
-// 				printf("theta: %g\n", 0.5 * ra * dt);
+				const double alpha = ga.alpha(i);
+				const double gamma = ga.gamma(i);
+				
+				// dS    -g                  a
+				// -- = ---- S X ((H+Hth) + ---S X H)
+				// dt   1+aa                |S|
 
-				qRot.w = cost;
-				qRot.x = sint * H[0] * iHLen; //rotate about damped h
-				qRot.y = sint * H[1] * iHLen;
-				qRot.z = sint * H[2] * iHLen;
+				// here the thermal field is bundled up in Heff
+				// we need to subtract out that contribution for the
+				// second term of the LLG equation
 
-				//this is the rotation: qRes = qRot qVec qRot*
-				qRes = qmultXYZ(qmult(qRot, qVec), qconjugate(qRot));
+				S[0]=sx[i]; S[1]=sy[i]; S[2]=sz[i];
+				M[0]=mx[i]; M[1]=my[i]; M[2]=mz[i];
+				H[0]=hx[i]; H[1]=hy[i]; H[2]=hz[i];
 
-				x[i] = qRes.x;
-				y[i] = qRes.y;
-				z[i] = qRes.z;
+				h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
+				h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
+				h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
 
-// 				double l = 1.0 / sqrt(x[i] * x[i] + y[i] * y[i] + z[i] * z[i]);
-// 				x[i] *= l * ms[i];
-// 				y[i] *= l * ms[i];
-// 				z[i] *= l * ms[i];
+				CROSS(Sh, M, h);
+				for(int j=0; j<3; j++)
+					H[j] += alpha * Sh[j] * inv;
+
+
+				HLen = sqrt(H[0]*H[0] + H[1]*H[1] + H[2]*H[2]);
+
+				qVec.w = 0;
+				qVec.x = S[0]; //rotate this vector
+				qVec.y = S[1];
+				qVec.z = S[2];
+				
+				if(HLen > 0)
+				{
+					double iHLen = 1.0 / HLen;
+					ra = 1.0 * gamma * HLen / (1.0 + alpha * alpha);
+
+					cost = cos(0.5 * ra * dt);
+					sint = sin(0.5 * ra * dt);
+					
+	// 				printf("theta: %g\n", 0.5 * ra * dt);
+
+					qRot.w = cost;
+					qRot.x = sint * H[0] * iHLen; //rotate about damped h
+					qRot.y = sint * H[1] * iHLen;
+					qRot.z = sint * H[2] * iHLen;
+
+					//this is the rotation: qRes = qRot qVec qRot*
+					qRes = qmultXYZ(qmult(qRot, qVec), qconjugate(qRot));
+
+					x[i] = qRes.x;
+					y[i] = qRes.y;
+					z[i] = qRes.z;
+
+					const double xyz = x[i] * x[i] + y[i] * y[i] + z[i] * z[i];
+					if(xyz > 0)
+					{
+						const double l = 1.0 / sqrt(xyz);
+						x[i] *= l * ms[i];
+						y[i] *= l * ms[i];
+						z[i] *= l * ms[i];
+					}
+				}
+				else
+				{
+					x[i] = sx[i];
+					y[i] = sy[i];
+					z[i] = sz[i];
+				}
+
 			}
-			else
-			{
-				x[i] = sx[i];
-				y[i] = sy[i];
-				z[i] = sz[i];
-			}
-
 		}
 	}
+	else
+	{
+// 		#pragma omp parallel for shared(x, y, z)
+		for(int i=0; i<spinfrom->nxyz; i++)
+		{
+			Quaternion qRot;
+			Quaternion qVec;
+			Quaternion qRes;
+			
+			mt[i] = ms[i];
+			if(ms[i] > 0)
+			{
+				double HLen;
+				double S[3];
+				double H[3];
+				double SH[3];
+				const double inv = 1.0 / ms[i];
+				double ra; //rotate amount
+				double sint, cost;
+				
+				const double alpha = ga.alpha(i);
+				const double gamma = ga.gamma(i);
+				
+				// dS    -g           a
+				// -- = ---- S X (H +---S X H)
+				// dt   1+aa         |S|
 
+				S[0]=sx[i]; S[1]=sy[i]; S[2]=sz[i];
+				H[0]=hx[i]; H[1]=hy[i]; H[2]=hz[i];
+
+				CROSS(SH, S, H);
+				for(int j=0; j<3; j++)
+					H[j] += alpha * SH[j] * inv;
+
+				HLen = sqrt(H[0]*H[0] + H[1]*H[1] + H[2]*H[2]);
+
+				qVec.w = 0;
+				qVec.x = S[0]; //rotate this vector
+				qVec.y = S[1];
+				qVec.z = S[2];
+				
+				if(HLen > 0)
+				{
+					double iHLen = 1.0 / HLen;
+					ra = 1.0 * gamma * HLen / (1.0 + alpha * alpha);
+
+					cost = cos(0.5 * ra * dt);
+					sint = sin(0.5 * ra * dt);
+					
+	// 				printf("theta: %g\n", 0.5 * ra * dt);
+
+					qRot.w = cost;
+					qRot.x = sint * H[0] * iHLen; //rotate about damped h
+					qRot.y = sint * H[1] * iHLen;
+					qRot.z = sint * H[2] * iHLen;
+
+					//this is the rotation: qRes = qRot qVec qRot*
+					qRes = qmultXYZ(qmult(qRot, qVec), qconjugate(qRot));
+
+					x[i] = qRes.x;
+					y[i] = qRes.y;
+					z[i] = qRes.z;
+
+					const double xyz = x[i] * x[i] + y[i] * y[i] + z[i] * z[i];
+					if(xyz > 0)
+					{
+						const double l = 1.0 / sqrt(xyz);
+						x[i] *= l * ms[i];
+						y[i] *= l * ms[i];
+						z[i] *= l * ms[i];
+					}
+				}
+				else
+				{
+					x[i] = sx[i];
+					y[i] = sy[i];
+					z[i] = sz[i];
+				}
+
+			}
+		}
+		
+	}
+	
 	if(advancetime)
 		spinto->time = spinfrom->time + dt;
 

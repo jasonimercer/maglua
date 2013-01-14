@@ -27,7 +27,7 @@
 // 
 // H = h + h_th
 
-#define THERMAL_ONLY_FIRST_TERM 
+// #define THERMAL_ONLY_FIRST_TERM 
 
 LLGCartesian::LLGCartesian()
 	: LLG(hash32(LLGCartesian::typeName()))
@@ -117,54 +117,111 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 	//LLG from http://inoe.inoe.ro/joam/arhiva/pdf8_5/5Ciubotaru.pdf
 	const int nxyz = spinfrom->nxyz;
 //	#pragma omp parallel for shared(x, y, z)
-	for(int i=0; i<nxyz; i++)
-	{
-		mt[i] = ms[i];
-		if(ms[i] > 0)
-		{
-			double dM[3];
-			double M[3];
-			double H[3];
-			double MH[3];
-			double MMH[3];
-			double gaa, inv;
 	
-			M[0]=mx[i];     M[1]=my[i];     M[2]=mz[i];
-			H[0]=hx[i];     H[1]=hy[i];     H[2]=hz[i];
+	
+	if(thermalOnlyFirstTerm)
+	{
+#define THERMAL_ONLY_FIRST_TERM
+		for(int i=0; i<nxyz; i++)
+		{
+			mt[i] = ms[i];
+			if(ms[i] > 0)
+			{
+				double dM[3];
+				double M[3];
+				double H[3];
+				double MH[3];
+				double MMH[3];
+				double gaa, inv;
+		
+				M[0]=mx[i];     M[1]=my[i];     M[2]=mz[i];
+				H[0]=hx[i];     H[1]=hy[i];     H[2]=hz[i];
 
-#ifdef THERMAL_ONLY_FIRST_TERM
-			double h[3];
-			h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
-			h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
-			h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
-			
-			CROSS(MH, M, h);   // M x h
-			CROSS(MMH, M, MH); // M x (M x h)
- 			CROSS(MH, M, H);   // M x H
-#else
-			CROSS(MH, M, H);   // M x h
-			CROSS(MMH, M, MH); // M x (M x h)
-#endif
+	#ifdef THERMAL_ONLY_FIRST_TERM
+				double h[3];
+				h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
+				h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
+				h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
+				
+				CROSS(MH, M, h);   // M x h
+				CROSS(MMH, M, MH); // M x (M x h)
+				CROSS(MH, M, H);   // M x H
+	#else
+				CROSS(MH, M, H);   // M x h
+				CROSS(MMH, M, MH); // M x (M x h)
+	#endif
 
-			const double alpha = ga.alpha(i);
-			const double gamma = ga.gamma(i);
-			gaa = gamma / (1.0+alpha*alpha);
+				const double alpha = ga.alpha(i);
+				const double gamma = ga.gamma(i);
+				gaa = gamma / (1.0+alpha*alpha);
 
-			for(int c=0; c<3; c++)
-				dM[c] = -gaa * MH[c] - (alpha/ms[i]) * gaa * MMH[c];
+				for(int c=0; c<3; c++)
+					dM[c] = -gaa * MH[c] - (alpha/ms[i]) * gaa * MMH[c];
 
-			M[0] = (sx[i] + dt * dM[0]);
-			M[1] = (sy[i] + dt * dM[1]);
-			M[2] = (sz[i] + dt * dM[2]);
+				M[0] = (sx[i] + dt * dM[0]);
+				M[1] = (sy[i] + dt * dM[1]);
+				M[2] = (sz[i] + dt * dM[2]);
 
-			inv = 1.0 / sqrt(M[0]*M[0] + M[1]*M[1] + M[2]*M[2]);
+				inv = 1.0 / sqrt(M[0]*M[0] + M[1]*M[1] + M[2]*M[2]);
 
-			x[i] = M[0] * inv * ms[i];
-			y[i] = M[1] * inv * ms[i];
-			z[i] = M[2] * inv * ms[i];
+				x[i] = M[0] * inv * ms[i];
+				y[i] = M[1] * inv * ms[i];
+				z[i] = M[2] * inv * ms[i];
+			}
 		}
 	}
+	else
+	{
+#undef THERMAL_ONLY_FIRST_TERM
+		for(int i=0; i<nxyz; i++)
+		{
+			mt[i] = ms[i];
+			if(ms[i] > 0)
+			{
+				double dM[3];
+				double M[3];
+				double H[3];
+				double MH[3];
+				double MMH[3];
+				double gaa, inv;
+		
+				M[0]=mx[i];     M[1]=my[i];     M[2]=mz[i];
+				H[0]=hx[i];     H[1]=hy[i];     H[2]=hz[i];
 
+	#ifdef THERMAL_ONLY_FIRST_TERM
+				double h[3];
+				h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
+				h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
+				h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
+				
+				CROSS(MH, M, h);   // M x h
+				CROSS(MMH, M, MH); // M x (M x h)
+				CROSS(MH, M, H);   // M x H
+	#else
+				CROSS(MH, M, H);   // M x h
+				CROSS(MMH, M, MH); // M x (M x h)
+	#endif
+
+				const double alpha = ga.alpha(i);
+				const double gamma = ga.gamma(i);
+				gaa = gamma / (1.0+alpha*alpha);
+
+				for(int c=0; c<3; c++)
+					dM[c] = -gaa * MH[c] - (alpha/ms[i]) * gaa * MMH[c];
+
+				M[0] = (sx[i] + dt * dM[0]);
+				M[1] = (sy[i] + dt * dM[1]);
+				M[2] = (sz[i] + dt * dM[2]);
+
+				inv = 1.0 / sqrt(M[0]*M[0] + M[1]*M[1] + M[2]*M[2]);
+
+				x[i] = M[0] * inv * ms[i];
+				y[i] = M[1] * inv * ms[i];
+				z[i] = M[2] * inv * ms[i];
+			}
+		}
+		
+	}
 	if(advancetime)
 		spinto->time = spinfrom->time +  dt;
 	return true;

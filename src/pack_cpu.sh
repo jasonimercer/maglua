@@ -50,8 +50,11 @@ cp -r modules/cpu/wood                 $version/modules/cpu
 cp    modules/extras/Makefile          $version/modules/extras
 cp -r modules/extras/pngwriter         $version/modules/extras
 cp -r modules/extras/sqlite3           $version/modules/extras
+cp -r modules/extras/math_vectors      $version/modules/extras
 cp -r modules/extras/os_extensions     $version/modules/extras
 
 rm -rf `du -a $version | cut -f 2 | grep '\.svn'`
 
 tar -czf $version.tar.gz $version
+
+echo $version.tar.gz

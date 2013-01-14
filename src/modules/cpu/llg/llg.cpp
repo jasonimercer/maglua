@@ -21,11 +21,19 @@
 LLG::LLG(int encode_type)
 : LuaBaseObject(encode_type), disablePrecession(false)
 {
-	
+	thermalOnlyFirstTerm = true;
 }
 
 int LLG::luaInit(lua_State* L)
 {
+	lua_getglobal(L, "LLG");
+	lua_pushstring(L, "thermalOnlyFirstTerm");
+	lua_gettable(L, -2);
+	if(!lua_isnil(L, -1))
+	{
+		thermalOnlyFirstTerm = lua_toboolean(L, -1);
+	}
+	lua_pop(L, 2);
 	return 0;
 }
 
@@ -34,7 +42,17 @@ LLG::~LLG()
 	
 }
 
+void LLG::encode(buffer* b)
+{
+	encodeInteger(thermalOnlyFirstTerm, b);
 
+}
+
+int  LLG::decode(buffer* b)
+{
+	thermalOnlyFirstTerm = decodeInteger(b);
+	return 0;
+}
 
 
 
@@ -103,6 +121,27 @@ static int l_apply(lua_State* L)
 // 	return 1;
 // }
 
+static int l_setthermalOnlyFirstTerm(lua_State* L)
+{
+ 	LUA_PREAMBLE(LLG, llg, 1);
+	
+	if(lua_isnone(L, 2))
+	{
+		//default true
+		llg->thermalOnlyFirstTerm = true;
+	}
+	else
+	{
+		llg->thermalOnlyFirstTerm = lua_toboolean(L, 2);
+	}
+	return 0;
+}
+static int l_getthermalOnlyFirstTerm(lua_State* L)
+{
+ 	LUA_PREAMBLE(LLG, llg, 1);
+	lua_pushboolean(L, llg->thermalOnlyFirstTerm);
+	return 1;
+}
 
 
 int LLG::help(lua_State* L)
@@ -138,6 +177,27 @@ int LLG::help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_setthermalOnlyFirstTerm)
+	{
+		lua_pushstring(L, "Set internal data for algorithm interpretation.");
+		lua_pushstring(L, "1 Optional boolean: If true or none the thermal term in the"
+					" effective field will only be applied to the precesional term of the LLG equation. If false then the"
+					" thermal term will be used in both the precesional and damping terms. The default value for this variable is true"
+					" this default can be changed by setting the base LLG table's `thermalOnlyFirstTerm' key to a boolean value. Example:\n"
+					 "<pre>LLG.thermalOnlyFirstTerm = false\nllg = LLG.Cartesian.new(ss)\nprint(llg:thermalOnlyFirstTerm())</pre>\nOutput:\n<pre>false</pre>");
+		lua_pushstring(L, "");
+		return 3;		
+	}
+		
+	if(func == l_getthermalOnlyFirstTerm)
+	{
+		lua_pushstring(L, "Get internal data for algorithm interpretation.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 boolean: If true then the thermal term is excluded from the damping term of the LLG equation, if false"
+		" then the thermal term is used in both the precesional and damping terms.");
+		return 3;		
+	}
+	
 // 	if(func == l_gettype)
 // 	{
 // 		lua_pushstring(L, "Determine which type of the LLG object.");
@@ -160,6 +220,8 @@ const luaL_Reg* LLG::luaMethods()
 	static const luaL_Reg _m[] =
 	{
 		{"apply",        l_apply},
+		{"setThermalOnlyFirstTerm", l_setthermalOnlyFirstTerm},
+		{"thermalOnlyFirstTerm", l_getthermalOnlyFirstTerm},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
