@@ -1,5 +1,5 @@
-#ifndef ARRAYCORECUDA
-#define ARRAYCORECUDA
+#ifndef ARRAYCORECPU
+#define ARRAYCORECPU
 
 #include "fourier.h"
 #include "luat.h"
@@ -22,13 +22,13 @@ template<typename T>
 class ARRAY_API Array;
 
 template<typename T>
-int array_help_specialization(lua_State* L){return 0;}
+inline int array_help_specialization(lua_State* L){return 0;}
 
 template<typename T>
-const luaL_Reg* array_luamethods_specialization(){return 0;}
+inline const luaL_Reg* array_luamethods_specialization(){return 0;}
 
 template<typename T>
-int array_luainit_specialization(Array<T>* that, lua_State* L){ return 0;}
+inline int array_luainit_specialization(Array<T>* that, lua_State* L){ return 0;}
 
 
 
@@ -36,15 +36,15 @@ int array_luainit_specialization(Array<T>* that, lua_State* L){ return 0;}
 // to implementation on the source side.
 #define array_tspec(type) \
 int array_help_specialization_ ## type (lua_State* L); \
-template<> int array_help_specialization< type >(lua_State* L){ \
+template<> inline int array_help_specialization< type >(lua_State* L){ \
 return array_help_specialization_## type (L); } \
 \
 const luaL_Reg* array_luamethods_specialization_ ## type (); \
-template<> const luaL_Reg* array_luamethods_specialization<type>(){ \
+template<> inline const luaL_Reg* array_luamethods_specialization<type>(){ \
 return array_luamethods_specialization_ ## type ();} \
 \
 int array_luainit_specialization_ ## type(Array< type >* that, lua_State* L); \
-template<> int array_luainit_specialization<type>(Array< type >* that, lua_State* L){ \
+template<> inline int array_luainit_specialization<type>(Array< type >* that, lua_State* L){ \
 return array_luainit_specialization_ ## type (that, L);}		\
 
 
