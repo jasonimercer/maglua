@@ -18,15 +18,59 @@ template<>inline const char* array_lua_name<floatComplex>() {return "Array.Float
 template<>inline const char* array_lua_name<doubleComplex>() {return "Array.DoubleComplex";}
 
 
+template<typename T>
+class ARRAY_API Array;
+
+template<typename T>
+int array_help_specialization(lua_State* L){return 0;}
+
+template<typename T>
+const luaL_Reg* array_luamethods_specialization(){return 0;}
+
+template<typename T>
+int array_luainit_specialization(Array<T>* that, lua_State* L){ return 0;}
+
+
+
+// these are specialization functions that will bridge from this header
+// to implementation on the source side.
+#define array_tspec(type) \
+int array_help_specialization_ ## type (lua_State* L); \
+template<> int array_help_specialization< type >(lua_State* L){ \
+return array_help_specialization_## type (L); } \
+\
+const luaL_Reg* array_luamethods_specialization_ ## type (); \
+template<> const luaL_Reg* array_luamethods_specialization<type>(){ \
+return array_luamethods_specialization_ ## type ();} \
+\
+int array_luainit_specialization_ ## type(Array< type >* that, lua_State* L); \
+template<> int array_luainit_specialization<type>(Array< type >* that, lua_State* L){ \
+return array_luainit_specialization_ ## type (that, L);}		\
+
+
+array_tspec(int);
+array_tspec(float);
+array_tspec(double);
+array_tspec(floatComplex);
+array_tspec(doubleComplex);
 
 template<typename T>
 class ARRAY_API Array : public LuaBaseObject	
 {
 public:
 	LINEAGE1(array_lua_name<T>())
-	static const luaL_Reg* luaMethods(); 
-	virtual int luaInit(lua_State* L); 
-	static int help(lua_State* L); 	
+	static const luaL_Reg* luaMethods()
+	{
+		return array_luamethods_specialization<T>();
+	} 
+	virtual int luaInit(lua_State* L)
+	{
+	  return array_luainit_specialization<T>(this, L);
+	}
+	static int help(lua_State* L)
+	{
+		return array_help_specialization<T>(L);
+	}
 
 	
 	Array(int x=4, int y=4, int z=1) 
@@ -463,8 +507,8 @@ public:
 };
 
 #ifdef WIN32
-#ifndef DUMMYWINDOWS_ARRYA_INSTANTIATION
-#define DUMMYWINDOWS_ARRYA_INSTANTIATION
+#ifndef DUMMYWINDOWS_ARRAY_INSTANTIATION
+#define DUMMYWINDOWS_ARRAY_INSTANTIATION
 //forcing instantiation so they get exported
 template class Array<doubleComplex>;
 template class Array<double>;
@@ -473,6 +517,43 @@ template class Array<float>;
 template class Array<int>;
 #endif
 #endif
+
+
+
+template class Array<doubleComplex>;
+template class Array<double>;
+template class Array<floatComplex>;
+template class Array<float>;
+template class Array<int>;
+
+#if 0
+#define inst_funcs(name)		      \
+template int name<Array<float> >(lua_State*); \
+template int name<Array<double> >(lua_State*); \
+template int name<Array<int> >(lua_State*); \
+template int name<Array<floatComplex> >(lua_State*); \
+template int name<Array<doubleComplex> >(lua_State*);
+
+inst_funcs(luaT_new)
+inst_funcs(luaT_gc)
+inst_funcs(luaT_help)
+inst_funcs(luaT_mt)
+
+
+template LuaBaseObject* new_luabaseobject<Array<double> >();
+template LuaBaseObject* new_luabaseobject<Array<float> >();
+template LuaBaseObject* new_luabaseobject<Array<doubleComplex> >();
+template LuaBaseObject* new_luabaseobject<Array<floatComplex> >();
+template LuaBaseObject* new_luabaseobject<Array<int> >();
+
+
+template void luaT_push<Array<double> >(lua_State*, LuaBaseObject*);
+template void luaT_push<Array<float > >(lua_State*, LuaBaseObject*);
+template void luaT_push<Array<doubleComplex> >(lua_State*, LuaBaseObject*);
+template void luaT_push<Array<floatComplex> >(lua_State*, LuaBaseObject*);
+template void luaT_push<Array<int> >(lua_State*, LuaBaseObject*);
+#endif
+
 
 
 typedef Array<doubleComplex> dcArray;

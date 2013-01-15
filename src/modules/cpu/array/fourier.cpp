@@ -3,12 +3,12 @@
 #define FFT_FORWARD -1
 #define FFT_BACKWARD 1
 
-#ifdef WIN32
-// BS functions so that windows template exports are happy
+//#ifdef WIN32
+// BS functions so that windows template exports are happy (and old icc)
 void ARRAY_API execute_FFT_PLAN(FFT_PLAN* plan, int* dest, int* src, int* ws) {}
 void ARRAY_API execute_FFT_PLAN(FFT_PLAN* plan, float* dest, float* src, float* ws) {}
 void ARRAY_API execute_FFT_PLAN(FFT_PLAN* plan, double* dest, double* src, double* ws) {}
-#endif
+//#endif
 
 
 typedef struct FFT_PLAN

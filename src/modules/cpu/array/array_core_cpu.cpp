@@ -1,8 +1,5 @@
 #include "array_core_cpu.h"
-
-
 #include "array.h"
-
 
 
 template<typename T>
@@ -125,6 +122,8 @@ static int l_mean(lua_State* L)
 	return luaT<T>::elements();
 }
 
+
+
 template<typename T>
 static const luaL_Reg* get_base_methods()
 {
@@ -136,7 +135,7 @@ static const luaL_Reg* get_base_methods()
 		{"pairwiseMultiply",     l_pwm<T>},
 		{"dot",     l_dot<T>},
 		{"zero",    l_zero<T>},
-		{"sameSize",l_sameSize<T>},
+		{"sameSize",l_sameSize< T >},
 		{"nx",      l_get_nx<T>},
 		{"ny",      l_get_ny<T>},
 		{"nz",      l_get_nz<T>},
@@ -155,7 +154,7 @@ static const luaL_Reg* get_base_methods()
 
 
 template<typename T>
-int Array<T>::help(lua_State* L)
+static int Array_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
@@ -172,28 +171,33 @@ int Array<T>::help(lua_State* L)
 
 
 	lua_CFunction func = lua_tocfunction(L, 1);
-	if(func == &(l_sameSize<T>))
+	
+	lua_CFunction f01 = l_sameSize<T>; //THIS IS BULLSHIT! Doing this so that icc 11 can compile cleanly. 
+	if(func == f01)
 	{
 		lua_pushstring(L, "Test if a given array has the same dimensions");
 		lua_pushstring(L, "1 Array");
 		lua_pushstring(L, "1 Boolean: True if sizes match");
 		return 3;
 	}
-	if(func == &(l_setAll<T>))
+	lua_CFunction f02 = l_setAll<T>;
+	if(func == f02)
 	{
 		lua_pushstring(L, "Set all values in the array to the given value");
 		lua_pushstring(L, "1 Value: The new value for all element entries");
 		lua_pushstring(L, "");
 		return 3;
 	}
-	if(func == &(l_pwm<T>))
+	lua_CFunction f03 = l_pwm<T>;
+	if(func == f03)
 	{
 		lua_pushstring(L, "Multiply each data in this array with the data in another storing in a destination array");
 		lua_pushstring(L, "2 Arrays: The pairwise scaling array and the destination array");
 		lua_pushstring(L, "");
 		return 3;
 	}
-	if(func == &(l_dot<T>))
+	lua_CFunction f04 = l_dot<T>;
+	if(func == f04)
 	{
 		lua_pushstring(L, "Compute the dot product of the current array and another of equal size and type");
 		lua_pushstring(L, "1 Arrays: other array");
@@ -201,28 +205,32 @@ int Array<T>::help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == &(l_zero<T>))
+	lua_CFunction f05 = l_zero<T>;
+	if(func == f05)
 	{
 		lua_pushstring(L, "Set all values in the array 0");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "");
 		return 3;
 	}
-	if(func == &(l_get_nx<T>))
+	lua_CFunction f06 = l_get_nx<T>;
+	if(func == f06)
 	{
 		lua_pushstring(L, "Return the size of the X dimension");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Integer: Size fo the X dimension");
 		return 3;
 	}
-	if(func == &(l_get_ny<T>))
+	lua_CFunction f07 = l_get_ny<T>;
+	if(func == f07)
 	{
 		lua_pushstring(L, "Return the size of the Y dimension");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Integer: Size fo the Y dimension");
 		return 3;
 	}
-	if(func == &(l_get_nz<T>))
+	lua_CFunction f08 = l_get_nz<T>;
+	if(func == f08)
 	{
 		lua_pushstring(L, "Return the size of the Z dimension");
 		lua_pushstring(L, "");
@@ -230,42 +238,48 @@ int Array<T>::help(lua_State* L)
 		return 3;
 	}
 
-	if(func == &(l_get<T>))
+	lua_CFunction f09 = l_get<T>;
+	if(func == f09)
 	{
 		lua_pushstring(L, "Get an element from the array");
 		lua_pushstring(L, "1, 2 or 3 integers (or 1 table): indices(XYZ) of the element to fetch default values are 1");
 		lua_pushstring(L, "1 value");
 		return 3;
 	}
-	if(func == &(l_set<T>))
+	lua_CFunction f10 = l_set<T>;
+	if(func == f10)
 	{
 		lua_pushstring(L, "Set an element of the array");
 		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value: indices(XYZ) of the element to set, default values are 1. Last argument is the new value");
 		lua_pushstring(L, "");
 		return 3;
 	}
-	if(func == &(l_addat<T>))
+	lua_CFunction f11 = l_addat<T>;
+	if(func == f11)
 	{
 		lua_pushstring(L, "Add a value to an element of the array");
 		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value: indices(XYZ) of the element to modify, default values are 1. Last argument is the value to add");
 		lua_pushstring(L, "");
 		return 3;
 	}
-	if(func == &(l_min<T>))
+	lua_CFunction f12 = l_min<T>;
+	if(func == f12)
 	{
 		lua_pushstring(L, "Find minimum value and corresponding index");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 value and 1 integer");
 		return 3;
 	}
-	if(func == &(l_max<T>))
+	lua_CFunction f13 = l_max<T>;
+	if(func == f13)
 	{
 		lua_pushstring(L, "Find maximum value and corresponding index");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 value and 1 integer");
 		return 3;
 	}
-	if(func == &(l_mean<T>))
+	lua_CFunction f14 = l_mean<T>;
+	if(func == f14)
 	{
 		lua_pushstring(L, "Find mean of array");
 		lua_pushstring(L, "");
@@ -277,6 +291,26 @@ int Array<T>::help(lua_State* L)
 
 
 
+int array_help_specialization_int(lua_State* L)
+{
+	return Array_help<int>(L);
+}
+int array_help_specialization_float(lua_State* L)
+{
+	return Array_help<float>(L);
+}
+int array_help_specialization_double(lua_State* L)
+{
+	return Array_help<double>(L);
+}
+int array_help_specialization_floatComplex(lua_State* L)
+{
+	return Array_help<floatComplex>(L);
+}
+int array_help_specialization_doubleComplex(lua_State* L)
+{
+	return Array_help<doubleComplex>(L);
+}
 
 
 
@@ -399,29 +433,8 @@ static int l_init( Array<T>* a, lua_State* L)
 
 
 
-//special cases for complex datatypes (fft):
-template <>
-const luaL_Reg* Array<doubleComplex>::luaMethods()
-{
-	static luaL_Reg m[128] = {_NULLPAIR128};
-	if(m[127].name)	return m;
-	merge_luaL_Reg(m, get_base_methods<doubleComplex>());
-	merge_luaL_Reg(m, get_fft_methods<doubleComplex>());
-	m[127].name = (char*)1;
-	return m;
-}
-template <>
-const luaL_Reg* Array<floatComplex>::luaMethods()
-{
-	static luaL_Reg m[128] = {_NULLPAIR128};
-	if(m[127].name)	return m;
-	merge_luaL_Reg(m, get_base_methods<floatComplex>());
-	merge_luaL_Reg(m, get_fft_methods<floatComplex>());
-	m[127].name = (char*)1;
-	return m;
-}
 template <typename T>
-const luaL_Reg* Array<T>::luaMethods()
+const luaL_Reg* Array_luaMethods()
 {
 	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)	return m;
@@ -430,12 +443,82 @@ const luaL_Reg* Array<T>::luaMethods()
 	return m;
 }
 
+//special cases for complex datatypes (fft):
+template <>
+const luaL_Reg* Array_luaMethods<doubleComplex>()
+{
+	static luaL_Reg m[128] = {_NULLPAIR128};
+	if(m[127].name)	return m;
+	merge_luaL_Reg(m, get_base_methods<doubleComplex>());
+	merge_luaL_Reg(m, get_fft_methods<doubleComplex>());
+	m[127].name = (char*)1;
+	return m;
+}
 
+template <>
+const luaL_Reg* Array_luaMethods<floatComplex>()
+{
+	static luaL_Reg m[128] = {_NULLPAIR128};
+	if(m[127].name)	return m;
+	merge_luaL_Reg(m, get_base_methods<floatComplex>());
+	merge_luaL_Reg(m, get_fft_methods<floatComplex>());
+	m[127].name = (char*)1;
+	return m;
+}
+
+
+const luaL_Reg* array_luamethods_specialization_int()
+{
+  return Array_luaMethods<int>();
+}
+const luaL_Reg* array_luamethods_specialization_float()
+{
+  return Array_luaMethods<float>();
+}
+const luaL_Reg* array_luamethods_specialization_double()
+{
+  return Array_luaMethods<double>();
+}
+
+const luaL_Reg* array_luamethods_specialization_doubleComplex()
+{
+  return Array_luaMethods<doubleComplex>();
+}
+const luaL_Reg* array_luamethods_specialization_floatComplex()
+{
+  return Array_luaMethods<floatComplex>();
+}
+
+
+
+int array_luainit_specialization_int(Array<int>* that, lua_State* L)
+{
+  return l_init<int>(that, L);
+}
+int array_luainit_specialization_float(Array<float>* that, lua_State* L)
+{
+  return l_init<float>(that, L);
+}
+int array_luainit_specialization_double(Array<double>* that, lua_State* L)
+{
+  return l_init<double>(that, L);
+}
+int array_luainit_specialization_floatComplex(Array<floatComplex>* that, lua_State* L)
+{
+  return l_init<floatComplex>(that, L);
+}
+int array_luainit_specialization_doubleComplex(Array<doubleComplex>* that, lua_State* L)
+{
+  return l_init<doubleComplex>(that, L);
+}
+
+/*
 template <typename T>
 int Array<T>::luaInit(lua_State* L)
 {
 	return l_init<T>(this, L);
 }
+*/
 
 // template <typename T>
 // int Array<T>::help(lua_State* L)
@@ -471,8 +554,10 @@ ARRAY_API int lib_main(lua_State* L);
 
 ARRAY_API int lib_register(lua_State* L)
 {
+  dArray foo1;
+
 #ifdef DOUBLE_ARRAY
-	luaT_register<dArray>(L);
+	luaT_register< Array<double> >(L);
 #endif
 #ifdef SINGLE_ARRAY
 	luaT_register<fArray>(L);

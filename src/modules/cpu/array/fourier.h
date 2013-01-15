@@ -47,12 +47,12 @@ ARRAY_API void execute_FFT_PLAN(FFT_PLAN* plan, floatComplex* dest, floatComplex
 ARRAY_API void execute_FFT_PLAN(FFT_PLAN* plan, doubleComplex* dest, doubleComplex* src, doubleComplex* ws);
 #endif
 
-#ifdef WIN32
-// BS functions so that windows template exports are happy
+//#ifdef WIN32
+// BS functions so that windows template exports are happy (and old icc)
 ARRAY_API void execute_FFT_PLAN(FFT_PLAN* plan, int* dest, int* src, int* ws);
 ARRAY_API void execute_FFT_PLAN(FFT_PLAN* plan, float* dest, float* src, float* ws);
 ARRAY_API void execute_FFT_PLAN(FFT_PLAN* plan, double* dest, double* src, double* ws);
-#endif
+//#endif
 
 
 void free_FFT_PLAN(FFT_PLAN* p);
