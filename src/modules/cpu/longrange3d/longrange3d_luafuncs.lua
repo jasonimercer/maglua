@@ -88,7 +88,7 @@ end
 
 local function setMatrix(lr, ab, x,y,z, value) --expecting base 0
 	if type(x) == "table" then
-		return setMatrix(lr, ab, x[1], x[2], x[3], value)
+		return setMatrix(lr, ab, x[1], x[2], x[3], y)
 	end
 	
 	local a = lr:tensorArray(ab)

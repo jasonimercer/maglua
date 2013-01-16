@@ -35,7 +35,7 @@ LongRange3D::LongRange3D(const char* Name, const int field_slot, int nx, int ny,
     qXX = 0;
     XX = 0;
 	ws1 = 0;
-	g = 0;
+	g = 1;
 
 	longrange_ref = LUA_REFNIL;
 	function_ref = LUA_REFNIL;
