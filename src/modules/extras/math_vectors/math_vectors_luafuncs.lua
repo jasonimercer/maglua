@@ -42,8 +42,6 @@ local function norm(a)
 	return dot(a,a)^(1/2)
 end
 	
-
-
 local function angleBetween(a,b)
 
 	local n = norm(a) * norm(b)
@@ -64,6 +62,15 @@ local function scaledVector(a, s)
 	end
 	return r
 end
+
+local function project(a, b)
+	local ab,bb = dot(a,b),dot(b,b)
+	if bb == 0 then
+		return scaledVector(b, 0)
+	end
+	return scaledVector(b, ab/bb)
+end
+
 
 local function rotateAboutBy(a, n, t)
 	-- ortho vec
@@ -112,6 +119,7 @@ math.rotateAboutBy = rotateAboutBy
 math.angleBetween = angleBetween
 math.norm = norm
 math.scaledVector = scaledVector
+math.project = project
 
 local help = math.help or 
 function(f)
@@ -127,6 +135,12 @@ math.help = function(x)
 			"Compute the cross product between 2 3-Vectors",
 			"2 Tables of 3 Numbers: Input",
 			"1 Table of 3 Numbers: Product"
+	end
+	if x == project then
+		return
+			"Compute the projection of one vector onto another",
+			"2 Tables of Numbers: Input",
+			"1 Table of Numbers: Projection"
 	end
 	if x == dot then
 		return

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-DIRS=client server sqlite3 pngwriter os_extensions
+DIRS=math_vectors sqlite3 pngwriter os_extensions
 
 all:
 	@for d in $(DIRS); do (make -C $$d); done

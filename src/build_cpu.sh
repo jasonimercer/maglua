@@ -186,6 +186,10 @@ cd modules/cpu
 make install MPICXX="$MPI_COMPILER -D_MPI" CXX="$MAGLUA_COMPILER"
 cd ../..
 
+cd modules/extras
+make install MPICXX="$MPI_COMPILER -D_MPI" CXX="$MAGLUA_COMPILER"
+cd ../..
+
 
 
 

@@ -13,7 +13,8 @@ extern "C" {
 
 // JOURNAL OF GEOPHYSICAL RESEARCH, VOL. 98, NO. B6, PP. 9551-9555, 1993
 
-#if 1
+// portland group does strange non-compatible long double math.                                                                                            
+#ifndef __PGI
 #define ATAN atanl
 #define SQRT sqrtl
 #define LOG  logl

@@ -10,7 +10,8 @@
 
 // IEEE TRANSACTIONS  ON MAGNETICS,  VOL.  34, NO.  1, JANUARY  1998 
  
-#if 1
+// portland group does strange non-compatible long double math.
+#ifndef __PGI
 #define ATAN atanl
 #define SQRT sqrtl
 #define LOG  logl
