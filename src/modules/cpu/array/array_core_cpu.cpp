@@ -528,6 +528,62 @@ int Array<T>::luaInit(lua_State* L)
 
 
 
+
+
+
+// the level argument below prevents WSs from overlapping. This is useful for multi-level 
+// operations that all use WSs: example long range interaction. FFTs at lowest level with a WS acting as an accumulator
+template<typename T>
+ Array<T>* getWSArray(int nx, int ny, int nz, long level)
+{
+	T* m;
+	T* h;
+	getWSMem(&m, sizeof(T)*nx*ny*nz, level);
+	//printf("New WS Array %p %p\n", d, h);
+	Array<T>* a =  new Array<T>(nx,ny,nz,m);
+
+	//printf("ddata = %p\n", a->ddata());
+
+	return a;
+}
+
+ARRAY_API dcArray* getWSdcArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<doubleComplex>(nx,ny,nz,level);
+}
+ARRAY_API fcArray* getWSfcArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<floatComplex>(nx,ny,nz,level);
+}
+ARRAY_API dArray* getWSdArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<double>(nx,ny,nz,level);
+}
+ARRAY_API fArray* getWSfArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<float>(nx,ny,nz,level);
+}
+ARRAY_API iArray* getWSiArray(int nx, int ny, int nz, long level)
+{
+	return getWSArray<int>(nx,ny,nz,level);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #ifdef WIN32
  #ifdef ARRAY_EXPORTS
   #define ARRAY_API __declspec(dllexport)
@@ -554,7 +610,7 @@ ARRAY_API int lib_main(lua_State* L);
 
 ARRAY_API int lib_register(lua_State* L)
 {
-  dArray foo1;
+	dArray foo1;
 
 #ifdef DOUBLE_ARRAY
 	luaT_register< Array<double> >(L);

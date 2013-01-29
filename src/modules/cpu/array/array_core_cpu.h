@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include "luabaseobject.h"
 #include <fftw3.h>
+#include "memory.h"
 
 template<typename T>
 inline const char* array_lua_name() {return "Array.Unnamed";}
@@ -73,17 +74,18 @@ public:
 	}
 
 	
-	Array(int x=4, int y=4, int z=1) 
+	Array(int x=4, int y=4, int z=1, T* memory=0) 
 	: 	 fft_plan_1D(0),  fft_plan_2D(0),  fft_plan_3D(0),
 		ifft_plan_1D(0), ifft_plan_2D(0), ifft_plan_3D(0),
 		nx(x-1), ny(y-1), nz(z-1), _data(0), LuaBaseObject(hash32((array_lua_name<T>())))
 	{
-		setSize(x,y,z);
+		i_own_my_memory = (memory == 0);
+		setSize(x,y,z,memory);
 	}
 	
 	~Array() {setSize(0,0,0);}
 	
-	void setSize(int x, int y, int z)
+	void setSize(int x, int y, int z, T* use_this_memory=0)
 	{
 		if(x != nx || y != ny || z != nz)
 		{
@@ -95,8 +97,10 @@ public:
 			if(ifft_plan_3D) free_FFT_PLAN(ifft_plan_3D);
 
 			//if(_data) free(_data);
-			if(_data) fftw_free(_data);
-			_data = 0;
+			if(i_own_my_memory)
+				if(_data)
+					fftw_free(_data);
+			_data = use_this_memory;
 			fft_plan_1D = 0;
 			fft_plan_2D = 0;
 			fft_plan_3D = 0;
@@ -108,11 +112,9 @@ public:
 			nxyz = nx*ny*nz;
 			if(nxyz)
 			{
-				//_data = (T*)malloc(sizeof(T) * nxyz);
-				_data = (T*)fftw_malloc(sizeof(T) * nxyz);
-				
-				for(int i=0; i<nxyz; i++)
-					_data[i] = luaT<T>::zero();
+				if(!_data)
+					_data = (T*)fftw_malloc(sizeof(T) * nxyz);
+				zero();
 			}
 		}
 	}
@@ -271,7 +273,8 @@ public:
 	T* data() {return _data;}
 	const T* constData() const {return _data;}
 	T* _data;
-	
+	bool i_own_my_memory;
+
 	void sync_hd() {};
 	void sync_dh() {};
 	
@@ -561,5 +564,12 @@ typedef Array<floatComplex>  fcArray;
 typedef Array<double>         dArray;
 typedef Array<float>          fArray;
 typedef Array<int>            iArray;
+
+
+ARRAY_API dcArray* getWSdcArray(int nx, int ny, int nz, long level);
+ARRAY_API fcArray* getWSfcArray(int nx, int ny, int nz, long level);
+ARRAY_API dArray* getWSdArray(int nx, int ny, int nz, long level);
+ARRAY_API fArray* getWSfArray(int nx, int ny, int nz, long level);
+ARRAY_API iArray* getWSiArray(int nx, int ny, int nz, long level);
 
 #endif

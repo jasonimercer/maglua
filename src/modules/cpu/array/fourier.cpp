@@ -11,6 +11,25 @@ void ARRAY_API execute_FFT_PLAN(FFT_PLAN* plan, double* dest, double* src, doubl
 //#endif
 
 
+static void export_wisdom()
+{
+	FILE* f = fopen("wisdom.fftws", "w");
+	if(f)
+	{
+		fftw_export_wisdom_to_file(f);
+		fclose(f);
+	}
+}
+static void import_wisdom()
+{
+	FILE* f = fopen("wisdom.fftws", "r");
+	if(f)
+	{
+		fftw_import_wisdom_from_file(f);
+		fclose(f);
+	}
+}
+
 typedef struct FFT_PLAN
 {
 	int nx, ny, nz;
@@ -29,6 +48,7 @@ typedef struct FFT_PLAN
 #ifdef DOUBLE_ARRAY
 FFT_PLAN* make_FFT_PLAN_double(int direction, int fftdims, const int nx, const int ny, const int nz)
 {
+	import_wisdom();
 	FFT_PLAN* p = new FFT_PLAN;
 	p->nx = nx;
 	p->ny = ny;
@@ -70,6 +90,8 @@ FFT_PLAN* make_FFT_PLAN_double(int direction, int fftdims, const int nx, const i
 	
 	delete [] a;
 	delete [] b;
+	export_wisdom();
+
 	return p;
 }
 #endif
@@ -77,6 +99,7 @@ FFT_PLAN* make_FFT_PLAN_double(int direction, int fftdims, const int nx, const i
 #ifdef SINGLE_ARRAY
 FFT_PLAN* make_FFT_PLAN_float(int direction, int fftdims, const int nx, const int ny, const int nz)
 {
+	import_wisdom();
 	FFT_PLAN* p = new FFT_PLAN;
 	p->nx = nx;
 	p->ny = ny;
@@ -114,6 +137,8 @@ FFT_PLAN* make_FFT_PLAN_float(int direction, int fftdims, const int nx, const in
 	
 	delete [] a;
 	delete [] b;
+	export_wisdom();
+	
 	return p;	
 }
 #endif

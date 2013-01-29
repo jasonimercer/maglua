@@ -125,6 +125,9 @@ public:
 
 bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
+	dmdt->ensureSlotExists(SUM_SLOT);
+	dmdt->ensureSlotExists(THERMAL_SLOT);
+	
 	const double* sx = spinfrom->x->data();
 	const double* sy = spinfrom->y->data();
 	const double* sz = spinfrom->z->data();

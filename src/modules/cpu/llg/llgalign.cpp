@@ -25,6 +25,9 @@ bool  LLGAlign::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, 
 // 	const double* sx = spinfrom->x->data;
 // 	const double* sy = spinfrom->y->data;
 // 	const double* sz = spinfrom->z->data;
+	dmdt->ensureSlotExists(SUM_SLOT);
+	dmdt->ensureSlotExists(THERMAL_SLOT);
+	
 	const double* ms = spinfrom->ms->data();
 	      double* mt = spinto->ms->data();
 

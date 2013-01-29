@@ -152,6 +152,7 @@ local function write_tensor(f, array, name, d, s)
 			end
 		end
 		f:write(table.concat(t, ", ") .. "\n")
+		f:flush()
 	end
 	f:write("]]\n")	
 end

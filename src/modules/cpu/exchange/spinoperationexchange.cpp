@@ -180,8 +180,19 @@ void Exchange::addPath(int site1, int site2, double str)
 	{
 		if(num + 1 >= size)
 		{
-			size *= 2;
-			size++;
+			if(size > 1024*1024)
+				size = size + 1024*1024;
+			else
+			{
+				if(size == 0)
+				{
+					size = 32;
+				}
+				else
+					size *= 8;
+			}
+// 			size *= 32;
+// 			size++;
 			pathways = (sss*)realloc(pathways, sizeof(sss) * size);
 			
 			addPath(site1, site2, str);

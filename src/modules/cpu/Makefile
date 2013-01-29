@@ -11,7 +11,8 @@
 
 DIRS=array anisotropy appliedfield core dipole disordereddipole \
      exchange llg magnetostatics thermal longrange longrange3d \
-     longrange2d magnetostatics2d ewald3d wood
+     longrange2d magnetostatics2d magnetostatics3d ewald3d wood \
+     dipole2d 
 
 all:
 	@for d in $(DIRS); do (make -C $$d); done

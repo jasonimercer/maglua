@@ -31,6 +31,7 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 		nx(NX), ny(NY), nz(NZ),
 		nslots(NSLOTS), time(0)
 {
+	registerWS();
 	site_alpha = 0;
 	site_gamma = 0;
 	L = 0;
@@ -68,6 +69,7 @@ int SpinSystem::luaInit(lua_State* L)
 SpinSystem::~SpinSystem()
 {
 	deinit();
+	unregisterWS();
 }
 
 
@@ -260,6 +262,9 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 	
+	ensureSlotExists(SUM_SLOT);
+	src->ensureSlotExists(SUM_SLOT);
+	
 	hx[SUM_SLOT]->copyFrom(src->hx[SUM_SLOT]);
 	hy[SUM_SLOT]->copyFrom(src->hy[SUM_SLOT]);
 	hz[SUM_SLOT]->copyFrom(src->hz[SUM_SLOT]);
@@ -396,7 +401,10 @@ void SpinSystem::deinit()
 		delete [] hy;
 		delete [] hz;
 
-		luaT_dec<dcArray>(ws);
+// 		luaT_dec<dcArray>(ws);
+		delete ws;
+		ws = 0;
+		
 		
 		luaT_dec<dcArray>(qx);
 		luaT_dec<dcArray>(qy);
@@ -442,18 +450,21 @@ void SpinSystem::init()
 	
 	for(int i=0; i<nslots; i++)
 	{
-		hx[i] = luaT_inc<dArray>(new dArray(nx,ny,nz));
-		hy[i] = luaT_inc<dArray>(new dArray(nx,ny,nz));
-		hz[i] = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		hx[i] = 0; //luaT_inc<dArray>(new dArray(nx,ny,nz));
+		hy[i] = 0; //luaT_inc<dArray>(new dArray(nx,ny,nz));
+		hz[i] = 0; //luaT_inc<dArray>(new dArray(nx,ny,nz));
 		
-		hx[i]->zero();
-		hy[i]->zero();
-		hz[i]->zero();
+// 		hx[i]->zero();
+// 		hy[i]->zero();
+// 		hz[i]->zero();
 	}
 	zeroFields();
 	
-	ws = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
+// 	ws = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
+	ws = getWSdcArray(nx,ny,nz,hash32("SpinSystem_FFT_Help"));
+
+	
 	qx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	qy = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	qz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
@@ -616,17 +627,19 @@ void SpinSystem::sumFields()
 	hx[SUM_SLOT]->zero();
 	for(int i=1; i<NSLOTS; i++)
 		if(slot_used[i] && hx[i])
-			(*hx[SUM_SLOT]) += (*hx[i]);
+			dArray::pairwiseScaleAdd(hx[SUM_SLOT], 1.0, hx[SUM_SLOT], 1.0, hx[i]);
 
 	hy[SUM_SLOT]->zero();
 	for(int i=1; i<NSLOTS; i++)
 		if(slot_used[i] && hy[i])
-			(*hy[SUM_SLOT]) += (*hy[i]);
+			dArray::pairwiseScaleAdd(hy[SUM_SLOT], 1.0, hy[SUM_SLOT], 1.0, hy[i]);
+// 			(*hy[SUM_SLOT]) += (*hy[i]);
 
 	hz[SUM_SLOT]->zero();
 	for(int i=1; i<NSLOTS; i++)
 		if(slot_used[i] && hz[i])
-			(*hz[SUM_SLOT]) += (*hz[i]);
+			dArray::pairwiseScaleAdd(hz[SUM_SLOT], 1.0, hz[SUM_SLOT], 1.0, hz[i]);
+//			(*hz[SUM_SLOT]) += (*hz[i]);
 		
 	/*	
 	hx[SUM_SLOT]->copyFrom(hx[1]);
@@ -744,9 +757,12 @@ void SpinSystem::zeroFields()
 	for(int i=0; i<NSLOTS; i++)
 	{
 		slot_used[i] = false;
-		hx[i]->zero();
-		hy[i]->zero();
-		hz[i]->zero();
+		if(hx[i])
+		{
+			hx[i]->zero();
+			hy[i]->zero();
+			hz[i]->zero();
+		}
 	}
 }
 

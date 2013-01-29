@@ -89,6 +89,9 @@ public:
 	
 bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
+	dmdt->ensureSlotExists(SUM_SLOT);
+	dmdt->ensureSlotExists(THERMAL_SLOT);
+	
 	const double* sx = spinfrom->x->data();
 	const double* sy = spinfrom->y->data();
 	const double* sz = spinfrom->z->data();
@@ -118,6 +121,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 	const int nxyz = spinfrom->nxyz;
 //	#pragma omp parallel for shared(x, y, z)
 	
+
 	
 	if(thermalOnlyFirstTerm)
 	{

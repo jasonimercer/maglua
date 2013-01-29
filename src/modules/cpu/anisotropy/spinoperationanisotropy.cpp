@@ -19,7 +19,8 @@ Anisotropy::Anisotropy(int nx, int ny, int nz)
 	: SpinOperation(Anisotropy::typeName(), ANISOTROPY_SLOT, nx, ny, nz, hash32(Anisotropy::typeName()))
 {
 	ops = 0;
-	size = nx*ny*nz;
+	//size = nx*ny*nz;
+	size = 0;
 	init();
 }
 
@@ -27,7 +28,8 @@ int Anisotropy::luaInit(lua_State* L)
 {
 	deinit();
 	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
-	size = nx*ny*nz;
+	size = 0;
+// 	size = nx*ny*nz;
 	init();
 	return 0;
 }
@@ -77,7 +79,10 @@ void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double
 {
 	if(num == size)
 	{
-		size = size * 2 + 16;
+		if(size == 0)
+			size = 32;
+		else
+			size = size * 2;
 		ops = (ani*)realloc(ops, sizeof(ani) * size);
 	}
 	ops[num].site = site;
