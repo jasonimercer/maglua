@@ -431,6 +431,9 @@ void SpinSystem::deinit()
 // 		luaT_dec<dcArray>(ws);
 // 		luaT_dec<dcArray>(ws2);
 		
+		delete ws;
+		ws = 0;
+		
 		luaT_dec<dcArray>(qx);
 		luaT_dec<dcArray>(qy);
 		luaT_dec<dcArray>(qz);

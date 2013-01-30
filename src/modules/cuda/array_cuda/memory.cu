@@ -246,7 +246,7 @@ ARRAYCUDA_API void  registerWS()
 		}
 	}
 	
-	WS_MEM_H.refcount++;
+	WS_MEM_D.refcount++;
 	WS_MEM_H.refcount++;
 }
 

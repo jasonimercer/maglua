@@ -9,7 +9,7 @@ local function matStrings(lr)
 	local filled = {}
 	local empty = {}
 	for k,mat in pairs({"XX", "XY", "XZ", "YY", "YZ", "ZZ"}) do
-		local a = lr:getTensorArray(mat)
+		local a = lr:tensorArray(mat)
 		
 		for z=1,a:nz() do
 			local sliceSum = 0
