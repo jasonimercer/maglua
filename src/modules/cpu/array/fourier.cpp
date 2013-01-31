@@ -13,7 +13,7 @@ void ARRAY_API execute_FFT_PLAN(FFT_PLAN* plan, double* dest, double* src, doubl
 
 static void export_wisdom()
 {
-	FILE* f = fopen("wisdom.fftws", "w");
+	FILE* f = fopen(".wisdom.fftw", "w");
 	if(f)
 	{
 		fftw_export_wisdom_to_file(f);
@@ -22,7 +22,7 @@ static void export_wisdom()
 }
 static void import_wisdom()
 {
-	FILE* f = fopen("wisdom.fftws", "r");
+	FILE* f = fopen(".wisdom.fftw", "r");
 	if(f)
 	{
 		fftw_import_wisdom_from_file(f);

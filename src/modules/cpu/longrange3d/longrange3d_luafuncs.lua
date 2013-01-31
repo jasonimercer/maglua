@@ -8,7 +8,7 @@ local t = maglua_getmetatable(MODNAME) -- this is a special function available o
 local function matStrings(lr)
 	local filled = {}
 	local empty = {}
-	for k,mat in pairs({"XX", "XY", "XZ", "YY", "YZ", "ZZ"}) do
+	for k,mat in pairs({"XX", "XY", "XZ", "YX", "YY", "YZ", "ZX", "ZY", "ZZ"}) do
 		local a = lr:tensorArray(mat)
 		
 		for z=1,a:nz() do
@@ -67,8 +67,8 @@ local function matStrings(lr)
 	return 
 	[[
 XX,XY,XZ={},{},{}
-   YY,YZ=   {},{}
-      ZZ=      {}
+YX,YY,YZ={},{},{}
+ZX,ZY,ZZ={},{},{}
 	  
 ]] .. table.concat(filled, "\n\n") .. "\n\n" .. e
 end
@@ -129,9 +129,9 @@ function loadTensor(lr3d)
 	
 	parse() --convert the data below from strings to tables of numbers
 	
-	local mat = {"XX", "XY", "XZ", "YY", "YZ", "ZZ"}
-	local dat = { XX ,  XY ,  XZ ,  YY ,  YZ ,  ZZ }
-	for i=1,6 do
+	local mat = {"XX", "XY", "XZ", "YX", "YY", "YZ", "ZX", "ZY", "ZZ"}
+	local dat = { XX ,  XY ,  XZ ,  YX ,  YY ,  YZ ,  ZX ,  ZY ,  ZZ }
+	for i=1,9 do
 		local ab = dat[i]
 		
 		for z=1,nz do
@@ -197,9 +197,12 @@ function parse()
 	XY = map(parseMatrix, XY)
 	XZ = map(parseMatrix, XZ)
 
+	YX = map(parseMatrix, YX)
 	YY = map(parseMatrix, YY)
 	YZ = map(parseMatrix, YZ)
 
+	ZX = map(parseMatrix, ZX)
+	ZY = map(parseMatrix, ZY)
 	ZZ = map(parseMatrix, ZZ)
 end
 ]])

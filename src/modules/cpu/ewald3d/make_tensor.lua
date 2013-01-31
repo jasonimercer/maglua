@@ -1,6 +1,6 @@
 -- This file will create 3D dipole interaction tensors
-
-nx, ny, nz = 24, 24, 24
+n=8
+nx, ny, nz = n, n, n
 
 lr = LongRange3D.new(nx,ny,nz)
 ewald = DipoleEwald3D.new(nx,ny,nz)
@@ -20,10 +20,10 @@ desc = "fcc"
 ewald:setUnitCell(a, b, c)
 
 
-ab = {"XX", "XY", "XZ", "YY", "YZ", "ZZ"}
+ab = {"XX", "XY", "XZ", "YX", "YY", "YZ", "ZX", "ZY", "ZZ"}
 
 mat = {}
-for i=1,6 do
+for i=1,9 do
 	print("Generating " .. ab[i] .. " elements")
 	for z=0,nz-1 do
 		for y=0,ny-1 do
