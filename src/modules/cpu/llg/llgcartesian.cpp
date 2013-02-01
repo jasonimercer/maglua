@@ -162,15 +162,10 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 				for(int c=0; c<3; c++)
 					dM[c] = -gaa * MH[c] - (alpha/ms[i]) * gaa * MMH[c];
 
-				M[0] = (sx[i] + dt * dM[0]);
-				M[1] = (sy[i] + dt * dM[1]);
-				M[2] = (sz[i] + dt * dM[2]);
+				x[i] = (sx[i] + dt * dM[0]);
+				y[i] = (sy[i] + dt * dM[1]);
+				z[i] = (sz[i] + dt * dM[2]);
 
-				inv = 1.0 / sqrt(M[0]*M[0] + M[1]*M[1] + M[2]*M[2]);
-
-				x[i] = M[0] * inv * ms[i];
-				y[i] = M[1] * inv * ms[i];
-				z[i] = M[2] * inv * ms[i];
 			}
 		}
 	}
@@ -213,21 +208,39 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 				for(int c=0; c<3; c++)
 					dM[c] = -gaa * MH[c] - (alpha/ms[i]) * gaa * MMH[c];
 
-				M[0] = (sx[i] + dt * dM[0]);
-				M[1] = (sy[i] + dt * dM[1]);
-				M[2] = (sz[i] + dt * dM[2]);
+				x[i] = (sx[i] + dt * dM[0]);
+				y[i] = (sy[i] + dt * dM[1]);
+				z[i] = (sz[i] + dt * dM[2]);
 
-				inv = 1.0 / sqrt(M[0]*M[0] + M[1]*M[1] + M[2]*M[2]);
-
-				x[i] = M[0] * inv * ms[i];
-				y[i] = M[1] * inv * ms[i];
-				z[i] = M[2] * inv * ms[i];
+// 				inv = 1.0 / sqrt(M[0]*M[0] + M[1]*M[1] + M[2]*M[2]);
+// 
+// 				x[i] = M[0] * inv * ms[i];
+// 				y[i] = M[1] * inv * ms[i];
+// 				z[i] = M[2] * inv * ms[i];
 			}
 		}
 		
 	}
 	if(advancetime)
 		spinto->time = spinfrom->time +  dt;
+	
+	
+	if(!disableRenormalization)
+	{
+		for(int i=0; i<nxyz; i++)
+		{
+			const double mm = x[i]*x[i] + y[i]*y[i] + z[i]*z[i];
+			if(mm != 0)
+			{
+				const double inv = ms[i] / sqrt(mm);
+
+				x[i] *= inv;
+				y[i] *= inv;
+				z[i] *= inv;
+			}
+		}
+	}
+
 	return true;
 }
 

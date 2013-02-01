@@ -50,7 +50,8 @@ public:
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 		
 	bool disablePrecession;
-
+	bool disableRenormalization;
+	
 	bool thermalOnlyFirstTerm;
 // 	void encode(buffer* b);
 // 	int  decode(buffer* b);

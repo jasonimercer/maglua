@@ -19,7 +19,7 @@
 #include "spinsystem.h"
 
 LLG::LLG(int encode_type)
-: LuaBaseObject(encode_type), disablePrecession(false)
+: LuaBaseObject(encode_type), disablePrecession(false), disableRenormalization(false)
 {
 	thermalOnlyFirstTerm = true;
 }
@@ -45,12 +45,14 @@ LLG::~LLG()
 void LLG::encode(buffer* b)
 {
 	encodeInteger(thermalOnlyFirstTerm, b);
+	encodeInteger(disableRenormalization, b);
 
 }
 
 int  LLG::decode(buffer* b)
 {
 	thermalOnlyFirstTerm = decodeInteger(b);
+	disableRenormalization = decodeInteger(b);
 	return 0;
 }
 
@@ -143,6 +145,27 @@ static int l_getthermalOnlyFirstTerm(lua_State* L)
 	return 1;
 }
 
+static int l_getdisablerenormalization(lua_State* L)
+{
+ 	LUA_PREAMBLE(LLG, llg, 1);
+	lua_pushboolean(L, llg->disableRenormalization);
+	return 1;
+}
+static int l_setdisablerenormalization(lua_State* L)
+{
+ 	LUA_PREAMBLE(LLG, llg, 1);
+	
+	if(lua_isnone(L, 2))
+	{
+		//default true
+		llg->disableRenormalization = true;
+	}
+	else
+	{
+		llg->disableRenormalization = lua_toboolean(L, 2);
+	}
+	return 0;
+}
 
 int LLG::help(lua_State* L)
 {
@@ -198,6 +221,21 @@ int LLG::help(lua_State* L)
 		return 3;		
 	}
 	
+	if(func == l_getdisablerenormalization)
+	{
+		lua_pushstring(L, "Get internal data for algorithm interpretation.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 boolean: If true then the x,y,z coordinates of each spin are not renormalized to the original length of the spin.");
+		return 3;		
+	}
+	if(func == l_setdisablerenormalization)
+	{
+		lua_pushstring(L, "Set internal data for algorithm interpretation.");
+		lua_pushstring(L, "1 boolean (or default true): If true then the x,y,z coordinates of each spin are not renormalized to the original length of the spin.");
+		lua_pushstring(L, "");
+		return 3;		
+	}
+	
 // 	if(func == l_gettype)
 // 	{
 // 		lua_pushstring(L, "Determine which type of the LLG object.");
@@ -222,6 +260,8 @@ const luaL_Reg* LLG::luaMethods()
 		{"apply",        l_apply},
 		{"setThermalOnlyFirstTerm", l_setthermalOnlyFirstTerm},
 		{"thermalOnlyFirstTerm", l_getthermalOnlyFirstTerm},
+		{"setDisableRenormalization", l_setdisablerenormalization},
+		{"disableRenormalization", l_getdisablerenormalization},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

@@ -1239,6 +1239,7 @@ static int l_netfield(lua_State* L)
 	if(slot < 0)                                        \
 		return luaL_error(L, "Unknown field type`%s'", name); 
 #define GET_FA_BODY(C) \
+	ss->ensureSlotExists(slot); \
 	dArray* h = ss->h##C [slot]; \
 	if(!h)                       \
 		lua_pushnil(L);          \

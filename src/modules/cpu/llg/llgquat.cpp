@@ -233,14 +233,14 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 					y[i] = qRes.y;
 					z[i] = qRes.z;
 
-					const double xyz = x[i] * x[i] + y[i] * y[i] + z[i] * z[i];
-					if(xyz > 0)
-					{
-						const double l = 1.0 / sqrt(xyz);
-						x[i] *= l * ms[i];
-						y[i] *= l * ms[i];
-						z[i] *= l * ms[i];
-					}
+// 					const double xyz = x[i] * x[i] + y[i] * y[i] + z[i] * z[i];
+// 					if(xyz > 0)
+// 					{
+// 						const double l = 1.0 / sqrt(xyz);
+// 						x[i] *= l * ms[i];
+// 						y[i] *= l * ms[i];
+// 						z[i] *= l * ms[i];
+// 					}
 				}
 				else
 				{
@@ -315,14 +315,14 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 					y[i] = qRes.y;
 					z[i] = qRes.z;
 
-					const double xyz = x[i] * x[i] + y[i] * y[i] + z[i] * z[i];
-					if(xyz > 0)
-					{
-						const double l = 1.0 / sqrt(xyz);
-						x[i] *= l * ms[i];
-						y[i] *= l * ms[i];
-						z[i] *= l * ms[i];
-					}
+// 					const double xyz = x[i] * x[i] + y[i] * y[i] + z[i] * z[i];
+// 					if(xyz > 0)
+// 					{
+// 						const double l = 1.0 / sqrt(xyz);
+// 						x[i] *= l * ms[i];
+// 						y[i] *= l * ms[i];
+// 						z[i] *= l * ms[i];
+// 					}
 				}
 				else
 				{
@@ -339,6 +339,23 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 	if(advancetime)
 		spinto->time = spinfrom->time + dt;
 
+	if(!disableRenormalization)
+	{
+		for(int i=0; i<nxyz; i++)
+		{
+			const double mm = x[i]*x[i] + y[i]*y[i] + z[i]*z[i];
+			if(mm != 0)
+			{
+				const double inv = ms[i] / sqrt(mm);
+
+				x[i] *= inv;
+				y[i] *= inv;
+				z[i] *= inv;
+			}
+		}
+	}
+	
+	
 	return true;
 }
 
