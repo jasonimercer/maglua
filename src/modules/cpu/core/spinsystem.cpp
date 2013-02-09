@@ -402,7 +402,7 @@ void SpinSystem::deinit()
 		delete [] hz;
 
 // 		luaT_dec<dcArray>(ws);
-		delete ws;
+//		delete ws;
 		ws = 0;
 		
 		

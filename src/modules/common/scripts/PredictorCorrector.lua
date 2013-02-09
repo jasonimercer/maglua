@@ -101,6 +101,8 @@ function make_pc_step_function(s_, calcField_, llg_, tol_, optional_temp_)
 			ss:sumFields()
 			llg:apply(ss, false) --false = don't advance timestep
 		end
+		
+		return true
 	end
 
 	return step

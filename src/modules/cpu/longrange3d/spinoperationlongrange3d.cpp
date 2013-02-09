@@ -32,6 +32,7 @@
 LongRange3D::LongRange3D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
 	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
 {
+	registerWS();
     qXX = 0;
     XX = 0;
 	ws1 = 0;
@@ -66,6 +67,8 @@ LongRange3D::~LongRange3D()
 	if(function_ref != LUA_REFNIL)
 		luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
 	function_ref = LUA_REFNIL;
+	
+	unregisterWS();
 }
 
 int LongRange3D::luaInit(lua_State* L)
@@ -232,11 +235,11 @@ void LongRange3D::init()
 	ZY->zero();
 	ZZ->zero();
 	
-	ws1 = new dcArray(nx,ny,nz);
-	ws2 = new dcArray(nx,ny,nz);
-	wsX = new dcArray(nx,ny,nz);
-	wsY = new dcArray(nx,ny,nz);
-	wsZ = new dcArray(nx,ny,nz);
+	ws1 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_1"));
+	ws2 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_2"));
+	wsX = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_3"));
+	wsY = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_4"));
+	wsZ = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_5"));
 }
 
 static int offsetOK(int nx, int ny, int nz,  int x, int y, int z, int& offset)
@@ -290,19 +293,12 @@ void LongRange3D::deinit()
 	
 	if(ws1)
 	{
-		delete ws1;
-		delete ws2;
-		delete wsX;
-		delete wsY;
-		delete wsZ;
 		ws1 = 0;
 		ws2 = 0;
 		wsX = 0;
 		wsY = 0;
 		wsZ = 0;
 	}
-	
-	
 }
 void LongRange3D::makeNewData()
 {
@@ -332,7 +328,7 @@ void LongRange3D::compile()
 		return;
 	compileRequired = false;
 
-	dcArray* wsZ = new dcArray(nx,ny,nz);
+	dcArray* wsZ = ws1;
 
 	wsZ->zero();
 	arraySetRealPart(wsZ->data(), XX->data(), wsZ->nxyz);  wsZ->fft3DTo(qXX);
@@ -359,8 +355,6 @@ void LongRange3D::compile()
 	qZX->scaleAll(doubleComplex(1.0/((double)(nx*ny*nz)), 0));
 	qZY->scaleAll(doubleComplex(1.0/((double)(nx*ny*nz)), 0));
 	qZZ->scaleAll(doubleComplex(1.0/((double)(nx*ny*nz)), 0));
-
-	delete wsZ;
 }
 
 bool LongRange3D::apply(SpinSystem* ss)

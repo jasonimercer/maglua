@@ -523,12 +523,17 @@ public:
 	
 	void copyFrom(Array<T>* other)
 	{
+		sync_hd();
 		memcpy_d2d(ddata(), other->ddata(), sizeof(T)*nxyz);
+		other->new_device = true;
+		other->new_host = false;
 	}
 	
 	void zero()
 	{
 		arraySetAll(ddata(),  luaT<T>::zero(), nxyz);
+		new_device = true;
+		new_host = false;
 	}
 	
 	Array<T>& operator+=(Array<T> &rhs)

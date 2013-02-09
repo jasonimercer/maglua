@@ -89,6 +89,8 @@ function make_adapt_step_function(a1, a2, a3, a4, a5, a6)
 -- 			error("BAD!!")
 			s:setTimeStep(s:timeStep() * 0.5) --stride shorter next time
 		end
+		
+		return are_same
 -- 		print("TS", s:timeStep())
 	end
 	return adapt_step
