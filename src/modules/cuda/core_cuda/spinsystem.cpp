@@ -1246,13 +1246,22 @@ static int l_netfield(lua_State* L)
 	double xyz[3] = {0,0,0};
 	const int nxyz = ss->nxyz;
 	
-	xyz[0] = ss->hx[slot]->sum();
-	xyz[1] = ss->hy[slot]->sum();
-	xyz[2] = ss->hz[slot]->sum();
-	
-	lua_pushnumber(L, xyz[0] / ((double)nxyz));
-	lua_pushnumber(L, xyz[1] / ((double)nxyz));
-	lua_pushnumber(L, xyz[2] / ((double)nxyz));
+	if(ss->hx[slot])
+	{
+		xyz[0] = ss->hx[slot]->sum();
+		xyz[1] = ss->hy[slot]->sum();
+		xyz[2] = ss->hz[slot]->sum();
+		
+		lua_pushnumber(L, xyz[0] / ((double)nxyz));
+		lua_pushnumber(L, xyz[1] / ((double)nxyz));
+		lua_pushnumber(L, xyz[2] / ((double)nxyz));
+	}
+	else
+	{
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+	}
 	
 	return 3;
 }
@@ -1384,16 +1393,26 @@ static int l_getfield(lua_State* L)
 	if(slot < 0)
 		return luaL_error(L, "Unknown field type`%s'", name);
 
-	const double xx = (*ss->hx[slot])[idx];
-	const double yy = (*ss->hy[slot])[idx];
-	const double zz = (*ss->hz[slot])[idx];
-	
-	lua_pushnumber(L, xx);
-	lua_pushnumber(L, yy);
-	lua_pushnumber(L, zz);
+	if(ss->hx[slot])
+	{
+		const double xx = (*ss->hx[slot])[idx];
+		const double yy = (*ss->hy[slot])[idx];
+		const double zz = (*ss->hz[slot])[idx];
+		
+		lua_pushnumber(L, xx);
+		lua_pushnumber(L, yy);
+		lua_pushnumber(L, zz);
 
-	lua_pushnumber(L, sqrt(xx*xx+yy*yy+zz*zz));
-	
+		lua_pushnumber(L, sqrt(xx*xx+yy*yy+zz*zz));
+	}
+	else
+	{
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+	}
+		
 	return 4;
 }
 
