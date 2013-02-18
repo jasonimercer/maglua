@@ -8,6 +8,8 @@
 -- scale = 1.0
 -- </pre>
 -- 
+-- Note: scale can be a number, an array or a function that takes site positions as input and returns the scale
+-- 
 -- Example Usage:
 -- <pre>
 -- dofile("maglua://POVRay.lua")
@@ -330,17 +332,35 @@ function POVRay(filename, ss, custom)
 			end
 		end
 	else -- scale may be an array. we'll see!
-		local sa = scale --array
-		for z=1,nz do
-			for y=1,ny do
-				for x=1,nx do
-					local sx, sy, sz, mm = ss:spin(x,y,z)
-					local scale = sa:get(x,y,z) * 0.5
+		if type(scale) == "function" then
+			local sf = scale --function
+			for z=1,nz do
+				for y=1,ny do
+					for x=1,nx do
+						local sx, sy, sz, mm = ss:spin(x,y,z)
+						local scale = sf(x,y,z) * 0.5
 
-					if mm*scale > 1e-8 then
-						local xx,yy,zz = pos(x,y,z)
-						local r, g, b = color_func(sx, sy, sz) 
-						table.insert(pov_string, spin(sx*scale, sy*scale, sz*scale, xx,zz,yy, r, g, b)) --coord twiddle
+						if mm*scale > 1e-8 then
+							local xx,yy,zz = pos(x,y,z)
+							local r, g, b = color_func(sx, sy, sz) 
+							table.insert(pov_string, spin(sx*scale, sy*scale, sz*scale, xx,zz,yy, r, g, b)) --coord twiddle
+						end
+					end
+				end
+			end	
+		else
+			local sa = scale --array
+			for z=1,nz do
+				for y=1,ny do
+					for x=1,nx do
+						local sx, sy, sz, mm = ss:spin(x,y,z)
+						local scale = sa:get(x,y,z) * 0.5
+
+						if mm*scale > 1e-8 then
+							local xx,yy,zz = pos(x,y,z)
+							local r, g, b = color_func(sx, sy, sz) 
+							table.insert(pov_string, spin(sx*scale, sy*scale, sz*scale, xx,zz,yy, r, g, b)) --coord twiddle
+						end
 					end
 				end
 			end

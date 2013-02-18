@@ -34,6 +34,7 @@ local write_documentation = nil
 
 -- trim info about bootstrap from error messages
 debug["trim_error"] = function(msg)
+	msg = msg or ""
 	local x = 
 [[
 %s*%[C%]%: in function .dofile.%s*

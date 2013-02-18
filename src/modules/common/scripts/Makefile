@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=CGS.lo ColorMap.lo RungeKutta.lo POVRay.lo PredictorCorrector.lo AdaptiveTimeStep.lo scripts.o
+OBJECTS=CGS.lo ColorMap.lo RungeKutta.lo POVRay.lo PredictorCorrector.lo AdaptiveTimeStep.lo MakeMacro.lo scripts.o
 LIBNAME=Scripts
 CATEGORY=common
 DEPEND=luabaseobject

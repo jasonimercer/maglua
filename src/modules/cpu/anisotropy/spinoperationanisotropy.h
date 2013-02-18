@@ -57,6 +57,8 @@ public:
 	int size;
 	int num;
 	
+	int merge();
+	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 

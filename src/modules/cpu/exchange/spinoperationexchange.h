@@ -56,7 +56,11 @@ public:
 		double strength;
 	} sss;
 
-private:
+	
+	int numPaths() {return num;}
+	bool getPath(int idx, int& fx, int& fy, int& fz, int& tx, int& ty, int& tz, double& strength);
+	int mergePaths();
+// private:
 	void deinit();
 	
 	int size;

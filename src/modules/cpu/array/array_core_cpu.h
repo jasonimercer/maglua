@@ -235,7 +235,6 @@ public:
 		}
 		return 0;
 	}
-
 	
 	bool sameSize(const Array<T>* other) const
 	{
@@ -491,7 +490,8 @@ public:
 	
 	void copyFrom(Array<T>* other)
 	{
-		memcpy(data(), other->data(), sizeof(T)*nxyz);
+		if(other != this)
+			memcpy(data(), other->data(), sizeof(T)*nxyz);
 	}
 	
 	void zero()

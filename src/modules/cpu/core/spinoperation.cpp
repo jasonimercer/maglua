@@ -113,6 +113,19 @@ int  SpinOperation::getidx(int px, int py, int pz)
 	return px + nx * (py + ny * pz);
 }
 
+void SpinOperation::idx2xyz(int idx, int& x, int& y, int& z) const 
+{
+	while(idx < 0)
+		idx += 10*nxyz;
+	idx %= nxyz;
+	
+	z = idx / (nx*ny);
+	idx -= z*nx*ny;
+	y = idx / nx;
+	x = idx - y*nx;
+}
+
+
 bool SpinOperation::apply(SpinSystem* ss)
 {
 	return 0;

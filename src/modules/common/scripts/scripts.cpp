@@ -40,6 +40,7 @@ typedef struct ss
 #include "PredictorCorrector.h"
 #include "ColorMap.h"
 #include "AdaptiveTimeStep.h"
+#include "MakeMacro.h"
 
 SCRIPTS_API int lib_register(lua_State* L)
 {
@@ -50,6 +51,7 @@ SCRIPTS_API int lib_register(lua_State* L)
 		{__PredictorCorrector_name(), __PredictorCorrector()},
 		{__AdaptiveTimeStep_name(),  __AdaptiveTimeStep()},
 		{__ColorMap_name(),  __ColorMap()},
+		{__MakeMacro_name(),  __MakeMacro()},
 		{0,0}
 	};
 	

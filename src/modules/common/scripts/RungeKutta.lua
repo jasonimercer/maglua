@@ -2,7 +2,7 @@
 -- 
 -- <pre>RK1, RK2, RK3, RK4, RK4_38, RK6, K3, BS3</pre>
 --
--- The integration types are available via the "make_rk_step_function(ss, type, fieldFunc, llg, optional_temp)" function which takes a *SpinSystem*, a type which is a string equal to one of the listed types above, a field function that takes a *SpinSystem* and computes the deterministic effective field, an LLG operator and an optional thermal operator. 
+-- The integration types are available via the "make_rk_step_function(ss, type, fieldFunc, optional_dynamicsFunc, llg, optional_temp)" function which takes a *SpinSystem*, a type which is a string equal to one of the listed types above, a field function that takes a *SpinSystem* and computes the deterministic effective field, an LLG operator and an optional thermal operator. 
 -- Example:
 -- <pre>
 -- dofile("maglua://RungeKutta.lua")
@@ -71,9 +71,8 @@ function make_rk_step_function(a1,a2,a3,a4,a5,a6)
 	local calcFieldFunc = args["function"][1]
 	local dynamics_ = args["function"][2]
 	local llg = args["userdata"][2]
-	local optional_temp = args["userdata"][2]
+	local optional_temp = args["userdata"][3]
 	local type = args["string"][1]	
-
 
 	-- Butcher Table, the c_{i} column isn't included
 	local butcher = {}
@@ -179,11 +178,25 @@ function make_rk_step_function(a1,a2,a3,a4,a5,a6)
 		ss_k[1] = ss_input or ss -- can operate on default ss or a given system
 		dynamics(ss_k[1])
 		cff(ss_k[1]) -- calc field for base system
+		
+-- 		if temp and not skip_temperature then
+-- 			temp:apply(ss_k[1])
+-- 			ss_k[1]:sumFields()
+-- 		end
+		
 		for i = 1,nstep-1 do
 			ss_k[i+1]:setTimeStep(ss_k[1]:timeStep())
 			istep(ss_k[1], butcher[i], ss_k[i+1])
 			dynamics(ss_k[i+1])
 			cff(ss_k[i+1])
+			
+-- 			if temp and not skip_temperature then
+-- 				ss_k[i+1]:fieldArrayX("Thermal"):set( ss_k[1]:fieldArrayX("Thermal") )
+-- 				ss_k[i+1]:fieldArrayY("Thermal"):set( ss_k[1]:fieldArrayY("Thermal") )
+-- 				ss_k[i+1]:fieldArrayZ("Thermal"):set( ss_k[1]:fieldArrayZ("Thermal") )
+-- 				ss_k[i+1]:setSlotUsed("Thermal", true)
+-- 				ss_k[i+1]:sumFields()
+-- 			end
 		end
 		istep(ss_k[1], butcher[nstep], ss_k[1])
 		

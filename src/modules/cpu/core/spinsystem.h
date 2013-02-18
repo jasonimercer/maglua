@@ -68,7 +68,7 @@ public:
 	void ensureSlotExists(int slot);
 	bool sameSize(const SpinSystem* other) const;
 	
-	void getNetMag(dArray* site_scale, double* v4, const double m = 1);
+	void getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* site_scale3, double* v8, const double scale);
 	
 	void diff(SpinSystem* other, double* v4);
 

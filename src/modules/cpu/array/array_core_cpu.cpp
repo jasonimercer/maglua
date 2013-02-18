@@ -42,6 +42,13 @@ template<typename T>
 static int l_set(lua_State* L)
 {
 	LUA_PREAMBLE(Array<T>, a, 1);
+	
+	if(luaT_is< Array<T> >(L, lua_gettop(L)))
+	{
+		LUA_PREAMBLE(Array<T>, b, lua_gettop(L));
+		b->copyFrom(a);
+	}
+	
 	return a->lua_set(L, 2);
 }
 template<typename T>
@@ -122,6 +129,23 @@ static int l_mean(lua_State* L)
 	return luaT<T>::elements();
 }
 
+template<typename T>
+static int l_sum(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	T t = a->sum();
+	luaT<T>::push(L, t);
+	return luaT<T>::elements();
+}
+template<typename T>
+static int l_scale(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	T t = luaT<T>::to(L, 2);
+	a->scaleAll(t);
+	return 0;
+}
+
 
 
 template<typename T>
@@ -145,6 +169,8 @@ static const luaL_Reg* get_base_methods()
 		{"min",     l_min<T>},
 		{"max",     l_max<T>},
 		{"mean",    l_mean<T>},
+		{"sum",     l_sum<T>},
+		{"scale",   l_scale<T>},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -250,7 +276,7 @@ static int Array_help(lua_State* L)
 	if(func == f10)
 	{
 		lua_pushstring(L, "Set an element of the array");
-		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value: indices(XYZ) of the element to set, default values are 1. Last argument is the new value");
+		lua_pushstring(L, "1, 2 or 3 integers (or 1 table), 1 value or 1 Array: indices(XYZ) of the element to set, default values are 1. Last argument is the new value. If the last argument is an array then all elements in the array are copied to the calling object.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -284,6 +310,22 @@ static int Array_help(lua_State* L)
 		lua_pushstring(L, "Find mean of array");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 value");
+		return 3;
+	}
+	lua_CFunction f15 = l_sum<T>;
+	if(func == f15)
+	{
+		lua_pushstring(L, "Find sum of array");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 value");
+		return 3;
+	}
+	lua_CFunction f16 = l_scale<T>;
+	if(func == f16)
+	{
+		lua_pushstring(L, "Scale all values in the array by the given value");
+		lua_pushstring(L, "1 Value: The scaling factor");
+		lua_pushstring(L, "");
 		return 3;
 	}
 	return LuaBaseObject::help(L);

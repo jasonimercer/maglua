@@ -44,7 +44,6 @@ void Exchange::push(lua_State* L)
 	luaT_push<Exchange>(L, this);
 }
 
-
 void Exchange::encode(buffer* b)
 {
 	SpinOperation::encode(b);
@@ -206,6 +205,52 @@ void Exchange::addPath(int site1, int site2, double str)
 	}
 }
 
+bool Exchange::getPath(int idx, int& fx, int& fy, int& fz, int& tx, int& ty, int& tz, double& strength)
+{
+	if(idx < 0 || idx >= numPaths())
+		return false;
+	
+	idx2xyz(pathways[idx].fromsite, fx, fy, fz);
+	idx2xyz(pathways[idx].tosite, tx, ty, tz);
+	strength = pathways[idx].strength;
+	return true;
+}
+
+int Exchange::mergePaths()
+{
+	sss* new_pathways = (sss*) malloc(sizeof(sss)*size);
+	int new_num = 0;
+
+	for(int i=0; i<num; i++)
+	{
+		int from = pathways[i].fromsite;
+		int to   = pathways[i].tosite;
+		
+		if(from >= 0 && to >=0)
+		{
+			new_pathways[new_num].fromsite = from;
+			new_pathways[new_num].tosite = to;
+			new_pathways[new_num].strength = 0;
+			
+			for(int j=i; j<num; j++)
+			{
+				if(pathways[j].fromsite == from && pathways[j].tosite == to)
+				{
+					new_pathways[new_num].strength += pathways[j].strength;
+					pathways[j].fromsite = -1; //remove from future searches
+					pathways[j].tosite = -1; //remove from future searches
+				}
+			}
+			new_num++;
+		}
+	}
+
+	int delta = num - new_num;
+	free(pathways);
+	pathways = new_pathways;
+	num = new_num;
+	return delta;
+}
 
 
 
@@ -262,6 +307,103 @@ static int l_opt(lua_State* L)
 	return 0;
 }
 
+static int l_getPathsTo(lua_State* L)
+{
+	LUA_PREAMBLE(Exchange, ex, 1);
+	
+	int r1;
+	int a[3];
+	
+	r1 = lua_getNint(L, 3, a, 2,    1);
+	if(r1<0)	return luaL_error(L, "invalid site");
+	
+	int idx = ex->getidx(a[0]-1, a[1]-1, a[2]-1);
+
+	lua_newtable(L);
+	int j = 1;
+	for(int i=0; i<ex->numPaths(); i++)
+	{
+		if(ex->pathways[i].tosite == idx)
+		{
+			lua_pushinteger(L, j);
+			lua_pushinteger(L, i+1);
+			lua_settable(L, -3);
+			j++;
+		}
+	}
+	
+	return 1;
+}
+static int l_getPathsFrom(lua_State* L)
+{
+	LUA_PREAMBLE(Exchange, ex, 1);
+	
+	int r1;
+	int a[3];
+	
+	r1 = lua_getNint(L, 3, a, 2,    1);
+	if(r1<0)	return luaL_error(L, "invalid site");
+	
+	int idx = ex->getidx(a[0]-1, a[1]-1, a[2]-1);
+
+	lua_newtable(L);
+	int j = 1;
+	for(int i=0; i<ex->numPaths(); i++)
+	{
+		if(ex->pathways[i].fromsite == idx)
+		{
+			lua_pushinteger(L, j);
+			lua_pushinteger(L, i+1);
+			lua_settable(L, -3);
+			j++;
+		}
+	}
+	
+	return 1;
+}
+
+
+static int l_numberOfPaths(lua_State* L)
+{
+	LUA_PREAMBLE(Exchange, ex, 1);
+	lua_pushinteger(L, ex->numPaths());
+	return 1;
+}
+
+static int l_mergepaths(lua_State* L)
+{
+	LUA_PREAMBLE(Exchange, ex, 1);
+	lua_pushinteger(L, ex->mergePaths());
+	return 1;	
+}
+
+static int l_getPath(lua_State* L)
+{
+	LUA_PREAMBLE(Exchange, ex, 1);
+	int idx = lua_tointeger(L, 2);
+	
+	int fx,fy,fz;
+	int tx,ty,tz;
+	double strength;
+	
+	if(!ex->getPath(idx-1, fx,fy,fz, tx,ty,tz, strength))
+	{
+		return luaL_error(L, "Invalid index");
+	}
+	
+	lua_newtable(L);
+	lua_pushinteger(L, 1);	lua_pushinteger(L, fx+1);	lua_settable(L, -3);
+	lua_pushinteger(L, 2);	lua_pushinteger(L, fy+1);	lua_settable(L, -3);
+	lua_pushinteger(L, 3);	lua_pushinteger(L, fz+1);	lua_settable(L, -3);
+
+	lua_newtable(L);
+	lua_pushinteger(L, 1);	lua_pushinteger(L, tx+1);	lua_settable(L, -3);
+	lua_pushinteger(L, 2);	lua_pushinteger(L, ty+1);	lua_settable(L, -3);
+	lua_pushinteger(L, 3);	lua_pushinteger(L, tz+1);	lua_settable(L, -3);
+
+	lua_pushnumber(L, strength);
+	return 3;
+}
 
 int Exchange::help(lua_State* L)
 {
@@ -301,6 +443,44 @@ int Exchange::help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_numberOfPaths)
+	{
+		lua_pushstring(L, "Determine how many pathways exist in the operator");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Integer: Number of pathways");
+		return 3;		
+	}
+		
+	if(func == l_getPath)
+	{
+		lua_pushstring(L, "Get information about a path");
+		lua_pushstring(L, "1 Integer: Index of path [1:numberOfPaths()]");
+		lua_pushstring(L, "2 Tables, 1 Number: triplets of integers describing from and to sites. 1 number describing strength");
+		return 3;		
+	}
+	
+	if(func == l_getPathsTo)
+	{
+		lua_pushstring(L, "Get all path indices that connect to the given site");
+		lua_pushstring(L, "1 *3Vector*: Index of to-site");
+		lua_pushstring(L, "1 Tables: indices of paths that connect to the given site");
+		return 3;			
+	}
+	if(func == l_getPathsFrom)
+	{
+		lua_pushstring(L, "Get all path indices that connect from the given site");
+		lua_pushstring(L, "1 *3Vector*: Index of from-site");
+		lua_pushstring(L, "1 Tables: indices of paths that connect from the given site");
+		return 3;			
+	}
+	if(func == l_mergepaths)
+	{
+		lua_pushstring(L, "Combine repeated to-from pairs into a single path with combined strength");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;			
+	}
+	
 	return SpinOperation::help(L);
 }
 
@@ -315,6 +495,11 @@ const luaL_Reg* Exchange::luaMethods()
 	{
 		{"addPath",      l_addpath},
 		{"add",          l_addpath},
+		{"numberOfPaths",l_numberOfPaths},
+		{"path",         l_getPath},
+		{"pathsTo",      l_getPathsTo},
+		{"pathsFrom",    l_getPathsFrom},
+		{"mergePaths",   l_mergepaths},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

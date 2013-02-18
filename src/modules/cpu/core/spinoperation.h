@@ -55,6 +55,8 @@ public:
 
 	std::string errormsg;
 	
+	void  idx2xyz(int idx, int& x, int& y, int& z) const ;
+
 	double global_scale;
 // 	virtual void encode(buffer* b) = 0;
 // 	virtual int  decode(buffer* b) = 0;

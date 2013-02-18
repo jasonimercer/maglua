@@ -58,6 +58,43 @@ void Anisotropy::deinit()
 	ops = 0;
 }
 
+int Anisotropy::merge()
+{
+	ani* new_ops = (ani*) malloc(sizeof(ani)*size);
+	int new_num = 0;
+
+	for(int i=0; i<num; i++)
+	{
+		int site = ops[i].site;
+		
+		if(site >= 0)
+		{
+			new_ops[new_num].site = site;
+			new_ops[new_num].axis[0] = ops[i].axis[0];
+			new_ops[new_num].axis[1] = ops[i].axis[1];
+			new_ops[new_num].axis[2] = ops[i].axis[2];
+			new_ops[new_num].strength = 0;
+			
+			for(int j=i; j<num; j++)
+			{
+				if(ops[j].site == site)
+				{
+					new_ops[new_num].strength += ops[j].strength;
+					ops[j].site = -1; //remove from future searches
+				}
+			}
+			new_num++;
+		}
+	}
+
+	int delta = num - new_num;
+	free(ops);
+	ops = new_ops;
+	num = new_num;
+	return delta;
+}
+
+
 bool Anisotropy::getAnisotropy(int site, double& nx, double& ny, double& nz, double& K)
 {
 	for(int i=0; i<num; i++)
@@ -215,7 +252,45 @@ static int l_get(lua_State* L)
 	return 4;
 }
 
+static int l_numofax(lua_State* L)
+{
+	LUA_PREAMBLE(Anisotropy, ani, 1);
+	lua_pushinteger(L, ani->num);
+	return 1;
+}
 
+
+static int l_axisat(lua_State* L)
+{
+	LUA_PREAMBLE(Anisotropy, ani, 1);
+	
+	int idx = lua_tointeger(L, 2) - 1;
+
+	if(idx < 0 || idx >= ani->num)
+		return luaL_error(L, "Invalid axis index");
+	
+
+	const int site = ani->ops[idx].site;
+	const double* axis = ani->ops[idx].axis;
+	const double strength = ani->ops[idx].strength;
+	
+	int x,y,z;
+	ani->idx2xyz(site, x, y, z);
+
+	lua_newtable(L);
+	lua_pushinteger(L, 1); lua_pushinteger(L, x+1); lua_settable(L, -3);
+	lua_pushinteger(L, 2); lua_pushinteger(L, y+1); lua_settable(L, -3);
+	lua_pushinteger(L, 3); lua_pushinteger(L, z+1); lua_settable(L, -3);
+	
+	lua_newtable(L);
+	lua_pushinteger(L, 1); lua_pushnumber(L, axis[0]); lua_settable(L, -3);
+	lua_pushinteger(L, 2); lua_pushnumber(L, axis[1]); lua_settable(L, -3);
+	lua_pushinteger(L, 3); lua_pushnumber(L, axis[2]); lua_settable(L, -3);
+	
+	lua_pushnumber(L, strength);
+	
+	return 3;
+}
 
 static int l_add(lua_State* L)
 {
@@ -261,6 +336,13 @@ static int l_add(lua_State* L)
 	return 0;
 }
 
+static int l_mergeAxes(lua_State* L)
+{
+	LUA_PREAMBLE(Anisotropy, ani, 1);
+	lua_pushinteger(L, ani->merge());
+	return 1;	
+}
+
 int Anisotropy::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -294,6 +376,31 @@ int Anisotropy::help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_axisat)
+	{
+		lua_pushstring(L, "Return the site, easy axis and strength at the given index.");
+		lua_pushstring(L, "1 Integer: Index of the axis.");
+		lua_pushstring(L, "1 Table of 3 Integers, 1 Table of 3 Numbers, 1 Number: Coordinates of the site, direction of the easy axis and strength of the easy axis.");
+		return 3;	
+	}
+	
+	if(func == l_numofax)
+	{
+		lua_pushstring(L, "Return the number of easy axes in the operator");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Integer: Number of easy axes.");
+		return 3;		
+	}
+	
+	if(func == l_mergeAxes)
+	{
+		lua_pushstring(L, "Combine common site-axes into a single axis with a combined strength");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;			
+	}
+	
+	
 	return SpinOperation::help(L);
 }
 
@@ -308,6 +415,9 @@ const luaL_Reg* Anisotropy::luaMethods()
 	{
 		{"add",          l_add},
 		{"get",          l_get},
+		{"numberOfAxes", l_numofax},
+		{"axis", l_axisat},
+		{"mergeAxes", l_mergeAxes},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
