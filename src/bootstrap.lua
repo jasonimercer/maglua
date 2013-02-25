@@ -32,19 +32,33 @@ local print_help = false
 local print_module_path_file = nil
 local write_documentation = nil
 
+local do_error_trim = false
+
 -- trim info about bootstrap from error messages
 debug["trim_error"] = function(msg)
-	msg = msg or ""
-	local x = 
-[[
-%s*%[C%]%: in function .dofile.%s*
-%s*%[string "%-%-%s*bootstrap]]
-
-	local a, b, m = string.find(msg, [[^(.*)]] .. x)
-	if a then 
-		return m 
+	if do_error_trim == false then
+		return msg
 	end
-	return msg
+
+	local a, b, preStack, Stack, postStack = string.find(msg, "(.-)(stack traceback%:%s*)(.*)")
+
+	if a == nil then
+		return msg --don't know how to deal with it
+	end
+	
+	-- need to trim error function from postStack
+	local a, b, c = string.find(postStack, "%s*%[C%]%: in function %'error%'%s+(.*)")
+	if a then
+		postStack = c
+	end
+	
+	-- need to trim bootstrap scope
+	local a, b, c = string.find(postStack, "(.*)%s*%[C%]%: in function .dofile_original.%s.*")
+	if a then
+		postStack = c
+	end
+	
+	return preStack .. Stack .. postStack
 end
 
 
@@ -294,6 +308,7 @@ while keep_trying do
 	
 	for k,v in pairs(mod) do
 		if v.result == nil then
+			--print(v.path)
 			local t = loadModule(v.path)
 			if t.error then
 				table.insert(last_error, t.error)
@@ -370,6 +385,8 @@ if be_quiet == nil then
 	e(table.concat(t, ", "))
 end
 
+
+do_error_trim = true
 
 if sub_process == nil then
 	-- find first script in args

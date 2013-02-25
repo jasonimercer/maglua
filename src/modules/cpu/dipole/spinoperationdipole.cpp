@@ -32,11 +32,6 @@ int Dipole::luaInit(lua_State* L)
 	return LongRange::luaInit(L); //gets nx, ny, nz, nxyz
 }
 
-void Dipole::push(lua_State* L)
-{
-	luaT_push<Dipole>(L, this);
-}
-
 void Dipole::encode(buffer* b)
 {
 	LongRange::encode(b);

@@ -55,11 +55,6 @@ sqlite3_conn::~sqlite3_conn()
 	db = 0;
 }
 
-void sqlite3_conn::push(lua_State* L)
-{
-	luaT_push<sqlite3_conn>(L, this);
-}
-
 int sqlite3_conn::luaInit(lua_State* L)
 {
 	const char* cfilename = lua_tostring(L, 1);
@@ -104,7 +99,7 @@ int sqlite3_conn::luaInit(lua_State* L)
 		}
 	}
 	
-	return 0;
+	return LuaBaseObject::luaInit(L);
 }
 
 

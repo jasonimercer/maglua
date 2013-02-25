@@ -18,6 +18,7 @@ LuaBaseObject::LuaBaseObject(int t)
 {
 	type = t;
 	refcount = 0;
+	L = 0;
 }
 
 void LuaBaseObject::encode(buffer* b)

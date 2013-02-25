@@ -43,7 +43,6 @@ public:
 	LINEAGE2("Wood", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 	
 	virtual bool apply(SpinSystem* ss_src, Anisotropy* ani, Magnetostatics2D* mag, SpinSystem* ss_dest, int& updates, int index);

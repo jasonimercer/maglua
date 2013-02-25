@@ -51,12 +51,6 @@ int LongRange::luaInit(lua_State* L)
 	return 0;	
 }
 
-void LongRange::push(lua_State* L)
-{
-	luaT_push<LongRange>(L, this);
-}
-
-
 void LongRange::encode(buffer* b)
 {
 	SpinOperation::encode(b);

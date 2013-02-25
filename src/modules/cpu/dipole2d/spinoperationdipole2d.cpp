@@ -24,11 +24,6 @@ Dipole2D::~Dipole2D()
 {
 }
 
-void Dipole2D::push(lua_State* L)
-{
-	luaT_push<Dipole2D>(L, this);
-}
-
 int Dipole2D::luaInit(lua_State* L)
 {
 	LongRange2D::luaInit(L);

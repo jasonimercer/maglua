@@ -75,7 +75,6 @@ public:
 
 	LINEAGE1("BSPTree")
 	static const luaL_Reg* luaMethods();
-	virtual void push(lua_State* L);
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 	

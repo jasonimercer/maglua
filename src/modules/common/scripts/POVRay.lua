@@ -286,9 +286,11 @@ function POVRay(filename, ss, custom)
 
 	local nx, ny, nz = ss:nx(), ss:ny(), ss:nz()
 	local nn = (nx*nx+ny*ny+nz*nz)^(1/2)
-	local cam_pos = custom.camera_position or {nx/2+1, -(1/8) * nn, (3/4) * nn}
-	local cam_at = custom.camera_focus or {nx/2+1 ,ny/2+1 - (1/8)*nn, nz/2}
-	local lights = custom.lights or {{20,0,20}, {0, 20,20}, {-20,0,20}, {0,-20,20}}
+	local cam_pos = custom.camera_position or {nx/2+1/2, -(1/8) * nn, (3/4) * nn}
+	local cam_at = custom.camera_focus or {nx/2+1/2 ,ny/2+1/2 - (1/8)*nn, nz/2+1}
+	local q, qz = 30, 20
+	
+	local lights = custom.lights or {{q,0,qz}, {0, q,qz}, {-q,0,qz}, {0,-q,qz}}
 	local scale = custom.scale or 1
 	
 	local function switch_yz(t)

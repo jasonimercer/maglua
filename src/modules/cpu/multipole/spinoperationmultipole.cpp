@@ -75,11 +75,6 @@ void Multipole::deinit()
 }
 
 	
-void Multipole::push(lua_State* L)
-{
-	luaT_push<Multipole>(L, this);
-}
-
 void Multipole::encode(buffer* b)
 {
 // 	LongRange::encode(b);

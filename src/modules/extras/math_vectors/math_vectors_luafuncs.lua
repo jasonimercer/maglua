@@ -43,7 +43,6 @@ local function norm(a)
 end
 	
 local function angleBetween(a,b)
-
 	local n = norm(a) * norm(b)
 	
 	if n == 0 then

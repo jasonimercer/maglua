@@ -51,7 +51,6 @@ public:
 	LINEAGE1("Random.Base")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 
 	void encode(buffer* b) {}

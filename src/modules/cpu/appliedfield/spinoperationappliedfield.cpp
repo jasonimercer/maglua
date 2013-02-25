@@ -28,11 +28,6 @@ int AppliedField::luaInit(lua_State* L)
 	return SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
 }
 
-void AppliedField::push(lua_State* L)
-{
-	luaT_push<AppliedField>(L, this);
-}
-	
 	
 void AppliedField::encode(buffer* b)
 {
@@ -69,16 +64,43 @@ bool AppliedField::apply(SpinSystem* ss)
 	return true;
 }
 
+static int l_sx(lua_State* L)
+{
+	LUA_PREAMBLE(AppliedField, af, 1);
+	af->B[0] = lua_tonumber(L, 2);
+	return 0;
+}
+static int l_sy(lua_State* L)
+{
+	LUA_PREAMBLE(AppliedField, af, 1);
+	af->B[1] = lua_tonumber(L, 2);
+	return 0;
+}
+static int l_sz(lua_State* L)
+{
+	LUA_PREAMBLE(AppliedField, af, 1);
+	af->B[2] = lua_tonumber(L, 2);
+	return 0;
+}
 
-// generete canned functions for these simple get/set cases
-LUAFUNC_SET_DOUBLE(AppliedField, B[0], l_sx)
-LUAFUNC_SET_DOUBLE(AppliedField, B[1], l_sy)
-LUAFUNC_SET_DOUBLE(AppliedField, B[2], l_sz)
-
-LUAFUNC_GET_DOUBLE(AppliedField, B[0], l_gx)
-LUAFUNC_GET_DOUBLE(AppliedField, B[1], l_gy)
-LUAFUNC_GET_DOUBLE(AppliedField, B[2], l_gz)
-
+static int l_gx(lua_State* L)
+{
+	LUA_PREAMBLE(AppliedField, af, 1);
+	lua_pushnumber(L, af->B[0]);
+	return 1;
+}
+static int l_gy(lua_State* L)
+{
+	LUA_PREAMBLE(AppliedField, af, 1);
+	lua_pushnumber(L, af->B[1]);
+	return 1;
+}
+static int l_gz(lua_State* L)
+{
+	LUA_PREAMBLE(AppliedField, af, 1);
+	lua_pushnumber(L, af->B[2]);
+	return 1;
+}
 
 int AppliedField::help(lua_State* L)
 {

@@ -423,14 +423,9 @@ void FMMOctTree::calcDipoleFields()
 
 }
 
-
-void FMMOctTree::push(lua_State* L)
-{
-	luaT_push<FMMOctTree>(L, this);
-}
-
 int FMMOctTree::luaInit(lua_State* L)
 {
+    LuaBaseObject:luaInit(L);
 	if(!lua_isnumber(L, 1))
 	{
 		return luaL_error(L, "First argument must be max_degree\n");

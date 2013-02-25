@@ -552,11 +552,6 @@ int DipoleEwald3D::luaInit(lua_State* L)
 	return 0;
 }
 
-void DipoleEwald3D::push(lua_State* L)
-{
-	luaT_push<DipoleEwald3D>(L, this);
-}
-
 static int l_setunitcell(lua_State* L)
 {
 	LUA_PREAMBLE(DipoleEwald3D, e, 1);	

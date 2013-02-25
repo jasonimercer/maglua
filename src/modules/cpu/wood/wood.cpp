@@ -47,11 +47,6 @@ int Wood::luaInit(lua_State* L)
 	return 0;
 }
 
-void Wood::push(lua_State* L)
-{
-	luaT_push<Wood>(L, this);
-}
-
 void Wood::init()
 {
 	DN = new double[nz];

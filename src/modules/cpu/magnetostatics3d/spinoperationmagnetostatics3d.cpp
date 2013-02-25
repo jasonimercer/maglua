@@ -70,11 +70,6 @@ double Magnetostatics3D::getGrainSize()
 }
 
 
-void Magnetostatics3D::push(lua_State* L)
-{
-	luaT_push<Magnetostatics3D>(L, this);
-}
-
 int Magnetostatics3D::luaInit(lua_State* L)
 {
 	LongRange3D::luaInit(L);

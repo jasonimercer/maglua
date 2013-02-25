@@ -38,7 +38,7 @@ int RNG::luaInit(lua_State* L)
 		}
 	}
 	seed();
-	return 0;
+	return LuaBaseObject::luaInit(L);
 }
 
 void RNG::seed()
@@ -59,12 +59,6 @@ void RNG::seed()
     }
 #endif
     seed( time(0) );
-}
-
-
-void RNG::push(lua_State* L)
-{
-	luaT_push<RNG>(L, this);
 }
 	
 double RNG::rand()                        // real number in [0,1]

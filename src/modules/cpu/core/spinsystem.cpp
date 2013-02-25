@@ -26,7 +26,7 @@ using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
 SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
-	: LuaBaseObject(ENCODE_SPINSYSTEM), x(0), y(0), z(0), 
+	: LuaBaseObject(hash32(slineage(0))), x(0), y(0), z(0),
 		ms(0),alpha(1.0),  gamma(1.0), dt(1.0),
 		nx(NX), ny(NY), nz(NZ),
 		nslots(NSLOTS), time(0)
@@ -36,11 +36,6 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 	site_gamma = 0;
 	L = 0;
     init();
-}
-
-void SpinSystem::push(lua_State* L)
-{
-	luaT_push<SpinSystem>(L, this);
 }
 
 int SpinSystem::luaInit(lua_State* L)
@@ -1058,6 +1053,61 @@ static int l_setspin(lua_State* L)
 	return 0;
 }
 
+
+static int l_setspin_tpr(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	
+	int r1, r2;
+	int site[3];
+	double spin[3];
+	
+	r1 = lua_getNint(L, 3, site, 2, 1);
+	if(r1 < 0)
+		return luaL_error(L, "invalid site");
+	
+	r2 = lua_getNdouble(L, 3, spin, 2+r1, 0);
+	if(r2 < 0)
+		return luaL_error(L, "invalid spin");
+	
+	int n = lua_isnumber(L, 2+r1+r2);
+		
+	int px = site[0] - 1;
+	int py = site[1] - 1;
+	int pz = site[2] - 1;
+	
+	const double t = spin[0];
+	const double p = spin[1];
+	const double r = spin[2];
+	
+	double sx = r * cos(t) * sin(p);
+	double sy = r * sin(t) * sin(p);
+	double sz = r * cos(p);
+
+	if(n)
+	{
+		double len = fabs(lua_tonumber(L, 2+r1+r2));
+		double rr = sx*sx + sy*sy + sz*sz;
+		if(rr > 0)
+		{
+			rr = len / sqrt(rr);
+			sx *= rr;
+			sy *= rr;
+			sz *= rr;
+		}
+		else
+		{
+			sx = 0;
+			sy = 0;
+			sz = len;
+		}
+	}
+	
+	ss->set(px, py, pz, sx, sy, sz);
+	
+	return 0;
+}
+
 static int l_getspin(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
@@ -1103,6 +1153,66 @@ static int l_getspin(lua_State* L)
 	
 	return 4;
 }
+
+
+static int l_getspin_tpr(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+
+	int site[3];
+	
+	int r = lua_getNint(L, 3, site, 2, 1);
+	if(r < 0)
+	{
+		//try again
+		site[0] = 1;
+		site[1] = 1;
+		site[2] = 1;
+		
+		for(int i=0; i<3; i++)
+		{
+			if(lua_isnumber(L, i+2))
+				site[i] = lua_tointeger(L, i+2);
+			else
+				break;
+		}
+		
+	}
+	
+	int px = site[0] - 1;
+	int py = site[1] - 1;
+	int pz = site[2] - 1;
+	
+	if(!ss->member(px, py, pz))
+		return 0;
+	
+	int idx = ss->getidx(px, py, pz);
+	
+	const double xx = (*ss->x)[idx];
+	const double yy = (*ss->y)[idx];
+	const double zz = (*ss->z)[idx];
+	
+	const double rr = sqrt(xx*xx + yy*yy + zz*zz);
+	
+	if(r == 0)
+	{
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+		lua_pushnumber(L, 0);
+	}
+	else
+	{
+		const double t = atan2(yy,xx);
+		const double p = acos(zz/rr);
+	
+		lua_pushnumber(L, t);
+		lua_pushnumber(L, p);
+		lua_pushnumber(L, rr);
+	}
+			
+	return 3;
+}
+
 
 static int l_getunitspin(lua_State* L)
 {
@@ -2052,10 +2162,29 @@ int SpinSystem::help(lua_State* L)
 	{
 		lua_pushstring(L, "Get the orientation and magnitude of a spin at a site.");
 		lua_pushstring(L, "1 *3Vector*: The lattice site.");
-		lua_pushstring(L, "4 Numbers*: The spin vector at the lattice site and magnitude.");
+		lua_pushstring(L, "4 Numbers: The spin vector at the lattice site and magnitude.");
 		return 3;
 	}
 	
+	//
+	if(func == l_setspin_tpr)
+	{
+		lua_pushstring(L, "Set the orientation and magnitude of a spin at a site using spherical coodinates. Note, the theta and phi follow math conventions, not physics conventions. Theta is the azimuthal angle renging from 0 to 2pi, Phi is the zenith angle ranging from 0 to pi.");
+		lua_pushstring(L, "2 *3Vector*s: The first argument represents a lattice site. The second represents the spin vector in spherical coordinates.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	
+	if(func == l_getspin_tpr)
+	{
+		lua_pushstring(L, "Get the orientation and magnitude of a spin at a site using spherical coodinates. Note, the theta and phi follow math conventions, not physics conventions. Theta is the azimuthal angle renging from 0 to 2pi, Phi is the zenith angle ranging from 0 to pi.");
+		lua_pushstring(L, "1 *3Vector*: The lattice site.");
+		lua_pushstring(L, "3 Numbers: The azimutal, zenith and radial components.");
+		return 3;
+	}
+	//
+
+
 	if(func == l_getunitspin)
 	{
 		lua_pushstring(L, "Get the orientation of a spin at a site.");
@@ -2511,6 +2640,8 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"netField",     l_netfield},
 		{"setSpin",      l_setspin},
 		{"spin"   ,      l_getspin},
+		{"setSpinTPR",      l_setspin_tpr},
+		{"spinTPR"   ,      l_getspin_tpr},
 		{"unitSpin",     l_getunitspin},
 		{"nx",           l_nx},
 		{"ny",           l_ny},

@@ -143,7 +143,6 @@ public:
 	LINEAGE1("Server")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L);
 	
 	void serve();
 	void servebg();
@@ -271,11 +270,6 @@ int LuaServer::luaInit(lua_State* _L)
 	return 0;
 }
 
-
-void LuaServer::push(lua_State* L)
-{
-	luaT_push<LuaServer>(L, this);
-}
 
 	
 LuaServer::~LuaServer()

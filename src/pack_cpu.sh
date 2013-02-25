@@ -52,6 +52,7 @@ cp -r modules/extras/pngwriter         $version/modules/extras
 cp -r modules/extras/sqlite3           $version/modules/extras
 cp -r modules/extras/math_vectors      $version/modules/extras
 cp -r modules/extras/os_extensions     $version/modules/extras
+cp -r modules/extras/elasticband       $version/modules/extras
 
 rm -rf `du -a $version | cut -f 2 | grep '\.svn'`
 

@@ -40,7 +40,6 @@ public:
 	LINEAGE2("Multipole", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 
 	virtual void encode(buffer* b);

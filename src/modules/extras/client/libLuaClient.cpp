@@ -63,11 +63,6 @@ int LuaClient::luaInit(lua_State* L)
 	return 0;
 }
 
-void LuaClient::push(lua_State* L)
-{
-	luaT_push<LuaClient>(L, this);
-}
-	
 bool LuaClient::connectTo(const char* host_port)
 {
 	if(_connected)

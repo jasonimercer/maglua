@@ -38,7 +38,6 @@ public:
 	LINEAGE2("Exchange", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 
 	bool apply(SpinSystem* ss);
@@ -66,6 +65,8 @@ public:
 	int size;
 	int num;
 	sss* pathways;
+	
+	int pbc[3];
 };
 
 EXCHANGE_API Exchange* checkExchange(lua_State* L, int idx);

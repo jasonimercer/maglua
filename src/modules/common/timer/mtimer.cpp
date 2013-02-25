@@ -52,13 +52,9 @@ Timer::~Timer()
 
 int Timer::luaInit(lua_State* L)
 {
+	LuaBaseObject::luaInit(L);
 	reset();
 	return 0;
-}
-
-void Timer::push(lua_State* L)
-{
-	luaT_push<Timer>(L, this);
 }
 
 

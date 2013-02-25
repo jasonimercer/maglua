@@ -66,7 +66,6 @@ public:
 	LINEAGE1("Client")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L);
 	
 	//void uploadLua(lua_State* L);
 	int  remoteExecuteLua(lua_State* L);

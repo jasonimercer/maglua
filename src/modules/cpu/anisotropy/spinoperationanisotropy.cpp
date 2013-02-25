@@ -34,11 +34,6 @@ int Anisotropy::luaInit(lua_State* L)
 	return 0;
 }
 
-void Anisotropy::push(lua_State* L)
-{
-	luaT_push<Anisotropy>(L, this);
-}
-
 void Anisotropy::init()
 {
 	num = 0;

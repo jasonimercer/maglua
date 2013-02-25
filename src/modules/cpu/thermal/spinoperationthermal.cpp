@@ -47,11 +47,6 @@ int Thermal::luaInit(lua_State* L)
 	return 0;
 }
 
-void Thermal::push(lua_State* L)
-{
-	luaT_push<Thermal>(L, this);
-}
-
 void Thermal::encode(buffer* b)
 {
 	SpinOperation::encode(b);

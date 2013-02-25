@@ -26,6 +26,10 @@ Exchange::Exchange(int nx, int ny, int nz)
 	size = 32;
 	num  = 0;
 	pathways = 0;
+	pbc[0] = 1;
+	pbc[1] = 1;
+	pbc[2] = 1;
+
 }
 
 int Exchange::luaInit(lua_State* L)
@@ -39,15 +43,14 @@ int Exchange::luaInit(lua_State* L)
 	return 0;	
 }
 
-void Exchange::push(lua_State* L)
-{
-	luaT_push<Exchange>(L, this);
-}
-
 void Exchange::encode(buffer* b)
 {
 	SpinOperation::encode(b);
 
+	encodeInteger(pbc[0], b);
+	encodeInteger(pbc[1], b);
+	encodeInteger(pbc[2], b);
+	
 	encodeInteger(num, b);
 	
 	for(int i=0; i<num; i++)
@@ -64,6 +67,10 @@ int  Exchange::decode(buffer* b)
 
 	SpinOperation::decode(b);
 
+	pbc[0] = decodeInteger(b);
+	pbc[1] = decodeInteger(b);
+	pbc[2] = decodeInteger(b);
+	
 	nxyz = nx * ny * nz;
 	
 	size = decodeInteger(b);
@@ -258,11 +265,7 @@ static int l_addpath(lua_State* L)
 {
 	LUA_PREAMBLE(Exchange,ex,1);
 
-	int PBC = 1;
-	if(lua_isboolean(L, -1))
-	{
-		PBC = lua_toboolean(L, -1);
-	}
+	const int* pbc = ex->pbc;
 	
 	int r1, r2;
 	int a[3];
@@ -275,22 +278,44 @@ static int l_addpath(lua_State* L)
 	if(r2<0)	return luaL_error(L, "invalid site");
 	
 
-	int s1x = a[0]-1;
-	int s1y = a[1]-1;
-	int s1z = a[2]-1;
-
-	int s2x = b[0]-1;
-	int s2y = b[1]-1;
-	int s2z = b[2]-1;
+	a[0]--; b[0]--;
+	a[1]--; b[1]--;
+	a[2]--; b[2]--;
 	
-	if(!PBC)
+	int nxyz[3];
+	nxyz[0] = ex->nx;
+	nxyz[1] = ex->ny;
+	nxyz[2] = ex->nz;
+	
+	for(int i=0; i<3; i++)
 	{
-		if(!ex->member(s1x,s1y,s1z))
+		if(pbc[i]) //then we will adjust to inside system if needed
+		{
+			while(a[i] < 0)
+			{
+				a[i] += 4*nxyz[i];
+			}
+			while(b[i] < 0)
+			{
+				b[i] += 4*nxyz[i];
+			}
+			a[i] %= nxyz[i];
+			b[i] %= nxyz[i];
+		}
+		if(a[i] < 0 || a[i] >= nxyz[i])
 			return 0;
-		if(!ex->member(s2x,s2y,s2z))
+		if(b[i] < 0 || b[i] >= nxyz[i])
 			return 0;
 	}
 	
+	int s1x = a[0];
+	int s1y = a[1];
+	int s1z = a[2];
+
+	int s2x = b[0];
+	int s2y = b[1];
+	int s2z = b[2];
+
 	double strength = lua_isnumber(L, 2+r1+r2)?lua_tonumber(L, 2+r1+r2):1.0;
 	int s1 = ex->getSite(s1x, s1y, s1z);
 	int s2 = ex->getSite(s2x, s2y, s2z);
@@ -405,6 +430,24 @@ static int l_getPath(lua_State* L)
 	return 3;
 }
 
+static int l_getpbc(lua_State* L)
+{
+	LUA_PREAMBLE(Exchange, ex, 1);
+	lua_pushboolean(L, ex->pbc[0]);
+	lua_pushboolean(L, ex->pbc[1]);
+	lua_pushboolean(L, ex->pbc[2]);
+	return 3;
+}
+
+static int l_setpbc(lua_State* L)
+{
+	LUA_PREAMBLE(Exchange, ex, 1);
+	ex->pbc[0] = lua_toboolean(L, 2);
+	ex->pbc[1] = lua_toboolean(L, 2);
+	ex->pbc[2] = lua_toboolean(L, 2);
+	return 0;
+}
+
 int Exchange::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -481,6 +524,21 @@ int Exchange::help(lua_State* L)
 		return 3;			
 	}
 	
+	if(func == l_getpbc)
+	{
+		lua_pushstring(L, "Get the flags for periodicity in the X, Y and Z directions. Default true, true, true.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "3 Booleans: Each value corresponds to a cardinal direction. If true then new paths will use periodic boundaries for out-of-range sites otherwise the path will be ignored.");
+		return 3;			
+	}
+	if(func == l_setpbc)
+	{
+		lua_pushstring(L, "Set the flags for periodicity in the X, Y and Z directions. Default true, true, true.");
+		lua_pushstring(L, "3 Booleans: Each value corresponds to a cardinal direction. If true then new paths will use periodic boundaries for out-of-range sites otherwise the path will be ignored.");
+		lua_pushstring(L, "");
+		return 3;			
+	}
+	
 	return SpinOperation::help(L);
 }
 
@@ -500,6 +558,8 @@ const luaL_Reg* Exchange::luaMethods()
 		{"pathsTo",      l_getPathsTo},
 		{"pathsFrom",    l_getPathsFrom},
 		{"mergePaths",   l_mergepaths},
+		{"periodicXYZ", l_getpbc},
+		{"setPeriodicXYZ", l_setpbc},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

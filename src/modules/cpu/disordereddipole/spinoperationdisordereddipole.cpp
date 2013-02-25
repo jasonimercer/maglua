@@ -63,11 +63,6 @@ int DisorderedDipole::luaInit(lua_State* L)
 	return 0;	
 }
 
-void DisorderedDipole::push(lua_State* L)
-{
-	luaT_push<DisorderedDipole>(L, this);
-}
-
 
 void DisorderedDipole::encode(buffer* b)
 {

@@ -48,11 +48,6 @@ int LongRange2D::luaInit(lua_State* L)
 	return 0;	
 }
 
-void LongRange2D::push(lua_State* L)
-{
-	luaT_push<LongRange2D>(L, this);
-}
-
 
 void LongRange2D::encode(buffer* b)
 {

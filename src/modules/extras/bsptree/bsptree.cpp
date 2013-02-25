@@ -34,11 +34,6 @@ BSPTree::BSPTree()
     init();
 }
 
-void BSPTree::push(lua_State* L)
-{
-	luaT_push<BSPTree>(L, this);
-}
-
 int BSPTree::luaInit(lua_State* L)
 {
 	deinit();

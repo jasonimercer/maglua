@@ -45,10 +45,6 @@ int Magnetostatic::luaInit(lua_State* L)
 	return LongRange::luaInit(L); //gets nx, ny, nz, nxyz
 }
 
-void Magnetostatic::push(lua_State* L)
-{
-	luaT_push<Magnetostatic>(L, this);
-}
 
 void Magnetostatic::encode(buffer* b)
 {

@@ -1,5 +1,4 @@
 -- LongRange2D
-
 local MODNAME = "LongRange2D"
 local MODTAB = _G[MODNAME]
 local t = maglua_getmetatable(MODNAME) -- this is a special function available only at registration time

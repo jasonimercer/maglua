@@ -14,62 +14,23 @@
 #define LUABASEOBJECT_H
 #include "factory.h"
 
-
-#ifdef WIN32
- #define strcasecmp(A,B) _stricmp(A,B)
- #define strncasecmp(A,B,C) _strnicmp(A,B,C)
- #pragma warning(disable: 4251)
- #pragma warning(disable: 4996)
- #define snprintf _snprintf
- #pragma warning(disable: 4251)
-
- #ifdef LUABASEOBJECT_EXPORTS
-  #define LUABASEOBJECT_API __declspec(dllexport)
- #else
-  #define LUABASEOBJECT_API __declspec(dllimport)
- #endif
-#else
- #define LUABASEOBJECT_API 
-#endif
-
-
-
-LUABASEOBJECT_API typedef struct buffer
+typedef struct buffer
 {
 	char* buf;
 	int pos;
 	int size;
 }buffer;
 
-#define ENCODE_UNKNOWN      0
-
-#define ENCODE_SPINSYSTEM   hash32("SpinSystem")
-#define ENCODE_ANISOTROPY   hash32("Anisotropy")
-#define ENCODE_APPLIEDFIELD hash32("AppliedField")
-#define ENCODE_DIPOLE       hash32("Dipole")
-#define ENCODE_EXCHANGE     hash32("Exchange")
-#define ENCODE_THERMAL      hash32("Thermal")
-
-#define ENCODE_LLGCART      hash32("LLGCart")
-#define ENCODE_LLGQUAT      hash32("LLGQuat")
-#define ENCODE_LLGFAKE      hash32("LLGFake")
-#define ENCODE_LLGALIGN     hash32("LLGALign")
-
-#define ENCODE_INTERP2D    hash32("Interpolate2D")
-#define ENCODE_INTERP1D    hash32("interpolate1D")
-#define ENCODE_MAGNETOSTATIC hash32("Magnetostatic")
-
-#define ENCODE_SHORTRANGE  hash32("ShortRange")
 
 extern "C"
 {
-LUABASEOBJECT_API   void encodeBuffer(const void* s, const int len, buffer* b);
-LUABASEOBJECT_API   void encodeDouble(const double d, buffer* b);
-LUABASEOBJECT_API   void encodeInteger(const int i, buffer* b);
-LUABASEOBJECT_API    int decodeInteger(buffer* b);
-LUABASEOBJECT_API double decodeDouble(buffer* b);
-LUABASEOBJECT_API   void decodeBuffer(void* dest, const int len, buffer* b);
-LUABASEOBJECT_API   void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals);
+   void encodeBuffer(const void* s, const int len, buffer* b);
+   void encodeDouble(const double d, buffer* b);
+   void encodeInteger(const int i, buffer* b);
+	int decodeInteger(buffer* b);
+ double decodeDouble(buffer* b);
+   void decodeBuffer(void* dest, const int len, buffer* b);
+   void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals);
 }
 
 #include <string.h>
@@ -83,6 +44,10 @@ extern "C" {
 #include <lauxlib.h>
 }
 
+class LuaBaseObject;
+template<class T>
+void luaT_push(lua_State* L, LuaBaseObject* tt);
+
 #define LINEAGE5(v1,v2,v3,v4,v5) \
 	virtual const char* lineage(int i) { switch(i) { \
 	case 0: return v1; case 1: return v2; \
@@ -92,7 +57,8 @@ extern "C" {
 	case 0: return v1; case 1: return v2; \
 	case 2: return v3; case 3: return v4; \
 	case 4: return v5; } return 0; } \
-	static const char* typeName() {return v1;}
+	static const char* typeName() {return v1;} \
+	virtual void push(lua_State * L){ luaT_push<typeof(*this)>(L, this); }
 
 #define LINEAGE4(v1,v2,v3,v4) LINEAGE5(v1,v2,v3,v4, 0)
 #define LINEAGE3(v1,v2,v3)    LINEAGE4(v1,v2,v3, 0)
@@ -100,22 +66,24 @@ extern "C" {
 #define LINEAGE1(v1)          LINEAGE2(v1, 0)
 #define LINEAGE0()            LINEAGE1(0)
 
-class LUABASEOBJECT_API LuaBaseObject
+class  LuaBaseObject
 {
 public:
 	LuaBaseObject(int type = 0);
 
 	LINEAGE1("LuaBaseObject")
 	static luaL_Reg* luaMethods() {return 0;}
-	virtual int luaInit(lua_State* _L) {L=_L; return 0;}
-	virtual void push(lua_State* /*L*/) {}
+	// return value is number of arguments consumed from the bottom of the stack:
+	virtual int luaInit(lua_State* _L, const int base=1) {const int i = base; L=_L; return i-i;}
+
 	static int help(lua_State* /*L*/) {return 0;}
+	static int regExtra(lua_State* /*L*/) {return 0;}
 
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
-	
+
 	//string name;
-	int type;
+	int type; //type is used internally for encoding/decoding
 	int refcount;
 	lua_State* L;
 };
@@ -225,6 +193,218 @@ void luaT_push(lua_State* L, LuaBaseObject* tt)
 	}
 }
 
+// the following to and push functions are used in the wrappers
+template<typename T>
+inline T luaTT_to(lua_State* L, int idx)
+{
+	return luaT_to<T>(L, idx);
+}
+// specializations for to
+template<>
+inline int luaTT_to<int>(lua_State* L, int idx)
+{
+	return lua_tointeger(L, idx);
+}
+template<>
+inline double luaTT_to<double>(lua_State* L, int idx)
+{
+	return lua_tonumber(L, idx);
+}
+template<>
+inline const char* luaTT_to<const char*>(lua_State* L, int idx)
+{
+	return lua_tostring(L, idx);
+}
+
+// The following luaT_wrapper teplated functions can be used
+// as C++/lua interface functions
+//
+// example:
+// {"setValue", luaT_wrapper<ClassName, &ClassName::setValue>},
+
+// caller - no args, no return
+template<typename T, void (T::*method)()>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	((*t).*method)();
+	return 0;
+}
+
+
+// get double from class using getter
+template<typename T, double (T::*getValue)() const>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	double d = ((*t).*getValue)();
+	lua_pushnumber(L, d);
+	return 1;
+}
+template<typename T, double (T::*getValue)()>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	double d = ((*t).*getValue)();
+	lua_pushnumber(L, d);
+	return 1;
+}
+// int getter
+template<typename T, int (T::*getValue)()>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	int d = ((*t).*getValue)();
+	lua_pushinteger(L, d);
+	return 1;
+}
+template<typename T, bool (T::*getValue)()>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	bool d = ((*t).*getValue)();
+	lua_pushboolean(L, d);
+	return 1;
+}
+template<typename T, long (T::*getValue)()>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	long d = ((*t).*getValue)();
+	lua_pushinteger(L, d);
+	return 1;
+}
+template<typename T, double (T::*getValue)(int,int)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	int v2 = lua_tointeger(L, 2);
+	int v3 = lua_tointeger(L, 3);
+	double d = ((*t).*getValue)(v2,v3);
+	lua_pushinteger(L, d);
+	return 1;
+}
+
+template<typename T, void (T::*setValue)(double)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	double d = lua_tonumber(L, 2);
+	((*t).*setValue)(d);
+	return 0;
+}
+template<typename T, void (T::*setValue)(int)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	int d = lua_tointeger(L, 2);
+	((*t).*setValue)(d);
+	return 0;
+}
+template<typename T, void (T::*setValue)(long)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	long d = lua_tointeger(L, 2);
+	((*t).*setValue)(d);
+	return 0;
+}
+template<typename T, void (T::*setValue)(int,int,double)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	int v2 = lua_tointeger(L, 2);
+	int v3 = lua_tointeger(L, 3);
+	double v4 = lua_tonumber(L, 4);
+	((*t).*setValue)(v2,v3,v4);
+	return 0;
+}
+
+template<typename T, void (T::*setValue)(const char*)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	const char* c = lua_tostring(L, 2);
+	((*t).*setValue)(c);
+	return 0;
+}
+
+
+
+template<typename T, typename R, void (T::*method)(const R&)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	R v2;
+	v2.luaInit(L, 2);
+	((*t).*method)(v2);
+	return 0;
+}
+template<typename T, typename R, void (T::*method)(const R*)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	R* v2 = luaT_to<R>(L, 2);
+	((*t).*method)(v2);
+	return 0;
+}
+template<typename T, typename R, void (T::*method)(R*)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	R* v2 = luaT_to<R>(L, 2);
+	((*t).*method)(v2);
+	return 0;
+}
+template<typename T, typename R, typename S, void (T::*method)(R*, S)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	R* v2 = luaT_to<R>(L, 2);
+	S v3 = luaTT_to<S>(L, 3);
+	((*t).*method)(v2,v3);
+	return 0;
+}
+template<typename T, typename R, bool (T::*method)(const R&)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	R v2;
+	v2.luaInit(L, 2);
+	bool b = ((*t).*method)(v2);
+	lua_pushboolean(L, b);
+	return 1;
+}
+template<typename T, typename R, double (T::*method)(const R&)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	R v2;
+	v2.luaInit(L, 2);
+	double retval = ((*t).*method)(v2);
+	lua_pushnumber(L, retval);
+	return 1;
+}
+template<typename T, typename R, R* (T::*method)()>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	luaT_push<R>(L, ((*t).*method)() );
+	return 1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 // garbage collection metamethod.
 // decrement refcount, delete if needed
 template<class T>
@@ -314,6 +494,9 @@ inline void luaT_register(lua_State* L)
 	const int top = lua_gettop(L);
 	if(!luaL_newmetatable(L, T::typeName()))
 		return;
+
+	T::regExtra(L);
+
 	lua_pushstring(L, "__index");
 	lua_pushvalue(L, -2);
 	lua_settable(L, -3);
@@ -323,44 +506,27 @@ inline void luaT_register(lua_State* L)
 	lua_pushstring(L, "__tostring");
 	lua_pushcfunction(L, luaT_tostring<T>);
 	lua_settable(L, -3);
-	
-	vector<string> list;
-	const char* tt = T::typeName();
-	for(int i=0; tt && tt[i];)
-	{
-		string buffer;
-		if(tt[i] == '.') i++;
-		for(;tt[i] && tt[i] != '.'; i++)
-			buffer.push_back(tt[i]);
-		
-		if(buffer.length() > 0)
-			list.push_back(buffer);
-	}
-	
-	if(list.size() > 1)
-	{
-		lua_getglobal(L, list[0].c_str());
-		if(lua_isnil(L, -1))
-		{
-			lua_pop(L, 1);
-			lua_newtable(L);
-			lua_setglobal(L, list[0].c_str());
-			lua_getglobal(L, list[0].c_str());
-		}
-		for(unsigned int i=1; i<list.size()-1; i++)
-		{
-			lua_getfield(L, -1, list[i].c_str());
-			if(lua_isnil(L, -1))
-			{
-				lua_pop(L, 1);
-				lua_newtable(L);
-				lua_setfield(L, -2, list[i].c_str());
-				lua_getfield(L, -1, list[i].c_str());
-			}
-		}
-	}
 
-	lua_newtable(L);
+
+	const char* get_name =
+	"return function(name)\n"
+	" local t = {}\n"
+	" for v in string.gmatch(name, \"%w+\") do\n"
+	"  table.insert(t, v)\n"
+	" end\n"
+	" if t[1] == nil then return {} end\n"
+	" _G[t[1]] = _G[t[1]] or {}\n"
+	" local v = _G[t[1]]"
+	" for i=2,table.maxn(t) do\n"
+	"   v[t[i]] = v[t[i]] or {}\n"
+	"   v = v[t[i]]\n"
+	" end\n"
+	" return v\n"
+	"end\n"
+	;
+	luaL_dostring(L, get_name);
+	lua_pushstring(L, T::typeName());
+	lua_call(L, 1,1);
 	lua_pushstring(L, "new");
 	lua_pushcfunction(L, luaT_new<T>);
 	lua_settable(L, -3);
@@ -371,21 +537,11 @@ inline void luaT_register(lua_State* L)
 	lua_pushcfunction(L, luaT_help<T>);
 	lua_settable(L, -3);
 
-	if(list.size() > 1)
-	{
-		lua_setfield(L, -2, list.back().c_str());
-	}
-	else
-	{
-		lua_setglobal(L, T::typeName());
-	}
-
-
 	if(T::luaMethods())
 		luaT_addMethods<T>(L, T::luaMethods());
 
 	Factory_registerItem(hash32(T::typeName()), new_luabaseobject<T>, luaT_push<T>, T::typeName());
-	
+
 	while(lua_gettop(L) > top)
 		lua_pop(L, 1);
 }
@@ -398,25 +554,5 @@ inline void luaT_register(lua_State* L)
 #define _NULLPAIR32  _NULLPAIR16,_NULLPAIR16
 #define _NULLPAIR64  _NULLPAIR32,_NULLPAIR32
 #define _NULLPAIR128 _NULLPAIR64,_NULLPAIR64
-
-
-
-// macros to create simple getter/setter functions
-#define LUAFUNC_SET_DOUBLE(T,var,func_name) \
-static int func_name(lua_State* L) \
-{ \
-	LUA_PREAMBLE(T, _x_, 1); \
-	(_x_)->var = lua_tonumber(L, 2); \
-	return 0; \
-}
-
-#define LUAFUNC_GET_DOUBLE(T,var,func_name) \
-static int func_name(lua_State* L) \
-{ \
-	LUA_PREAMBLE(T, _x_, 1); \
-	lua_pushnumber(L, (_x_)->var); \
-	return 1; \
-}
-
 
 #endif // LUABASEOBJECT_H
