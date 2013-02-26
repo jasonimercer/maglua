@@ -323,6 +323,15 @@ void reduceExtreme(const floatComplex* d_a, const int min_max, const int n, floa
 
 
 template<typename T>
+T arraySumAll_cplx_(const T* v, const int n)
+{
+	T res = 0;
+	for(int i=0; i<n; i++)
+		res += v[i];
+	
+	return res;
+}
+template<typename T>
 T arraySumAll_(const T* v, const int n)
 {
 	T res = 0;
@@ -349,11 +358,11 @@ void reduceSumAll(const int* a, const int n, int& v)
 }
 void reduceSumAll(const doubleComplex* a, const int n, doubleComplex& v)
 {
-	v = arraySumAll_<doubleComplex>(a, n);
+	v = arraySumAll_cplx_<doubleComplex>(a, n);
 }
 void reduceSumAll(const floatComplex* a, const int n, floatComplex& v)
 {
-	v = arraySumAll_<floatComplex>(a, n);
+	v = arraySumAll_cplx_<floatComplex>(a, n);
 }
 
 

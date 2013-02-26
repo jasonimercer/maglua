@@ -16,7 +16,7 @@ CATEGORY=cpu
 #DEPEND is parsed to make the vs2010 project
 DEPEND=core luabaseobject  array
 BASEDIR=../../..
-CC_EXTRAOPS=-fopenmp
-EXTRA_CFLAGS=-lgomp -lrt
+# CC_EXTRAOPS=-fopenmp
+# EXTRA_CFLAGS=-lgomp -lrt
 include $(BASEDIR)/makefile.common.cpu
 

@@ -17,6 +17,6 @@ CATEGORY=cpu
 DEPEND=luabaseobject
 BASEDIR=../../..
 EXTRA_PKG=fftw3f
-CC_EXTRAOPS=-fopenmp
-EXTRA_CFLAGS=-lgomp -lrt
+# CC_EXTRAOPS=-fopenmp
+# EXTRA_CFLAGS=-lgomp -lrt
 include $(BASEDIR)/makefile.common.cpu

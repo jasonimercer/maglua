@@ -57,6 +57,30 @@ function writeEnergyPath(filename)
 	f:close()
 end
 
+
+function writePathComponents(filename)
+	f = io.open(filename, "w")
+	
+	local np = eb:numberOfPathPoints()
+	local ns = table.maxn(eb:freeSites())
+
+	for p=1,np do
+		local line = {}
+		table.insert(line, p)
+		for s=1,ns do
+			local x, y, z = eb:spin(p, s)
+			table.insert(line, x)
+			table.insert(line, y)
+			table.insert(line, z)
+		end
+		line = table.concat(line, "\t")
+		print(line)
+		f:write(line .. "\n")
+	end
+	
+	f:close()
+end
+
 eb = ElasticBand.new()
 eb:setInitialState(ss1)
 eb:setFinalState(ss2)
@@ -72,11 +96,11 @@ eb:setNumberOfPathPoints(np)
 -- initialize is not needed here, we're just doing it so we can get
 -- the initial energy path to compare.
 eb:initialize()
-writeEnergyPath("InitialPathway.txt")
+writePathComponents("InitialPathway.txt")
 
 for i=1,3 do
 	eb:compute(25)
-	writeEnergyPath("FinalPathway" .. i .. ".txt")
+	writePathComponents("FinalPathway" .. i .. ".txt")
 end
 
 -- the following will render the states

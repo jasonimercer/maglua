@@ -1098,7 +1098,21 @@ int ElasticBand::help(lua_State* L)
 		lua_pushstring(L, "1 Value: the internal data");
 		return 3;
 	}
-
+	if(func == l_getsite)
+	{
+		lua_pushstring(L, "Get site x,y and z coordinates.");
+		lua_pushstring(L, "2 Integers: 1st integer is path index, 2nd integer is site index.");
+		lua_pushstring(L, "3 Numbers: x,y,z coordinates of spin at site s at path point p.");
+		return 3;
+	}
+	
+	if(func == l_getallsites)
+	{
+		lua_pushstring(L, "Get which sites are involved in calculation");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Table of Tables of 3 Integers: Site positions involved in calculation.");
+		return 3;
+	}
 	return LuaBaseObject::help(L);
 }
 
