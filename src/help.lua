@@ -151,13 +151,8 @@ function write_help(file_handle)
 
 	f:write(lp([[
 	<H1>MagLua</H1>
-	<p>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations with the Lua scripting language.
-	<p>MagLua is composed of 2 conceptual parts following the Data Oriented Design paradigm
-	<ul>
-		<li>Data - Spin vectors and fields, these are held in a *SpinSystem*.
-		<li>Transformations - Objects which modify data. Some calculate fields based on spins or external influences such as *Anisotropy*, *Dipole* and *Thermal*, others update the spin vectors such as *LLG.Cartesian*.
-	</ul>
-	<p>The following is a list of the objects and functions which may be combined to create a simulation.]]))
+	<p>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations with the Lua scripting language.	<p>MagLua is composed of 2 conceptual parts following the Data Oriented Design paradigm
+	<ul><li>Data - Spin vectors and fields, these are held in a *SpinSystem*.<li>Transformations - Objects which modify data. Some calculate fields based on spins or external influences such as *Anisotropy*, *Dipole* and *Thermal*, others update the spin vectors such as *LLG.Cartesian*.	</ul>	<p>The <a href="#Index">Index</a> has links to all objects, methods and functions provided by MagLua.</p><p>The following is a list of the objects and functions which may be combined to create a simulation.]]))
 
 	-- table for the index
 	local index = {}	

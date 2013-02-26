@@ -48,6 +48,12 @@ class LuaBaseObject;
 template<class T>
 void luaT_push(lua_State* L, LuaBaseObject* tt);
 
+#if defined (__GNUC__) || defined (__ICC)
+#define TYPEOF(x) typeof(x)
+#else
+#define TYPEOF(x) typeof(x)
+#endif
+
 #define LINEAGE5(v1,v2,v3,v4,v5) \
 	virtual const char* lineage(int i) { switch(i) { \
 	case 0: return v1; case 1: return v2; \
@@ -58,7 +64,7 @@ void luaT_push(lua_State* L, LuaBaseObject* tt);
 	case 2: return v3; case 3: return v4; \
 	case 4: return v5; } return 0; } \
 	static const char* typeName() {return v1;} \
-	virtual void push(lua_State * L){ luaT_push<typeof(*this)>(L, this); }
+	virtual void push(lua_State * L){ luaT_push< TYPEOF(*this) >(L, this); }
 
 #define LINEAGE4(v1,v2,v3,v4) LINEAGE5(v1,v2,v3,v4, 0)
 #define LINEAGE3(v1,v2,v3)    LINEAGE4(v1,v2,v3, 0)

@@ -28,10 +28,6 @@ int InterpolatingFunction2D::luaInit(lua_State* L)
 {
 	return 0;
 }
-void InterpolatingFunction2D::push(lua_State* L)
-{
-	luaT_push<InterpolatingFunction2D>(L, this);
-}
 	
 	
 InterpolatingFunction2D::~InterpolatingFunction2D()

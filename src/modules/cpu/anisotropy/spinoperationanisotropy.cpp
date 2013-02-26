@@ -184,6 +184,7 @@ bool Anisotropy::apply(SpinSystem* ss)
 	hy.zero();
 	hz.zero();
 
+ #pragma omp for schedule(static)
 	for(int j=0; j<num; j++)
 	{
 		const ani& op = ops[j];

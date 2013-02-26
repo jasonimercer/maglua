@@ -116,11 +116,6 @@ int InterpolatingFunction::luaInit(lua_State* L)
 	return 0;
 }
 
-void InterpolatingFunction::push(lua_State* L)
-{
-	luaT_push<InterpolatingFunction>(L, this);
-}
-	
 InterpolatingFunction::~InterpolatingFunction()
 {
 	if(root)

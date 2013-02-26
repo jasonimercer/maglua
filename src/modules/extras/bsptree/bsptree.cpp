@@ -453,7 +453,7 @@ int BSPTree::help(lua_State* L)
 	if(func == l_getdatsph)
 	{
 		lua_pushstring(L, "Return all data in the provided sphere.");
-		lua_pushstring(L, "4 Nubmers: center of sphere and radius");
+		lua_pushstring(L, "4 Numbers: center of sphere and radius");
 		lua_pushstring(L, "1 Table: List of data");
 		return 3;
 	}
