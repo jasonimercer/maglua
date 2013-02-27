@@ -36,6 +36,7 @@ LLGCartesian::~LLGCartesian()
 {
 }
 
+
 bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 // bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
@@ -62,7 +63,9 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 			    dmdt->x->ddata(),     dmdt->y->ddata(),     dmdt->z->ddata(),     dmdt->ms->ddata(),
 			    dmdt->hx[T]->ddata(), dmdt->hy[T]->ddata(), dmdt->hz[T]->ddata(),
 			    dmdt->hx[S]->ddata(), dmdt->hy[S]->ddata(), dmdt->hz[S]->ddata(),
-			dt, alpha, d_alpha, gamma, d_gamma);	
+			dt, alpha, d_alpha, gamma, d_gamma, thermalOnlyFirstTerm, disableRenormalization);	
+	
+
 	
 	spinto->x->new_device  = true;
 	spinto->y->new_device  = true;

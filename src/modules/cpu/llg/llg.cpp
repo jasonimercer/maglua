@@ -19,7 +19,7 @@
 #include "spinsystem.h"
 
 LLG::LLG(int encode_type)
-: LuaBaseObject(encode_type), disablePrecession(false), disableRenormalization(false)
+: LuaBaseObject(encode_type), disableRenormalization(false)
 {
 	thermalOnlyFirstTerm = true;
 }

@@ -40,7 +40,6 @@ public:
 	LINEAGE2("LongRange2D", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 
 	bool apply(SpinSystem* ss);

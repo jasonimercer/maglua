@@ -119,6 +119,23 @@ static int l_mean(lua_State* L)
 	luaT<T>::push(L, t);
 	return luaT<T>::elements();
 }
+template<typename T>
+static int l_sum(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	T t = a->sum();
+	luaT<T>::push(L, t);
+	return luaT<T>::elements();
+}
+template<typename T>
+static int l_scale(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	T t = luaT<T>::to(L, 2);
+	a->scaleAll(t);
+	return 0;
+}
+
 
 template<typename T>
 static const luaL_Reg* get_base_methods()
@@ -141,6 +158,8 @@ static const luaL_Reg* get_base_methods()
 		{"min",     l_min<T>},
 		{"max",     l_max<T>},
 		{"mean",    l_mean<T>},
+		{"scale",   l_scale<T>},
+		{"sum",     l_sum<T>},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -265,6 +284,13 @@ int Array<T>::help(lua_State* L)
 		lua_pushstring(L, "Find mean of array");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 value");
+		return 3;
+	}
+	if(func == &(l_scale<T>))
+	{
+		lua_pushstring(L, "Scale all values in the array by the given value");
+		lua_pushstring(L, "1 Value: The scaling factor");
+		lua_pushstring(L, "");
 		return 3;
 	}
 	return LuaBaseObject::help(L);

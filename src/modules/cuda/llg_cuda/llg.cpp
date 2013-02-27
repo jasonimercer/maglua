@@ -14,9 +14,10 @@
 #include "spinsystem.h"
 
 LLG::LLG(int encode_type)
-: LuaBaseObject(encode_type), disablePrecession(false)
+: LuaBaseObject(encode_type), disableRenormalization(false)
 {
-	
+	thermalOnlyFirstTerm = true;
+
 }
 
 int LLG::luaInit(lua_State* L)
@@ -29,8 +30,20 @@ LLG::~LLG()
 	
 }
 
-void LLG::encode(buffer* b) {}
-int  LLG::decode(buffer* b) {return 0;}
+void LLG::encode(buffer* b)
+{
+	encodeInteger(thermalOnlyFirstTerm, b);
+	encodeInteger(disableRenormalization, b);
+
+}
+
+int  LLG::decode(buffer* b)
+{
+	thermalOnlyFirstTerm = decodeInteger(b);
+	disableRenormalization = decodeInteger(b);
+	return 0;
+}
+
 
 // 
 // The apply function is highly overloaded 
@@ -87,6 +100,50 @@ static int l_apply(lua_State* L)
 	return 0;
 }
 
+static int l_setthermalOnlyFirstTerm(lua_State* L)
+{
+ 	LUA_PREAMBLE(LLG, llg, 1);
+	
+	if(lua_isnone(L, 2))
+	{
+		//default true
+		llg->thermalOnlyFirstTerm = true;
+	}
+	else
+	{
+		llg->thermalOnlyFirstTerm = lua_toboolean(L, 2);
+	}
+	return 0;
+}
+static int l_getthermalOnlyFirstTerm(lua_State* L)
+{
+ 	LUA_PREAMBLE(LLG, llg, 1);
+	lua_pushboolean(L, llg->thermalOnlyFirstTerm);
+	return 1;
+}
+
+static int l_getdisablerenormalization(lua_State* L)
+{
+ 	LUA_PREAMBLE(LLG, llg, 1);
+	lua_pushboolean(L, llg->disableRenormalization);
+	return 1;
+}
+static int l_setdisablerenormalization(lua_State* L)
+{
+ 	LUA_PREAMBLE(LLG, llg, 1);
+	
+	if(lua_isnone(L, 2))
+	{
+		//default true
+		llg->disableRenormalization = true;
+	}
+	else
+	{
+		llg->disableRenormalization = lua_toboolean(L, 2);
+	}
+	return 0;
+}
+
 
 int LLG::help(lua_State* L)
 {
@@ -120,7 +177,42 @@ int LLG::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+	
+	if(func == l_setthermalOnlyFirstTerm)
+	{
+		lua_pushstring(L, "Set internal data for algorithm interpretation.");
+		lua_pushstring(L, "1 Optional boolean: If true or none the thermal term in the"
+					" effective field will only be applied to the precesional term of the LLG equation. If false then the"
+					" thermal term will be used in both the precesional and damping terms. The default value for this variable is true"
+					" this default can be changed by setting the base LLG table's `thermalOnlyFirstTerm' key to a boolean value. Example:\n"
+					 "<pre>LLG.thermalOnlyFirstTerm = false\nllg = LLG.Cartesian.new(ss)\nprint(llg:thermalOnlyFirstTerm())</pre>\nOutput:\n<pre>false</pre>");
+		lua_pushstring(L, "");
+		return 3;		
+	}
 		
+	if(func == l_getthermalOnlyFirstTerm)
+	{
+		lua_pushstring(L, "Get internal data for algorithm interpretation.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 boolean: If true then the thermal term is excluded from the damping term of the LLG equation, if false"
+		" then the thermal term is used in both the precesional and damping terms.");
+		return 3;		
+	}
+	
+	if(func == l_getdisablerenormalization)
+	{
+		lua_pushstring(L, "Get internal data for algorithm interpretation.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 boolean: If true then the x,y,z coordinates of each spin are not renormalized to the original length of the spin.");
+		return 3;		
+	}
+	if(func == l_setdisablerenormalization)
+	{
+		lua_pushstring(L, "Set internal data for algorithm interpretation.");
+		lua_pushstring(L, "1 boolean (or default true): If true then the x,y,z coordinates of each spin are not renormalized to the original length of the spin.");
+		lua_pushstring(L, "");
+		return 3;		
+	}
 	return LuaBaseObject::help(L);
 }
 
@@ -135,6 +227,11 @@ const luaL_Reg* LLG::luaMethods()
 	static const luaL_Reg _m[] =
 	{
 		{"apply",        l_apply},
+		{"setThermalOnlyFirstTerm", l_setthermalOnlyFirstTerm},
+		{"thermalOnlyFirstTerm", l_getthermalOnlyFirstTerm},
+		{"setDisableRenormalization", l_setdisablerenormalization},
+		{"disableRenormalization", l_getdisablerenormalization},
+		
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

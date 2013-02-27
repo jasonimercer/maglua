@@ -70,6 +70,7 @@ __device__ double4 qmultXYZ(const double4 a, const double4 b)
 // dt   1+aa         |S|
 
 
+template<int thermalOnlyFirstTerm>
 __global__ void llg_quat_apply_1(
 //	const int nx, const int ny, const int offset,
 	const int nxyz,
@@ -85,10 +86,18 @@ __global__ void llg_quat_apply_1(
 	if(i >= nxyz)
 		return;
 
+	double hX = hx[i];
+	double hY = hy[i];
+	double hZ = hz[i];
+	
 	// subtracting thermal term from Heff in damping contribution
-	const double hX = hx[i] - htx[i];
-	const double hY = hy[i] - hty[i];
-	const double hZ = hz[i] - htz[i];
+	if(thermalOnlyFirstTerm == 1)
+	{
+		hX -= htx[i];
+		hY -= hty[i];
+		hZ -= htz[i];
+	}
+	
 	
 	wx[i] = sy[i]*hZ - sz[i]*hY;
 	wy[i] = sz[i]*hX - sx[i]*hZ;
@@ -278,7 +287,8 @@ void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
     double* htx, double* hty, double* htz,              // dm/dt thermal fields
 	double* dhx, double* dhy, double* dhz,              // dm/dt fields
 	double* ws1, double* ws2, double* ws3, double* ws4,
-	const double dt, const double alpha, const double* d_alpha, const double gamma, const double* d_gamma)
+	const double dt, const double alpha, const double* d_alpha, const double gamma, const double* d_gamma,
+	int thermalOnlyFirstTerm)
 {
 	const int nxyz = nx*ny*nz;
 	const int threads = 512;
@@ -288,12 +298,20 @@ void cuda_llg_quat_apply(const int nx, const int ny, const int nz,
 	// the (damped field) is done with dm/dt terms
 	// result is stored in W
 	//	const int nx, const int ny, const int offset,
-	llg_quat_apply_1<<<blocks, threads>>>(nxyz,
-						alpha, d_alpha,
-						ddx, ddy, ddz, dds,
-						dhx, dhy, dhz,
-						htx, hty, htz,
-						ws1, ws2, ws3, ws4);
+	if(thermalOnlyFirstTerm)
+		llg_quat_apply_1<1><<<blocks, threads>>>(nxyz,
+							alpha, d_alpha,
+							ddx, ddy, ddz, dds,
+							dhx, dhy, dhz,
+							htx, hty, htz,
+							ws1, ws2, ws3, ws4);
+	else
+		llg_quat_apply_1<0><<<blocks, threads>>>(nxyz,
+							alpha, d_alpha,
+							ddx, ddy, ddz, dds,
+							dhx, dhy, dhz,
+							htx, hty, htz,
+							ws1, ws2, ws3, ws4);
 	CHECK
 	
 	// spinfrom x W (via quats)

@@ -38,7 +38,6 @@ public:
 	LINEAGE2("Anisotropy", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 	
 	bool apply(SpinSystem* ss);
@@ -59,6 +58,21 @@ public:
 	double* d_LUT;
 	char*   d_idx;
 	
+	
+	typedef struct ani
+	{
+		int site;
+		double axis[3];
+		double strength;
+	} ani;
+	
+	ani* ops;
+	int size;
+	int num;
+	
+	int merge();
+
+		
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
@@ -78,6 +92,11 @@ public:
 	bool compressed;
 	bool compressing;
 	bool compressAttempted;
+	
+	void writeToMemory();
+	
+	bool newDataFromScript;
+	
 private:
 	int unique; //number of LUT entries
 };

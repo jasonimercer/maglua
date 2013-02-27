@@ -39,7 +39,6 @@ public:
 	LINEAGE2("Exchange", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L);
 	static int help(lua_State* L);
 	
 	bool apply(SpinSystem* ss);
@@ -66,7 +65,11 @@ public:
 	void delete_compressed();
 	void delete_host();
 	
-private:
+	int numPaths() {return num;}
+	bool getPath(int idx, int& fx, int& fy, int& fz, int& tx, int& ty, int& tz, double& strength);
+	int mergePaths();
+	
+// private:
 	void deinit();
 	void init();
  	bool new_host;
@@ -86,7 +89,8 @@ private:
 	
 	bool compressed;
 	bool compressAttempted;
-
+	
+	int pbc[3];
 };
 
 

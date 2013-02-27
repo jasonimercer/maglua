@@ -108,7 +108,8 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
             Tx, Ty, Tz,
             Sx, Sy, Sz,
             d_ws1, d_ws2, d_ws3, d_ws4,
-			dt, alpha, d_alpha, gamma, d_gamma);	
+			dt, alpha, d_alpha, gamma, d_gamma,
+			thermalOnlyFirstTerm);	
 
 	// mark spins as new for future d->h syncing
 	spinto->x->new_device = true;

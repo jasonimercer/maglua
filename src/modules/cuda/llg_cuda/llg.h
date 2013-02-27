@@ -32,8 +32,10 @@ public:
 	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)  {return true;}
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 	
-	bool disablePrecession;
-
+	bool disableRenormalization;
+	bool thermalOnlyFirstTerm;
+	
+	
 	void encode(buffer* b);
 	int  decode(buffer* b);
 };

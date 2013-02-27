@@ -53,6 +53,68 @@ void Anisotropy::deinit()
 	ops = 0;
 }
 
+
+
+static bool myfunction(Anisotropy::ani* i,Anisotropy::ani* j)
+{
+	return (i->site<j->site);
+}
+
+#include <algorithm>    // std::sort
+#include <vector>       // std::vector
+using namespace std;
+// this is messy but more efficient than before
+int Anisotropy::merge()
+{
+	if(num == 0)
+		return 0;
+
+	int original_number = num;
+	
+	vector<ani*> new_ops;
+	
+	for(int i=0; i<num; i++)
+	{
+		new_ops.push_back(&ops[i]);
+	}
+	sort (new_ops.begin(), new_ops.end(), myfunction);
+
+	ani* new_ops2 = (ani*) malloc(sizeof(ani)*size);
+	int new_num2 = num;
+	
+	for(unsigned int i=0; i<new_ops.size(); i++)
+	{
+		memcpy(&new_ops2[i], new_ops[i], sizeof(ani));
+	}
+	
+	int current = 0;
+	
+	num = 1;
+	
+	// put in the 1st site
+	memcpy(&ops[0], &new_ops2[0], sizeof(ani));
+	
+	for(int i=1; i<new_num2; i++)
+	{
+		if(new_ops2[i].site == ops[current].site)
+		{
+			ops[current].strength += new_ops2[i].strength;
+		}
+		else
+		{
+			current++;
+			num++;
+			memcpy(&ops[current], &new_ops2[i], sizeof(ani));
+		}
+	}
+	
+	
+
+	int delta = original_number - num;
+	free(new_ops2);
+	return delta;
+}
+#if 0
 int Anisotropy::merge()
 {
 	ani* new_ops = (ani*) malloc(sizeof(ani)*size);
@@ -88,7 +150,7 @@ int Anisotropy::merge()
 	num = new_num;
 	return delta;
 }
-
+#endif
 
 bool Anisotropy::getAnisotropy(int site, double& nx, double& ny, double& nz, double& K)
 {
