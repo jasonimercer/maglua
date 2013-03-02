@@ -14,110 +14,85 @@ local function get_eb_data(eb)
 end
 
 -- write a state to a spinsystem
-local function writePathPointTo(eb, path_point, ss)
+local function writePathPointTo(eb, path_point, ssNew)
 	local d = get_eb_data(eb)
-	local ss1 = d.ss1
+	local ss = d.ss
 
-	ss1:copySpinsTo(ss)
-	print("pp", path_point)
+	ss:copySpinsTo(ssNew)
+-- 	print("pp", path_point)
 	local sites = eb:sites()
 	for i=1,table.maxn(sites) do
 		local x,y,z = eb:spin(path_point, i)
 		print(table.concat(sites[i], ","))
-		ss:setSpin(sites[i], {x,y,z})
+		ssNew:setSpin(sites[i], {x,y,z})
 	end
 end
 
 local function pathEnergy(eb)
 	local d = get_eb_data(eb)
-	local ss1 = d.ss1
+	local ss = d.ss
 	local energy_function = d.energy_function
 
-	if ss1 == nil then
+	if ss == nil then
 		error("Initial State required for pathEnergies")
 	end
 	if energy_function == nil then
 		error("Energy Function required for pathEnergies")
 	end
 
-	local function get_site_ss1(x,y,z)
-		local sx,sy,sz,m = ss1:spin(x,y,z)
+	local function get_site_ss(x,y,z)
+		local sx,sy,sz,m = ss:spin(x,y,z)
 		return sx,sy,sz,m
 	end
-	local function set_site_ss1(x,y,z,sx,sy,sz,m)
-		ss1:setSpin({x,y,z}, {sx,sy,sz},m)
+	local function set_site_ss(x,y,z,sx,sy,sz,m)
+		ss:setSpin({x,y,z}, {sx,sy,sz},m)
 	end
-	local function get_energy_ss1()
-		return energy_function(ss1)
+	local function get_energy_ss()
+		return energy_function(ss)
 	end
 
-	eb:calculateEnergies(get_site_ss1, set_site_ss1, get_energy_ss1);
+	eb:calculateEnergies(get_site_ss, set_site_ss, get_energy_ss);
 	return eb:getPathEnergy()
 end
 
 
 local function initialize(eb, noise)
 	local d = get_eb_data(eb)
-	local ss1 = d.ss1
-	local ss2 = d.ss2
 	noise = noise or 0.05
-	local energy_function = d.energy_function
 	local np = d.np or 20
 
-	if ss1 == nil or ss2 == nil or energy_function == nil then
-		error("NEED ERROR CHECKING HERE!!")
-	end
-
-	
-	local function get_site_ss1(x,y,z)
-		local sx,sy,sz,m = ss1:spin(x,y,z)
-		return sx,sy,sz,m
-	end
-	local function set_site_ss1(x,y,z,  sx,sy,sz,m)
-		ss1:setSpin({x,y,z}, {sx,sy,sz}, m)
-	end
-	local function get_site_ss2(x,y,z)
-		local sx,sy,sz,m = ss2:spin(x,y,z)
-		return sx,sy,sz,m
-	end
-	local function get_energy_ss1()
-		local e = energy_function(ss1)
-		return e
-	end
-
-	eb:initializeEndpoints(get_site_ss1, get_site_ss2)
-	
-	eb:resampleStateXYZPath(3, noise)
-
-	eb:resampleStateXYZPath(np)
+	eb:resampleStateXYZPath(np, noise)
 	
 	d.isInitialized = true
 end
 
 local function compute(eb, n)
 	local d = get_eb_data(eb)
-	local ss1 = d.ss1
-	local ss2 = d.ss2
+	local ss = d.ss
 	local energy_function = d.energy_function
 	local np = d.np or 20
 
-	if ss1 == nil or ss2 == nil or energy_function == nil then
-		error("NEED ERROR CHECKING HERE!!")
+	if ss == nil then
+		error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
 	end
 	
-	local function get_site_ss1(x,y,z)
-		local sx,sy,sz,m = ss1:spin(x,y,z)
+	if energy_function == nil then
+		error("Energy function is nil. Set an energy function with :setEnergyFunction")
+	end
+	
+	local function get_site_ss(x,y,z)
+		local sx,sy,sz,m = ss:spin(x,y,z)
 		return sx,sy,sz,m
 	end
-	local function set_site_ss1(x,y,z,  sx,sy,sz,m)
-		ss1:setSpin({x,y,z}, {sx,sy,sz}, m)
+	local function set_site_ss(x,y,z,  sx,sy,sz,m)
+		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
 	end
 	local function get_site_ss2(x,y,z)
 		local sx,sy,sz,m = ss2:spin(x,y,z)
 		return sx,sy,sz,m
 	end
-	local function get_energy_ss1()
-		local e = energy_function(ss1)
+	local function get_energy_ss()
+		local e = energy_function(ss)
 		return e
 	end
 	
@@ -129,7 +104,7 @@ local function compute(eb, n)
 	local dt = Interpolate.new({{1,0.1}, {n-1, 0.01}})
 	local pp = Interpolate.new({{1,20}, {n-1, np}})
 	for i=1,n do
-		eb:calculateEnergyGradients(get_site_ss1, set_site_ss1, get_energy_ss1, 1e-5)
+		eb:calculateEnergyGradients(get_site_ss, set_site_ss, get_energy_ss, 1e-5)
 		eb:makeForcePerpendicularToPath()
 		eb:makeForcePerpendicularToSpins()
 		eb:applyForces(dt(i))
@@ -152,22 +127,12 @@ end
 
 
 
-local function setInitialState(eb, ss1)
+local function setSpinSystem(eb, ss)
 	local d = get_eb_data(eb)
-	if getmetatable(ss1) ~= SpinSystem.metatable() then
-		error("setInitialState requires a SpinSystem", 2)
+	if getmetatable(ss) ~= SpinSystem.metatable() then
+		error("setSpinSystem requires a SpinSystem", 2)
 	end
-
-	d.ss1 = ss1
-end
-
-local function setFinalState(eb, ss2)
-	local d = get_eb_data(eb)
-	if getmetatable(ss1) ~= SpinSystem.metatable() then
-		error("setFinalState requires a SpinSystem", 2)
-	end
-
-	d.ss2 = ss2
+	d.ss = ss
 end
 
 
@@ -190,30 +155,53 @@ local function setEnergyFunction(eb, func)
 	d.energy_function = func
 end
 
-local function setFreeSites(eb, tt)
+local function setSites(eb, tt)
 	if type(tt) ~= "table" then
-		error("setFreeSites requires a table of 1,2 or 3 Component Tables representing sites.") 
+		error("setSites requires a table of 1,2 or 3 Component Tables representing sites.") 
 	end
 	
 	if tt[1] and type(tt[1]) ~= "table" then
-		error("setFreeSites requires a table of 1,2 or 3 Component Tables representing sites.") 
+		error("setSites requires a table of 1,2 or 3 Component Tables representing sites.") 
 	end
 	
+	eb:clearSites()
 	for k,v in pairs(tt) do
-		eb:addSite(v)
+		eb:_addSite(v[1], v[2], v[3])
 	end
 end
 
-
-
-local function getInitialState(eb)
-	local d = get_eb_data(eb)
-	return d.ss1
+local function setInitialPath(eb, pp)
+	local msg = "setInitialPath requires a Table of Tables of site orientations"
+	local tableType = type({})
+	if type(pp) ~= tableType then
+		error(msg)
+	end
+	local numSites = nil
+	eb:clearPath()
+	for p=1,table.maxn(pp) do
+		if type(pp[p]) ~= tableType then
+			error(msg)
+		end
+		numSites = numSites or table.maxn(pp[p])
+		if numSites ~= table.maxn(pp[p]) then
+			error("Site count mismatch at path point number " .. p)
+		end
+		
+		for s=1,numSites do
+			if type(pp[p][s]) ~= tableType then
+				error(msg)
+			end
+			local x = pp[p][s][1] or 0
+			local y = pp[p][s][2] or 0
+			local z = pp[p][s][3] or 0
+			eb:_addStateXYZ(x,y,z)
+		end
+	end
 end
 
-local function getFinalState(eb)
+local function getSpinSystem(eb)
 	local d = get_eb_data(eb)
-	return d.sss
+	return d.ss
 end
 
 local function getEnergyFunction(eb)
@@ -221,26 +209,26 @@ local function getEnergyFunction(eb)
 	return (d.energy_function or function() end)
 end
 
-local function getFreeSites(eb)
-	return eb:sites()
-end
-
 local function getNumberOfPathPoints(eb)
 	local d = get_eb_data(eb)
 	return (d.np or 20)
 end
 
-mt.setInitialState = setInitialState
-mt.setFinalState = setFinalState
+local function getNumberSites(eb)
+	return table.maxn(eb:sites())
+end
+
+-- mt.setInitialState = setInitialState
+-- mt.setFinalState = setFinalState
 mt.setEnergyFunction = setEnergyFunction
-mt.setFreeSites = setFreeSites
+mt.setSites = setSites
 mt.setNumberOfPathPoints = setNumberOfPathPoints
 
-mt.initialState = getInitialState
-mt.finalState = getFinalState
+-- mt.initialState = getInitialState
+-- mt.finalState = getFinalState
 mt.energyFunction = getEnergyFunction
-mt.freeSites = getFreeSites
 mt.numberOfPathPoints = getNumberOfPathPoints
+mt.numberOfSites = getNumberSites
 
 mt.compute = compute
 mt.pathEnergy = pathEnergy
@@ -248,8 +236,17 @@ mt.pathEnergy = pathEnergy
 mt.writePathPointTo = writePathPointTo
 mt.initialize = initialize
 
+mt.setInitialPath = setInitialPath
+
+mt.setSpinSystem = setSpinSystem
+
 MODTAB.help =
 function(x)
+	if x == setSpinSystem then
+		return "Set the SpinSystem that will be used to do energy and orientation calculations. The any changes made to this SpinSystem will be undone before control is returned to the calling environment.",
+				"1 *SpinSystem*: SpinSystem to be used in calculations",
+				""
+	end
 	if x == writePathPointTo then
 		return 
 			"Write path point to the given spin system",
@@ -268,25 +265,25 @@ function(x)
 			"1 Optional Integer: Number of steps, default 50",
 			""
 	end
-	if x == setInitialState then
-		return
-			"Set the initial state for the elastic band path",
-			"1 *SpinSystem*: initial state",
-			""
-	end
-	if x == setFinalState then
-		return
-			"Set the final state for the elastic band path",
-			"1 *SpinSystem*: final state",
-			""
-	end
+-- 	if x == setInitialState then
+-- 		return
+-- 			"Set the initial state for the elastic band path",
+-- 			"1 *SpinSystem*: initial state",
+-- 			""
+-- 	end
+-- 	if x == setFinalState then
+-- 		return
+-- 			"Set the final state for the elastic band path",
+-- 			"1 *SpinSystem*: final state",
+-- 			""
+-- 	end
 	if x == setEnergyFunction then
 		return
 			"Set the function used to determine system energy for the calculation.",
 			"1 Function: energy calculation function, expected to be passed a *SpinSystem*.",
 			""
 	end
-	if x == setFreeSites then
+	if x == setSites then
 		return
 			"Set the sites that are allowed to move to transition from the initial configuration to the final configuration.",
 			"1 Table of 1,2 or 3 Component Tables: mobile sites.",
@@ -300,38 +297,42 @@ function(x)
 	end
 	
 	
-	
-	if x == getInitialState then
+	if x == setInitialPath then
 		return
-			"Get the initial state for the elastic band path",
-			"",
-			"1 *SpinSystem*: initial state"
+			"Set the initial path for the elastic band calculation",
+			"1 Table of Tables of site orientations: Must be at least 2 elements long to define the start and end points. Example:\n<pre>upup     = {{0,0,1},{0,0,1}}\ndowndown = {{0,0,-1},{0,0,-1}}\n eb:setInitialPath({upup,downdown})\n</pre>",
+			""
 	end
-	if x == getFinalState then
-		return
-			"Get the final state for the elastic band path",
-			"",
-			"1 *SpinSystem*: final state"
-	end
+-- 	if x == getFinalState then
+-- 		return
+-- 			"Get the final state for the elastic band path",
+-- 			"",
+-- 			"1 *SpinSystem*: final state"
+-- 	end
 	if x == getEnergyFunction then
 		return
 			"Get the function used to determine system energy for the calculation.",
 			"",
 			"1 Function: energy calculation function, expected to be passed a *SpinSystem*."
 	end
-	if x == getFreeSites then
-		return
-			"Get the sites that are allowed to move to transition from the initial configuration to the final configuration.",
-			"",
-			"1 Table of 1,2 or 3 Component Tables: mobile sites."
-	end
+-- 	if x == getSites then
+-- 		return
+-- 			"Get the sites that are allowed to move to transition from the initial configuration to the final configuration.",
+-- 			"",
+-- 			"1 Table of 1,2 or 3 Component Tables: mobile sites."
+-- 	end
 	if x == getNumberOfPathPoints then
 		return
 			"Get the number of path points used to approximate a line (defualt 20).",
 			"",
-			"1 Number: Number of path points"
+			"1 Integer: Number of path points"
 	end
-
+	if x == getNumberSites then
+		return
+			"Get the number of sites used in calculation.",
+			"",
+			"1 Integer: Number of sites."
+	end
 	-- calling fallback
 	if x == nil then
 		return help()

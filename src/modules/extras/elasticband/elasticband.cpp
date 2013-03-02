@@ -279,6 +279,8 @@ static int get_interval(const vector<double>& v, double x, double& ratio)
 
 int ElasticBand::resampleStateXYZPath(lua_State* L, int new_num_points, const double noise)
 {
+// 	printf("resample from %i\n", state_xyz_path.size());
+
 	if(new_num_points < 2)
 	{
 		return luaL_error(L, "attempting to resample path to less than 2 points");
@@ -330,11 +332,13 @@ int ElasticBand::resampleStateXYZPath(lua_State* L, int new_num_points, const do
 	{
 		state_xyz_path.push_back(new_state_xyz_path[i]);
 	}
+	
+// 	printf("resample to %i\n", state_xyz_path.size());
 }
 
 void ElasticBand::addSite(int x, int y, int z)
 {
-	state_xyz_path.clear();
+// 	state_xyz_path.clear();
 	sites.push_back(x);
 	sites.push_back(y);
 	sites.push_back(z);
@@ -541,41 +545,6 @@ void ElasticBand::projForcePath() //project gradients onto vector perpendicular 
 }
 
 
-// expected on the stack:
-// at 1, elasticband
-// at 2, function get_site_ss1(x,y,z) return sx,sy,sz end
-// at 3, function get_site_ss2(x,y,z) return sx,sy,sz end
-int ElasticBand::initializeEndpoints(lua_State* L)
-{
-	state_xyz_path.clear();
-	state_xyz_path.resize( sites.size() * 2 );
-	for(int p=0; p<2; p++)
-	{
-		for(int s=0; s<sites.size(); s+=3)
-		{
-			lua_pushvalue(L, 2+p);
-			lua_pushinteger(L, sites[s+0]+1);
-			lua_pushinteger(L, sites[s+1]+1);
-			lua_pushinteger(L, sites[s+2]+1);
-			lua_call(L, 3, 4);
-			int p1 = sites.size()*p + s + 0;
-			int p2 = sites.size()*p + s + 1;
-			int p3 = sites.size()*p + s + 2;
-
-			double v1 = lua_tonumber(L, -4);
-			double v2 = lua_tonumber(L, -3);
-			double v3 = lua_tonumber(L, -2);
-
-			state_xyz_path[p1] = v1;
-			state_xyz_path[p2] = v2;
-			state_xyz_path[p3] = v3;
-
-			lua_pop(L, 4);
-		}
-	}
-
-	return 0;
-}
 
 
 // expected on the stack:
@@ -854,27 +823,11 @@ static int l_addsite(lua_State* L)
 	
 	int site[3] = {0,0,0};
 	
-	if(lua_istable(L, 2))
+	for(int i=0; i<3; i++)
 	{
-		for(int i=0; i<3; i++)
+		if(lua_isnumber(L, 2+i))
 		{
-			lua_pushinteger(L, i+1);
-			lua_gettable(L, 2);
-			if(lua_isnumber(L, -1))
-			{
-				site[i] = lua_tointeger(L, -1) - 1;
-			}
-			lua_pop(L, 1);
-		}
-	}
-	else
-	{
-		for(int i=0; i<3; i++)
-		{
-			if(lua_isnumber(L, 2+i))
-			{
-				site[i] = lua_tointeger(L, 2+i) - 1;
-			}
+			site[i] = lua_tointeger(L, 2+i) - 1;
 		}
 	}
 	
@@ -885,6 +838,11 @@ static int l_clearsites(lua_State* L)
 {
 	LUA_PREAMBLE(ElasticBand, eb, 1);
 	eb->sites.clear();
+	return 0;
+}
+static int l_clearpath(lua_State* L)
+{
+	LUA_PREAMBLE(ElasticBand, eb, 1);
 	eb->state_xyz_path.clear();
 	return 0;
 }
@@ -910,16 +868,21 @@ static int l_getallsites(lua_State* L)
 	return 1;
 }
 
-static int l_initializeEndpoints(lua_State* L)
+
+static int l_addstatexyz(lua_State* L)
 {
 	LUA_PREAMBLE(ElasticBand, eb, 1);
-
-	if(!lua_isfunction(L, 2))
-		return luaL_error(L, "1st argument expected to be get_site_ss1(x,y,z) function");
-	if(!lua_isfunction(L, 3))
-		return luaL_error(L, "2nd argument expected to be get_site_ss2(x,y,z) function");
-	return eb->initializeEndpoints(L);
+	
+	double x = lua_tonumber(L, 2);
+	double y = lua_tonumber(L, 3);
+	double z = lua_tonumber(L, 4);
+	
+	eb->state_xyz_path.push_back(x);
+	eb->state_xyz_path.push_back(y);
+	eb->state_xyz_path.push_back(z);
+	return 0;
 }
+
 
 static int l_resampleStateXYZPath(lua_State* L)
 {
@@ -1050,18 +1013,26 @@ static int l_getsite(lua_State* L)
 
 	if(p < 0 || s < 0)
 	{
-		return luaL_error(L, "Site or point is out of bounds");
+		return luaL_error(L, "Path Point or site is out of bounds. {Point,Site} = {%d,%d}. Upper Bound = {%d,%d}", p+1,s+1,eb->state_xyz_path.size()/eb->sites.size(), eb->sites.size()/3);
 	}
 
 	int idx = eb->sites.size() * p + s*3;
 
 	if(eb->state_xyz_path.size() < idx+2)
-		return luaL_error(L, "Site or point is out of bounds");
-
-	lua_pushnumber(L, eb->state_xyz_path[idx+0]);
-	lua_pushnumber(L, eb->state_xyz_path[idx+1]);
-	lua_pushnumber(L, eb->state_xyz_path[idx+2]);
-	return 3;
+	{
+		return luaL_error(L, "Path Point or site is out of bounds. {Point,Site} = {%d,%d}. Upper Bound = {%d,%d}", p+1,s+1,eb->state_xyz_path.size()/eb->sites.size(), eb->sites.size()/3);
+	}
+	
+	const double x = eb->state_xyz_path[idx+0];
+	const double y = eb->state_xyz_path[idx+1];
+	const double z = eb->state_xyz_path[idx+2];
+	const double m = sqrt(x*x + y*y + z*z);
+	
+	lua_pushnumber(L, x);
+	lua_pushnumber(L, y);
+	lua_pushnumber(L, z);
+	lua_pushnumber(L, m);
+	return 4;
 }
 
 
@@ -1102,7 +1073,7 @@ int ElasticBand::help(lua_State* L)
 	{
 		lua_pushstring(L, "Get site x,y and z coordinates.");
 		lua_pushstring(L, "2 Integers: 1st integer is path index, 2nd integer is site index.");
-		lua_pushstring(L, "3 Numbers: x,y,z coordinates of spin at site s at path point p.");
+		lua_pushstring(L, "4 Numbers: x,y,z,m orientation of spin and magnitude at site s at path point p.");
 		return 3;
 	}
 	
@@ -1128,21 +1099,22 @@ const luaL_Reg* ElasticBand::luaMethods()
 	{
 		{"setInternalData", l_setdata},
 		{"getInternalData", l_getdata},
-		{"addSite", l_addsite},
+		{"_addSite", l_addsite},
 		{"sites", l_getallsites},
 		{"clearSites", l_clearsites},
+		{"clearPath", l_clearpath},
 		{"makeForcePerpendicularToSpins", l_projForcePerpSpins},
 		{"makeForcePerpendicularToPath", l_projForcePerpPath},
 		{"makeForceParallelToPath", l_projForcePath},
 		{"calculateEnergyGradients", l_calculateEnergyGradients},
 		{"calculateSpringForces", l_calcspringforce},
-		{"initializeEndpoints", l_initializeEndpoints},
 		{"resampleStateXYZPath", l_resampleStateXYZPath},
 		{"getPathEnergy", l_getpathenergy},
 		{"calculateEnergies", l_calculateEnergies},
 		{"gradient", l_getgradient},
 		{"spin", l_getsite},
 		{"applyForces", l_applyforces},
+		{"_addStateXYZ", l_addstatexyz},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

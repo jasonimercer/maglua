@@ -18,17 +18,29 @@
 #include "luamigrate.h"
 // GCC < 4.5 has buggy template pointers
 
+#define CHUNK_SIZE 1024
+#define FIRSTCHUNK_TAG 98
+#define REMAININGCHUNK_TAG 99
+#define NUMLUAVAR_TAG 100
+#define    LUAVAR_TAG 200
+#define   BUFSIZE_TAG 300
+#define   GATHER_STEP 1000
+
+#define REQ1_SIZE (CHUNK_SIZE    )
+#define REQ2_SIZE (CHUNK_SIZE*10 )
+#define REQ3_SIZE (CHUNK_SIZE*100)
+
+#define REQ12_SIZE (REQ1_SIZE + REQ2_SIZE)
+#define REQ123_SIZE (REQ12_SIZE + REQ3_SIZE)
+
 extern "C" {
         #include <lua.h>
         #include <lualib.h>
         #include <lauxlib.h>
 }
 
+static int decodeBuffer(lua_State* L, char* buf);
 
-#define NUMLUAVAR_TAG 100
-#define    LUAVAR_TAG 200
-#define   BUFSIZE_TAG 300
-#define   GATHER_STEP 1000
 
 inline int mpi_rank(MPI_Comm comm = MPI_COMM_WORLD)
 {
@@ -43,7 +55,6 @@ inline int mpi_size(MPI_Comm comm = MPI_COMM_WORLD)
 	MPI_Comm_size(comm, &size);
 	return size;
 }
-
 
 
 typedef struct mpi_comm_lua
@@ -100,9 +111,6 @@ static int l_MPI_Comm_tostring(lua_State* L)
 	lua_pushstring(L, "MPI_Comm");
     return 1;
 }
-
-
-
 template<int base>
 static MPI_Comm get_comm(lua_State* L)
 {
@@ -116,6 +124,510 @@ static MPI_Comm get_comm(lua_State* L)
 	}
 	return MPI_COMM_NULL;
 }
+
+
+lua_mpi_request::lua_mpi_request()
+	: LuaBaseObject(hash32("lua_mpi_request"))
+{
+	buf = 0;
+	full_buf = 0;
+	buf_size = 0;
+	active_requests = 0;
+	got_first_chunk = false;
+
+	active[0] = 0;
+	active[1] = 0;
+	active[2] = 0;
+	active[3] = 0;
+
+	sender = false;
+}
+
+lua_mpi_request::~lua_mpi_request()
+{
+	if(buf)
+		free(buf);
+}
+
+int lua_mpi_request::luaInit(lua_State* L)
+{
+	LuaBaseObject::luaInit(L);
+}
+
+void lua_mpi_request::allocateRecvBuffer()
+{
+	buf = (char*)malloc(REQ123_SIZE);
+	full_buf = 0; //for 4th chunk
+}
+
+void lua_mpi_request::recv_init()
+{
+	if(got_first_chunk)
+		return;
+	if(sender)
+		return;
+
+	int flag;
+	MPI_Status status;
+
+	MPI_Test(&(request[0]), &flag, &status);
+
+	if(flag) // then we have the 1st chunk and we can calculate how many chunks are coming in and how large #4 might be
+	{
+		// 1st chunk in buf
+		active[0] = 0;
+		const int full_buffer_size = *((int*)buf);
+		active_requests = 1; //this is a given
+
+		if(full_buffer_size > REQ1_SIZE)
+			active_requests++;
+		else
+		{
+			MPI_Cancel(&(request[1])); //don't need this active request
+			active[1] = 0;
+		}
+		if(full_buffer_size > REQ12_SIZE)
+			active_requests++;
+		else
+		{
+			MPI_Cancel(&(request[2])); //don't need this active request
+			active[2] = 0;
+		}
+		if(full_buffer_size > REQ123_SIZE)
+		{
+			active_requests++;
+			full_buf = (char*)malloc(full_buffer_size);
+			MPI_Irecv(full_buf + REQ123_SIZE, full_buffer_size - REQ123_SIZE, MPI_CHAR, source, tag+3, comm, &(request[3]));
+			active[3] = 1;
+		}
+		// no else statement to cancel because 4th chunk is only started if needed
+
+		got_first_chunk = true;
+	}
+
+}
+
+
+int lua_mpi_request::test()
+{
+	int flag;
+	MPI_Status status;
+
+	if(sender)
+	{
+		for(int i=0; i<active_requests; i++)
+		{
+			MPI_Test(&(request[i]), &flag, &status);
+			if(!flag)
+			{
+				return 0;
+			}
+		}
+		return 1;
+	}
+	//else
+	
+	recv_init();
+	if(!got_first_chunk)
+	{
+		return 0;
+	}
+	
+	for(int i=0; i<active_requests; i++)
+	{
+		if(active[i])
+		{
+			MPI_Test(&(request[i]), &flag, &status);
+			if(!flag)
+				return 0;
+		}
+		active[i] = 0;
+	}
+	return 1;
+}
+
+int lua_mpi_request::ltest(lua_State* L)
+{
+	lua_pushboolean(L, test());
+}
+
+void lua_mpi_request::wait()
+{
+	MPI_Status status;
+	if(sender)
+	{
+		for(int i=0; i<4; i++)
+		{
+			if(active[i])
+			{
+				MPI_Wait(&(request[i]), &status);
+			}
+			active[i] = 0;
+		}
+		return;
+	}
+	//else
+	
+	// test();
+	for(int i=0; i<4; i++)
+	{
+		recv_init();
+		if(active[i])
+		{
+			MPI_Wait(&(request[i]), &status);
+		}
+		active[i] = 0;
+	}
+}
+
+void lua_mpi_request::cancel()
+{
+	for(int i=0; i<4; i++)
+	{
+		if(active[i])
+		{
+			MPI_Cancel(&(request[i]));
+		}
+		active[i] = 0;
+	}
+}
+
+int lua_mpi_request::data(lua_State* L)
+{
+	if(sender)
+		return decodeBuffer(L, buf);
+
+	if(test()) // then we've recv_init'd and all available chunks are received
+	{
+		if(full_buf) // then we've got lots 'o data and need to merge the lower 3 with the 4th
+		{
+			if(buf)
+			{
+				memcpy(full_buf, buf, REQ123_SIZE);
+				free(buf);
+				buf = 0;
+			}
+			return decodeBuffer(L, full_buf);
+		}
+		else
+		{
+			return decodeBuffer(L, buf);
+		}
+	}
+	
+	return 0;
+}
+
+	
+	
+static int l_rwait(lua_State* L)
+{
+	LUA_PREAMBLE(lua_mpi_request, r, 1);
+	r->wait();
+	return 0;
+}
+static int l_rcancel(lua_State* L)
+{
+	LUA_PREAMBLE(lua_mpi_request, r, 1);
+	r->cancel();
+	return 0;
+}
+
+static int l_rtest(lua_State* L)
+{
+	LUA_PREAMBLE(lua_mpi_request, r, 1);
+	return r->ltest(L);
+}
+static int l_rdata(lua_State* L)
+{
+	LUA_PREAMBLE(lua_mpi_request, r, 1);
+	return r->data(L);
+}
+
+int lua_mpi_request::help(lua_State* L)
+{
+	if(lua_gettop(L) == 0)
+	{
+		lua_pushstring(L, "A request object represents a pending asyncronous communication event");
+		lua_pushstring(L, "");
+		lua_pushstring(L, ""); //output, empty
+		return 3;
+	}
+
+	lua_CFunction func = lua_tocfunction(L, 1);
+
+	if(func == l_rwait)
+	{
+		lua_pushstring(L, "Wait for pending communication to complete. This will block.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_rtest)
+	{
+		lua_pushstring(L, "Test to see if a pending communication is complete, this will not block.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 boolean: true if complete, false otherwise.");
+		return 3;
+	}
+
+	if(func == l_rcancel)
+	{
+		lua_pushstring(L, "Cancel pending communication");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_rdata)
+	{
+		lua_pushstring(L, "Retrieve the data if available");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "...: Sent data if the communication is complete, nil otherwise. This will return a copy of the sent data on the sending side.");
+		return 3;
+	}
+
+	return LuaBaseObject::help(L);
+
+
+}
+
+
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* lua_mpi_request::luaMethods()
+{
+	if(m[127].name)return m;
+
+	static const luaL_Reg _m[] =
+	{
+		{"wait",      l_rwait},
+		{"cancel",    l_rcancel},
+		{"test",      l_rtest},
+		{"data",      l_rdata},
+		{NULL, NULL}
+	};
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
+}
+
+	
+#if 0
+	LINEAGE1("mpi.request")
+	static const luaL_Reg* luaMethods();
+	virtual int luaInit(lua_State* L);
+#endif
+
+
+static int decodeBuffer(lua_State* L, char* buf)
+{
+	if(buf == 0)
+		return 0;
+
+	const int* ibuf = (int*)buf;
+	const int total_size = ibuf[0];
+	const int n = ibuf[1];
+
+	//printf("decode: %i %i\n", total_size, n);
+
+	vector<int> size;
+	for(int i=0; i<n; i++)
+		size.push_back(ibuf[i+2]);
+
+	const int header_size = sizeof(int) * (2 + n);
+	int p = header_size;
+	for(int i=0; i<n; i++)
+	{
+		importLuaVariable(L, buf + p, size[i]);
+		p += size[i];
+	}
+
+	return n;
+}
+
+static char* setupSendBuffer(lua_State* L, int datapos, int& ret_n, int& ret_size, int& error)
+{
+	int n = lua_gettop(L) - (datapos-1);
+	int* size;
+	char** buf;
+	error = 0;
+	
+	if(sizeof(int)*(n+3) > CHUNK_SIZE)
+	{
+		error = 1;
+		return 0;
+	}
+	
+	buf = new char* [n];
+	size = new int[n];
+	
+	int complete_message_size = sizeof(int)*2; // for message size, numer of variables
+	
+	
+	for(int i=0; i<n; i++)
+	{
+		buf[i] = exportLuaVariable(L, datapos+i, &(size[i]));
+		complete_message_size += sizeof(int) + size[i]; //data size, data
+// 		printf("size[%i] = %i\n", i, size[i]);
+	}
+
+	// we want the full buffer size to fit in some ranges
+
+	int full_buffer_size = REQ1_SIZE; //at least this big
+	
+	if(complete_message_size > REQ1_SIZE)
+		full_buffer_size = REQ2_SIZE;
+
+	if(complete_message_size > REQ2_SIZE)
+		full_buffer_size = REQ3_SIZE;
+	
+	if(complete_message_size > REQ3_SIZE)
+		full_buffer_size = complete_message_size;
+
+	
+	// printf("encode: %i %i\n", complete_message_size, n);
+
+
+	char* full_buffer = (char*)malloc(full_buffer_size);
+
+	int pos = 0;
+	memcpy(full_buffer + pos, &complete_message_size, sizeof(int)); pos+=sizeof(int);
+	memcpy(full_buffer + pos, &n,                     sizeof(int)); pos+=sizeof(int);
+	memcpy(full_buffer + pos,  size,                n*sizeof(int)); pos+=sizeof(int)*n;
+	
+	for(int i=0; i<n; i++)
+	{
+		memcpy(full_buffer + pos, buf[i], size[i]); pos += size[i];
+	}
+
+	ret_n = n;
+	ret_size = full_buffer_size;
+	
+	for(int i=0; i<n; i++)
+	{
+		free(buf[i]);
+	}
+	
+	delete [] buf;
+	delete [] size;
+	
+	return full_buffer;
+}
+
+
+template<int base>
+static int l_mpi_isend(lua_State* L)
+{
+	MPI_Comm comm = get_comm<base>(L);
+	int dest = lua_tointeger(L, base+1) - 1; //lua is base 1
+	
+	int tag = lua_tointeger(L, base+2) * 4;
+
+	if(dest < 0 || dest >= mpi_size(comm))
+		return luaL_error(L, "ISend destination (%d) is out of range.", dest+1); 
+	
+	int n;
+	int complete_message_size;
+	int error;
+	char* full_buffer = setupSendBuffer(L, base+3, n, complete_message_size, error);
+
+	if(error)
+		return luaL_error(L, "Attempting to send too many values on one line. Increasing CHUNK_SIZE in luampi.cpp will fix this. Current value = %d\n. Required size = %i.", CHUNK_SIZE, sizeof(int)*(n+3));
+
+	lua_mpi_request* req = new lua_mpi_request;
+	
+
+	req->buf = full_buffer;
+	req->buf_size = complete_message_size;
+	req->active_requests = 0;
+	req->tag = tag;
+	req->dest = dest; 
+	req->sender = true;
+
+	// new we need to see if we can fit the data in the 1st 3 fixed size async packages	
+	if(complete_message_size >= REQ1_SIZE)
+	{
+		MPI_Isend(full_buffer + 0, REQ1_SIZE, MPI_CHAR, dest, tag+0, comm, &(req->request[0]));
+		req->active_requests++;
+		req->active[0] = 1;
+	}
+	if(complete_message_size >= REQ12_SIZE)
+	{
+		MPI_Isend(full_buffer + REQ1_SIZE, REQ2_SIZE, MPI_CHAR, dest, tag+1, comm, &(req->request[1]));
+		req->active_requests++;
+		req->active[1] = 1;
+	}
+	if(complete_message_size >= REQ123_SIZE)
+	{
+		MPI_Isend(full_buffer + REQ12_SIZE, REQ3_SIZE, MPI_CHAR, dest, tag+2, comm, &(req->request[2]));
+		req->active_requests++;
+		req->active[2] = 1;
+	}
+	if(complete_message_size >  REQ123_SIZE)
+	{
+		const int sz = complete_message_size - REQ123_SIZE;
+		MPI_Isend(full_buffer + REQ123_SIZE, sz, MPI_CHAR, dest, tag+3, comm, &(req->request[3]));
+		req->active_requests++;
+		req->active[3] = 1;
+	}
+
+	luaT_push<lua_mpi_request>(L, req);
+	
+	return 1;
+}
+
+
+template<int base>
+static int l_mpi_irecv(lua_State* L)
+{
+	MPI_Comm comm = get_comm<base>(L);
+	int source = lua_tointeger(L, base+1) - 1; //lua is base 1
+	
+	int tag = lua_tointeger(L, base+2) * 4;
+
+	if(source < 0 || source >= mpi_size(comm))
+		return luaL_error(L, "IRecv source (%d) is out of range.", source+1); 
+
+	lua_mpi_request* req = new lua_mpi_request;
+	
+	req->active_requests = 3;
+	req->sender = false;
+	req->allocateRecvBuffer();
+	req->tag = tag;
+	req->source = source;
+	req->comm = comm;
+	char* buf = req->buf;
+
+	int r1 = MPI_Irecv(buf,              REQ1_SIZE, MPI_CHAR, source, tag+0, comm, &(req->request[0]));
+	int r2 = MPI_Irecv(buf + REQ1_SIZE,  REQ2_SIZE, MPI_CHAR, source, tag+1, comm, &(req->request[1]));
+	int r3 = MPI_Irecv(buf + REQ12_SIZE, REQ3_SIZE, MPI_CHAR, source, tag+2, comm, &(req->request[2]));
+	// printf("%i %i %i\n", r1, r2, r3);
+
+	req->active[0] = 1;
+	req->active[1] = 1;
+	req->active[2] = 1;
+	req->active[3] = 0;
+
+	luaT_push<lua_mpi_request>(L, req);
+	
+	return 1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 template<int base>
 static int l_mpi_comm_split(lua_State* L)
@@ -251,6 +763,11 @@ static int l_mpi_splitrange(lua_State* L)
 }
 
 
+// reworking send
+// idea is to send a constant sized large buffer that contains
+// the buffer size and the head of the data. If the data is small
+// enough, this is all that will need to be sent. Otherwise, send the 
+// rest of the data
 template<int base>
 static int l_mpi_send(lua_State* L)
 {
@@ -260,57 +777,63 @@ static int l_mpi_send(lua_State* L)
 	if(dest < 0 || dest >= mpi_size(comm))
 		return luaL_error(L, "Send destination (%d) is out of range.", dest+1); 
 	
-	int n = lua_gettop(L) - 1;
-	int size;
-	char* buf;
+	int n;
+	int complete_message_size;
+	int error;
+	char* full_buffer = setupSendBuffer(L, base+2, n, complete_message_size, error);
+
+	if(error)
+		return luaL_error(L, "Attempting to send too many values on one line. Increasing CHUNK_SIZE in luampi.cpp will fix this. Current value = %d\n. Required size = %i.", CHUNK_SIZE, sizeof(int)*(n+3));
 	
-	MPI_Send(&n, 1, MPI_INT, dest, NUMLUAVAR_TAG, comm);
-	
-	for(int i=0; i<n; i++)
+	// ok, we've now built the buffer, lets send the first chunk, it may be enough
+	MPI_Send(full_buffer, CHUNK_SIZE, MPI_CHAR, dest, FIRSTCHUNK_TAG, comm);
+
+	// finally we will send the rest of the data if there is more to go
+	if(complete_message_size >= CHUNK_SIZE) //then there's more
 	{
-		buf = exportLuaVariable(L, base+i+2, &size);
-		
-		MPI_Send(&size, 1, MPI_INT, dest, BUFSIZE_TAG+i, comm);
-		MPI_Send(buf, size, MPI_CHAR, dest, LUAVAR_TAG+i, comm);
-		free(buf);
+		MPI_Send(full_buffer + CHUNK_SIZE, complete_message_size - CHUNK_SIZE, MPI_CHAR, dest, REMAININGCHUNK_TAG, comm);
 	}
+	
+	free(full_buffer);
+	
 	return 0;
 }
 
-
+// reworking recv to match new send
 template<int base>
 static int l_mpi_recv(lua_State* L)
 {
 	MPI_Comm comm = get_comm<base>(L);
 	int src = lua_tointeger(L, base+1) - 1; //lua is base 1
-	int n;
 	MPI_Status stat;
 
 	if(src < 0 || src >= mpi_size(comm))
 		return luaL_error(L, "Receive source (%d) is out of range.", src+1);
 
-	char* buf = 0;
-	int bufsize = 0;
+	char first_chunk[CHUNK_SIZE];
+	MPI_Recv(first_chunk, CHUNK_SIZE, MPI_CHAR, src, FIRSTCHUNK_TAG, comm, &stat);
+
+	int complete_message_size = ((int*)first_chunk)[0];
+	int bs = complete_message_size;
+	if(bs < CHUNK_SIZE)
+		bs = CHUNK_SIZE;
 	
-	int reqBufSize;
-	
-	MPI_Recv(&n, 1, MPI_INT, src, NUMLUAVAR_TAG, comm, &stat);
-	for(int i=0; i<n; i++)
+   	int n;
+	if(complete_message_size >= CHUNK_SIZE) //then we need more
 	{
-		MPI_Recv(&reqBufSize, 1, MPI_INT, src, BUFSIZE_TAG+i, comm, &stat);
-		if(reqBufSize > bufsize)
-		{
-			buf = (char*)realloc(buf, reqBufSize);
-			bufsize = reqBufSize;
-		}
-		
-		MPI_Recv(buf, reqBufSize, MPI_CHAR, src, LUAVAR_TAG+i, comm, &stat);
-		
-		importLuaVariable(L, buf, reqBufSize);
+		char* buf = new char[bs];	
+		memcpy(buf, first_chunk, CHUNK_SIZE);
+
+	    MPI_Recv(buf + CHUNK_SIZE, complete_message_size - CHUNK_SIZE, MPI_CHAR, src, REMAININGCHUNK_TAG, comm, &stat);
+
+		n = decodeBuffer(L, buf);
+		delete [] buf;
+	}
+	else
+	{
+		n = decodeBuffer(L, first_chunk);
 	}
 	
-	if(buf)
-		free(buf);
 	return n;
 }
 
@@ -495,6 +1018,39 @@ static int l_mpi_help(lua_State* L)
 		lua_pushstring(L, "...: zero or more pieces of data");
 		return 3;
 	}	
+	if(func == &l_mpi_isend<0> || func == &l_mpi_isend<1>)
+	{
+		lua_pushstring(L, "Asyncronously send data to another process in the workgroups. Example:\n<pre>"
+"-- tags ensure that different asyncronous communications don't clash\n"
+"local tag = 5\n"
+"\n"
+"if mpi.get_rank() == 2 then\n"
+"    recv_request = mpi.irecv(1, tag)\n"
+"end\n"
+"\n"
+"mpi.barrier() -- barrier to show that an irecv can be before an isend\n"
+"\n"
+"if mpi.get_rank() == 1 then\n"
+"    send_request = mpi.isend(2, tag, \"hello\", 5,6,7)\n"
+"end\n"
+"\n"
+"if mpi.get_rank() == 2 then\n"
+"    print(recv_request:data()) -- not guaranteed to print data\n"
+"    recv_request:wait()\n"
+"    print(recv_request:data()) -- guaranteed to print \"hello   5       6       7\"\n"
+"end\n"
+"</pre>");
+		lua_pushstring(L, "2 Integers, ...: Rank of remote process, tag to be matched on the receiving side followed  by zero or more data"); 
+		lua_pushstring(L, "1 *mpi.request*: This request is used to check to see if the communication is complete.");
+		return 3;
+	}
+	if(func == &l_mpi_irecv<0> || func == &l_mpi_irecv<1>)
+	{
+		lua_pushstring(L, "Asyncronously receive data from another process in the workgroups.");
+		lua_pushstring(L, "2 Integers: Rank of remote process, tag to be matched on the sending side.");
+		lua_pushstring(L, "1 *mpi.request*: This request is used to check to see if the communication is complete. The data may be retrieved from this object.");
+		return 3;
+	}
 	if(func == &(l_mpi_barrier<0>) || func == &l_mpi_barrier<1>)
 	{
 		lua_pushstring(L, "Syncronization barrier");
@@ -602,7 +1158,9 @@ void registerMPI(lua_State* L)
 	add("get_size",           l_mpi_get_size<1>   );
 	add("get_rank",           l_mpi_get_rank<1>   );
 	add("send",               l_mpi_send<1>       );
+	add("isend",              l_mpi_isend<1>      );
 	add("recv",               l_mpi_recv<1>       );
+	add("irecv",              l_mpi_irecv<1>      );
 	add("barrier",            l_mpi_barrier<1>    );
 	add("gather",             l_mpi_gather<1>     );
 	add("bcast",              l_mpi_bcast<1>      );
@@ -620,7 +1178,9 @@ void registerMPI(lua_State* L)
 	add("get_size",           l_mpi_get_size<0>       );
 	add("get_rank",           l_mpi_get_rank<0>       );
 	add("send",               l_mpi_send<0>           );
+    add("isend",              l_mpi_isend<0>          );
 	add("recv",               l_mpi_recv<0>           );
+    add("irecv",              l_mpi_irecv<0>          );
 	add("barrier",            l_mpi_barrier<0>        );
 	add("gather",             l_mpi_gather<0>         );
 	add("bcast",              l_mpi_bcast<0>          );
@@ -690,6 +1250,8 @@ MPI_API int lib_register(lua_State* L)
 
 	lua_pushnil(L);
 	lua_setglobal(L, "maglua_getmetatable");
+
+	luaT_register<lua_mpi_request>(L);
 
 #endif
 	return 0;

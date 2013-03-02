@@ -13,7 +13,8 @@ OBJECTS=png.o
 LIBNAME=PNGWriter
 CATEGORY=extra
 
-EXTRALIBS=-lpngwriter
-EXTRA_PKG=freetype2 libpng
+# EXTRALIBS=-lpngwriter
+# EXTRA_PKG=freetype2 libpng
+EXTRA_PKG=QtCore QtGui
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

@@ -359,6 +359,7 @@ static int l_get_text_width(lua_State* L)
 
 error("array needs to be moved to script so we're not linking against cpu/gpu implementation")
 #include "../../cpu/array/array.h"
+
 static int l_drawarray(lua_State* L)
 {
     Lpng* p = checkPNG(L, 1);

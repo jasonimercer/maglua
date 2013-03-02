@@ -153,6 +153,7 @@ void Timer::reset()
 
 void Timer::start()
 {
+	reset();
 #ifdef WIN32
 	t0 = clock();
 #else
@@ -253,8 +254,7 @@ static int l_get(lua_State* L)
 	return 1;
 }
 
-/*
-static int l_help(lua_State* L)
+int Timer::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
@@ -268,21 +268,11 @@ static int l_help(lua_State* L)
 	{
 		return 0;
 	}
-	
-	if(!lua_iscfunction(L, 1))
-	{
-		return luaL_error(L, "help expect zero arguments or 1 function.");
-	}
+
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-	if(func == l_new)
-	{
-		lua_pushstring(L, "Create a new Timer Operator.");
-		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 Timer object");
-		return 3;
-	}	
+
 	if(func == l_start)
 	{
 		lua_pushstring(L, "Reset and start timer.");
@@ -329,7 +319,7 @@ static int l_help(lua_State* L)
 	}
 
 	return 0;
-}*/
+}
 
 
 static luaL_Reg m[128] = {_NULLPAIR128};

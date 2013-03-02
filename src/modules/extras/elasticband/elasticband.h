@@ -35,8 +35,6 @@ public:
 
 	int ref_data;
 
-	int initializeEndpoints(lua_State* L);
-	
 	vector<double> state_xyz_path;
 	vector<int> sites; //x,y,z idx
 	

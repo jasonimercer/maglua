@@ -41,6 +41,46 @@ static int l_getdomainname(lua_State* L)
 	return 1;
 }
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE //for using the GNU CPU affinity
+#endif
+// (works with the appropriate kernel and glibc)
+// Set affinity mask
+#include <sched.h>
+#include <stdio.h>
+#include <unistd.h>
+
+static int l_getcpuaffinity(lua_State* L)
+{
+	int NCPUs = sysconf(_SC_NPROCESSORS_CONF);
+	cpu_set_t mask;
+	
+	if (sched_getaffinity(0, sizeof(mask), &mask) == -1)
+	{
+		return luaL_error(L, "sched_getaffinity(0, sizeof(mask), &mask)");
+	}
+	
+	unsigned long lmask = *(unsigned long*)(&mask);
+	
+	lua_newtable(L);
+	int j = 1;
+	for(int i=0; i<NCPUs; i++)
+	{
+		if( (1<<i) & lmask)
+		{
+			lua_pushinteger(L, j); j++;
+			lua_pushinteger(L, i+1);
+			lua_settable(L, -3);
+		}
+	}
+	
+	
+// 	printf("mask=%08X\n",  *(unsigned int*)(&mask));
+	
+	return 1;
+}
+    
+
 
 static int l_getuname(lua_State* L)
 {
@@ -89,7 +129,12 @@ OS_EXTENSIONS_API int lib_register(lua_State* L)
 	lua_pushstring(L, "hostname");
 	lua_pushcfunction(L, l_gethostname);
 	lua_settable(L, -3);
+	
+	lua_pushstring(L, "getCPUAffinity");
+	lua_pushcfunction(L, l_getcpuaffinity);
+	lua_settable(L, -3);
 		
+	
 	lua_pushstring(L, "domainname");
 	lua_pushcfunction(L, l_getdomainname);
 	lua_settable(L, -3);

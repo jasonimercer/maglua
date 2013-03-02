@@ -22,6 +22,7 @@ public:
 	LINEAGE1("Timer")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
+	static int help(lua_State* L);
 	
 	void fixTime();
 	long get_seconds();
