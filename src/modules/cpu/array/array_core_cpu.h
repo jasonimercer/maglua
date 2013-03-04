@@ -210,8 +210,9 @@ public:
 		{
 			flag = 0;
 			encodeInteger(flag, b);
-			for(int i=0; i<nxyz; i++)
-				luaT<T>::encode(_data[i], b);
+			encodeBuffer(_data, sizeof(T)*nxyz, b);
+			//for(int i=0; i<nxyz; i++)
+			//	luaT<T>::encode(_data[i], b);
 		}
 	}
 	int decode(buffer* b)
@@ -229,8 +230,11 @@ public:
 		}
 		else
 		{
+			decodeBuffer(_data, sizeof(T)*nxyz, b);
+			/*
 			for(int i=0; i<nxyz; i++)
 				_data[i] = luaT<T>::decode(b);
+			*/
 
 		}
 		return 0;

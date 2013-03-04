@@ -145,8 +145,12 @@ lua_mpi_request::lua_mpi_request()
 
 lua_mpi_request::~lua_mpi_request()
 {
+	cancel();
 	if(buf)
 		free(buf);
+	if(full_buf)
+		free(full_buf);
+	
 }
 
 int lua_mpi_request::luaInit(lua_State* L)
@@ -178,6 +182,8 @@ void lua_mpi_request::recv_init()
 		active[0] = 0;
 		const int full_buffer_size = *((int*)buf);
 		active_requests = 1; //this is a given
+
+		// printf("receiving %i\n", full_buffer_size);
 
 		if(full_buffer_size > REQ1_SIZE)
 			active_requests++;
@@ -348,7 +354,7 @@ int lua_mpi_request::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "A request object represents a pending asyncronous communication event");
+		lua_pushstring(L, "A request object represents a pending asynchronous communication event");
 		lua_pushstring(L, "");
 		lua_pushstring(L, ""); //output, empty
 		return 3;
@@ -446,7 +452,7 @@ static int decodeBuffer(lua_State* L, char* buf)
 	return n;
 }
 
-static char* setupSendBuffer(lua_State* L, int datapos, int& ret_n, int& ret_size, int& error)
+static char* setupSendBuffer(lua_State* L, int datapos, int& ret_n, int& ret_size, int& error, int matchChunks)
 {
 	int n = lua_gettop(L) - (datapos-1);
 	int* size;
@@ -469,30 +475,35 @@ static char* setupSendBuffer(lua_State* L, int datapos, int& ret_n, int& ret_siz
 	{
 		buf[i] = exportLuaVariable(L, datapos+i, &(size[i]));
 		complete_message_size += sizeof(int) + size[i]; //data size, data
-// 		printf("size[%i] = %i\n", i, size[i]);
+ 		//printf("size[%i] = %i\n", i, size[i]);
 	}
 
 	// we want the full buffer size to fit in some ranges
 
-	int full_buffer_size = REQ1_SIZE; //at least this big
-	
-	if(complete_message_size > REQ1_SIZE)
-		full_buffer_size = REQ2_SIZE;
+	int full_buffer_size = complete_message_size;
 
-	if(complete_message_size > REQ2_SIZE)
-		full_buffer_size = REQ3_SIZE;
-	
-	if(complete_message_size > REQ3_SIZE)
-		full_buffer_size = complete_message_size;
+	// printf("complete_message_size = %i\n", complete_message_size);
 
+	if(matchChunks)
+	{
+		full_buffer_size = REQ1_SIZE; //at least this big
+		
+		if(complete_message_size > REQ1_SIZE)
+			full_buffer_size = REQ12_SIZE;
+		
+		if(complete_message_size > REQ12_SIZE)
+			full_buffer_size = REQ123_SIZE;
+		
+		if(complete_message_size > REQ123_SIZE)
+			full_buffer_size = complete_message_size;
+	}
 	
-	// printf("encode: %i %i\n", complete_message_size, n);
-
+	// printf("encode: %i %i\n", full_buffer_size, n);
 
 	char* full_buffer = (char*)malloc(full_buffer_size);
 
 	int pos = 0;
-	memcpy(full_buffer + pos, &complete_message_size, sizeof(int)); pos+=sizeof(int);
+	memcpy(full_buffer + pos, &full_buffer_size, sizeof(int)); pos+=sizeof(int);
 	memcpy(full_buffer + pos, &n,                     sizeof(int)); pos+=sizeof(int);
 	memcpy(full_buffer + pos,  size,                n*sizeof(int)); pos+=sizeof(int)*n;
 	
@@ -530,7 +541,7 @@ static int l_mpi_isend(lua_State* L)
 	int n;
 	int complete_message_size;
 	int error;
-	char* full_buffer = setupSendBuffer(L, base+3, n, complete_message_size, error);
+	char* full_buffer = setupSendBuffer(L, base+3, n, complete_message_size, error, 1);
 
 	if(error)
 		return luaL_error(L, "Attempting to send too many values on one line. Increasing CHUNK_SIZE in luampi.cpp will fix this. Current value = %d\n. Required size = %i.", CHUNK_SIZE, sizeof(int)*(n+3));
@@ -551,18 +562,21 @@ static int l_mpi_isend(lua_State* L)
 		MPI_Isend(full_buffer + 0, REQ1_SIZE, MPI_CHAR, dest, tag+0, comm, &(req->request[0]));
 		req->active_requests++;
 		req->active[0] = 1;
+		// printf("sending REQ1 %i/%i\n", REQ1_SIZE, complete_message_size);
 	}
 	if(complete_message_size >= REQ12_SIZE)
 	{
 		MPI_Isend(full_buffer + REQ1_SIZE, REQ2_SIZE, MPI_CHAR, dest, tag+1, comm, &(req->request[1]));
 		req->active_requests++;
 		req->active[1] = 1;
+		// printf("sending REQ2 %i/%i\n", REQ2_SIZE, complete_message_size);
 	}
 	if(complete_message_size >= REQ123_SIZE)
 	{
 		MPI_Isend(full_buffer + REQ12_SIZE, REQ3_SIZE, MPI_CHAR, dest, tag+2, comm, &(req->request[2]));
 		req->active_requests++;
 		req->active[2] = 1;
+		// printf("sending REQ3\n");
 	}
 	if(complete_message_size >  REQ123_SIZE)
 	{
@@ -570,6 +584,7 @@ static int l_mpi_isend(lua_State* L)
 		MPI_Isend(full_buffer + REQ123_SIZE, sz, MPI_CHAR, dest, tag+3, comm, &(req->request[3]));
 		req->active_requests++;
 		req->active[3] = 1;
+		// printf("sending REQ4 %i/%i\n", sz, complete_message_size);
 	}
 
 	luaT_push<lua_mpi_request>(L, req);
@@ -641,6 +656,65 @@ static int l_mpi_comm_split(lua_State* L)
 	lua_pushMPI_Comm(L, new_comm);
 
     return 1;
+}
+
+template<int base>
+static int l_cart_coord(lua_State* L)
+{
+	MPI_Comm comm = get_comm<base>(L);
+
+	int rank = lua_tointeger(L, base+1) - 1;
+	int dims = lua_tointeger(L, base+2);
+
+	if(dims <= 0 || dims >= 10)
+		return luaL_error(L, "Dimension count must be greater than zero and less than 10");
+
+	int* d = new int[dims];
+
+
+	if(MPI_Cart_coords(comm, rank, dims, d))
+		return luaL_error(L, "Failed to lookup coordinates. Invalid rank or non-cartesian workgroup?");
+
+	lua_newtable(L);
+	for(int i=0; i<dims; i++)
+	{
+		lua_pushinteger(L, i+1);
+		lua_pushinteger(L, d[i]+1);
+		lua_settable(L, -3);
+	}
+
+	delete [] d;
+	return 1;
+}
+
+template<int base>
+static int l_cart_rank(lua_State* L)
+{
+	MPI_Comm comm = get_comm<base>(L);
+	
+	int coord[10] = {0,0,0,0,0,0,0,0,0,0};
+	int rank;
+	
+	if(!lua_istable(L, base+1))
+	{
+		return luaL_error(L, "Coordinate must be given in a table");
+	}
+
+	for(int i=0; i<10; i++)
+	{
+		lua_pushinteger(L, i+1);
+		lua_gettable(L, base+1);
+		if(lua_isnumber(L, -1))
+			coord[i] = lua_tointeger(L, -1) - 1;
+		lua_pop(L, 1);
+	}
+
+	if(MPI_Cart_rank(comm, coord, &rank))
+		return luaL_error(L, "Failed to get rank for provided coodinate. Invalid coordinate? Non-cartesian communicator?");
+
+	lua_pushinteger(L, rank+1);
+	return 1;
+
 }
 
 template<int base>
@@ -780,7 +854,7 @@ static int l_mpi_send(lua_State* L)
 	int n;
 	int complete_message_size;
 	int error;
-	char* full_buffer = setupSendBuffer(L, base+2, n, complete_message_size, error);
+	char* full_buffer = setupSendBuffer(L, base+2, n, complete_message_size, error, 0);
 
 	if(error)
 		return luaL_error(L, "Attempting to send too many values on one line. Increasing CHUNK_SIZE in luampi.cpp will fix this. Current value = %d\n. Required size = %i.", CHUNK_SIZE, sizeof(int)*(n+3));
@@ -1020,8 +1094,8 @@ static int l_mpi_help(lua_State* L)
 	}	
 	if(func == &l_mpi_isend<0> || func == &l_mpi_isend<1>)
 	{
-		lua_pushstring(L, "Asyncronously send data to another process in the workgroups. Example:\n<pre>"
-"-- tags ensure that different asyncronous communications don't clash\n"
+		lua_pushstring(L, "Asynchronously send data to another process in the workgroups. Example:\n<pre>"
+"-- tags ensure that different asynchronous communications don't clash\n"
 "local tag = 5\n"
 "\n"
 "if mpi.get_rank() == 2 then\n"
@@ -1046,7 +1120,7 @@ static int l_mpi_help(lua_State* L)
 	}
 	if(func == &l_mpi_irecv<0> || func == &l_mpi_irecv<1>)
 	{
-		lua_pushstring(L, "Asyncronously receive data from another process in the workgroups.");
+		lua_pushstring(L, "Asynchronously receive data from another process in the workgroups.");
 		lua_pushstring(L, "2 Integers: Rank of remote process, tag to be matched on the sending side.");
 		lua_pushstring(L, "1 *mpi.request*: This request is used to check to see if the communication is complete. The data may be retrieved from this object.");
 		return 3;
@@ -1075,6 +1149,21 @@ static int l_mpi_help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == &l_cart_rank<0> || func == &l_cart_rank<1>)
+	{
+		lua_pushstring(L, "Lookup rank in a cartesian workgroup based on coordinate.");
+		lua_pushstring(L, "1 Table of integers: Coordinate to lookup, values will be wrapped for periodic dimensions.");
+		lua_pushstring(L, "1 Integer: Rank of workgroup member at given coodinate.");
+	}
+	if(func == &l_cart_coord<0> || func == &l_cart_coord<1>)
+	{
+		lua_pushstring(L, "Lookup coordinate in cartesian workgroup based on rank.");
+		lua_pushstring(L, "1 Integer: Rank of workgroup member.");
+		lua_pushstring(L, "1 Table of integers: Coordinate at given rank.");
+	}
+
+
+
 	if(func == &l_cart_create<0> || func == &l_cart_create<1>)
 	{
 		lua_pushstring(L, "Create a cartesian workgroup, maximum 10 dimensions. 3D Example with periodic bounds in the 1st and 2nd dimension:\n"
@@ -1165,9 +1254,10 @@ void registerMPI(lua_State* L)
 	add("gather",             l_mpi_gather<1>     );
 	add("bcast",              l_mpi_bcast<1>      );
 	add("cart_create",        l_cart_create<1>    );
+	add("cart_coord",         l_cart_coord<1>    );
 	add("comm_split",         l_mpi_comm_split<1> );
 	add("range",              l_mpi_splitrange<1> );
-	
+	add("cart_rank",          l_cart_rank<1>      );
 	add("__gc",               l_MPI_Comm_gc       );
 	add("__tostring",         l_MPI_Comm_tostring );
 	lua_pop(L,1); //metatable is registered
@@ -1185,6 +1275,8 @@ void registerMPI(lua_State* L)
 	add("gather",             l_mpi_gather<0>         );
 	add("bcast",              l_mpi_bcast<0>          );
 	add("cart_create",        l_cart_create<0>        );
+	add("cart_rank",          l_cart_rank<0>          );
+	add("cart_coord",         l_cart_coord<0>         );
 	add("comm_split",         l_mpi_comm_split<0>     );
 	add("range",              l_mpi_splitrange<0>     );
 	add("get_comm_world",     l_mpi_comm_world        );
