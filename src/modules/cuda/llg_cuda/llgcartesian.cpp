@@ -62,6 +62,59 @@ bool LLGCartesian::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** d
 	const int ny = spinfrom[0]->ny;
 	const int nz = spinfrom[0]->nz;
 	
+	const double **d_spinto_x_N,   **d_spinto_y_N,   **d_spinto_z_N,   **d_spinto_m_N;
+	const double **h_spinto_x_N,   **h_spinto_y_N,   **h_spinto_z_N,   **h_spinto_m_N;
+
+	const double **d_spinfrom_x_N, **d_spinfrom_y_N, **d_spinfrom_z_N, **d_spinfrom_m_N;
+	const double **h_spinfrom_x_N, **h_spinfrom_y_N, **h_spinfrom_z_N, **h_spinfrom_m_N;
+
+	const double **d_dmdt_x_N,     **d_dmdt_y_N,     **d_dmdt_z_N,     **d_dmdt_m_N;
+	const double **h_dmdt_x_N,     **h_dmdt_y_N,     **h_dmdt_z_N,     **h_dmdt_m_N;
+
+	getWSMemD(&d_spinto_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_1"));
+	getWSMemD(&d_spinto_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_2"));
+	getWSMemD(&d_spinto_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_3"));
+	getWSMemD(&d_spinto_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
+
+	getWSMemH(&h_spinto_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_1"));
+	getWSMemH(&h_spinto_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_2"));
+	getWSMemH(&h_spinto_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_3"));
+	getWSMemH(&h_spinto_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
+
+	
+	
+	getWSMemD(&d_spinfrom_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
+	getWSMemD(&d_spinfrom_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
+	getWSMemD(&d_spinfrom_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_7"));
+	getWSMemD(&d_spinfrom_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_8"));
+
+	getWSMemH(&h_spinfrom_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
+	getWSMemH(&h_spinfrom_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
+	getWSMemH(&h_spinfrom_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_7"));
+	getWSMemH(&h_spinfrom_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_8"));
+	
+	
+	
+	getWSMemD(&d_dmdt_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_9"));
+	getWSMemD(&d_dmdt_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_10"));
+	getWSMemD(&d_dmdt_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_11"));
+	getWSMemD(&d_dmdt_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_12"));
+
+	getWSMemH(&h_dmdt_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_9"));
+	getWSMemH(&h_dmdt_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_10"));
+	getWSMemH(&h_dmdt_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_11"));
+	getWSMemH(&h_dmdt_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_12"));
+
+	
+	
+	getWSMemD(&d_hx_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
+	getWSMemD(&d_hy_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
+	getWSMemD(&d_hz_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
+	
+	getWSMemH(&h_hx_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
+	getWSMemH(&h_hy_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
+	getWSMemH(&h_hz_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
+	
 
 	const double** d_spinto_x_N = new const double*[n];
 	const double** d_spinto_y_N = new const double*[n];
@@ -113,15 +166,9 @@ bool LLGCartesian::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** d
 
 	memcpy_h2d(d_gamma, h_gamma, sizeof(double)*n);
 	memcpy_h2d(d_alpha, h_alpha, sizeof(double)*n);
-	memcpy_h2d(d_gamma, h_gamma, sizeof(double)*n);
+	memcpy_h2d(d_dt,    h_dt,    sizeof(double)*n);
 
-	getWSMemD(&d_ws2, sz, hash32("SpinOperation::apply_2"));
-	getWSMemD(&d_ws3, sz, hash32("SpinOperation::apply_3"));
 
-		const double gamma = dmdt->gamma;
-	const double alpha = dmdt->alpha;
-	const double dt    = dmdt->dt * scaledmdt;
-	
 	const double* d_gamma = dmdt->site_gamma?(dmdt->site_gamma->ddata()):0;
 	const double* d_alpha = dmdt->site_alpha?(dmdt->site_alpha->ddata()):0;
 

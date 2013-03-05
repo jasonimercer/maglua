@@ -81,7 +81,6 @@ static int l_getcpuaffinity(lua_State* L)
 }
     
 
-
 static int l_getuname(lua_State* L)
 {
 	struct utsname u;
@@ -122,6 +121,34 @@ static int l_getuname(lua_State* L)
 	return 1;
 }
 
+#include <iostream>
+#include <fstream>
+using namespace std;
+// returns
+//             RSS: The total amount of physical memory used by the task, in megabytes
+//   Shared Memory: total shared memory (can include libraries), in megabytes
+//  Private Memory: RSS - Shared Memory
+static int l_getmemoryusage(lua_State* L)
+{
+    int tSize = 0, resident = 0, share = 0;
+    ifstream buffer("/proc/self/statm");
+    buffer >> tSize >> resident >> share;
+    buffer.close();
+
+    double page_size_mb = ((double)sysconf(_SC_PAGE_SIZE)) / (1024.0*1024.0); // in case x86-64 is configured to use 2MB pages
+
+	double rss = resident * page_size_mb;
+    double shared_mem = share * page_size_mb;
+
+	
+	lua_pushnumber(L, rss);
+	lua_pushnumber(L, shared_mem);
+	lua_pushnumber(L, rss - shared_mem);
+	
+	
+    return 3;
+}
+
 OS_EXTENSIONS_API int lib_register(lua_State* L)
 {
 	lua_getglobal(L, "os");
@@ -134,6 +161,10 @@ OS_EXTENSIONS_API int lib_register(lua_State* L)
 	lua_pushcfunction(L, l_getcpuaffinity);
 	lua_settable(L, -3);
 		
+	lua_pushstring(L, "statm");
+	lua_pushcfunction(L, l_getmemoryusage);
+	lua_settable(L, -3);
+	
 	
 	lua_pushstring(L, "domainname");
 	lua_pushcfunction(L, l_getdomainname);
