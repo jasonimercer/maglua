@@ -30,50 +30,166 @@
 LLGCartesian::LLGCartesian()
 	: LLG(hash32(LLGCartesian::typeName()))
 {
+	registerWS();
 }
 
 LLGCartesian::~LLGCartesian()
 {
+	unregisterWS();
 }
 
 
 bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
+{
+	SpinSystem** s1[1]; s1[0] = spinfrom;
+	SpinSystem** s2[1]; s2[0] = dmdt;
+	SpinSystem** s3[1]; s3[0] = spinto;
+	return apply(s1, scaledmdt, s2, s3, advancetime);
+}
+
+bool LLGCartesian::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, SpinSystem** spinto, bool advancetime, int n)
 // bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
 #define S SUM_SLOT
 #define T THERMAL_SLOT
-	dmdt->ensureSlotExists(SUM_SLOT);
-	dmdt->ensureSlotExists(THERMAL_SLOT);
-
-
-	const int nx = spinfrom->nx;
-	const int ny = spinfrom->ny;
-	const int nz = spinfrom->nz;
+	for(int i=0; i<n; i++)
+	{
+		dmdt[i]->ensureSlotExists(SUM_SLOT);
+		dmdt[i]->ensureSlotExists(THERMAL_SLOT);
+	}
 	
-	const double gamma = dmdt->gamma;
+	const int nx = spinfrom[0]->nx;
+	const int ny = spinfrom[0]->ny;
+	const int nz = spinfrom[0]->nz;
+	
+
+	const double** d_spinto_x_N = new const double*[n];
+	const double** d_spinto_y_N = new const double*[n];
+	const double** d_spinto_z_N = new const double*[n];
+	const double** d_spinto_m_N = new const double*[n];
+		
+	const double** d_spinfrom_x_N = new const double*[n];
+	const double** d_spinfrom_y_N = new const double*[n];
+	const double** d_spinfrom_z_N = new const double*[n];
+	const double** d_spinfrom_m_N = new const double*[n];
+
+	const double** d_dmdt_x_N = new const double*[n];
+	const double** d_dmdt_y_N = new const double*[n];
+	const double** d_dmdt_z_N = new const double*[n];
+	const double** d_dmdt_m_N = new const double*[n];
+	
+	const double** d_dmdt_hT_x_N = new const double*[n];
+	const double** d_dmdt_hT_y_N = new const double*[n];
+	const double** d_dmdt_hT_z_N = new const double*[n];
+
+	const double** d_dmdt_hS_x_N = new const double*[n];
+	const double** d_dmdt_hS_y_N = new const double*[n];
+	const double** d_dmdt_hS_z_N = new const double*[n];
+
+	double* d_gamma;
+	double* h_gamma;
+
+	double* d_alpha;
+	double* h_alpha;
+
+	double* d_dt;
+	double* h_dt;
+
+	getWSMemD(&d_gamma, sizeof(double)*n, hash32("SpinOperation::apply_1"));
+	getWSMemH(&h_gamma, sizeof(double)*n, hash32("SpinOperation::apply_1"));
+
+	getWSMemD(&d_alpha, sizeof(double)*n, hash32("SpinOperation::apply_2"));
+	getWSMemH(&h_alpha, sizeof(double)*n, hash32("SpinOperation::apply_2"));
+
+	getWSMemD(&d_dt,    sizeof(double)*n, hash32("SpinOperation::apply_3"));
+	getWSMemH(&h_dt,    sizeof(double)*n, hash32("SpinOperation::apply_3"));
+
+	for(int i=0; i<n; i++)
+	{
+		h_gamma[i] = dmdt[i]->gamma;
+		h_alpha[i] = dmdt[i]->alpha;
+		h_dt[i]    = dmdt[i]->dt * scaledmdt;
+	}
+
+	memcpy_h2d(d_gamma, h_gamma, sizeof(double)*n);
+	memcpy_h2d(d_alpha, h_alpha, sizeof(double)*n);
+	memcpy_h2d(d_gamma, h_gamma, sizeof(double)*n);
+
+	getWSMemD(&d_ws2, sz, hash32("SpinOperation::apply_2"));
+	getWSMemD(&d_ws3, sz, hash32("SpinOperation::apply_3"));
+
+		const double gamma = dmdt->gamma;
 	const double alpha = dmdt->alpha;
 	const double dt    = dmdt->dt * scaledmdt;
 	
 	const double* d_gamma = dmdt->site_gamma?(dmdt->site_gamma->ddata()):0;
 	const double* d_alpha = dmdt->site_alpha?(dmdt->site_alpha->ddata()):0;
 
-	cuda_llg_cart_apply(nx, ny, nz,
-			  spinto->x->ddata(),   spinto->y->ddata(),   spinto->z->ddata(),   spinto->ms->ddata(),
-			spinfrom->x->ddata(), spinfrom->y->ddata(), spinfrom->z->ddata(), spinfrom->ms->ddata(),
-			    dmdt->x->ddata(),     dmdt->y->ddata(),     dmdt->z->ddata(),     dmdt->ms->ddata(),
+	const double** d_gamma_N = new const double*[n];
+	const double** d_alpha_N = new const double*[n];
+	
+	
+	for(int i=0; i<n; i++)
+	{
+		d_spinto_x_N[i] = spinto[i]->x->ddata();
+		d_spinto_y_N[i] = spinto[i]->y->ddata();
+		d_spinto_z_N[i] = spinto[i]->z->ddata();
+		d_spinto_m_N[i] = spinto[i]->ms->ddata();
+
+		d_spinfrom_x_N[i] = spinfrom[i]->x->ddata();
+		d_spinfrom_y_N[i] = spinfrom[i]->y->ddata();
+		d_spinfrom_z_N[i] = spinfrom[i]->z->ddata();
+		d_spinfrom_m_N[i] = spinfrom[i]->ms->ddata();
+		
+		d_dmdt_x_N[i] = dmdt[i]->x->ddata();
+		d_dmdt_y_N[i] = dmdt[i]->y->ddata();
+		d_dmdt_z_N[i] = dmdt[i]->z->ddata();
+		d_dmdt_m_N[i] = dmdt[i]->ms->ddata();
+				
+		d_dmdt_hT_x_N[i] = dmdt[i]->hx[T]->ddata();
+		d_dmdt_hT_y_N[i] = dmdt[i]->hy[T]->ddata();
+		d_dmdt_hT_z_N[i] = dmdt[i]->hz[T]->ddata();
+
+		d_dmdt_hS_x_N[i] = dmdt[i]->hx[S]->ddata();
+		d_dmdt_hS_y_N[i] = dmdt[i]->hy[S]->ddata();
+		d_dmdt_hS_z_N[i] = dmdt[i]->hz[S]->ddata();
+
+	}
+	
+	
+	cuda_llg_cart_apply_N(nx, ny, nz,
+			    d_spinto_x_N,   d_spinto_y_N,   d_spinto_z_N,   d_spinto_m_N,
+			  d_spinfrom_x_N, d_spinfrom_y_N, d_spinfrom_z_N, d_spinfrom_m_N,
+			      d_dmdt_x_N,     d_dmdt_y_N,     d_dmdt_z_N,     d_dmdt_m_N,
+			      d_dmdt_hT_x_N,     d_dmdt_hT_y_N,     d_dmdt_hT_z_N,
+			      d_dmdt_hS_x_N,     d_dmdt_hS_y_N,     d_dmdt_hS_z_N,
+
+// 			  dmdt->x->ddata(),     dmdt->y->ddata(),     dmdt->z->ddata(),     dmdt->ms->ddata(),
 			    dmdt->hx[T]->ddata(), dmdt->hy[T]->ddata(), dmdt->hz[T]->ddata(),
 			    dmdt->hx[S]->ddata(), dmdt->hy[S]->ddata(), dmdt->hz[S]->ddata(),
 			dt, alpha, d_alpha, gamma, d_gamma, thermalOnlyFirstTerm, disableRenormalization);	
-	
 
-	
-	spinto->x->new_device  = true;
-	spinto->y->new_device  = true;
-	spinto->z->new_device  = true;
-	spinto->ms->new_device = true;
+// 	cuda_llg_cart_apply(nx, ny, nz,
+// 			  spinto->x->ddata(),   spinto->y->ddata(),   spinto->z->ddata(),   spinto->ms->ddata(),
+// 			spinfrom->x->ddata(), spinfrom->y->ddata(), spinfrom->z->ddata(), spinfrom->ms->ddata(),
+// 			    dmdt->x->ddata(),     dmdt->y->ddata(),     dmdt->z->ddata(),     dmdt->ms->ddata(),
+// 			    dmdt->hx[T]->ddata(), dmdt->hy[T]->ddata(), dmdt->hz[T]->ddata(),
+// 			    dmdt->hx[S]->ddata(), dmdt->hy[S]->ddata(), dmdt->hz[S]->ddata(),
+// 			dt, alpha, d_alpha, gamma, d_gamma, thermalOnlyFirstTerm, disableRenormalization);	
 
-	if(advancetime)
-		spinto->time = spinfrom->time + dt;
+
+	for(int i=0; i<n; i++)
+	{
+		spinto[i]->x->new_device  = true;
+		spinto[i]->y->new_device  = true;
+		spinto[i]->z->new_device  = true;
+		spinto[i]->ms->new_device = true;
+
+		if(advancetime)
+			spinto->time = spinfrom->time + dt;
+	}
+	
+	
 
 	return true;
 }

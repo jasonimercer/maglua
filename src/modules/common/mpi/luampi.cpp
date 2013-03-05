@@ -1154,12 +1154,14 @@ static int l_mpi_help(lua_State* L)
 		lua_pushstring(L, "Lookup rank in a cartesian workgroup based on coordinate.");
 		lua_pushstring(L, "1 Table of integers: Coordinate to lookup, values will be wrapped for periodic dimensions.");
 		lua_pushstring(L, "1 Integer: Rank of workgroup member at given coodinate.");
+		return 3;
 	}
 	if(func == &l_cart_coord<0> || func == &l_cart_coord<1>)
 	{
 		lua_pushstring(L, "Lookup coordinate in cartesian workgroup based on rank.");
 		lua_pushstring(L, "1 Integer: Rank of workgroup member.");
 		lua_pushstring(L, "1 Table of integers: Coordinate at given rank.");
+		return 3;
 	}
 
 

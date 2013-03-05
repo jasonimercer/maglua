@@ -28,8 +28,11 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 	
+	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
 	
-	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)  {return true;}
+	virtual bool apply(SpinSystem*  spinfrom, double scaledmdt, SpinSystem*  dmdt, SpinSystem*  spinto, bool advancetime)  {return true;}
+	// multiple data version
+	virtual bool apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, SpinSystem** spinto, bool advancetime, int n)  {return true;}
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 	
 	bool disableRenormalization;

@@ -79,6 +79,7 @@ bool Exchange::make_uncompressed()
 	
 	new_host = false;
 	
+	
 	//find out max number of neighbours
 	int* nn = new int[nxyz];
 	for(int i=0; i<nxyz; i++)
@@ -94,6 +95,8 @@ bool Exchange::make_uncompressed()
 		if(maxFromSites < j)
 			maxFromSites = j;
 	}
+	
+// 	printf("maxFromSites = %i\n", maxFromSites);
 	
 	// we will use nn to count number of recorded neighbours
 	for(int i=0; i<nxyz; i++)
@@ -537,109 +540,80 @@ int  Exchange::decode(buffer* b)
 	return 0;
 }
 
+bool Exchange::apply(SpinSystem** sss, int n)
+{
+	for(int i=0; i<n; i++)
+	{
+		markSlotUsed(sss[i]);
+		sss[i]->ensureSlotExists(slot);
+	}
+
+	if(!make_compressed())
+	{
+		make_uncompressed();
+	}
+
+	const double** d_sx_N = new const double*[n];
+	const double** d_sy_N = new const double*[n];
+	const double** d_sz_N = new const double*[n];
+
+	double** d_hx_N = new double*[n];
+	double** d_hy_N = new double*[n];
+	double** d_hz_N = new double*[n];
+	
+	for(int i=0; i<n; i++)
+	{
+		d_sx_N[i] = sss[i]->x->ddata();
+		d_sy_N[i] = sss[i]->y->ddata();
+		d_sz_N[i] = sss[i]->z->ddata();
+
+		d_hx_N[i] = sss[i]->hx[slot]->ddata(); 
+		d_hy_N[i] = sss[i]->hy[slot]->ddata(); 
+		d_hz_N[i] = sss[i]->hz[slot]->ddata();		
+	}
+	
+	if(compressed)
+	{
+		cuda_exchange_compressed_N(
+			d_sx_N, d_sy_N, d_sz_N,
+			d_LUT, d_idx, compress_max_neighbours,
+			d_hx_N, d_hy_N, d_hz_N,
+			nxyz, n);
+	}
+	else
+	{
+		cuda_exchange_N(
+			d_sx_N, d_sy_N, d_sz_N,
+			d_strength, d_fromsite, maxFromSites,
+			d_hx_N, d_hy_N, d_hz_N,
+			nx, ny, nz, n);
+	}
+	
+	for(int i=0; i<n; i++)
+	{
+		sss[i]->hx[slot]->new_device = true;
+		sss[i]->hy[slot]->new_device = true;
+		sss[i]->hz[slot]->new_device = true;
+	}
+	
+	delete [] d_sx_N;
+	delete [] d_sy_N;
+	delete [] d_sz_N;
+
+	delete [] d_hx_N;
+	delete [] d_hy_N;
+	delete [] d_hz_N;	
+	
+	return true;
+}
+
 bool Exchange::apply(SpinSystem* ss)
 {
-	markSlotUsed(ss);
-	ss->ensureSlotExists(slot);
-
-// 	make_uncompressed();
-// 	make_compressed();
-// 	if(!compressAttempted)
-	if(!make_compressed())
-	{
-		printf("compressed FAILED\n");
-		make_uncompressed();
-	}
-		
-	double* d_hx = ss->hx[slot]->ddata();
-	double* d_hy = ss->hy[slot]->ddata();
-	double* d_hz = ss->hz[slot]->ddata();
-
-	const double* d_sx = ss->x->ddata();
-	const double* d_sy = ss->y->ddata();
-	const double* d_sz = ss->z->ddata();
-
-	if(compressed)
-	{
-		cuda_exchange_compressed(
-			d_sx, d_sy, d_sz,
-			d_LUT, d_idx, compress_max_neighbours,
-			d_hx, d_hy, d_hz,
-			nxyz);
-	}
-	else
-	{
-		cuda_exchange(
-			d_sx, d_sy, d_sz,
-			d_strength, d_fromsite, maxFromSites,
-			d_hx, d_hy, d_hz,
-			nx, ny, nz);
-	}
-	
-	ss->hx[slot]->new_device = true;
-	ss->hy[slot]->new_device = true;
-	ss->hz[slot]->new_device = true;
-	
-	return true;
+	SpinSystem* sss[1];
+	sss[0] = ss;
+	return apply(sss, 1);
 }
 
-
-bool Exchange::applyToSum(SpinSystem* ss)
-{
-	ss->ensureSlotExists(SUM_SLOT);
-
-	double* d_wsx;
-	double* d_wsy;
-	double* d_wsz;
-	
-	const int sz = sizeof(double)*nxyz;
-	getWSMemD(&d_wsx, sz, hash32("SpinOperation::apply_1"));
-	getWSMemD(&d_wsy, sz, hash32("SpinOperation::apply_2"));
-	getWSMemD(&d_wsz, sz, hash32("SpinOperation::apply_3"));
-
-	if(!make_compressed())
-	{
-		printf("compressed FAILED\n");
-		make_uncompressed();
-	}
-		
-// 	double* d_hx = ss->d_hx[slot];
-// 	double* d_hy = ss->d_hy[slot];
-// 	double* d_hz = ss->d_hz[slot];
-
-	const double* d_sx = ss->x->ddata();
-	const double* d_sy = ss->y->ddata();
-	const double* d_sz = ss->z->ddata();
-
-	if(compressed)
-	{
-		cuda_exchange_compressed(
-			d_sx, d_sy, d_sz,
-			d_LUT, d_idx, compress_max_neighbours,
-			d_wsx, d_wsy, d_wsz,
-			nxyz);
-	}
-	else
-	{
-		cuda_exchange(
-			d_sx, d_sy, d_sz,
-			d_strength, d_fromsite, maxFromSites,
-			d_wsx, d_wsy, d_wsz,
-			nx, ny, nz);
-	}
-	
-	const int nxyz = nx*ny*nz;
-	arraySumAll(ss->hx[SUM_SLOT]->ddata(), ss->hx[SUM_SLOT]->ddata(), d_wsx, nxyz);
-	arraySumAll(ss->hy[SUM_SLOT]->ddata(), ss->hy[SUM_SLOT]->ddata(), d_wsy, nxyz);
-	arraySumAll(ss->hz[SUM_SLOT]->ddata(), ss->hz[SUM_SLOT]->ddata(), d_wsz, nxyz);
-	
-	ss->hx[SUM_SLOT]->new_device = true;
-	ss->hy[SUM_SLOT]->new_device = true;
-	ss->hz[SUM_SLOT]->new_device = true;
-	ss->slot_used[SUM_SLOT] = true;
-
-	return true;
-}
 
 static bool mysort(Exchange::sss* i, Exchange::sss* j)
 {

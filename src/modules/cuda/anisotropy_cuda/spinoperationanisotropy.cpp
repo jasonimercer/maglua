@@ -527,117 +527,105 @@ int Anisotropy::decode(buffer* b)
 }
 #endif
 
-
 bool Anisotropy::apply(SpinSystem* ss)
 {
-	markSlotUsed(ss);
-	writeToMemory();
-
-	double* d_hx = ss->hx[slot]->ddata();
-	double* d_hy = ss->hy[slot]->ddata();
-	double* d_hz = ss->hz[slot]->ddata();
-
-	if(!make_compressed())
-		make_uncompressed();
-
-	if(compressed)
-	{
-		// d_LUT is non-null (since compressed)
-		cuda_anisotropy_compressed(
-			global_scale,
-			ss->x->ddata(), ss->y->ddata(), ss->z->ddata(),
-			d_LUT, d_idx, 
-			d_hx, d_hy, d_hz,
-			nxyz);
-	}
-	else
-	{
-		if(!d_nx)
-			make_uncompressed();
-		
-		cuda_anisotropy(
-			global_scale,
-			ss->x->ddata(), ss->y->ddata(), ss->z->ddata(),
-			d_nx, d_ny, d_nz, d_k,
-			d_hx, d_hy, d_hz,
-			nx, ny, nz);
-	}
-	
-	ss->hx[slot]->new_device = true;
-	ss->hy[slot]->new_device = true;
-	ss->hz[slot]->new_device = true;
-	
-	return true;
+	SpinSystem* sss[1];
+	sss[0] = ss;
+	return apply(sss, 1);
 }
- 
 
-bool Anisotropy::applyToSum(SpinSystem* ss)
+
+bool Anisotropy::apply(SpinSystem** sss, int n)
 {
-//     double* d_wsAll = (double*)getWSMem(*3);
+	for(int i=0; i<n; i++)
+	{
+		markSlotUsed(sss[i]);
+	}
 
-// 	double* d_wsx = d_wsAll + nxyz * 0;
-//     double* d_wsy = d_wsAll + nxyz * 1;
-//     double* d_wsz = d_wsAll + nxyz * 2;
-
-	double* d_wsx;
-	double* d_wsy;
-	double* d_wsz;
-	
-	const int sz = sizeof(double)*nxyz;
-	getWSMemD(&d_wsx, sz, hash32("SpinOperation::apply_1"));
-	getWSMemD(&d_wsy, sz, hash32("SpinOperation::apply_2"));
-	getWSMemD(&d_wsz, sz, hash32("SpinOperation::apply_3"));
-	
-// 	const int sz = sizeof(double)*nxyz;
-// 	getWSMem3(&d_wsx, sz, &d_wsy, sz, &d_wsz, sz);
-	
-//	markSlotUsed(ss);
-//	ss->sync_spins_hd();
-	ss->ensureSlotExists(SUM_SLOT);
-
+	writeToMemory();
 	if(!make_compressed())
 		make_uncompressed();
+	
+	const double **d_sx_N, **h_sx_N;
+	const double **d_sy_N, **h_sy_N;
+	const double **d_sz_N, **h_sz_N;
+	
+	      double **d_hx_N, **h_hx_N;
+	      double **d_hy_N, **h_hy_N;
+	      double **d_hz_N, **h_hz_N;
 
+	
+	getWSMemD(&d_sx_N, sizeof(double*)*n, hash32("SpinOperation::apply_1"));
+	getWSMemD(&d_sy_N, sizeof(double*)*n, hash32("SpinOperation::apply_2"));
+	getWSMemD(&d_sz_N, sizeof(double*)*n, hash32("SpinOperation::apply_3"));
+	
+	getWSMemH(&h_sx_N, sizeof(double*)*n, hash32("SpinOperation::apply_1"));
+	getWSMemH(&h_sy_N, sizeof(double*)*n, hash32("SpinOperation::apply_3"));
+	getWSMemH(&h_sz_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
+
+	
+	getWSMemD(&d_hx_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
+	getWSMemD(&d_hy_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
+	getWSMemD(&d_hz_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
+	
+	getWSMemH(&h_hx_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
+	getWSMemH(&h_hy_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
+	getWSMemH(&h_hz_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
+
+	
+	for(int i=0; i<n; i++)
+	{
+		h_sx_N[i] = sss[i]->x->ddata();
+		h_sy_N[i] = sss[i]->y->ddata();
+		h_sz_N[i] = sss[i]->z->ddata();
+
+		h_hx_N[i] = sss[i]->hx[slot]->ddata(); 
+		h_hy_N[i] = sss[i]->hy[slot]->ddata(); 
+		h_hz_N[i] = sss[i]->hz[slot]->ddata();		
+	}
+	
+	memcpy_h2d(d_sx_N, h_sx_N, sizeof(double*)*n);
+	memcpy_h2d(d_sy_N, h_sy_N, sizeof(double*)*n);
+	memcpy_h2d(d_sz_N, h_sz_N, sizeof(double*)*n);
+	
+	memcpy_h2d(d_hx_N, h_hx_N, sizeof(double*)*n);
+	memcpy_h2d(d_hy_N, h_hy_N, sizeof(double*)*n);
+	memcpy_h2d(d_hz_N, h_hz_N, sizeof(double*)*n);
+	
 
 	if(compressed)
 	{
 		// d_LUT is non-null (since compressed)
-		cuda_anisotropy_compressed(
+		cuda_anisotropy_compressed_N(
 			global_scale,
-			ss->x->ddata(), ss->y->ddata(), ss->z->ddata(),
+			d_sx_N, d_sy_N, d_sz_N,
 			d_LUT, d_idx, 
-			d_wsx, d_wsy, d_wsz,
-			nxyz);
+			d_hx_N, d_hy_N, d_hz_N,
+			nxyz, n);
 	}
 	else
 	{
 		if(!d_nx)
 			make_uncompressed();
 		
-		cuda_anisotropy(
+		cuda_anisotropy_N(
 			global_scale,
-			ss->x->ddata(), ss->y->ddata(), ss->z->ddata(),
+			d_sx_N, d_sy_N, d_sz_N,
 			d_nx, d_ny, d_nz, d_k,
-			d_wsx, d_wsy, d_wsz,
-			nx, ny, nz);
+			d_hx_N, d_hy_N, d_hz_N,
+			nxyz, n);
+	}
+	
+	for(int i=0; i<n; i++)
+	{
+		sss[i]->hx[slot]->new_device = true;
+		sss[i]->hy[slot]->new_device = true;
+		sss[i]->hz[slot]->new_device = true;
 	}
 	
 
-	const int nxyz = nx*ny*nz;
-	
-	arraySumAll(ss->hx[SUM_SLOT]->ddata(), ss->hx[SUM_SLOT]->ddata(), d_wsx, nxyz);
-	arraySumAll(ss->hy[SUM_SLOT]->ddata(), ss->hy[SUM_SLOT]->ddata(), d_wsy, nxyz);
-	arraySumAll(ss->hz[SUM_SLOT]->ddata(), ss->hz[SUM_SLOT]->ddata(), d_wsz, nxyz);
-	
-	ss->hx[SUM_SLOT]->new_device = true;
-	ss->hy[SUM_SLOT]->new_device = true;
-	ss->hz[SUM_SLOT]->new_device = true;
-	
 	return true;
 }
-
-
-
 
 
 static int l_get(lua_State* L)

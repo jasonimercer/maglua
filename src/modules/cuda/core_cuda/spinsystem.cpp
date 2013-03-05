@@ -1386,7 +1386,9 @@ static int l_netfield(lua_State* L)
 	int slot = ss->getSlot(name);                       \
 	if(slot < 0)                                        \
 		return luaL_error(L, "Unknown field type`%s'", name); 
+	
 #define GET_FA_BODY(C) \
+	ss->ensureSlotExists(slot); \
 	dArray* h = ss->h##C [slot]; \
 	if(!h)                       \
 		lua_pushnil(L);          \
@@ -1412,11 +1414,14 @@ static int l_getfieldarrayz(lua_State* L)
 }
 
 #define SET_FA_BODY(C) \
-	if(!ss->h##C [slot]) return 0; \
-	dArray* h = luaT_to<dArray>(L, 2); \
+	// if(!ss->h##C [slot]) return 0; \
+	dArray* h = luaT_to<dArray>(L, 3); \
 	if(!h) return 0; \
-	if(!ss->h##C [slot]->sameSize(h)) return 0; \
-	luaT_inc<dArray>(h); luaT_dec<dArray>(ss->h##C[slot]); ss->h##C[slot] = h; \
+	//if(!ss->h##C [slot]->sameSize(h)) return 0; \
+	if(ss->nx() != h->nx() || ss->ny() != h->ny() || ss->nz() != h->nz()) \
+		return luaL_error(L, "Size mismatch");\
+	luaT_inc<dArray>(h); luaT_dec<dArray>(ss->h##C[slot]); \
+	ss->h##C[slot] = h; \
 	return 0;
 static int l_setfieldarrayx(lua_State* L)
 {

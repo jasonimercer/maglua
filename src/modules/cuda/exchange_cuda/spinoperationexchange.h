@@ -42,8 +42,8 @@ public:
 	static int help(lua_State* L);
 	
 	bool apply(SpinSystem* ss);
-	bool applyToSum(SpinSystem* ss);
-
+	bool apply(SpinSystem** ss, int n);
+	
 	void addPath(int site1, int site2, double strength);
 
 	virtual void encode(buffer* b);

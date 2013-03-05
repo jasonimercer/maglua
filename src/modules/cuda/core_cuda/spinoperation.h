@@ -25,7 +25,8 @@
 #include "maglua.h"
 #include <string>
 #include "luabaseobject.h"
-
+#include <vector>
+using namespace std;
 class SpinSystem;
 
 class CORECUDA_API SpinOperation : public LuaBaseObject
@@ -44,11 +45,14 @@ public:
 	virtual int  decode(buffer* b);
 	
 	virtual bool apply(SpinSystem* ss);
+	virtual bool apply(SpinSystem** sss, int n);
 	int getSite(int x, int y, int z);
 
 	bool member(int px, int py, int pz);
 	int  getidx(int px, int py, int pz);
 
+	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
+		
 	int nx, ny, nz;
 	int nxyz;
 	const std::string& name();

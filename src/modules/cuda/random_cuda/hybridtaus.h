@@ -38,7 +38,6 @@ public:
 	LINEAGE2("Random.HybridTaus", "Random.Base")
 	static const luaL_Reg* luaMethods() {return RNG::luaMethods();}
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L) {luaT_push<HybridTaus>(L, this);}
 	static int help(lua_State* L);
 
 	float* get6Normals(int nx, int ny, int nz, int& twiddle);

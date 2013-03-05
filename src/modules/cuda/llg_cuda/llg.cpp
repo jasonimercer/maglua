@@ -44,6 +44,42 @@ int  LLG::decode(buffer* b)
 	return 0;
 }
 
+void LLG::getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss)
+{
+	int initial_size = lua_gettop(L);
+	
+	if(pos < 0)
+	{
+		pos = initial_size + pos + 1;
+	}
+	if(lua_istable(L, pos))
+	{
+		if(lua_istable(L, pos))
+		{
+			lua_pushnil(L);
+			while(lua_next(L, pos))
+			{
+				SpinSystem* ss = luaT_to<SpinSystem>(L, -1);
+				if(ss)
+					sss.push_back(ss);
+				lua_pop(L, 1);
+			}
+		}
+	}
+	else
+	{
+		if(luaT_is<SpinSystem>(L, pos))
+		{
+			sss.push_back(luaT_to<SpinSystem>(L, pos));
+		}
+	}
+
+	
+	while(lua_gettop(L) > initial_size)
+		lua_pop(L, 1);
+}
+
+
 
 // 
 // The apply function is highly overloaded 
@@ -76,26 +112,44 @@ static int l_apply(lua_State* L)
 		sys2_pos = 4; //need to shift it
 	}
 	
-	SpinSystem* ss[3]; //from, dmdt, to
+	vector<SpinSystem*>* ss[3]; //from, dmdt, to
+	vector<SpinSystem*> v1;
+
+	vector<SpinSystem*> v2;
+	vector<SpinSystem*> v3;
+
+	ss[0] = &v1;
+
+	llg->getSpinSystemsAtPosition(L, sys1_pos, *ss[0]);
 	
-	ss[0] = luaT_to<SpinSystem>(L, sys1_pos);
+// 	ss[0] = luaT_to<SpinSystem>(L, sys1_pos);
 	ss[1] = ss[0];
 	ss[2] = ss[0];
 	
-	SpinSystem* t;
 	//get 2nd and 3rd systems if present
-	for(int i=0; i<2; i++)
+	if(luaT_is<SpinSystem>(L, sys2_pos+0) || lua_istable(L, sys2_pos+0))
 	{
-		if(luaT_is<SpinSystem>(L, sys2_pos+i))
-			ss[1+i] = luaT_to<SpinSystem>(L, sys2_pos+i);
-	}	
-
-	if(!llg || !ss[0])
-	{
-		return luaL_error(L, "apply requires 1, 2 or 3 spin systems (extra boolean argument allowed to control timestep, optional 2nd arg can scale timestep)");
+		ss[1] = &v2;
+		llg->getSpinSystemsAtPosition(L, sys2_pos+0, *ss[1]);
 	}
 
-	llg->apply(ss[0], scale_dmdt, ss[1], ss[2], advanceTime);
+	if(luaT_is<SpinSystem>(L, sys2_pos+1) || lua_istable(L, sys2_pos+1))
+	{
+		ss[2] = &v3;
+		llg->getSpinSystemsAtPosition(L, sys2_pos+1, *ss[2]);
+	}
+
+	if(ss[0]->size() != ss[1]->size() || ss[1]->size() != ss[2]->size())
+	{
+		return luaL_error(L, "Size mismatch in number of SpinSystems given in each table");
+	}
+
+	if(ss[0]->size() == 0)
+	{
+		return luaL_error(L, "apply requires 1, 2 or 3 SpinSystems or Tables of SpinSystems (extra boolean argument allowed to control timestep, optional 2nd arg can scale timestep)");
+	}
+
+	llg->apply(&(ss[0]->at(0)), scale_dmdt, &(ss[1]->at(0)), &(ss[2]->at(0)), advanceTime, ss[0]->size());
 	
 	return 0;
 }
@@ -170,10 +224,11 @@ int LLG::help(lua_State* L)
 	if(func == l_apply)
 	{
 		lua_pushstring(L, "Compute 1 LLG Euler Step.");
-		lua_pushstring(L, "1 *SpinSystem*, Oprional Number, Optional 2 *SpinSystem*s, Optional Boolean: " 
+		lua_pushstring(L, "1 *SpinSystem*, Optional Number, Optional 2 *SpinSystem*s, Optional Boolean: " 
 		"Make 1 Euler step from 1st system using 2nd system to compute derivative (defaulting to 1st system), "
 		"scaling timestep be optional number (default 1.0) and storing in 3rd system (defaulting to 1st system)."
-		"If last argument is the boolean \"false\", the time will not be incremented");
+		"If last argument is the boolean \"false\", the time will not be incremented. Each *SpinSystem* can "
+		"be replaced by a table of SpinSystems to apply the LLG operator to each system.");
 		lua_pushstring(L, "");
 		return 3;
 	}

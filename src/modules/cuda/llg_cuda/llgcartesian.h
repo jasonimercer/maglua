@@ -28,6 +28,8 @@ public:
 	static int help(lua_State* L);
 
 	bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime);
+	bool apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, SpinSystem** spinto, bool advancetime, int n);
+
 };
 
 #endif

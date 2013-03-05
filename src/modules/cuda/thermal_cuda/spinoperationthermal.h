@@ -42,27 +42,26 @@ public:
 	LINEAGE2("Thermal", "SpinOperation")
     static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
-	virtual void push(lua_State* L) {luaT_push<Thermal>(L, this);}
 	static int help(lua_State* L);
 
-	
-	bool apply(RNG* rand, SpinSystem* ss);
-	bool applyToSum(RNG* rand, SpinSystem* ss);
-	bool apply(SpinSystem* ss) {return false;};
-	bool applyToSum(SpinSystem* ss) {return false;};
 
+	bool apply(SpinSystem* ss, RNG* rand);
+	bool apply(SpinSystem* ss) {return apply(ss, 0);}
+	bool applyToSum(SpinSystem* ss, RNG* rand);
+	bool applyToSum(SpinSystem* ss) {return apply(ss, 0);}
+	
 	void scaleSite(int px, int py, int pz, double strength);
 
-	void init();
-	void deinit();
-	
 	double temperature;
-
+	dArray* scale;
+	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
+	RNG* myRNG;
 
-	dArray* scale;
+	void init();
+	void deinit();
 };
 
 

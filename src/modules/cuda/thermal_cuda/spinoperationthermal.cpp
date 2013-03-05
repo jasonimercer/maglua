@@ -30,40 +30,62 @@ Thermal::Thermal(int nx, int ny, int nz)
 	init();
 }
 
+#include "../random_cuda/hybridtaus.h"
+
 int Thermal::luaInit(lua_State* L)
 {
-	deinit();
+	deinit(); //does luaT_dec<dArray>(scale); scale = 0;
+	
 	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
-	init();
+
+	scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
+	scale->setAll(1.0);
+	temperature = 0;
+	
+	if(luaT_is<RNG>(L, -1))
+	{
+		RNG* r1 = luaT_to<RNG>(L, -1);
+		HybridTaus* ht = dynamic_cast<HybridTaus*>(r1);
+		if(!ht)
+			return luaL_error(L, "CUDA Thermal calculations require a GPU based Random Number Generator (Random.HybrisTaus)");
+		myRNG = ht;
+		luaT_inc<RNG>(myRNG);
+	}
+	else
+		myRNG = 0;
+	
 	return 0;
+	
+	
+//	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
+// 	init();
+//	return 0;
 }
 
 void Thermal::encode(buffer* b)
 {
 	SpinOperation::encode(b);
-
  	encodeDouble(temperature, b);
 	scale->encode(b);
 }
 
 int  Thermal::decode(buffer* b)
 {
-	deinit();
 	SpinOperation::decode(b);
-	init();
-	
-	temperature = decodeDouble(b);
-	scale->decode(b);
-	return 0;
+    temperature = decodeDouble(b);
+    luaT_dec<dArray>(scale);
+    scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
+    scale->decode(b);
+    return 0;
 }
 
 void Thermal::init()
 {
-	if(scale != 0)
-		deinit();
-
-	scale = luaT_inc<dArray>(new dArray(nx, ny, nz));
-	scale->setAll(1.0);
+// 	if(scale != 0)
+// 		deinit();
+// 
+// 	scale = luaT_inc<dArray>(new dArray(nx, ny, nz));
+// 	scale->setAll(1.0);
 }
 
 void Thermal::deinit()
@@ -78,10 +100,12 @@ Thermal::~Thermal()
 	unregisterWS();
 }
 
-#include "../random_cuda/hybridtaus.h"
-bool Thermal::applyToSum(RNG* rng, SpinSystem* ss)
+bool Thermal::applyToSum(SpinSystem* ss, RNG* rng)
 {
-	HybridTaus* ht = dynamic_cast<HybridTaus*>(rng);
+	HybridTaus* ht = dynamic_cast<HybridTaus*>(myRNG);
+
+	if(rng)
+		ht = dynamic_cast<HybridTaus*>(rng);
 
 	if(!ht)
 	{
@@ -132,10 +156,12 @@ bool Thermal::applyToSum(RNG* rng, SpinSystem* ss)
 	return true;
 }
 
-
-bool Thermal::apply(RNG* rng, SpinSystem* ss)
+bool Thermal::apply(SpinSystem* ss, RNG* rng )
 {
-	HybridTaus* ht = dynamic_cast<HybridTaus*>(rng);
+	HybridTaus* ht = dynamic_cast<HybridTaus*>(myRNG);
+
+	if(rng)
+		ht = dynamic_cast<HybridTaus*>(rng);
 
 	if(!ht)
 	{
@@ -190,11 +216,18 @@ void Thermal::scaleSite(int px, int py, int pz, double strength)
 static int l_apply(lua_State* L)
 {
 	LUA_PREAMBLE(Thermal, th, 1);
-	LUA_PREAMBLE(RNG, rng, 2);
-	LUA_PREAMBLE(SpinSystem, ss, 3);
+	LUA_PREAMBLE(SpinSystem, ss, 2);
 
-	if(!th->apply(rng,ss))
-		return luaL_error(L, th->errormsg.c_str());
+	if(luaT_is<RNG>(L, 3))
+	{
+		if(!th->apply(ss, luaT_to<RNG>(L, 3)))
+			return luaL_error(L, th->errormsg.c_str());
+	}
+	else
+	{
+		if(!th->apply(ss))
+			return luaL_error(L, th->errormsg.c_str());
+	}
 	
 	return 0;
 }
@@ -202,11 +235,18 @@ static int l_apply(lua_State* L)
 static int l_applytosum(lua_State* L)
 {
 	LUA_PREAMBLE(Thermal, th, 1);
-	LUA_PREAMBLE(RNG, rng, 2);
-	LUA_PREAMBLE(SpinSystem, ss, 3);
+	LUA_PREAMBLE(SpinSystem, ss, 2);
 
-	if(!th->apply(rng,ss))
-		return luaL_error(L, th->errormsg.c_str());
+	if(luaT_is<RNG>(L, 3))
+	{
+		if(!th->applyToSum(ss, luaT_to<RNG>(L, 3)))
+			return luaL_error(L, th->errormsg.c_str());
+	}
+	else
+	{
+		if(!th->applyToSum (ss))
+			return luaL_error(L, th->errormsg.c_str());
+	}
 	
 	return 0;
 }
@@ -269,18 +309,25 @@ static int l_setscalearray(lua_State* L)
 	return luaL_error(L, "Array size mismatch\n");
 }
 
+static int l_rng(lua_State* L)
+{
+    LUA_PREAMBLE(Thermal, th, 1);
+
+    luaT_push<RNG>(L, th->myRNG);
+    return 1;
+}
 
 
 int Thermal::help(lua_State* L)
 {
-	if(lua_gettop(L) == 0)
-	{
-		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
-		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
-		lua_pushstring(L, ""); //output, empty
-		return 3;
-	}
-	
+    if(lua_gettop(L) == 0)
+    {
+        lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
+        lua_pushstring(L, "1 *3Vector* or *SpinSystem*, 1 Optional *Random*: System Size and built in RNG. RNG must be GU based");
+        lua_pushstring(L, ""); //output, empty
+        return 3;
+    }
+
 	if(lua_istable(L, 1))
 	{
 		return 0;
@@ -296,14 +343,14 @@ int Thermal::help(lua_State* L)
 	if(func == l_apply)
 	{
 		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
-		lua_pushstring(L, "1 *Random*, 1 *SpinSystem*: The first argument is a random number generator that is used as a source of random values. The second argument is the spin system which will receive the field. Note: The RNG must be GPU based.");
+		lua_pushstring(L, "1 *SpinSystem*, 1 Optional *Random*: The first argument is the spin system which will receive the field. The second argument is an optional random number generator that is used as a source of random values. If no RNG is supplied the RNG supplied at object creation is used. Note: The RNG must be GPU based.");
 		lua_pushstring(L, "");
 		return 3;
 	}	
 	if(func == l_applytosum)
 	{
 		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
-		lua_pushstring(L, "1 *Random*, 1 *SpinSystem*: The first argument is a random number generator that is used as a source of random values. The second argument is the spin system which will receive the field summed to the previous value. Note: The RNG must be GPU based.");
+		lua_pushstring(L, "1 *SpinSystem*, 1 Optional *Random*: The first argument is the spin system which will receive the field. The second argument is an optional random number generator that is used as a source of random values. If no RNG is supplied the RNG supplied at object creation is used. This method applied the field directly to the total arrays. Note: The RNG must be GPU based.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -348,6 +395,14 @@ int Thermal::help(lua_State* L)
 		return 3;
 	}
 
+    if(func == l_rng)
+    {
+        lua_pushstring(L, "Get the *Random* number generator supplied at initialization");
+        lua_pushstring(L, "");
+        lua_pushstring(L, "1 *Random* or 1 nil: RNG");
+        return 3;
+    }
+
 	return SpinOperation::help(L);
 }
 
@@ -369,6 +424,9 @@ const luaL_Reg* Thermal::luaMethods()
 		
 		{"scaleArray",  l_getscalearray},
 		{"setScaleArray",  l_setscalearray},
+
+        {"random",        l_rng},
+
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

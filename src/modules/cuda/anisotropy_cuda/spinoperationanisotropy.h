@@ -41,7 +41,8 @@ public:
 	static int help(lua_State* L);
 	
 	bool apply(SpinSystem* ss);
-	bool applyToSum(SpinSystem* ss);
+	bool apply(SpinSystem** sss, int n);
+	
 	void addAnisotropy(int site, double nx, double ny, double nz, double K);
     bool getAnisotropy(int site, double& nx, double& ny, double& nz, double& K);
 	
