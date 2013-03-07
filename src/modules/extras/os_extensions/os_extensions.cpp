@@ -149,9 +149,22 @@ static int l_getmemoryusage(lua_State* L)
     return 3;
 }
 
+static int l_crash(lua_State* L)
+{
+	int j;
+	int* i = &j;
+	i = 0;
+	*i = 50;
+	return 0;
+}
+
 OS_EXTENSIONS_API int lib_register(lua_State* L)
 {
 	lua_getglobal(L, "os");
+	
+	lua_pushstring(L, "crash");
+	lua_pushcfunction(L, l_crash);
+	lua_settable(L, -3);
 	
 	lua_pushstring(L, "hostname");
 	lua_pushcfunction(L, l_gethostname);

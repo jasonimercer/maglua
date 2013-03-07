@@ -474,6 +474,9 @@ void SpinSystem::ensureSlotExists(int slot)
 {
 	if(hx[slot]) return;
 	
+	if(slot >= nslots)
+		fprintf(stderr, "(%s:%i) Slot index %i is too large\n", __FILE__, __LINE__, slot);
+
 	hx[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	hy[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	hz[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
@@ -590,7 +593,6 @@ int  SpinSystem::decode(buffer* b)
 		site_gamma = luaT_inc<dArray>(new dArray(nx,ny,nz));
 		site_gamma->decode(b);
 	}
-
 	
 	int numPartialData = decodeInteger(b);
 	if(numPartialData < 0) //then all, implicitly
@@ -1918,10 +1920,11 @@ static int l_setslotused(lua_State* L)
 	if(slot < 0)                                       
 		return luaL_error(L, "Unknown field type`%s'", name); 
 	
-	if(lua_isnumber(L, 3))
-		s->slot_used[slot] = lua_tointeger(L, 3);
+	if(!lua_isnone(L, 3))
+		s->slot_used[slot] = lua_toboolean(L, 3);
 	else
 		s->slot_used[slot] = 1;
+
 	return 0;
 }
 

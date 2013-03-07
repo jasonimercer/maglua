@@ -7,7 +7,7 @@
 template<typename T>
 void setAll_(T* dest, const int n, const T& v)
 {
-#pragma omp for schedule(static)
+// #pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		dest[i] = v;
 }

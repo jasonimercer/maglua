@@ -1949,8 +1949,8 @@ static int l_setslotused(lua_State* L)
 	if(slot < 0)                                       
 		return luaL_error(L, "Unknown field type`%s'", name); 
 	
-	if(lua_isnumber(L, 3))
-		s->slot_used[slot] = lua_tointeger(L, 3);
+	if(!lua_isnone(L, 3))
+		s->slot_used[slot] = lua_toboolean(L, 3);
 	else
 		s->slot_used[slot] = 1;
 	return 0;
