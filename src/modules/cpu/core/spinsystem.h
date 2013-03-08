@@ -84,7 +84,9 @@ public:
 	dArray** hz;
 
 	bool* slot_used;
-	int* extra_data; //used for site specific lua data
+	
+	int* extra_data_size; //used for site specific lua data
+	char** extra_data;
 
 	dArray* ms; // spin length
 	

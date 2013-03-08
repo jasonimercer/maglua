@@ -32,7 +32,7 @@ SpinOperation::~SpinOperation()
 int SpinOperation::luaInit(lua_State* L)
 {
 	LuaBaseObject::luaInit(L);
-	int n[3];
+	int n[3] = {1,1,1};
 	
 	if(luaT_is<SpinSystem>(L, 1))
 	{
@@ -45,7 +45,6 @@ int SpinOperation::luaInit(lua_State* L)
 	{
 		lua_getNint(L, 3, n, 1, 1);
 	}
-	
 	nx = n[0];
 	ny = n[1];
 	nz = n[2];

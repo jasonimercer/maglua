@@ -40,6 +40,7 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 
 int SpinSystem::luaInit(lua_State* L)
 {
+	LuaBaseObject::luaInit(L);
 	deinit();
 	int n[3];
 	if(luaT_is<SpinSystem>(L, 1))
@@ -305,18 +306,27 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	// unref data - if exists
 	for(int i=0; i<nxyz; i++)
 	{
-		if(extra_data[i] != LUA_REFNIL)
-			luaL_unref(L, LUA_REGISTRYINDEX, extra_data[i]);
-		extra_data[i] = LUA_REFNIL;
+		if(extra_data_size[i] && extra_data[i])
+		{
+			free(extra_data[i]);
+			extra_data[i] = 0;
+			extra_data_size[i] = 0;
+		}
 	}
 	
 	// make copies of references
 	for(int i=0; i<nxyz; i++)
 	{
-		if(src->extra_data[i] != LUA_REFNIL)
+// 		if(src->extra_data[i] != LUA_REFNIL)
+// 		{
+// 			lua_rawgeti(L, LUA_REGISTRYINDEX, src->extra_data[i]);
+// 			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
+// 		}
+		if(src->extra_data_size[i])
 		{
-			lua_rawgeti(L, LUA_REGISTRYINDEX, src->extra_data[i]);
-			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
+			extra_data_size[i] = src->extra_data_size[i];
+			extra_data[i] = (char*) malloc(src->extra_data_size[i]);
+			memcpy(extra_data[i], src->extra_data[i], src->extra_data_size[i]);
 		}
 	}
 	
@@ -367,13 +377,24 @@ void SpinSystem::deinit()
 {
 	if(x)
 	{
-		if(L)
+		for(int i=0; i<nxyz; i++)
 		{
-			for(int i=0; i<nxyz; i++)
+			if(extra_data_size[i] && extra_data[i])
 			{
-                lua_unref(L, extra_data[i]);
+				free(extra_data[i]);
+				extra_data[i] = 0;
+				extra_data_size[i] = 0;
 			}
 		}
+	
+		
+// 		if(L)
+// 		{
+// 			for(int i=0; i<nxyz; i++)
+// 			{
+//                 lua_unref(L, extra_data[i]);
+// 			}
+// 		}
 
 		luaT_dec<dArray>(x); x = 0;
 		luaT_dec<dArray>(y);
@@ -406,6 +427,7 @@ void SpinSystem::deinit()
 		luaT_dec<dcArray>(qz);
 		
 		delete [] extra_data;
+		delete [] extra_data_size;
 	}
 }
 
@@ -439,9 +461,15 @@ void SpinSystem::init()
 	
 	slot_used = new bool[nslots];
 	
-	extra_data = new int[nxyz];
+	extra_data = new char*[nxyz];
+	extra_data_size = new int[nxyz];
+	
 	for(int i=0; i<nxyz; i++)
-		extra_data[i] = LUA_REFNIL;
+	{
+// 		extra_data[i] = LUA_REFNIL;
+		extra_data[i] = 0;
+		extra_data_size[i] = 0;
+	}
 	
 	for(int i=0; i<nslots; i++)
 	{
@@ -520,7 +548,8 @@ void SpinSystem::encode(buffer* b)
 	
 	for(int i=0; i<nxyz; i++)
 	{
-		if(extra_data[i] != LUA_REFNIL)
+// 		if(extra_data[i] != LUA_REFNIL)
+		if(extra_data[i] != 0)
 			numExtraData++;
 	}
 	
@@ -529,9 +558,11 @@ void SpinSystem::encode(buffer* b)
 		encodeInteger(-1, b); //flag for "all data"
 		for(int i=0; i<nxyz; i++)
 		{
-			if(extra_data[i] != LUA_REFNIL)
+			if(extra_data[i] != 0)
 			{
-				lua_rawgeti(L, LUA_REGISTRYINDEX, extra_data[i]);
+				// should copy directly to buffer but we're doing this for compatibility
+				importLuaVariable(L, extra_data[i], extra_data_size[i]);
+// 				lua_rawgeti(L, LUA_REGISTRYINDEX, extra_data[i]);
 			}
 			else
 			{
@@ -547,10 +578,20 @@ void SpinSystem::encode(buffer* b)
 		encodeInteger(numExtraData, b); //flag for "partial data" and number of partial data
 		for(int i=0; i<nxyz; i++)
 		{
-			if(extra_data[i] != LUA_REFNIL)
+			if(extra_data[i] != 0)
 			{
 				encodeInteger(i, b);
-				lua_rawgeti(L, LUA_REGISTRYINDEX, extra_data[i]);
+// 				lua_rawgeti(L, LUA_REGISTRYINDEX, extra_data[i]);
+				if(extra_data[i] != 0)
+				{
+					// should copy directly to buffer but we're doing this for compatibility
+					importLuaVariable(L, extra_data[i], extra_data_size[i]);
+	// 				lua_rawgeti(L, LUA_REGISTRYINDEX, extra_data[i]);
+				}
+				else
+				{
+					lua_pushnil(L);
+				}
 				_exportLuaVariable(L, -1, b);
 				lua_pop(L, 1);
 			}
@@ -594,13 +635,35 @@ int  SpinSystem::decode(buffer* b)
 		site_gamma->decode(b);
 	}
 	
+// 	int numPartialData = decodeInteger(b);
+// 	if(numPartialData < 0) //then all, implicitly
+// 	{
+// 		for(int i=0; i<nxyz; i++)
+// 		{
+// 			_importLuaVariable(L, b);
+// 			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
+// 		}
+// 	}
+// 	else
+// 	{
+// 		for(int i=0; i<numPartialData; i++)
+// 		{
+// 			int idx = decodeInteger(b);
+// 			_importLuaVariable(L, b);
+// 			extra_data[idx] = luaL_ref(L, LUA_REGISTRYINDEX);
+// 		}
+// 	}
+// 	
+	
 	int numPartialData = decodeInteger(b);
 	if(numPartialData < 0) //then all, implicitly
 	{
 		for(int i=0; i<nxyz; i++)
 		{
 			_importLuaVariable(L, b);
-			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
+			
+			extra_data[i] = exportLuaVariable(L, -1, &(extra_data_size[i]));
+			lua_pop(L, 1);
 		}
 	}
 	else
@@ -609,7 +672,15 @@ int  SpinSystem::decode(buffer* b)
 		{
 			int idx = decodeInteger(b);
 			_importLuaVariable(L, b);
-			extra_data[idx] = luaL_ref(L, LUA_REGISTRYINDEX);
+			
+			if(extra_data[idx])
+			{
+				free(extra_data[idx]);
+				extra_data_size[idx] = 0;
+			}
+			
+			extra_data[idx] = exportLuaVariable(L, -1, &(extra_data_size[idx]));
+			lua_pop(L, 1);
 		}
 	}
 
@@ -1590,6 +1661,102 @@ static int l_copyspinsto(lua_State* L)
 	return 0;
 }
 
+static int l_siteiterator(lua_State* L)
+{
+	const char* f = 
+	"return function(_ss, _include_vac)\n"
+	"	local ss, include_vac = _ss, _include_vac\n"
+	"	local x,y,z = 1,1,1\n"
+	"	local f = function() end\n" // adding f to local scope
+	"	f = function()\n" //recoding f
+	"		if x == 0 then\n"
+	"			return nil\n"
+	"		end\n"
+	"		local t = {x,y,z}\n"
+	"		x = x + 1\n"
+	"		if x > ss:nx() then\n"
+	"			x, y = 1, y+1\n"
+	"			if y > ss:ny() then\n"
+	"				y, z = 1, z+1\n"
+	"				if z > ss:nz() then\n"
+	"					x = 0\n"
+	"				end\n"
+	"			end\n"
+	"		end\n"
+	"		local sx,sy,sz,sm = ss:spin(t)\n"
+	"		if (sm == 0) and (include_vac == false) then\n"
+	"			return f()\n" //calling recoded f closure
+	"		end\n"
+	"		return t, {sx,sy,sz,sm}\n"
+	"	end\n"
+	"	return f\n"
+	"end\n";
+
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+	int skip_vac = 0;
+	if(lua_gettop(L) >= 2)
+		skip_vac = lua_toboolean(L, 2);
+	
+	if(luaL_dostring(L, f))
+		return luaL_error(L, lua_tostring(L, -1));
+
+	lua_pushvalue(L, 1);
+	lua_pushboolean(L, skip_vac);
+	
+	if(lua_pcall(L, 2, 1, 0))
+		return luaL_error(L, lua_tostring(L, -1));
+	
+	return 1;	
+}
+
+static int l_exdatit(lua_State* L)
+{
+	const char* f = 
+	"return function(_ss, _include_nil)\n"
+	"	local ss, include_nil = _ss, _include_nil\n"
+	"	local x,y,z = 1,1,1\n"
+	"	local f = function() end\n" // adding f to local scope
+	"	f = function()\n" //recoding f
+	"		if x == 0 then\n"
+	"			return nil\n"
+	"		end\n"
+	"		local t = {x,y,z}\n"
+	"		x = x + 1\n"
+	"		if x > ss:nx() then\n"
+	"			x, y = 1, y+1\n"
+	"			if y > ss:ny() then\n"
+	"				y, z = 1, z+1\n"
+	"				if z > ss:nz() then\n"
+	"					x = 0\n"
+	"				end\n"
+	"			end\n"
+	"		end\n"
+	"		local ed = ss:extraData(t)\n"
+	"		if (ed == nil) and (include_nil == false) then\n"
+	"			return f()\n" //calling recoded f closure
+	"		end\n"
+	"		return t, ed\n"
+	"	end\n"
+	"	return f\n"
+	"end\n";
+
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+	int skip_nil = 0;
+	if(lua_gettop(L) >= 2)
+		skip_nil = lua_toboolean(L, 2);
+	
+	if(luaL_dostring(L, f))
+		return luaL_error(L, lua_tostring(L, -1));
+
+	lua_pushvalue(L, 1);
+	lua_pushboolean(L, skip_nil);
+	
+	if(lua_pcall(L, 2, 1, 0))
+		return luaL_error(L, lua_tostring(L, -1));
+	
+	return 1;
+}
+
 static int l_getextradata(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss,  1);
@@ -1606,10 +1773,15 @@ static int l_getextradata(lua_State* L)
 	
 	int idx = ss->getidx(px, py, pz);
 	
-	if(ss->extra_data[idx] < 0)
-		lua_pushnil(L);
+	if(ss->extra_data[idx] && ss->extra_data_size[idx] > 0)
+	{
+		importLuaVariable(L, ss->extra_data[idx], ss->extra_data_size[idx]);
+	}
 	else
-		lua_rawgeti(L, LUA_REGISTRYINDEX, ss->extra_data[idx]);
+	{
+		lua_pushnil(L);
+	}
+	
 	return 1;
 }
 
@@ -1628,16 +1800,18 @@ static int l_setextradata(lua_State* L)
 	
 	int idx = ss->getidx(px, py, pz);
 	
-	if(ss->extra_data[idx] != LUA_REFNIL)
+	int* extra_data_size; //used for site specific lua data
+	char** extra_data;
+
+	if(ss->extra_data[idx])
 	{
-		luaL_unref(L, LUA_REGISTRYINDEX, ss->extra_data[idx]);
+		free(ss->extra_data[idx]);
+		ss->extra_data[idx] = 0;
+		ss->extra_data_size[idx] = 0;
 	}
 	
-	lua_pushvalue(L, r+2);
-	
-	ss->extra_data[idx] = luaL_ref(L, LUA_REGISTRYINDEX);
-	ss->L = L;
-	
+	ss->extra_data[idx] = exportLuaVariable(L, r+2, &(ss->extra_data_size[idx]));
+
 	return 0;
 }
 
@@ -2142,6 +2316,19 @@ int SpinSystem::help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 
+	if(func == l_siteiterator)
+	{
+		lua_pushstring(L, "Convenience function to iterate over sites in a *SpinSystem*. Example:\n"
+							"<pre>\n"
+							"for position, moment in ss:siteIterator() do\n"
+							"	ss:setSpin(position, {1,0,0})\n"
+							"end\n"
+							"</pre>");
+		lua_pushstring(L, "1 Optional Boolean: Include vacancy flag. By default vacant sites will be included. If the optional boolean is false then the vacant sites will be skipped.");
+		lua_pushstring(L, "1 Iterator Function: Each function call returns a table of position as {i,j,k} and the moment direction and magnitude as a table {x,y,z,m}.");
+		return 3;
+	}
+	
 	if(func == l_netmoment)
 	{
 		lua_pushstring(L, "Calculate and return net magnetization of a spin system");
@@ -2414,6 +2601,19 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "1 Value: The value stored at this site position.");
 		return 3;
 	}
+	
+	if(func == l_exdatit)
+	{
+		lua_pushstring(L, "Convenience function to iterate over extraData in a *SpinSystem*. Example:\n"
+							"<pre>\n"
+							"for pos, data in ss:extraDataIterator() do\n"
+							"	print(table.concat(pos, \",\"), data)\n"
+							"end\n"
+							"</pre>");
+		lua_pushstring(L, "1 Optional Boolean: Include nil flag. By default nil entries will be included. If the optional boolean is false then the nil entries will be skipped.");
+		lua_pushstring(L, "1 Iterator Function: Each function call returns a table of {i,j,k} and the data at that position.");
+		return 3;
+	}
 
 	if(func == l_getdiff)
 	{
@@ -2646,6 +2846,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"rotateToward",   l_rotatetoward},
 		{"netMoment",    l_netmoment},
 		{"netField",     l_netfield},
+		{"siteIterator", l_siteiterator},
 		{"setSpin",      l_setspin},
 		{"spin"   ,      l_getspin},
 		{"setSpinTPR",      l_setspin_tpr},
@@ -2678,6 +2879,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"gamma",        l_getgamma},
 		{"setExtraData", l_setextradata},
 		{"extraData",    l_getextradata},
+		{"extraDataIterator", l_exdatit},
 		{"diff",         l_getdiff},
 		
 		{"spinArrayX",  l_getarrayx},
@@ -2710,7 +2912,6 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"setSiteGamma",      l_setsitegamma},
 		{"siteAlpha",         l_getsitealpha},
 		{"siteGamma",         l_getsitegamma},
-		
 		
 		
 		{"invalidateFourierData", l_invalidatefourierdata},

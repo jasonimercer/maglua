@@ -931,7 +931,7 @@ int l_mpi_gather(lua_State* L)
 	for(int i=0; i<s; i++)
 		rs[i] = 0;
 
-// 	char* buf = exportLuaVariable(L, base+2, &size);
+	char* buf = exportLuaVariable(L, base+2, &size);
 
 	lua_pop(L, n); //clear stack
 
@@ -949,36 +949,36 @@ int l_mpi_gather(lua_State* L)
 	}
 
 
-// 	MPI_Bcast(&ms, 1, MPI_INT, root, comm);
+	MPI_Bcast(&ms, 1, MPI_INT, root, comm);
 
-// 	char* big_chunk = (char*) malloc( (sizeof(int)+ms) * s  );
-// 	char* little_chunk = (char*) malloc(sizeof(int)+ms );
+	char* big_chunk = (char*) malloc( (sizeof(int)+ms) * s  );
+	char* little_chunk = (char*) malloc(sizeof(int)+ms );
 
-// 	bzero(big_chunk, (sizeof(int)+ms) * s);
-// 	bzero(little_chunk, sizeof(int)+ms);
+	bzero(big_chunk, (sizeof(int)+ms) * s);
+	bzero(little_chunk, sizeof(int)+ms);
 
-// 	memcpy(little_chunk, &size, sizeof(int));
-// 	memcpy(little_chunk + sizeof(int), buf, size);
+	memcpy(little_chunk, &size, sizeof(int));
+	memcpy(little_chunk + sizeof(int), buf, size);
 
-// 	MPI_Gather(little_chunk, sizeof(int)+ms, MPI_CHAR, big_chunk, sizeof(int)+ms, MPI_CHAR, root, comm);
-
-
-// 	if(r == root)
-// 	{
-// 		lua_newtable(L);
-// 		for(int i=0; i<s; i++)
-// 		{
-// 			lua_pushinteger(L, i+1);
-// 			importLuaVariable(L, big_chunk + sizeof(int) + (sizeof(int) + ms) * i, rs[i]);
-// 			lua_settable(L, -3);
-// 		}
-// 	}
+	MPI_Gather(little_chunk, sizeof(int)+ms, MPI_CHAR, big_chunk, sizeof(int)+ms, MPI_CHAR, root, comm);
 
 
-// 	free(buf);
+	if(r == root)
+	{
+		lua_newtable(L);
+		for(int i=0; i<s; i++)
+		{
+			lua_pushinteger(L, i+1);
+			importLuaVariable(L, big_chunk + sizeof(int) + (sizeof(int) + ms) * i, rs[i]);
+			lua_settable(L, -3);
+		}
+	}
+
+
+	free(buf);
 	delete [] rs;
-// 	free(little_chunk);
-// 	free(big_chunk);
+	free(little_chunk);
+	free(big_chunk);
 
 	if(r == root)
 		return 1;
