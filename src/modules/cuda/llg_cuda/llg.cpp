@@ -81,6 +81,101 @@ void LLG::getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& s
 
 
 
+double*  LLG::getVectorOfValues(SpinSystem** sss, int n, const char* tag, const char _data, const double scale)
+{
+	double *d_v, *h_v;
+	const char data = _data | 0x20; // make data lower case
+
+    getWSMemD(&d_v, sizeof(double)*n, hash32(tag));
+    getWSMemH(&h_v, sizeof(double)*n, hash32(tag));
+	
+	switch(data)
+	{
+	case 'a':
+		for(int i=0; i<n; i++)
+			h_v[i] = sss[i]->alpha;
+		break;
+	case 'g':
+		for(int i=0; i<n; i++)
+			h_v[i] = sss[i]->gamma;
+		break;
+	case 'd':
+		for(int i=0; i<n; i++)
+			h_v[i] = sss[i]->dt;
+		break;
+	default:
+		fprintf(stderr, "(%s:%i) don't know what to do with %c\n", __FILE__, __LINE__, _data);
+	}
+	
+	for(int i=0; i<n; i++)
+	{
+		h_v[i] *= scale;
+	}
+	
+	memcpy_h2d(d_v, h_v, sizeof(double)*n);
+	return d_v;
+}
+
+double** LLG::getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char _data, const char _component, const int field)
+{
+	double **d_v, **h_v;
+
+	char data = _data | 0x20; // make data lower case
+	char component = _component | 0x20; // make component lower case
+
+    getWSMemD(&d_v, sizeof(double*)*n, hash32(tag));
+    getWSMemH(&h_v, sizeof(double*)*n, hash32(tag));
+
+	switch(data)
+	{
+	case 'h':
+		for(int i=0; i<n; i++)
+		{
+			if(component == 'x') h_v[i] = sss[i]->hx[field]->ddata();
+			if(component == 'y') h_v[i] = sss[i]->hy[field]->ddata();
+			if(component == 'z') h_v[i] = sss[i]->hz[field]->ddata();
+		}
+		break;
+	case 's':
+		for(int i=0; i<n; i++)
+		{
+			if(component == 'x') h_v[i] = sss[i]->x->ddata();
+			if(component == 'y') h_v[i] = sss[i]->y->ddata();
+			if(component == 'z') h_v[i] = sss[i]->z->ddata();
+			if(component == 'm') h_v[i] = sss[i]->ms->ddata();
+		}
+		break;
+	case 'a':
+		for(int i=0; i<n; i++)
+		{
+			if(sss[i]->site_alpha)
+				h_v[i] = sss[i]->site_alpha->ddata();
+			else
+				h_v[i] = 0;
+		}
+		break;
+	case 'g':
+		for(int i=0; i<n; i++)
+		{
+			if(sss[i]->site_gamma)
+				h_v[i] = sss[i]->site_gamma->ddata();
+			else
+				h_v[i] = 0;
+		}
+		break;
+	default:
+		fprintf(stderr, "(%s:%i) don't know what to do with %c\n", __FILE__, __LINE__, _data);
+	}
+	
+	memcpy_h2d(d_v, h_v, sizeof(double*)*n);
+
+	return d_v;
+}
+
+
+
+
+
 // 
 // The apply function is highly overloaded 
 //  it looks like this

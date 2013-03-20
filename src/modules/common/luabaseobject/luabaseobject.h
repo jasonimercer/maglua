@@ -78,7 +78,7 @@ public:
 	LuaBaseObject(int type = 0);
 
 	LINEAGE1("LuaBaseObject")
-	static luaL_Reg* luaMethods() {return 0;}
+	static const luaL_Reg* luaMethods();
 	// return value is number of arguments consumed from the bottom of the stack:
 	virtual int luaInit(lua_State* _L, const int base=1) {const int i = base; L=_L; return i-i;}
 
@@ -477,6 +477,23 @@ int luaT_help(lua_State* L)
 	return T::help(L);
 }
 
+template<class T>
+int luaT_lineage(lua_State* L)
+{
+	lua_newtable(L);
+	for(int i=1; i<=5; i++)
+	{
+		const char* l = T::slineage(i-1);
+		if(l)
+		{
+			lua_pushinteger(L, i);
+			lua_pushstring(L, l);
+			lua_settable(L, -3);
+		}
+	}
+	return 1;	
+}
+
 // add methods to the metamethod table of an object type
 template<class T>
 void luaT_addMethods(lua_State* L, const luaL_Reg* methods)
@@ -541,6 +558,9 @@ inline void luaT_register(lua_State* L)
 	lua_settable(L, -3);
 	lua_pushstring(L, "help");
 	lua_pushcfunction(L, luaT_help<T>);
+	lua_settable(L, -3);
+	lua_pushstring(L, "lineage");
+	lua_pushcfunction(L, luaT_lineage<T>);
 	lua_settable(L, -3);
 
 	if(T::luaMethods())

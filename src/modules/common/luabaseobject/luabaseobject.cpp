@@ -32,6 +32,41 @@ int  LuaBaseObject::decode(buffer* b)
 	return 0;
 }
 
+
+static int l_lineage(lua_State* L)
+{
+	LUA_PREAMBLE(LuaBaseObject, b, 1);
+	
+	lua_newtable(L);
+	for(int i=1; i<=5; i++)
+	{
+		const char* l = b->lineage(i-1);
+		if(l)
+		{
+			lua_pushinteger(L, i);
+			lua_pushstring(L, l);
+			lua_settable(L, -3);
+		}
+	}
+	return 1;
+}
+
+static luaL_Reg m[128] = {_NULLPAIR128};
+const luaL_Reg* LuaBaseObject::luaMethods()
+{
+	if(m[127].name)return m;
+
+	static const luaL_Reg _m[] =
+	{
+		{"lineage", l_lineage},
+		{NULL, NULL}
+	};
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
+}
+
+
 	
 static int addReg(luaL_Reg* old_vals, const luaL_Reg* new_val)
 {

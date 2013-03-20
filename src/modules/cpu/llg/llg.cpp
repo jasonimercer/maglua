@@ -56,11 +56,123 @@ int  LLG::decode(buffer* b)
 	return 0;
 }
 
+void LLG::getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss)
+{
+	int initial_size = lua_gettop(L);
+	
+	if(pos < 0)
+	{
+		pos = initial_size + pos + 1;
+	}
+	if(lua_istable(L, pos))
+	{
+		if(lua_istable(L, pos))
+		{
+			lua_pushnil(L);
+			while(lua_next(L, pos))
+			{
+				SpinSystem* ss = luaT_to<SpinSystem>(L, -1);
+				if(ss)
+					sss.push_back(ss);
+				lua_pop(L, 1);
+			}
+		}
+	}
+	else
+	{
+		if(luaT_is<SpinSystem>(L, pos))
+		{
+			sss.push_back(luaT_to<SpinSystem>(L, pos));
+		}
+	}
 
+	
+	while(lua_gettop(L) > initial_size)
+		lua_pop(L, 1);
+}
 
+bool LLG::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, SpinSystem** spinto, bool advancetime, int n)
+{
+	for(int i=0; i<n; i++)
+	{
+		apply(spinfrom[i], scaledmdt, dmdt[i], spinto[i], advancetime);
+	}
+}
 
+// 
+// The apply function is highly overloaded 
+//  it looks like this
+//  ll:apply(A, x, B, C, yn)
+// 
+// Where 
+// 
+// A = "from system", this "old system" in "x_new = x_old + dt * dx/dt"
+// x = optional scalar, default = 1. Scales the dt.
+// B = system that is used to calculate dx/dt. Also the souce of the timestep
+// C = "to system". This is where the result will get stored
+// yn = boolean, optional. default = true. If true, the time of x_new is updated, else, not updated.
+static int l_apply(lua_State* L)
+{
+	LUA_PREAMBLE(LLG, llg, 1);
+				
+	bool advanceTime = true;
+	double scale_dmdt = 1.0;
+	
+	if(lua_isboolean(L, -1))
+		if(lua_toboolean(L, -1) == 0)
+			advanceTime = false;
+		
+	int sys1_pos = 2; //because the llg operator is at 1
+	int sys2_pos = 3;
+	if(lua_isnumber(L, 3))
+	{
+		scale_dmdt = lua_tonumber(L, 3);
+		sys2_pos = 4; //need to shift it
+	}
+	
+	vector<SpinSystem*>* ss[3]; //from, dmdt, to
+	vector<SpinSystem*> v1;
 
+	vector<SpinSystem*> v2;
+	vector<SpinSystem*> v3;
 
+	ss[0] = &v1;
+
+	llg->getSpinSystemsAtPosition(L, sys1_pos, *ss[0]);
+	
+// 	ss[0] = luaT_to<SpinSystem>(L, sys1_pos);
+	ss[1] = ss[0];
+	ss[2] = ss[0];
+	
+	//get 2nd and 3rd systems if present
+	if(luaT_is<SpinSystem>(L, sys2_pos+0) || lua_istable(L, sys2_pos+0))
+	{
+		ss[1] = &v2;
+		llg->getSpinSystemsAtPosition(L, sys2_pos+0, *ss[1]);
+	}
+
+	if(luaT_is<SpinSystem>(L, sys2_pos+1) || lua_istable(L, sys2_pos+1))
+	{
+		ss[2] = &v3;
+		llg->getSpinSystemsAtPosition(L, sys2_pos+1, *ss[2]);
+	}
+
+	if(ss[0]->size() != ss[1]->size() || ss[1]->size() != ss[2]->size())
+	{
+		return luaL_error(L, "Size mismatch in number of SpinSystems given in each table");
+	}
+
+	if(ss[0]->size() == 0)
+	{
+		return luaL_error(L, "apply requires 1, 2 or 3 SpinSystems or Tables of SpinSystems (extra boolean argument allowed to control timestep, optional 2nd arg can scale timestep)");
+	}
+
+	llg->apply(&(ss[0]->at(0)), scale_dmdt, &(ss[1]->at(0)), &(ss[2]->at(0)), advanceTime, ss[0]->size());
+	
+	return 0;
+}
+
+#if 0
 // 
 // The apply function is highly overloaded 
 //  it looks like this
@@ -114,7 +226,7 @@ static int l_apply(lua_State* L)
 	
 	return 0;
 }
-
+#endif
 
 // static int l_type(lua_State* L)
 // {

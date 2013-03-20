@@ -41,10 +41,10 @@ LLGCartesian::~LLGCartesian()
 
 bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
-	SpinSystem** s1[1]; s1[0] = spinfrom;
-	SpinSystem** s2[1]; s2[0] = dmdt;
-	SpinSystem** s3[1]; s3[0] = spinto;
-	return apply(s1, scaledmdt, s2, s3, advancetime);
+	SpinSystem* s1[1]; s1[0] = spinfrom;
+	SpinSystem* s2[1]; s2[0] = dmdt;
+	SpinSystem* s3[1]; s3[0] = spinto;
+	return apply(s1, scaledmdt, s2, s3, advancetime, 1);
 }
 
 bool LLGCartesian::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, SpinSystem** spinto, bool advancetime, int n)
@@ -62,159 +62,45 @@ bool LLGCartesian::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** d
 	const int ny = spinfrom[0]->ny;
 	const int nz = spinfrom[0]->nz;
 	
-	const double **d_spinto_x_N,   **d_spinto_y_N,   **d_spinto_z_N,   **d_spinto_m_N;
-	const double **h_spinto_x_N,   **h_spinto_y_N,   **h_spinto_z_N,   **h_spinto_m_N;
+	double** d_spinto_x_N = getVectorOfVectors(spinto, n, "apply_1", 's', 'x');
+	double** d_spinto_y_N = getVectorOfVectors(spinto, n, "apply_2", 's', 'y');
+	double** d_spinto_z_N = getVectorOfVectors(spinto, n, "apply_3", 's', 'z');
+	double** d_spinto_m_N = getVectorOfVectors(spinto, n, "apply_4", 's', 'm');
 
-	const double **d_spinfrom_x_N, **d_spinfrom_y_N, **d_spinfrom_z_N, **d_spinfrom_m_N;
-	const double **h_spinfrom_x_N, **h_spinfrom_y_N, **h_spinfrom_z_N, **h_spinfrom_m_N;
+	double** d_spinfrom_x_N = getVectorOfVectors(spinfrom, n, "apply_5", 's', 'x');
+	double** d_spinfrom_y_N = getVectorOfVectors(spinfrom, n, "apply_6", 's', 'y');
+	double** d_spinfrom_z_N = getVectorOfVectors(spinfrom, n, "apply_7", 's', 'z');
+	double** d_spinfrom_m_N = getVectorOfVectors(spinfrom, n, "apply_8", 's', 'm');
 
-	const double **d_dmdt_x_N,     **d_dmdt_y_N,     **d_dmdt_z_N,     **d_dmdt_m_N;
-	const double **h_dmdt_x_N,     **h_dmdt_y_N,     **h_dmdt_z_N,     **h_dmdt_m_N;
-
-	getWSMemD(&d_spinto_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_1"));
-	getWSMemD(&d_spinto_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_2"));
-	getWSMemD(&d_spinto_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_3"));
-	getWSMemD(&d_spinto_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
-
-	getWSMemH(&h_spinto_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_1"));
-	getWSMemH(&h_spinto_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_2"));
-	getWSMemH(&h_spinto_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_3"));
-	getWSMemH(&h_spinto_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
+	double** d_dmdt_x_N = getVectorOfVectors(dmdt, n, "apply_9", 's', 'x');
+	double** d_dmdt_y_N = getVectorOfVectors(dmdt, n, "apply_10", 's', 'y');
+	double** d_dmdt_z_N = getVectorOfVectors(dmdt, n, "apply_11", 's', 'z');
+	double** d_dmdt_m_N = getVectorOfVectors(dmdt, n, "apply_12", 's', 'm');
 
 	
-	
-	getWSMemD(&d_spinfrom_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
-	getWSMemD(&d_spinfrom_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
-	getWSMemD(&d_spinfrom_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_7"));
-	getWSMemD(&d_spinfrom_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_8"));
+	double** d_dmdt_hT_x_N = getVectorOfVectors(dmdt, n, "apply_13", 'h', 'x', T);
+	double** d_dmdt_hT_y_N = getVectorOfVectors(dmdt, n, "apply_14", 'h', 'y', T);
+	double** d_dmdt_hT_z_N = getVectorOfVectors(dmdt, n, "apply_15", 'h', 'z', T);
 
-	getWSMemH(&h_spinfrom_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
-	getWSMemH(&h_spinfrom_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
-	getWSMemH(&h_spinfrom_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_7"));
-	getWSMemH(&h_spinfrom_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_8"));
-	
-	
-	
-	getWSMemD(&d_dmdt_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_9"));
-	getWSMemD(&d_dmdt_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_10"));
-	getWSMemD(&d_dmdt_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_11"));
-	getWSMemD(&d_dmdt_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_12"));
+	double** d_dmdt_hS_x_N = getVectorOfVectors(dmdt, n, "apply_16", 'h', 'x', S);
+	double** d_dmdt_hS_y_N = getVectorOfVectors(dmdt, n, "apply_17", 'h', 'y', S);
+	double** d_dmdt_hS_z_N = getVectorOfVectors(dmdt, n, "apply_18", 'h', 'z', S);
 
-	getWSMemH(&h_dmdt_x_N, sizeof(double*)*n, hash32("SpinOperation::apply_9"));
-	getWSMemH(&h_dmdt_y_N, sizeof(double*)*n, hash32("SpinOperation::apply_10"));
-	getWSMemH(&h_dmdt_z_N, sizeof(double*)*n, hash32("SpinOperation::apply_11"));
-	getWSMemH(&h_dmdt_m_N, sizeof(double*)*n, hash32("SpinOperation::apply_12"));
+	double** d_alpha_N = getVectorOfVectors(dmdt, n, "apply_19", 'a');
+	double** d_gamma_N = getVectorOfVectors(dmdt, n, "apply_20", 'g');
 
-	
-	
-	getWSMemD(&d_hx_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
-	getWSMemD(&d_hy_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
-	getWSMemD(&d_hz_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
-	
-	getWSMemH(&h_hx_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
-	getWSMemH(&h_hy_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
-	getWSMemH(&h_hz_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
-	
+	double*  d_alpha   = (double*)getVectorOfValues(dmdt, n, "apply_21", 'a');
+	double*  d_gamma   = (double*)getVectorOfValues(dmdt, n, "apply_22", 'g');
+	double*  d_dt      = (double*)getVectorOfValues(dmdt, n, "apply_23", 'd', scaledmdt);
 
-	const double** d_spinto_x_N = new const double*[n];
-	const double** d_spinto_y_N = new const double*[n];
-	const double** d_spinto_z_N = new const double*[n];
-	const double** d_spinto_m_N = new const double*[n];
-		
-	const double** d_spinfrom_x_N = new const double*[n];
-	const double** d_spinfrom_y_N = new const double*[n];
-	const double** d_spinfrom_z_N = new const double*[n];
-	const double** d_spinfrom_m_N = new const double*[n];
-
-	const double** d_dmdt_x_N = new const double*[n];
-	const double** d_dmdt_y_N = new const double*[n];
-	const double** d_dmdt_z_N = new const double*[n];
-	const double** d_dmdt_m_N = new const double*[n];
-	
-	const double** d_dmdt_hT_x_N = new const double*[n];
-	const double** d_dmdt_hT_y_N = new const double*[n];
-	const double** d_dmdt_hT_z_N = new const double*[n];
-
-	const double** d_dmdt_hS_x_N = new const double*[n];
-	const double** d_dmdt_hS_y_N = new const double*[n];
-	const double** d_dmdt_hS_z_N = new const double*[n];
-
-	double* d_gamma;
-	double* h_gamma;
-
-	double* d_alpha;
-	double* h_alpha;
-
-	double* d_dt;
-	double* h_dt;
-
-	getWSMemD(&d_gamma, sizeof(double)*n, hash32("SpinOperation::apply_1"));
-	getWSMemH(&h_gamma, sizeof(double)*n, hash32("SpinOperation::apply_1"));
-
-	getWSMemD(&d_alpha, sizeof(double)*n, hash32("SpinOperation::apply_2"));
-	getWSMemH(&h_alpha, sizeof(double)*n, hash32("SpinOperation::apply_2"));
-
-	getWSMemD(&d_dt,    sizeof(double)*n, hash32("SpinOperation::apply_3"));
-	getWSMemH(&h_dt,    sizeof(double)*n, hash32("SpinOperation::apply_3"));
-
-	for(int i=0; i<n; i++)
-	{
-		h_gamma[i] = dmdt[i]->gamma;
-		h_alpha[i] = dmdt[i]->alpha;
-		h_dt[i]    = dmdt[i]->dt * scaledmdt;
-	}
-
-	memcpy_h2d(d_gamma, h_gamma, sizeof(double)*n);
-	memcpy_h2d(d_alpha, h_alpha, sizeof(double)*n);
-	memcpy_h2d(d_dt,    h_dt,    sizeof(double)*n);
-
-
-	const double* d_gamma = dmdt->site_gamma?(dmdt->site_gamma->ddata()):0;
-	const double* d_alpha = dmdt->site_alpha?(dmdt->site_alpha->ddata()):0;
-
-	const double** d_gamma_N = new const double*[n];
-	const double** d_alpha_N = new const double*[n];
-	
-	
-	for(int i=0; i<n; i++)
-	{
-		d_spinto_x_N[i] = spinto[i]->x->ddata();
-		d_spinto_y_N[i] = spinto[i]->y->ddata();
-		d_spinto_z_N[i] = spinto[i]->z->ddata();
-		d_spinto_m_N[i] = spinto[i]->ms->ddata();
-
-		d_spinfrom_x_N[i] = spinfrom[i]->x->ddata();
-		d_spinfrom_y_N[i] = spinfrom[i]->y->ddata();
-		d_spinfrom_z_N[i] = spinfrom[i]->z->ddata();
-		d_spinfrom_m_N[i] = spinfrom[i]->ms->ddata();
-		
-		d_dmdt_x_N[i] = dmdt[i]->x->ddata();
-		d_dmdt_y_N[i] = dmdt[i]->y->ddata();
-		d_dmdt_z_N[i] = dmdt[i]->z->ddata();
-		d_dmdt_m_N[i] = dmdt[i]->ms->ddata();
-				
-		d_dmdt_hT_x_N[i] = dmdt[i]->hx[T]->ddata();
-		d_dmdt_hT_y_N[i] = dmdt[i]->hy[T]->ddata();
-		d_dmdt_hT_z_N[i] = dmdt[i]->hz[T]->ddata();
-
-		d_dmdt_hS_x_N[i] = dmdt[i]->hx[S]->ddata();
-		d_dmdt_hS_y_N[i] = dmdt[i]->hy[S]->ddata();
-		d_dmdt_hS_z_N[i] = dmdt[i]->hz[S]->ddata();
-
-	}
-	
-	
 	cuda_llg_cart_apply_N(nx, ny, nz,
 			    d_spinto_x_N,   d_spinto_y_N,   d_spinto_z_N,   d_spinto_m_N,
 			  d_spinfrom_x_N, d_spinfrom_y_N, d_spinfrom_z_N, d_spinfrom_m_N,
 			      d_dmdt_x_N,     d_dmdt_y_N,     d_dmdt_z_N,     d_dmdt_m_N,
 			      d_dmdt_hT_x_N,     d_dmdt_hT_y_N,     d_dmdt_hT_z_N,
 			      d_dmdt_hS_x_N,     d_dmdt_hS_y_N,     d_dmdt_hS_z_N,
-
-// 			  dmdt->x->ddata(),     dmdt->y->ddata(),     dmdt->z->ddata(),     dmdt->ms->ddata(),
-			    dmdt->hx[T]->ddata(), dmdt->hy[T]->ddata(), dmdt->hz[T]->ddata(),
-			    dmdt->hx[S]->ddata(), dmdt->hy[S]->ddata(), dmdt->hz[S]->ddata(),
-			dt, alpha, d_alpha, gamma, d_gamma, thermalOnlyFirstTerm, disableRenormalization);	
+				d_dt, d_alpha_N, d_alpha, d_gamma_N, d_gamma, 
+				thermalOnlyFirstTerm, disableRenormalization, n);	
 
 // 	cuda_llg_cart_apply(nx, ny, nz,
 // 			  spinto->x->ddata(),   spinto->y->ddata(),   spinto->z->ddata(),   spinto->ms->ddata(),
@@ -233,7 +119,7 @@ bool LLGCartesian::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** d
 		spinto[i]->ms->new_device = true;
 
 		if(advancetime)
-			spinto->time = spinfrom->time + dt;
+			spinto[i]->time = spinfrom[i]->time + spinfrom[i]->dt * scaledmdt;
 	}
 	
 	

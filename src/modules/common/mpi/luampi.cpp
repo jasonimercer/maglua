@@ -255,6 +255,7 @@ int lua_mpi_request::test()
 int lua_mpi_request::ltest(lua_State* L)
 {
 	lua_pushboolean(L, test());
+	return 1;
 }
 
 void lua_mpi_request::wait()
@@ -455,6 +456,7 @@ static int decodeBuffer(lua_State* L, char* buf)
 static char* setupSendBuffer(lua_State* L, int datapos, int& ret_n, int& ret_size, int& error, int matchChunks)
 {
 	int n = lua_gettop(L) - (datapos-1);
+	//printf("setupSendBuffer %i\n", n);
 	int* size;
 	char** buf;
 	error = 0;

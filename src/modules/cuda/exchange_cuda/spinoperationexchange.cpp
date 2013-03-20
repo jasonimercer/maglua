@@ -553,51 +553,13 @@ bool Exchange::apply(SpinSystem** sss, int n)
 		make_uncompressed();
 	}
 
-	const double **d_sx_N, **h_sx_N;
-	const double **d_sy_N, **h_sy_N;
-	const double **d_sz_N, **h_sz_N;
-	
-	      double **d_hx_N, **h_hx_N;
-	      double **d_hy_N, **h_hy_N;
-	      double **d_hz_N, **h_hz_N;
+    const double** d_sx_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_1", 's', 'x');
+    const double** d_sy_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_2", 's', 'y');
+    const double** d_sz_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_3", 's', 'z');
 
-	
-	getWSMemD(&d_sx_N, sizeof(double*)*n, hash32("SpinOperation::apply_1"));
-	getWSMemD(&d_sy_N, sizeof(double*)*n, hash32("SpinOperation::apply_2"));
-	getWSMemD(&d_sz_N, sizeof(double*)*n, hash32("SpinOperation::apply_3"));
-	
-	getWSMemH(&h_sx_N, sizeof(double*)*n, hash32("SpinOperation::apply_1"));
-	getWSMemH(&h_sy_N, sizeof(double*)*n, hash32("SpinOperation::apply_3"));
-	getWSMemH(&h_sz_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
-
-	
-	getWSMemD(&d_hx_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
-	getWSMemD(&d_hy_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
-	getWSMemD(&d_hz_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
-	
-	getWSMemH(&h_hx_N, sizeof(double*)*n, hash32("SpinOperation::apply_4"));
-	getWSMemH(&h_hy_N, sizeof(double*)*n, hash32("SpinOperation::apply_5"));
-	getWSMemH(&h_hz_N, sizeof(double*)*n, hash32("SpinOperation::apply_6"));
-
-	
-	for(int i=0; i<n; i++)
-	{
-		h_sx_N[i] = sss[i]->x->ddata();
-		h_sy_N[i] = sss[i]->y->ddata();
-		h_sz_N[i] = sss[i]->z->ddata();
-
-		h_hx_N[i] = sss[i]->hx[slot]->ddata(); 
-		h_hy_N[i] = sss[i]->hy[slot]->ddata(); 
-		h_hz_N[i] = sss[i]->hz[slot]->ddata();		
-	}
-	
-	memcpy_h2d(d_sx_N, h_sx_N, sizeof(double*)*n);
-	memcpy_h2d(d_sy_N, h_sy_N, sizeof(double*)*n);
-	memcpy_h2d(d_sz_N, h_sz_N, sizeof(double*)*n);
-	
-	memcpy_h2d(d_hx_N, h_hx_N, sizeof(double*)*n);
-	memcpy_h2d(d_hy_N, h_hy_N, sizeof(double*)*n);
-	memcpy_h2d(d_hz_N, h_hz_N, sizeof(double*)*n);
+	      double** d_hx_N = getVectorOfVectors(sss, n, "SpinOperation::apply_4", 'h', 'x', slot);
+	      double** d_hy_N = getVectorOfVectors(sss, n, "SpinOperation::apply_5", 'h', 'y', slot);
+	      double** d_hz_N = getVectorOfVectors(sss, n, "SpinOperation::apply_6", 'h', 'z', slot);
 	
 	if(compressed)
 	{

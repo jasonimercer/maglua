@@ -303,7 +303,6 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	fft_timeC[1] = time - 1.0;
 	fft_timeC[2] = time - 1.0;
 		
-	// unref data - if exists
 	for(int i=0; i<nxyz; i++)
 	{
 		if(extra_data_size[i] && extra_data[i])
@@ -314,14 +313,9 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 		}
 	}
 	
-	// make copies of references
+	// make copies
 	for(int i=0; i<nxyz; i++)
 	{
-// 		if(src->extra_data[i] != LUA_REFNIL)
-// 		{
-// 			lua_rawgeti(L, LUA_REGISTRYINDEX, src->extra_data[i]);
-// 			extra_data[i] = luaL_ref(L, LUA_REGISTRYINDEX);
-// 		}
 		if(src->extra_data_size[i])
 		{
 			extra_data_size[i] = src->extra_data_size[i];
@@ -1701,12 +1695,12 @@ static int l_siteiterator(lua_State* L)
 		return luaL_error(L, lua_tostring(L, -1));
 
 	lua_pushvalue(L, 1);
-	lua_pushboolean(L, skip_vac);
+	lua_pushboolean(L, !skip_vac);
 	
 	if(lua_pcall(L, 2, 1, 0))
 		return luaL_error(L, lua_tostring(L, -1));
 	
-	return 1;	
+	return 1;
 }
 
 static int l_exdatit(lua_State* L)
@@ -1749,7 +1743,7 @@ static int l_exdatit(lua_State* L)
 		return luaL_error(L, lua_tostring(L, -1));
 
 	lua_pushvalue(L, 1);
-	lua_pushboolean(L, skip_nil);
+	lua_pushboolean(L, !skip_nil);
 	
 	if(lua_pcall(L, 2, 1, 0))
 		return luaL_error(L, lua_tostring(L, -1));
@@ -2324,7 +2318,7 @@ int SpinSystem::help(lua_State* L)
 							"	ss:setSpin(position, {1,0,0})\n"
 							"end\n"
 							"</pre>");
-		lua_pushstring(L, "1 Optional Boolean: Include vacancy flag. By default vacant sites will be included. If the optional boolean is false then the vacant sites will be skipped.");
+		lua_pushstring(L, "1 Optional Boolean: Skip vacancy flag. By default vacant sites will be included. If the optional boolean is true then the vacant sites will be skipped.");
 		lua_pushstring(L, "1 Iterator Function: Each function call returns a table of position as {i,j,k} and the moment direction and magnitude as a table {x,y,z,m}.");
 		return 3;
 	}
@@ -2529,13 +2523,13 @@ int SpinSystem::help(lua_State* L)
 		return 3;
 	}
 
-        if(func == l_copyfieldto)
-        {
+	if(func == l_copyfieldto)
+	{
 	    lua_pushstring(L, "Copy a field type of the calling *SpinSystem* to the given system.");
 	    lua_pushstring(L, "1 string, 1 *SpinSystem*: Field name, destination spin system.");
 	    lua_pushstring(L, "");
 	    return 3;
-        }
+	}
 
 
 	if(func == l_setalpha)
@@ -2610,7 +2604,7 @@ int SpinSystem::help(lua_State* L)
 							"	print(table.concat(pos, \",\"), data)\n"
 							"end\n"
 							"</pre>");
-		lua_pushstring(L, "1 Optional Boolean: Include nil flag. By default nil entries will be included. If the optional boolean is false then the nil entries will be skipped.");
+		lua_pushstring(L, "1 Optional Boolean: Skip nil flag. By default nil entries will be included. If the optional boolean is true then the nil entries will be skipped.");
 		lua_pushstring(L, "1 Iterator Function: Each function call returns a table of {i,j,k} and the data at that position.");
 		return 3;
 	}
@@ -2847,6 +2841,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"netMoment",    l_netmoment},
 		{"netField",     l_netfield},
 		{"siteIterator", l_siteiterator},
+		{"eachSite",     l_siteiterator},
 		{"setSpin",      l_setspin},
 		{"spin"   ,      l_getspin},
 		{"setSpinTPR",      l_setspin_tpr},
@@ -2880,6 +2875,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"setExtraData", l_setextradata},
 		{"extraData",    l_getextradata},
 		{"extraDataIterator", l_exdatit},
+		{"eachExtraData", l_exdatit},
 		{"diff",         l_getdiff},
 		
 		{"spinArrayX",  l_getarrayx},

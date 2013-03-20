@@ -205,17 +205,17 @@ void memcpy_h2d_(void* d_dest, void* h_src, size_t n, const char* file, const un
 
 
 
-
+#define MEMORY_SLOTS 256
 
 
 
 typedef struct work_space_device_memory
 {
 	int refcount;
-	void* d_memory[64];
-	size_t size[64];
-	int slot_refcount[64];
-	long level[64];
+	void* d_memory[MEMORY_SLOTS];
+	size_t size[MEMORY_SLOTS];
+	int slot_refcount[MEMORY_SLOTS];
+	long level[MEMORY_SLOTS];
 	
 } work_space_device_memory;
 
@@ -226,7 +226,7 @@ ARRAYCUDA_API void  registerWS()
 {
 	if(WS_MEM_D.refcount == 0) //initialize
 	{
-		for(int i=0; i<64; i++)
+		for(int i=0; i<MEMORY_SLOTS; i++)
 		{
 			WS_MEM_D.d_memory[i] = 0;
 			WS_MEM_D.size[i] = 0;
@@ -237,7 +237,7 @@ ARRAYCUDA_API void  registerWS()
 	
 	if(WS_MEM_H.refcount == 0) //initialize
 	{
-		for(int i=0; i<64; i++)
+		for(int i=0; i<MEMORY_SLOTS; i++)
 		{
 			WS_MEM_H.d_memory[i] = 0;
 			WS_MEM_H.size[i] = 0;
@@ -255,7 +255,7 @@ ARRAYCUDA_API void unregisterWS()
 	WS_MEM_D.refcount--;
 	if(WS_MEM_D.refcount == 0)
 	{
-		for(int i=0; i<64; i++)
+		for(int i=0; i<MEMORY_SLOTS; i++)
 		{
 			if(WS_MEM_D.d_memory[i])
 				free_device(WS_MEM_D.d_memory[i]);
@@ -268,7 +268,7 @@ ARRAYCUDA_API void unregisterWS()
 	WS_MEM_H.refcount--;
 	if(WS_MEM_H.refcount == 0)
 	{
-		for(int i=0; i<64; i++)
+		for(int i=0; i<MEMORY_SLOTS; i++)
 		{
 			if(WS_MEM_H.d_memory[i])
 				free_host(WS_MEM_H.d_memory[i]);
@@ -283,7 +283,7 @@ ARRAYCUDA_API void unregisterWS()
 // the workspace isn't storing something important: Keep ws usage contained
 ARRAYCUDA_API bool getWSMemD_(void** ptr, size_t size, long level)
 {
-	for(int i=0; i<64; i++)
+	for(int i=0; i<MEMORY_SLOTS; i++)
 	{
 		if(WS_MEM_D.level[i] == -1000 || WS_MEM_D.level[i] == level)
 		{
@@ -309,7 +309,7 @@ ARRAYCUDA_API bool getWSMemD_(void** ptr, size_t size, long level)
 	log_print(buffer);
 	snprintf(buffer, 1024, "Here is the current list:\n");
 	log_print(buffer);
-	for(int i=0; i<64; i++)
+	for(int i=0; i<MEMORY_SLOTS; i++)
 	{
 		snprintf(buffer, 1024, "% 3i  size: %8li  level: %8li\n", i, WS_MEM_D.size[i], WS_MEM_D.level[i]);
 		log_print(buffer);
@@ -324,7 +324,7 @@ ARRAYCUDA_API bool getWSMemD_(void** ptr, size_t size, long level)
 // the workspace isn't storing something important: Keep ws usage contained
 ARRAYCUDA_API bool getWSMemH_(void** ptr, size_t size, long level)
 {
-	for(int i=0; i<64; i++)
+	for(int i=0; i<MEMORY_SLOTS; i++)
 	{
 		if(WS_MEM_H.level[i] == -1000 || WS_MEM_H.level[i] == level)
 		{
@@ -350,7 +350,7 @@ ARRAYCUDA_API bool getWSMemH_(void** ptr, size_t size, long level)
 	log_print(buffer);
 	snprintf(buffer, 1024, "Here is the current list:\n");
 	log_print(buffer);
-	for(int i=0; i<64; i++)
+	for(int i=0; i<MEMORY_SLOTS; i++)
 	{
 		snprintf(buffer, 1024, "% 3i  size: %8li  level: %8li\n", i, WS_MEM_H.size[i], WS_MEM_H.level[i]);
 		log_print(buffer);

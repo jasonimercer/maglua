@@ -43,7 +43,9 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
+	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
 	virtual bool apply(SpinSystem* ss);
+	virtual bool apply(SpinSystem** sss, int n);
 	int getSite(int x, int y, int z);
 
 	bool member(int px, int py, int pz);

@@ -41,6 +41,7 @@ public:
 	static int help(lua_State* L);
 	
 	bool apply(SpinSystem* ss);
+	bool apply(SpinSystem** ss, int n);
 	bool applyToSum(SpinSystem* ss);
 
 	double B[3];

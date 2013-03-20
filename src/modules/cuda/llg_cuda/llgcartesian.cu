@@ -21,224 +21,165 @@
 	v[1] = (a2) * (b0) - (a0) * (b2); \
 	v[2] = (a0) * (b1) - (a1) * (b0);
 	
-template<int do_renormalize>
-__global__ void llg_cart_apply(
-	const int nxyz,
-	const double* spinfrom_sx, const double* spinfrom_sy, const double* spinfrom_sz, const double* spinfrom_m,
-	const double*     dmdt_tx, const double*     dmdt_ty, const double*     dmdt_tz,
-	const double*     dmdt_hx, const double*     dmdt_hy, const double*     dmdt_hz,
-	const double*     dmdt_sx, const double*     dmdt_sy, const double*     dmdt_sz,
-	      double*   spinto_sx,       double*   spinto_sy,       double*   spinto_sz,       double* spinto_m,
-	const double dt, const double _alpha, const double* d_alpha, const double _gamma, const double* d_gamma)
+template<int do_renormalize, int thermal_both_terms>
+__global__ void llg_cart_apply_N(const int nxyz, 
+	double** spinto_x, double** spinto_y, double** spinto_z, double** spinto_m,
+	double** spinfrom_x, double** spinfrom_y, double** spinfrom_z, double** spinfrom_m,
+	double** dmdt_sx,    double** dmdt_sy,    double** dmdt_sz, /* double** dmdt_sm, */
+	double** dmdt_tx, double** dmdt_ty, double** dmdt_tz, //thermal
+	double** dmdt_hx, double** dmdt_hy, double** dmdt_hz, //sum (all)
+	double* dt, double** d_alpha_N, double* d_alpha, double** d_gamma_N, double* d_gamma,
+	const int n)
 {
 	const int i = blockDim.x * blockIdx.x + threadIdx.x;
+	if(i >= nxyz) return;
 	
-	if(i >= nxyz)
-		return;
+	const int j = blockDim.y * blockIdx.y + threadIdx.y;
+	if(j >= n) return;
+	
 
 	double alpha;
 	double gamma;
 	
-	if(d_alpha)
+	if(d_alpha_N[j])
 	{
-		alpha = d_alpha[i];
+		alpha = d_alpha_N[j][i];
 	}
 	else
 	{
-		alpha =  _alpha;
+		alpha =  d_alpha[i];
+	}
+	
+	if(d_gamma_N[j])
+	{
+		gamma = d_gamma_N[j][i];
+	}
+	else
+	{
+		gamma =  d_gamma[i];
 	}
 
-	if(d_gamma)
+	
+	const double gamma_dt = gamma * dt[j];
+	
+	
+	spinto_m[j][i] = spinfrom_m[j][i];
+	
+	if(spinto_m[j][i] > 0)
 	{
-		gamma = d_gamma[i];
-	}
-	else
-	{
-		gamma = _gamma;
-	}
-	
-	const double gamma_dt = gamma * dt;
-	
-	
-	spinto_m[i] = spinfrom_m[i];
-	
-	if(spinto_m[i] > 0)
-	{
-		double  MHh[3];
-		double MMH[3];
 		double  MH[3];
-
-		// M x (H + ht) + M/|M| x (M x H)
-
-		CROSS(MHh, dmdt_sx[i], dmdt_sy[i], dmdt_sz[i],   dmdt_hx[i], dmdt_hy[i], dmdt_hz[i]);
-
-		CROSS(MH, 	dmdt_sx[i], dmdt_sy[i], dmdt_sz[i],   
-					dmdt_hx[i] - dmdt_tx[i], 
-					dmdt_hy[i] - dmdt_ty[i], 
-					dmdt_hz[i] - dmdt_tz[i]);
+		double  FirstTerm[3];
+		double  SecondTerm[3];
+	
 		
-		CROSS(MMH, dmdt_sx[i], dmdt_sy[i], dmdt_sz[i],   MH[0], MH[1], MH[2]);
+		if(thermal_both_terms == 0) //so thermal only in 1st term, subtracting out of 2nd term
+		{
+			double h[3];
+			h[0] = dmdt_hx[i] - dmdt_tx[i];
+			h[1] = dmdt_hy[i] - dmdt_ty[i];
+			h[2] = dmdt_hz[i] - dmdt_tz[i];
+			
+			CROSS(MH, 	dmdt_sx[j][i], dmdt_sy[j][i], dmdt_sz[j][i],  h[0], h[1], h[2]); // really Mh
+			CROSS(SecondTerm,  dmdt_sx[j][i], dmdt_sy[j][i], dmdt_sz[j][i],  MH[0], MH[1], MH[2]); // MMh
+			
+			CROSS(FirstTerm, 	dmdt_sx[j][i], dmdt_sy[j][i], dmdt_sz[j][i], dmdt_hx[j][i], dmdt_hy[j][i], dmdt_hz[j][i]); // MH
+		}
+		if(thermal_both_terms == 1) // thermal in both, no need to subtract
+		{
+			// M x (H ) + M/|M| x (M x H)
+
+			CROSS(FirstTerm, dmdt_sx[j][i], dmdt_sy[j][i], dmdt_sz[j][i],   dmdt_hx[j][i], dmdt_hy[j][i], dmdt_hz[j][i]);
+
+			CROSS(SecondTerm, dmdt_sx[j][i], dmdt_sy[j][i], dmdt_sz[j][i],   FirstTerm[0], FirstTerm[1], FirstTerm[2]);
+		}
 		
 		const double gadt = gamma_dt / (1.0+alpha*alpha);
-		const double as = alpha/spinfrom_m[i];
+		const double as = alpha/spinfrom_m[j][i];
 		
 		//reusing variables
-		MH[0] = spinfrom_sx[i] - gadt * (MHh[0] + as * MMH[0]);
-		MH[1] = spinfrom_sy[i] - gadt * (MHh[1] + as * MMH[1]);
-		MH[2] = spinfrom_sz[i] - gadt * (MHh[2] + as * MMH[2]);
+		MH[0] = spinfrom_x[j][i] - gadt * (FirstTerm[0] + as * SecondTerm[0]);
+		MH[1] = spinfrom_y[j][i] - gadt * (FirstTerm[1] + as * SecondTerm[1]);
+		MH[2] = spinfrom_z[j][i] - gadt * (FirstTerm[2] + as * SecondTerm[2]);
 	    
 		if(do_renormalize == 1)
 		{
-			//renormalize step
-			MMH[0] = 1.0 / sqrt(MH[0]*MH[0] + MH[1]*MH[1] + MH[2]*MH[2]);
+			//renormalize step, reusing variable
+			FirstTerm[0] = 1.0 / sqrt(MH[0]*MH[0] + MH[1]*MH[1] + MH[2]*MH[2]);
 
-			spinto_sx[i] = MH[0] * spinfrom_m[i] * MMH[0];
-			spinto_sy[i] = MH[1] * spinfrom_m[i] * MMH[0];
-			spinto_sz[i] = MH[2] * spinfrom_m[i] * MMH[0];
+			spinto_x[j][i] = MH[0] * spinfrom_m[j][i] * FirstTerm[0];
+			spinto_y[j][i] = MH[1] * spinfrom_m[j][i] * FirstTerm[0];
+			spinto_z[j][i] = MH[2] * spinfrom_m[j][i] * FirstTerm[0];
 		}
 		else
 		{
-			spinto_sx[i] = MH[0];
-			spinto_sy[i] = MH[1];
-			spinto_sz[i] = MH[2];
+			spinto_x[j][i] = MH[0];
+			spinto_y[j][i] = MH[1];
+			spinto_z[j][i] = MH[2];
 		}
 	}
 }
 
 
-template<int do_renormalize>
-__global__ void llg_cart_apply_thermal_both_terms(
-	const int nxyz,
-	const double* spinfrom_sx, const double* spinfrom_sy, const double* spinfrom_sz, const double* spinfrom_m,
-	const double*     dmdt_tx, const double*     dmdt_ty, const double*     dmdt_tz,
-	const double*     dmdt_hx, const double*     dmdt_hy, const double*     dmdt_hz,
-	const double*     dmdt_sx, const double*     dmdt_sy, const double*     dmdt_sz,
-	      double*   spinto_sx,       double*   spinto_sy,       double*   spinto_sz,       double* spinto_m,
-	const double dt, const double _alpha, const double* d_alpha, const double _gamma, const double* d_gamma)
-{
-	const int i = blockDim.x * blockIdx.x + threadIdx.x;
-	
-	if(i >= nxyz)
-		return;
-
-	double alpha;
-	double gamma;
-	
-	if(d_alpha)
-	{
-		alpha = d_alpha[i];
-	}
-	else
-	{
-		alpha =  _alpha;
-	}
-
-	if(d_gamma)
-	{
-		gamma = d_gamma[i];
-	}
-	else
-	{
-		gamma = _gamma;
-	}
-	
-	const double gamma_dt = gamma * dt;
-	
-	
-	spinto_m[i] = spinfrom_m[i];
-	
-	if(spinto_m[i] > 0)
-	{
-// 		double  MHh[3];
-		double MMH[3];
-		double  MH[3];
-
-		// M x (H + ht) + M/|M| x (M x H)
-
-		CROSS(MH, dmdt_sx[i], dmdt_sy[i], dmdt_sz[i],   dmdt_hx[i], dmdt_hy[i], dmdt_hz[i]);
-
-		CROSS(MMH, dmdt_sx[i], dmdt_sy[i], dmdt_sz[i],   MH[0], MH[1], MH[2]);
-		
-		const double gadt = gamma_dt / (1.0+alpha*alpha);
-		const double as = alpha/spinfrom_m[i];
-		
-		//reusing variables, MH is now new M
-		MH[0] = spinfrom_sx[i] - gadt * (MH[0] + as * MMH[0]);
-		MH[1] = spinfrom_sy[i] - gadt * (MH[1] + as * MMH[1]);
-		MH[2] = spinfrom_sz[i] - gadt * (MH[2] + as * MMH[2]);
-	     
-		if(do_renormalize == 1)
-		{
-			//renormalize step
-			MMH[0] = 1.0 / sqrt(MH[0]*MH[0] + MH[1]*MH[1] + MH[2]*MH[2]);
-
-			spinto_sx[i] = MH[0] * spinfrom_m[i] * MMH[0];
-			spinto_sy[i] = MH[1] * spinfrom_m[i] * MMH[0];
-			spinto_sz[i] = MH[2] * spinfrom_m[i] * MMH[0];
-		}
-		else
-		{
-			spinto_sx[i] = MH[0];
-			spinto_sy[i] = MH[1];
-			spinto_sz[i] = MH[2];
-		}
-	}
-}
-	
 				
-void cuda_llg_cart_apply(const int nx, const int ny, const int nz,
-	double* dsx, double* dsy, double* dsz, double* dms, //dest (spinto)
-	double* ssx, double* ssy, double* ssz, double* sms, // src (spinfrom)
-	double* ddx, double* ddy, double* ddz, double* dds, // dm/dt spins
-	double* htx, double* hty, double* htz,              // dm/dt thermal fields
-	double* dhx, double* dhy, double* dhz,              // dm/dt fields
-	const double dt, const double alpha, const double* d_alpha, const double gamma, const double* d_gamma,
-	int thermalOnlyFirstTerm, int disableRenormalization
+void cuda_llg_cart_apply_N(	int nx, int ny, int nz,
+	double** dsx, double** dsy, double** dsz, double** dms, //dest (spinto)
+	double** ssx, double** ssy, double** ssz, double** sms, // src (spinfrom)
+	double** ddx, double** ddy, double** ddz, double** dds, // dm/dt spins
+	double** htx, double** hty, double** htz,              // dm/dt thermal fields
+	double** dhx, double** dhy, double** dhz,              // dm/dt fields
+	double* dt, double** d_alpha_N, double* d_alpha, double** d_gamma_N, double* d_gamma,
+	int thermalOnlyFirstTerm, int disableRenormalization, const int n
 )
 {
 	const int nxyz = nx*ny*nz;
-	const int threads = 512;
-	const int blocks = nxyz / threads + 1;
+	const int threadsX = 512;
+	const int blocksX = nxyz / threadsX + 1;
+
+	const int threadsY = 1;
+	const int blocksY = n;
+	
+	dim3 gd(blocksX, blocksY);
+	dim3 bd(threadsX, threadsY);
+	
 	if(thermalOnlyFirstTerm)
 	{
 		if(disableRenormalization)
-			llg_cart_apply<0><<<blocks, threads>>>(nxyz,
+			llg_cart_apply_N<0, 0><<<gd, bd>>>(nxyz,
+							dsx, dsy, dsz, dms,
 							ssx, ssy, ssz, sms,
+							ddx, ddy, ddz,
 							htx, hty, htz,
 							dhx, dhy, dhz,
-							ddx, ddy, ddz,
-							dsx, dsy, dsz, dms,
-							dt, alpha, d_alpha, gamma, d_gamma);
+							dt, d_alpha_N, d_alpha, d_gamma_N, d_gamma, n);
 		else
-			llg_cart_apply<1><<<blocks, threads>>>(nxyz,
+			llg_cart_apply_N<1, 0><<<gd, bd>>>(nxyz,
+							dsx, dsy, dsz, dms,
 							ssx, ssy, ssz, sms,
+							ddx, ddy, ddz,
 							htx, hty, htz,
 							dhx, dhy, dhz,
-							ddx, ddy, ddz,
-							dsx, dsy, dsz, dms,
-							dt, alpha, d_alpha, gamma, d_gamma);
+							dt, d_alpha_N, d_alpha, d_gamma_N, d_gamma, n);
 			
 	}
 	else
 	{
 		if(disableRenormalization)
-			llg_cart_apply_thermal_both_terms<0><<<blocks, threads>>>(nxyz,
+			llg_cart_apply_N<0, 1><<<gd, bd>>>(nxyz,
+							dsx, dsy, dsz, dms,
 							ssx, ssy, ssz, sms,
+							ddx, ddy, ddz,
 							htx, hty, htz,
 							dhx, dhy, dhz,
-							ddx, ddy, ddz,
-							dsx, dsy, dsz, dms,
-							dt, alpha, d_alpha, gamma, d_gamma);
+							dt, d_alpha_N, d_alpha, d_gamma_N, d_gamma, n);
 		else
-			llg_cart_apply_thermal_both_terms<1><<<blocks, threads>>>(nxyz,
+			llg_cart_apply_N<1, 1><<<gd, bd>>>(nxyz,
+							dsx, dsy, dsz, dms,
 							ssx, ssy, ssz, sms,
+							ddx, ddy, ddz,
 							htx, hty, htz,
 							dhx, dhy, dhz,
-							ddx, ddy, ddz,
-							dsx, dsy, dsz, dms,
-							dt, alpha, d_alpha, gamma, d_gamma);
+							dt, d_alpha_N, d_alpha, d_gamma_N, d_gamma, n);
 			
 	}
 	CHECK
 }
-

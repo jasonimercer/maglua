@@ -40,6 +40,12 @@ end
  
 
 local function apply(a, ss)
+	if type(ss) == "table" then
+		for k,s in pairs(ss) do
+			a:apply(s)
+		end
+		return
+	end
 	local name = "applied"
 	local scale = a:scale()
 	ss:fieldArrayX(name):setAll(a:x() * scale)

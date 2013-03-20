@@ -153,11 +153,20 @@ bool Thermal::apply(SpinSystem* ss, RNG* useThisRNG)
 		{
 			const double alpha = ga.alpha(i);
 			const double gamma = ga.gamma(i);
-			const double stddev = sqrt((2.0 * alpha * global_scale * temperature * (*scale)[i]) / (ms[i] * dt * gamma));
-			
-			hx[i] = stddev * rand->randNorm(0, 1);
-			hy[i] = stddev * rand->randNorm(0, 1);
-			hz[i] = stddev * rand->randNorm(0, 1);
+			if(gamma > 0)
+			{
+				const double stddev = sqrt((2.0 * alpha * global_scale * temperature * (*scale)[i]) / (ms[i] * dt * gamma));
+				
+				hx[i] = stddev * rand->randNorm(0, 1);
+				hy[i] = stddev * rand->randNorm(0, 1);
+				hz[i] = stddev * rand->randNorm(0, 1);
+			}
+			else
+			{
+				hx[i] = 0;
+				hy[i] = 0;
+				hz[i] = 0;
+			}
 		}
 		else
 		{

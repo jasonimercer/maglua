@@ -29,6 +29,41 @@ SpinOperation::~SpinOperation()
 	
 }
 
+void SpinOperation::getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss)
+{
+	int initial_size = lua_gettop(L);
+	
+	if(pos < 0)
+	{
+		pos = initial_size + pos + 1;
+	}
+	if(lua_istable(L, pos))
+	{
+		if(lua_istable(L, pos))
+		{
+			lua_pushnil(L);
+			while(lua_next(L, pos))
+			{
+				SpinSystem* ss = luaT_to<SpinSystem>(L, -1);
+				if(ss)
+					sss.push_back(ss);
+				lua_pop(L, 1);
+			}
+		}
+	}
+	else
+	{
+		if(luaT_is<SpinSystem>(L, pos))
+		{
+			sss.push_back(luaT_to<SpinSystem>(L, pos));
+		}
+	}
+
+	
+	while(lua_gettop(L) > initial_size)
+		lua_pop(L, 1);
+}
+
 int SpinOperation::luaInit(lua_State* L)
 {
 	LuaBaseObject::luaInit(L);
@@ -128,6 +163,14 @@ void SpinOperation::idx2xyz(int idx, int& x, int& y, int& z) const
 bool SpinOperation::apply(SpinSystem* ss)
 {
 	return 0;
+}
+
+bool SpinOperation::apply(SpinSystem** sss, int n)
+{
+	for(int i=0; i<n; i++)
+	{
+		apply(sss[i]);
+	}
 }
 
 
@@ -254,10 +297,25 @@ int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def)
 static int l_apply(lua_State* L)
 {
 	LUA_PREAMBLE(SpinOperation,so,1);
-	LUA_PREAMBLE(SpinSystem,ss,2);
 	
-	if(!so->apply(ss))
-		return luaL_error(L, so->errormsg.c_str());
+	vector<SpinSystem*> sss;
+	so->getSpinSystemsAtPosition(L, 2, sss);
+	
+	if(sss.size() == 0)
+	{
+		return 0; //don't need to do anything
+	}
+	if(sss.size() == 1)
+	{
+		if(!so->apply(sss[0]))
+			return luaL_error(L, so->errormsg.c_str());
+	}
+	if(sss.size() >  1)
+	{
+		if(!so->apply(&(sss[0]), sss.size()))
+			return luaL_error(L, so->errormsg.c_str());
+	}
+	
 	return 0;
 }
 
@@ -341,8 +399,8 @@ int SpinOperation::help(lua_State* L)
 	}
 	if(func == l_apply)
 	{
-		lua_pushstring(L, "Apply the operator to the SpinSystem");
-		lua_pushstring(L, "1 SpinSystem: System that will receive the resulting fields");
+		lua_pushstring(L, "Apply the operator to the SpinSystem or Table of SpinSystems");
+		lua_pushstring(L, "1 *SpinSystem* or 1 Table of SpinSystems: System that will receive the resulting fields. If a table of SpinSystems is provided then this operator will be applied to each SpinSystem.");
 		lua_pushstring(L, "");
 		return 3;
 	}

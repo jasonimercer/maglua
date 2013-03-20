@@ -50,6 +50,21 @@ AppliedField::~AppliedField()
 {
 }
 
+bool AppliedField::apply(SpinSystem** ss, int n)
+{
+	for(int i=0; i<n; i++)
+	{
+		markSlotUsed(ss[i]);
+		ss[i]->ensureSlotExists(slot);
+
+		ss[i]->hx[slot]->setAll(B[0]*global_scale);
+		ss[i]->hy[slot]->setAll(B[1]*global_scale);
+		ss[i]->hz[slot]->setAll(B[2]*global_scale);
+	}
+	return true;
+}
+
+
 bool AppliedField::apply(SpinSystem* ss)
 {
 	markSlotUsed(ss);

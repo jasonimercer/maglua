@@ -30,6 +30,9 @@
  #define LLG_API 
 #endif
 
+#include <vector>
+using namespace std;
+
 class SpinSystem;
 
 class LLG_API LLG : public LuaBaseObject
@@ -47,11 +50,16 @@ public:
 	virtual int  decode(buffer* b);
 	
 	virtual bool apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime) {return true;}
+	virtual bool apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, SpinSystem** spinto, bool advancetime, int n);
 	void fakeStep(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime);
 		
 	bool disableRenormalization;
 	bool thermalOnlyFirstTerm;
-// 	void encode(buffer* b);
+
+	// copied from SpinOperation
+	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
+
+	// 	void encode(buffer* b);
 // 	int  decode(buffer* b);
 };
 

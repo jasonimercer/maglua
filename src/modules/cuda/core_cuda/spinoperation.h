@@ -52,6 +52,8 @@ public:
 	int  getidx(int px, int py, int pz);
 
 	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
+	double** getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char data, const char component='Q', const int field=0);
+	double*  getVectorOfValues(SpinSystem** sss, int n, const char* tag, const char data, const double scale=1.0);
 		
 	int nx, ny, nz;
 	int nxyz;

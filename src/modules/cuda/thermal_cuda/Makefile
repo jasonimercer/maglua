@@ -14,7 +14,7 @@ LIBNAME=ThermalCuda
 CATEGORY=cuda
 
 #DEPEND is parsed to make the vs2010 project
-DEPEND=luabaseobject corecuda dipolecuda
+DEPEND=luabaseobject corecuda
 BASEDIR=../../..
 EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu

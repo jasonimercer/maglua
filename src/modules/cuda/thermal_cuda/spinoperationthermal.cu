@@ -55,12 +55,12 @@ __global__ void do_thermal(
 		gamma = _gamma;
 	}
 	
-	const double FOOBAR =  (2.0 * alpha * temperature) / (dt * gamma);
 
 	const double ms = d_ms[idx];
-	if(ms != 0)
+	if(ms != 0 && gamma != 0)
 	{
-		const double stddev = sqrt((FOOBAR * d_scale[idx]) / ms);
+		const double vv =  (2.0 * alpha * temperature) / (dt * gamma);
+		const double stddev = sqrt((vv * d_scale[idx]) / ms);
 		d_hx[idx] = stddev * d_rng6[idx*6+0+twiddle*3];
 		d_hy[idx] = stddev * d_rng6[idx*6+1+twiddle*3];
 		d_hz[idx] = stddev * d_rng6[idx*6+2+twiddle*3];
