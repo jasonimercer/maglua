@@ -281,12 +281,12 @@ void SpinSystem::diff(SpinSystem* other, double* v4)
 }
 
 
-bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
+bool SpinSystem::copyFrom(lua_State* _L, SpinSystem* src)
 {
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
-	
+	L = _L;
 	hx[SUM_SLOT]->copyFrom(src->hx[SUM_SLOT]);
 	hy[SUM_SLOT]->copyFrom(src->hy[SUM_SLOT]);
 	hz[SUM_SLOT]->copyFrom(src->hz[SUM_SLOT]);
@@ -353,12 +353,12 @@ bool SpinSystem::copyFrom(lua_State* L, SpinSystem* src)
 	return true;
 }
 
-bool SpinSystem::copySpinsFrom(lua_State* L, SpinSystem* src)
+bool SpinSystem::copySpinsFrom(lua_State* _L, SpinSystem* src)
 {
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
-
+	L = _L;
 	x->copyFrom(src->x);
 	y->copyFrom(src->y);
 	z->copyFrom(src->z);
@@ -371,12 +371,12 @@ bool SpinSystem::copySpinsFrom(lua_State* L, SpinSystem* src)
 	return true;
 }
 
-bool SpinSystem::copyFieldFrom(lua_State* L, SpinSystem* src, int slot)
+bool SpinSystem::copyFieldFrom(lua_State* _L, SpinSystem* src, int slot)
 {
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
-	
+	L = _L;
 	hx[slot]->copyFrom(src->hx[slot]);
 	hy[slot]->copyFrom(src->hy[slot]);
 	hz[slot]->copyFrom(src->hz[slot]);
@@ -387,8 +387,9 @@ bool SpinSystem::copyFieldFrom(lua_State* L, SpinSystem* src, int slot)
 	return true;
 }
 
-bool SpinSystem::copyFieldsFrom(lua_State* L, SpinSystem* src)
+bool SpinSystem::copyFieldsFrom(lua_State* _L, SpinSystem* src)
 {
+	L = _L;
     return copyFieldFrom(L, src, SUM_SLOT);
 }
 
