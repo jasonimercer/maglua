@@ -80,12 +80,6 @@ int LongRange3D::luaInit(lua_State* L)
 	return 0;	
 }
 
-void LongRange3D::push(lua_State* L)
-{
-	luaT_push<LongRange3D>(L, this);
-}
-
-
 void LongRange3D::encode(buffer* b)
 {
 	SpinOperation::encode(b);

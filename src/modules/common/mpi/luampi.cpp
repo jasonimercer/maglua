@@ -155,7 +155,7 @@ lua_mpi_request::~lua_mpi_request()
 
 int lua_mpi_request::luaInit(lua_State* L)
 {
-	LuaBaseObject::luaInit(L);
+	return LuaBaseObject::luaInit(L);
 }
 
 void lua_mpi_request::allocateRecvBuffer()

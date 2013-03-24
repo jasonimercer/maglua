@@ -1458,21 +1458,24 @@ static int l_getfieldarrayz(lua_State* L)
 		return luaL_error(L, "Size mismatch");\
 	luaT_inc<dArray>(h); luaT_dec<dArray>(ss->h##C[slot]); \
 	ss->h##C[slot] = h; \
-	return 0;
+
 static int l_setfieldarrayx(lua_State* L)
 {
 	FA_HEADER;
 	SET_FA_BODY(x);
+	return 0;
 }
 static int l_setfieldarrayy(lua_State* L)
 {
 	FA_HEADER;
 	SET_FA_BODY(y);
+	return 0;
 }
 static int l_setfieldarrayz(lua_State* L)
 {
 	FA_HEADER;
 	SET_FA_BODY(z);
+	return 0;
 }
 
 

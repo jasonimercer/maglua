@@ -55,11 +55,6 @@ double Magnetostatics2D::getGrainSize(const int layer)
 }
 
 
-void Magnetostatics2D::push(lua_State* L)
-{
-	luaT_push<Magnetostatics2D>(L, this);
-}
-
 int Magnetostatics2D::luaInit(lua_State* L)
 {
 	LongRange2D::luaInit(L);

@@ -9,10 +9,18 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-NVCC=/usr/bin/nvcc 
+
+
+# cobalt.ucsd.edu
+CUDABASE=/cm/shared/apps/cuda50/toolkit/5.0.35/
+
+# vulcan.physics.mun.ca
+# CUDABASE=/opt/cuda
+
+#NVCC=/usr/bin/nvcc 
+NVCC=nvcc 
 #NVFLAGS=-O2 --ptxas-options="-v" -Xcompiler -fPIC  -arch=sm_21
 NVFLAGS=-O2 -Xcompiler -fPIC -arch=sm_21
-CUDABASE=/opt/cuda
 EXTRALIBS_CUDA=-L$(CUDABASE)/lib64 -L/usr/lib/nvidia-experimental-304/
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
 		-I$(BASEDIR) \
