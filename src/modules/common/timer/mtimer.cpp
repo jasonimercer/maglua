@@ -60,6 +60,9 @@ int Timer::luaInit(lua_State* L)
 
 void Timer::encode(buffer* b)
 {
+	char version = 0;
+	encodeChar(version, b);
+	
 	int running = !paused;
 	
 	if(running)
@@ -78,13 +81,21 @@ int Timer::decode(buffer* b)
 {
 	stop();
 	reset();
-	
-	int running = decodeInteger(b);
-	double t = decodeDouble(b);
-	
-	set_time(t);
-	if(running)
-		start();
+
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		int running = decodeInteger(b);
+		double t = decodeDouble(b);
+		
+		set_time(t);
+		if(running)
+			start();
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
 	return 0;
 }
 	

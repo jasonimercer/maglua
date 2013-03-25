@@ -222,16 +222,25 @@ void InterpolatingFunction2D::encode(buffer* b)
 
 int  InterpolatingFunction2D::decode(buffer* b)
 {
-	int size = decodeInteger(b);
-	rawdata.clear();
-	for(int i=0; i<size; i++)
+	char version = decodeChar(b);
+	if(version == 0)
 	{
-		const double x = decodeDouble(b);
-		const double y = decodeDouble(b);
-		const double z = decodeDouble(b);
-		//cout << "decode (" << i << ", " << x << ", " << y << ", " << z << ")" << endl;
-		addData(x, y, z);
+		int size = decodeInteger(b);
+		rawdata.clear();
+		for(int i=0; i<size; i++)
+		{
+			const double x = decodeDouble(b);
+			const double y = decodeDouble(b);
+			const double z = decodeDouble(b);
+			//cout << "decode (" << i << ", " << x << ", " << y << ", " << z << ")" << endl;
+			addData(x, y, z);
+		}
 	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
+
 	return 0;
 }
 

@@ -27,20 +27,29 @@ Magnetostatics3D::~Magnetostatics3D()
 void Magnetostatics3D::encode(buffer* b)
 {
 	LongRange3D::encode(b);
+	char version = 0;
+	encodeChar(version, b);
 }
 
 int  Magnetostatics3D::decode(buffer* b)
 {
 	int i = LongRange3D::decode(b);
-	
-	int s = lua_gettop(L);
-	lua_getglobal(L, "Magnetostatics3D");
-	lua_getfield(L, -1, "internalSetup");
-	luaT_push<Magnetostatics3D>(L, this);
-	lua_call(L, 1, 0);
-	while(lua_gettop(L) > s)
-		lua_pop(L, 1);
-	
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		int s = lua_gettop(L);
+		lua_getglobal(L, "Magnetostatics3D");
+		lua_getfield(L, -1, "internalSetup");
+		luaT_push<Magnetostatics3D>(L, this);
+		lua_call(L, 1, 0);
+		while(lua_gettop(L) > s)
+			lua_pop(L, 1);
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
+
 	return i;
 }
 

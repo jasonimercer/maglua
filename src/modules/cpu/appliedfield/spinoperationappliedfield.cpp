@@ -32,6 +32,8 @@ int AppliedField::luaInit(lua_State* L)
 void AppliedField::encode(buffer* b)
 {
 	SpinOperation::encode(b);
+	char version = 0;
+	encodeChar(version, b);
 	encodeDouble(B[0], b);
 	encodeDouble(B[1], b);
 	encodeDouble(B[2], b);
@@ -40,9 +42,17 @@ void AppliedField::encode(buffer* b)
 int  AppliedField::decode(buffer* b)
 {
 	SpinOperation::decode(b);
-	B[0] = decodeDouble(b);
-	B[1] = decodeDouble(b);
-	B[2] = decodeDouble(b);
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		B[0] = decodeDouble(b);
+		B[1] = decodeDouble(b);
+		B[2] = decodeDouble(b);
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
 	return 0;
 }
 

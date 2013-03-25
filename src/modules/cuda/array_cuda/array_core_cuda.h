@@ -233,6 +233,8 @@ public:
 
 	void encode(buffer* b)
 	{
+		char version = 0;
+		encodeChar(version, b);
 		encodeInteger(nx, b);
 		encodeInteger(ny, b);
 		encodeInteger(nz, b);
@@ -255,24 +257,32 @@ public:
 	}
 	int decode(buffer* b)
 	{
-		int x    = decodeInteger(b);
-		int y    = decodeInteger(b);
-		int z    = decodeInteger(b);
-		int flag = decodeInteger(b);
-		
-		setSize(x,y,z);
-		
-		if(flag == 1)
+		char version = decodeChar(b);
+		if(version == 0)
 		{
-			setAll( luaT<T>::decode(b) );
+			int x    = decodeInteger(b);
+			int y    = decodeInteger(b);
+			int z    = decodeInteger(b);
+			int flag = decodeInteger(b);
+			
+			setSize(x,y,z);
+			
+			if(flag == 1)
+			{
+				setAll( luaT<T>::decode(b) );
+			}
+			else
+			{
+				T* d = data();
+				for(int i=0; i<nxyz; i++)
+					d[i] = luaT<T>::decode(b);
+			}
+			new_host = true;
 		}
 		else
 		{
-			T* d = data();
-			for(int i=0; i<nxyz; i++)
-				d[i] = luaT<T>::decode(b);
+			fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 		}
-		new_host = true;
 		return 0;
 	}
 

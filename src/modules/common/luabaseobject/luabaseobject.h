@@ -27,6 +27,8 @@ extern "C"
    void encodeBuffer(const void* s, const int len, buffer* b);
    void encodeDouble(const double d, buffer* b);
    void encodeInteger(const int i, buffer* b);
+   void encodeChar(const char c, buffer* b);
+    char decodeChar(buffer* b);
 	int decodeInteger(buffer* b);
  double decodeDouble(buffer* b);
    void decodeBuffer(void* dest, const int len, buffer* b);

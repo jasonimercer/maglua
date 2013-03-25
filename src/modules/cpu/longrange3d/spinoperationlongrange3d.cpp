@@ -83,7 +83,9 @@ int LongRange3D::luaInit(lua_State* L)
 void LongRange3D::encode(buffer* b)
 {
 	SpinOperation::encode(b);
-
+	char version = 0;
+	encodeChar(version, b);
+	
 	encodeDouble(g, b);
 	
 	int ref[2];
@@ -109,27 +111,37 @@ void LongRange3D::encode(buffer* b)
 int  LongRange3D::decode(buffer* b)
 {
 	SpinOperation::decode(b);
-	g = decodeDouble(b);
 	
-	int n = lua_gettop(L);
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		g = decodeDouble(b);
+		
+		int n = lua_gettop(L);
 
-	if(longrange_ref != LUA_REFNIL)
-		luaL_unref(L, LUA_REGISTRYINDEX, longrange_ref);
-	if(function_ref != LUA_REFNIL)
-		luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
+		if(longrange_ref != LUA_REFNIL)
+			luaL_unref(L, LUA_REGISTRYINDEX, longrange_ref);
+		if(function_ref != LUA_REFNIL)
+			luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
 
-	_importLuaVariable(L, b);
-	longrange_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-	
-	_importLuaVariable(L, b);
-	function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+		_importLuaVariable(L, b);
+		longrange_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+		
+		_importLuaVariable(L, b);
+		function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-	while(lua_gettop(L) > n)
-		lua_pop(L, 1);
+		while(lua_gettop(L) > n)
+			lua_pop(L, 1);
 
-	
-	deinit();
-	init();
+		
+		deinit();
+		init();
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
+
 	
 	return 0;
 }

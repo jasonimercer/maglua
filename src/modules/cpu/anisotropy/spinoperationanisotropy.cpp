@@ -191,6 +191,9 @@ void Anisotropy::encode(buffer* b)
 {
 	SpinOperation::encode(b); //nx,ny,nz,global_scale
 
+	char version = 0;
+	encodeChar(version, b);
+	
 	encodeInteger(num, b);
 	for(int i=0; i<num; i++)
 	{
@@ -207,19 +210,28 @@ int Anisotropy::decode(buffer* b)
 	deinit();
 	SpinOperation::decode(b); //nx,ny,nz,global_scale
 	
-	num = decodeInteger(b);
-	size = num;
-	init();
+	char version = decodeChar(b);
 	
-	for(int i=0; i<size; i++)
+	if(version == 0)
 	{
-		const int site = decodeInteger(b);
-		const double nx = decodeDouble(b);
-		const double ny = decodeDouble(b);
-		const double nz = decodeDouble(b);
-		const double  K = decodeDouble(b);
+		num = decodeInteger(b);
+		size = num;
+		init();
 		
-		addAnisotropy(site, nx, ny, nz, K);
+		for(int i=0; i<size; i++)
+		{
+			const int site = decodeInteger(b);
+			const double nx = decodeDouble(b);
+			const double ny = decodeDouble(b);
+			const double nz = decodeDouble(b);
+			const double  K = decodeDouble(b);
+			
+			addAnisotropy(site, nx, ny, nz, K);
+		}
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
 	return 0;
 }

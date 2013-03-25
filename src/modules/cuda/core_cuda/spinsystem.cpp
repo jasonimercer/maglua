@@ -527,6 +527,8 @@ void SpinSystem::ensureSlotExists(int slot)
 
 void SpinSystem::encode(buffer* b)
 {
+	char version = 0;
+	encodeChar(version, 0);
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
@@ -612,68 +614,76 @@ void SpinSystem::encode(buffer* b)
 int  SpinSystem::decode(buffer* b)
 {
 //	double r, i;
-	
 	deinit();
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	nxyz = nx*ny*nz;
-
-	alpha = decodeDouble(b);
-	dt = decodeDouble(b);
-	gamma = decodeDouble(b);
-
-	time = decodeDouble(b);
-	init();
-
-	x->decode(b);
-	y->decode(b);
-	z->decode(b);
-	ms->decode(b);
-	
-	
-	const int site_alpha_exists = decodeInteger(b);
-	if(site_alpha_exists)
+	char version = decodeChar(b);
+	if(version == 0)
 	{
-		site_alpha = luaT_inc<dArray>(new dArray(nx,ny,nz));
-		site_alpha->decode(b);
-	}
+		nx = decodeInteger(b);
+		ny = decodeInteger(b);
+		nz = decodeInteger(b);
+		nxyz = nx*ny*nz;
 
-	const int site_gamma_exists = decodeInteger(b);
-	if(site_gamma_exists)
-	{
-		site_gamma = luaT_inc<dArray>(new dArray(nx,ny,nz));
-		site_gamma->decode(b);
-	}
-	
-	int numPartialData = decodeInteger(b);
-	if(numPartialData < 0) //then all, implicitly
-	{
-		for(int i=0; i<nxyz; i++)
+		alpha = decodeDouble(b);
+		dt = decodeDouble(b);
+		gamma = decodeDouble(b);
+
+		time = decodeDouble(b);
+		init();
+
+		x->decode(b);
+		y->decode(b);
+		z->decode(b);
+		ms->decode(b);
+		
+		
+		const int site_alpha_exists = decodeInteger(b);
+		if(site_alpha_exists)
 		{
-			_importLuaVariable(L, b);
-			
-			extra_data[i] = exportLuaVariable(L, -1, &(extra_data_size[i]));
-			lua_pop(L, 1);
+			site_alpha = luaT_inc<dArray>(new dArray(nx,ny,nz));
+			site_alpha->decode(b);
+		}
+
+		const int site_gamma_exists = decodeInteger(b);
+		if(site_gamma_exists)
+		{
+			site_gamma = luaT_inc<dArray>(new dArray(nx,ny,nz));
+			site_gamma->decode(b);
+		}
+		
+		int numPartialData = decodeInteger(b);
+		if(numPartialData < 0) //then all, implicitly
+		{
+			for(int i=0; i<nxyz; i++)
+			{
+				_importLuaVariable(L, b);
+				
+				extra_data[i] = exportLuaVariable(L, -1, &(extra_data_size[i]));
+				lua_pop(L, 1);
+			}
+		}
+		else
+		{
+			for(int i=0; i<numPartialData; i++)
+			{
+				int idx = decodeInteger(b);
+				_importLuaVariable(L, b);
+				
+				if(extra_data[idx])
+				{
+					free(extra_data[idx]);
+					extra_data_size[idx] = 0;
+				}
+				
+				extra_data[idx] = exportLuaVariable(L, -1, &(extra_data_size[idx]));
+				lua_pop(L, 1);
+			}
 		}
 	}
 	else
 	{
-		for(int i=0; i<numPartialData; i++)
-		{
-			int idx = decodeInteger(b);
-			_importLuaVariable(L, b);
-			
-			if(extra_data[idx])
-			{
-				free(extra_data[idx]);
-				extra_data_size[idx] = 0;
-			}
-			
-			extra_data[idx] = exportLuaVariable(L, -1, &(extra_data_size[idx]));
-			lua_pop(L, 1);
-		}
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
+
 	return 0;
 }
 

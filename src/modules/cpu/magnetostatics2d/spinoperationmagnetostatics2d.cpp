@@ -24,6 +24,28 @@ Magnetostatics2D::~Magnetostatics2D()
 {
 }
 
+void Magnetostatics2D::encode(buffer* b)
+{
+	LongRange2D::encode(b);
+	char version = 0;
+	encodeChar(version, b);
+}
+
+int  Magnetostatics2D::decode(buffer* b)
+{
+	int i = LongRange2D::decode(b);
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
+
+	return i;
+}
+
 // this is a base 0 function
 double Magnetostatics2D::getGrainSize(const int layer)
 {

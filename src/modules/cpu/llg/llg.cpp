@@ -44,6 +44,8 @@ LLG::~LLG()
 
 void LLG::encode(buffer* b)
 {
+	char version = 0;
+	encodeChar(version, b);
 	encodeInteger(thermalOnlyFirstTerm, b);
 	encodeInteger(disableRenormalization, b);
 
@@ -51,8 +53,17 @@ void LLG::encode(buffer* b)
 
 int  LLG::decode(buffer* b)
 {
-	thermalOnlyFirstTerm = decodeInteger(b);
-	disableRenormalization = decodeInteger(b);
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		thermalOnlyFirstTerm = decodeInteger(b);
+		disableRenormalization = decodeInteger(b);
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
+
 	return 0;
 }
 

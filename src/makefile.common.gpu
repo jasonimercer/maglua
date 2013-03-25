@@ -17,7 +17,6 @@ CUDABASE=/cm/shared/apps/cuda50/toolkit/5.0.35/
 # vulcan.physics.mun.ca
 # CUDABASE=/opt/cuda
 
-#NVCC=/usr/bin/nvcc 
 NVCC=nvcc 
 #NVFLAGS=-O2 --ptxas-options="-v" -Xcompiler -fPIC  -arch=sm_21
 NVFLAGS=-O2 -Xcompiler -fPIC -arch=sm_21

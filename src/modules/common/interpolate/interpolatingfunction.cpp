@@ -244,6 +244,9 @@ bool InterpolatingFunction::getValue(double in, double* out)
 
 void InterpolatingFunction::encode(buffer* b)
 {
+	char version = 0;
+	
+	encodeChar(version, b);
 	encodeInteger( rawdata.size(), b);
 	for(unsigned int i=0; i<rawdata.size(); i++)
 	{
@@ -255,16 +258,24 @@ void InterpolatingFunction::encode(buffer* b)
 
 int  InterpolatingFunction::decode(buffer* b)
 {
-	int size = decodeInteger(b);
-	if(root)
-		delete root;
-	rawdata.clear();
-	for(int i=0; i<size; i++)
+	char version = decodeChar(b);
+	if(version == 0)
 	{
-		const double x = decodeDouble(b);
-		const double y = decodeDouble(b);
+		int size = decodeInteger(b);
+		if(root)
+			delete root;
+		rawdata.clear();
+		for(int i=0; i<size; i++)
+		{
+			const double x = decodeDouble(b);
+			const double y = decodeDouble(b);
 
-		addData(x, y);
+			addData(x, y);
+		}
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
 	compile();
 	return 0;

@@ -54,6 +54,8 @@ int LongRange::luaInit(lua_State* L)
 void LongRange::encode(buffer* b)
 {
 	SpinOperation::encode(b);
+	char version = 0;
+	encodeChar(version, b);
 	encodeInteger(gmax[0], b);
 	encodeInteger(gmax[1], b);
 	encodeInteger(gmax[2], b);
@@ -68,17 +70,25 @@ void LongRange::encode(buffer* b)
 int  LongRange::decode(buffer* b)
 {
 	SpinOperation::decode(b);
-
-	gmax[0] = decodeInteger(b);
-	gmax[1] = decodeInteger(b);
-	gmax[2] = decodeInteger(b);
-	gmax[3] = decodeInteger(b);
-	g = decodeDouble(b);
-
-	for(int i=0; i<9; i++)
+	char version = decodeChar(b);
+	if(version == 0)
 	{
-		ABC[i] = decodeDouble(b);
+		gmax[0] = decodeInteger(b);
+		gmax[1] = decodeInteger(b);
+		gmax[2] = decodeInteger(b);
+		gmax[3] = decodeInteger(b);
+		g = decodeDouble(b);
+
+		for(int i=0; i<9; i++)
+		{
+			ABC[i] = decodeDouble(b);
+		}
 	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
+
 	return 0;
 }
 

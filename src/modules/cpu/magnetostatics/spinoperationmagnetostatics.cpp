@@ -49,7 +49,9 @@ int Magnetostatic::luaInit(lua_State* L)
 void Magnetostatic::encode(buffer* b)
 {
 	LongRange::encode(b);
-
+	char version = 0;
+	encodeChar(version, b);	
+	
 	for(int i=0; i<3; i++)
 		encodeDouble(volumeDimensions[i], b);
 	
@@ -63,16 +65,24 @@ int  Magnetostatic::decode(buffer* b)
 {
 	deinit();
 	LongRange::decode(b);
-
-	for(int i=0; i<3; i++)
-		volumeDimensions[i] = decodeDouble(b);
 	
-	for(int i=0; i<9; i++)
+	char version = decodeChar(b);
+	if(version == 0)
 	{
-		ABC[i] = decodeDouble(b);
+		for(int i=0; i<3; i++)
+			volumeDimensions[i] = decodeDouble(b);
+		
+		for(int i=0; i<9; i++)
+		{
+			ABC[i] = decodeDouble(b);
+		}
+		
+		crossover_tolerance = decodeDouble(b);
 	}
-	
-	crossover_tolerance = decodeDouble(b);
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
 	return 0;
 }
 

@@ -105,6 +105,7 @@ void DipoleEwald3D::calcSupportVectors()
 }
 
 
+
 static int _findEtaDone(const double ca, const double tau, const double b, const double x)
 {
 	return  (ca) < (tau * (fabs(b) + fabs(x))); //then we've narrowed in on a good value
@@ -551,6 +552,53 @@ int DipoleEwald3D::luaInit(lua_State* L)
 	setLatticeSiteCount(n[0], n[1], n[2]);
 	return 0;
 }
+
+void DipoleEwald3D::encode(buffer* b)
+{
+	char version = 0;
+	encodeChar(version, b);
+	
+	encodeInteger(d1, b);
+	encodeInteger(d2, b);
+	encodeInteger(d3, b);
+	
+	for(int i=0; i<3; i++)
+	{
+		encodeDouble(a1[i], b);
+		encodeDouble(a2[i], b);
+		encodeDouble(a3[i], b);
+	}
+	
+	encodeDouble(eta, b);
+	encodeDouble(tau, b);
+}
+int  DipoleEwald3D::decode(buffer* b)
+{
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		int nx = decodeInteger(b);
+		int ny = decodeInteger(b);
+		int nz = decodeInteger(b);
+	
+		for(int i=0; i<3; i++)
+		{
+			a1[i] = decodeDouble(b);
+			a2[i] = decodeDouble(b);
+			a3[i] = decodeDouble(b);
+		}
+
+		setLatticeSiteCount(nx, ny, nz); // calls 	calcSupportVectors();
+
+		eta = decodeDouble(b);
+		tau = decodeDouble(b);
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
+}
+
 
 static int l_setunitcell(lua_State* L)
 {

@@ -35,12 +35,24 @@ int Dipole::luaInit(lua_State* L)
 void Dipole::encode(buffer* b)
 {
 	LongRange::encode(b);
+	char version = 0;
+	encodeChar(version, b);
 }
 
 int  Dipole::decode(buffer* b)
 {
 	deinit();
 	LongRange::decode(b);
+	
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
 	
 	return 0;
 }

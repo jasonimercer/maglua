@@ -497,6 +497,9 @@ void Exchange::encode(buffer* b)
 {
 	SpinOperation::encode(b);
 
+	char version = 0;
+	encodeChar(version, b);
+	
 	encodeInteger(pbc[0], b);
 	encodeInteger(pbc[1], b);
 	encodeInteger(pbc[2], b);
@@ -516,27 +519,33 @@ int  Exchange::decode(buffer* b)
 	deinit();
 
 	SpinOperation::decode(b);
-
-	pbc[0] = decodeInteger(b);
-	pbc[1] = decodeInteger(b);
-	pbc[2] = decodeInteger(b);
-	
-	nxyz = nx * ny * nz;
-	
-	size = decodeInteger(b);
-	num = size;
-	size++; //so we can double if size == 0
-	pathways = (sss*)malloc(sizeof(sss) * size);
-	for(int i=0; i<num; i++)
+	char version = decodeChar(b);
+	if(version == 0)
 	{
-		pathways[i].fromsite = decodeInteger(b);
-		pathways[i].tosite = decodeInteger(b);
-		pathways[i].strength = decodeDouble(b);
+		pbc[0] = decodeInteger(b);
+		pbc[1] = decodeInteger(b);
+		pbc[2] = decodeInteger(b);
+		
+		nxyz = nx * ny * nz;
+		
+		size = decodeInteger(b);
+		num = size;
+		size++; //so we can double if size == 0
+		pathways = (sss*)malloc(sizeof(sss) * size);
+		for(int i=0; i<num; i++)
+		{
+			pathways[i].fromsite = decodeInteger(b);
+			pathways[i].tosite = decodeInteger(b);
+			pathways[i].strength = decodeDouble(b);
+		}
+		
+		compressAttempted = false;
+		new_host = true;
 	}
-	
-	compressAttempted = false;
-	new_host = true;
-	
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
 	return 0;
 }
 

@@ -90,6 +90,8 @@ int SpinOperation::luaInit(lua_State* L)
 
 void SpinOperation::encode(buffer* b)
 {
+	char version = 0;
+	encodeChar(version, b);
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
@@ -98,11 +100,19 @@ void SpinOperation::encode(buffer* b)
 
 int SpinOperation::decode(buffer* b)
 {
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	nxyz = nx*ny*nz;
-	global_scale = decodeDouble(b);
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		nx = decodeInteger(b);
+		ny = decodeInteger(b);
+		nz = decodeInteger(b);
+		nxyz = nx*ny*nz;
+		global_scale = decodeDouble(b);
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
 	return 0;
 }
 

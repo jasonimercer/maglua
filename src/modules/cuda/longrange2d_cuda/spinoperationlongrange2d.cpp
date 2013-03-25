@@ -53,7 +53,10 @@ int LongRange2D::luaInit(lua_State* L)
 void LongRange2D::encode(buffer* b)
 {
 	SpinOperation::encode(b);
-
+	char version = 0;
+	encodeChar(version, b);
+	
+	
 	for(int i=0; i<nz; i++)
 	{
 		encodeDouble(g[i], b);
@@ -78,32 +81,39 @@ void LongRange2D::encode(buffer* b)
 int  LongRange2D::decode(buffer* b)
 {
 	SpinOperation::decode(b);
-	if(g)
-		delete [] g;
-	g = new double[nz];
-	
-	for(int i=0; i<nz; i++)
+	char version = decodeChar(b);
+	if(version == 0)
 	{
-		g[i] = decodeDouble(b);
+		if(g)
+			delete [] g;
+		g = new double[nz];
+		
+		for(int i=0; i<nz; i++)
+		{
+			g[i] = decodeDouble(b);
+		}
+		
+		int n = lua_gettop(L);
+
+
+		if(longrange_ref != LUA_REFNIL)
+			luaL_unref(L, LUA_REGISTRYINDEX, longrange_ref);
+		if(function_ref != LUA_REFNIL)
+			luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
+
+		_importLuaVariable(L, b);
+		longrange_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+		_importLuaVariable(L, b);
+		function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+		while(lua_gettop(L) > n)
+			lua_pop(L, 1);
 	}
-	
-	int n = lua_gettop(L);
-
-
-	if(longrange_ref != LUA_REFNIL)
-		luaL_unref(L, LUA_REGISTRYINDEX, longrange_ref);
-	if(function_ref != LUA_REFNIL)
-		luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
-
-	_importLuaVariable(L, b);
-	longrange_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
-	_importLuaVariable(L, b);
-	function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
-	while(lua_gettop(L) > n)
-		lua_pop(L, 1);
-
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
 	return 0;
 }
 

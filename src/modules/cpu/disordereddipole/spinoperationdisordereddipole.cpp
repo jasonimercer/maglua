@@ -66,11 +66,9 @@ int DisorderedDipole::luaInit(lua_State* L)
 
 void DisorderedDipole::encode(buffer* b)
 {
-	encodeInteger(nx, b);
-	encodeInteger(ny, b);
-	encodeInteger(nz, b);
-	encodeDouble(global_scale, b);
-	
+	SpinOperation::encode(b);
+	char version = 0;
+	encodeChar(version, b);
 	posx->encode(b);
 	posy->encode(b);
 	posz->encode(b);
@@ -79,17 +77,20 @@ void DisorderedDipole::encode(buffer* b)
 int  DisorderedDipole::decode(buffer* b)
 {
 	deinit();
-	nx = decodeInteger(b);
-	ny = decodeInteger(b);
-	nz = decodeInteger(b);
-	nxyz = nx*ny*nz;
-	global_scale = decodeDouble(b);
+	SpinOperation::decode(b);
 	init();
 	
-	posx->decode(b);
-	posy->decode(b);
-	posz->decode(b);
-
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		posx->decode(b);
+		posy->decode(b);
+		posz->decode(b);
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
 	return 0;
 }
 

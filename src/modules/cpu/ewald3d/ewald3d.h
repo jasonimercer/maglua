@@ -36,8 +36,8 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 
-	void encode(buffer* b) {}
-	int  decode(buffer* b) {return 0;}
+	void encode(buffer* b);
+	int  decode(buffer* b);
 
 
 	// a,b: X=0, Y=1, Z=2

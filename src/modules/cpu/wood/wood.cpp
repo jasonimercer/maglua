@@ -66,6 +66,8 @@ void Wood::deinit()
 void Wood::encode(buffer* b)
 {
 	SpinOperation::encode(b); //nx,ny,nz,global_scale
+	char version = 0;
+	encodeChar(version, b);
 	for(int i=0; i<nz; i++)
 	{
 		encodeDouble(DN[i], b);
@@ -78,14 +80,22 @@ int  Wood::decode(buffer* b)
 {
 	deinit();
 	SpinOperation::decode(b); //nx,ny,nz,global_scale
-	init();
-	for(int i=0; i<nz; i++)
+	char version = decodeChar(b);
+	if(version == 0)
 	{
-		DN[i] = decodeDouble(b);
-		grain_size[i] = decodeDouble(b);
-	}
+		init();
+		for(int i=0; i<nz; i++)
+		{
+			DN[i] = decodeDouble(b);
+			grain_size[i] = decodeDouble(b);
+		}
 
-	energyBarriers->decode(b);
+		energyBarriers->decode(b);
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
 
 	return 0;
 }

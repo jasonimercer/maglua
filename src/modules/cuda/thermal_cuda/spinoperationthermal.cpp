@@ -65,6 +65,8 @@ int Thermal::luaInit(lua_State* L)
 void Thermal::encode(buffer* b)
 {
 	SpinOperation::encode(b);
+	char version = 0;
+	encodeChar(version, 0);
  	encodeDouble(temperature, b);
 	scale->encode(b);
 }
@@ -72,10 +74,18 @@ void Thermal::encode(buffer* b)
 int  Thermal::decode(buffer* b)
 {
 	SpinOperation::decode(b);
-    temperature = decodeDouble(b);
-    luaT_dec<dArray>(scale);
-    scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
-    scale->decode(b);
+	char version = decodeChar(b);
+	if(version == 0)
+	{
+		temperature = decodeDouble(b);
+		luaT_dec<dArray>(scale);
+		scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
+		scale->decode(b);
+	}
+	else
+	{
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	}
     return 0;
 }
 

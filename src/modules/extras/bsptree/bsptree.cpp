@@ -217,6 +217,8 @@ void BSPTree::init()
 
 void BSPTree::encode(buffer* b)
 {
+	char version = 0;
+	encodeChar(version, b);
 	for(int i=0; i<3; i++) //aabb
 	{
 		encodeDouble(p1[i], b);
@@ -284,73 +286,79 @@ void BSPTree::setList(BSPDataList* l)
 int  BSPTree::decode(buffer* b)
 {
 	deinit();
-
-	for(int i=0; i<3; i++) //aabb
+	char version = decodeChar(b);
+	if(version == 0)
 	{
-		p1[i] = decodeDouble(b);
-		p2[i] = decodeDouble(b);
-	}
-	split_dir = decodeInteger(b);
-
-	int s = decodeInteger(b);
-	for(int i=0; i<s; i++)
-	{
-		idx.push_back(decodeInteger(b));
-	}
-
-	int is_root = decodeInteger(b);
-	
-	if(is_root == 1) //root, decode the lua data
-	{
-		int lst_sz = decodeInteger(b);
-		if(lst_sz)
+		for(int i=0; i<3; i++) //aabb
 		{
-			list = new BSPDataList;
-			int num_data = decodeInteger(b);
-			for(int i=0; i<num_data; i++)
+			p1[i] = decodeDouble(b);
+			p2[i] = decodeDouble(b);
+		}
+		split_dir = decodeInteger(b);
+
+		int s = decodeInteger(b);
+		for(int i=0; i<s; i++)
+		{
+			idx.push_back(decodeInteger(b));
+		}
+
+		int is_root = decodeInteger(b);
+		
+		if(is_root == 1) //root, decode the lua data
+		{
+			int lst_sz = decodeInteger(b);
+			if(lst_sz)
 			{
-				double x = decodeDouble(b);
-				double y = decodeDouble(b);
-				double z = decodeDouble(b);
-				
-				_importLuaVariable(L, b);
-				int ref = luaL_ref(L, LUA_REGISTRYINDEX);
-				
-				list->data.push_back(new BSPData(x,y,z,ref));
+				list = new BSPDataList;
+				int num_data = decodeInteger(b);
+				for(int i=0; i<num_data; i++)
+				{
+					double x = decodeDouble(b);
+					double y = decodeDouble(b);
+					double z = decodeDouble(b);
+					
+					_importLuaVariable(L, b);
+					int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+					
+					list->data.push_back(new BSPData(x,y,z,ref));
+				}
+			}
+			else
+			{
+				list = 0;
+			}
+		}
+		else //not root, no need to encode list
+		{
+		}
+		
+
+		int has_children = decodeInteger(b);
+
+		if(has_children)
+		{
+			for(int i=0; i<2; i++)
+			{
+				c[i] = new BSPTree;
+				c[i]->L = L;
+				c[i]->decode(b);
 			}
 		}
 		else
 		{
-			list = 0;
+			c[0] = 0;
+			c[1] = 0;
 		}
-	}
-	else //not root, no need to encode list
-	{
-	}
-	
-
-	int has_children = decodeInteger(b);
-
-	if(has_children)
-	{
-		for(int i=0; i<2; i++)
+		
+		if(is_root)
 		{
-			c[i] = new BSPTree;
-			c[i]->L = L;
-			c[i]->decode(b);
+			setList(list);
 		}
 	}
 	else
 	{
-		c[0] = 0;
-		c[1] = 0;
+		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
-	
-	if(is_root)
-	{
-		setList(list);
-	}
-	
 	return 0;
 }
 

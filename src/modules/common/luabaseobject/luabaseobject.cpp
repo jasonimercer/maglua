@@ -134,6 +134,11 @@ void encodeInteger(const int i, buffer* b)
 	encodeBuffer(&i, sizeof(i), b);
 }
 
+void encodeChar(const char c, buffer* b)
+{
+	encodeBuffer(&c, sizeof(char), b);
+}
+
 
 void decodeBuffer(void* dest, const int len, buffer* b)
 {
@@ -151,6 +156,12 @@ double decodeDouble(buffer* b)
 	double d;
 	decodeBuffer(&d, sizeof(double), b);
 	return d;
+}
+char decodeChar(buffer* b)
+{
+	char c;
+	decodeBuffer(&c, sizeof(char), b);
+	return c;
 }
 
 
