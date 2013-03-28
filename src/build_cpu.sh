@@ -13,7 +13,7 @@ fi
 #  2   build fftw, build maglua
 #  3   build maglua
 
-BUILD_STEP=3
+BUILD_STEP=0
 
 
 if [[ $BUILD_STEP -le 0 ]]; then

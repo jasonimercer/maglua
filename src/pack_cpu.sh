@@ -34,6 +34,7 @@ cp -r modules/cpu/anisotropy           $version/modules/cpu
 cp -r modules/cpu/appliedfield         $version/modules/cpu
 cp -r modules/cpu/core                 $version/modules/cpu
 cp -r modules/cpu/dipole               $version/modules/cpu
+cp -r modules/cpu/dipole2d             $version/modules/cpu
 cp -r modules/cpu/disordereddipole     $version/modules/cpu
 cp -r modules/cpu/exchange             $version/modules/cpu
 cp -r modules/cpu/llg                  $version/modules/cpu
