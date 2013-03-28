@@ -46,7 +46,8 @@ static int l_set(lua_State* L)
 	if(luaT_is< Array<T> >(L, lua_gettop(L)))
 	{
 		LUA_PREAMBLE(Array<T>, b, lua_gettop(L));
-		b->copyFrom(a);
+		a->copyFrom(b);
+		return 0;		
 	}
 	
 	return a->lua_set(L, 2);

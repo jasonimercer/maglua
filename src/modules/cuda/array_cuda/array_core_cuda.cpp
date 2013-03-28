@@ -40,6 +40,14 @@ template<typename T>
 static int l_set(lua_State* L)
 {
 	LUA_PREAMBLE(Array<T>, a, 1);
+	
+	if(luaT_is< Array<T> >(L, lua_gettop(L)))
+	{
+		LUA_PREAMBLE(Array<T>, b, lua_gettop(L));
+		a->copyFrom(b);
+		return 0;		
+	}
+	
 	return a->lua_set(L, 2);
 }
 template<typename T>

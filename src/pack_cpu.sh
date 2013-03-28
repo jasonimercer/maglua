@@ -10,7 +10,7 @@ cp info.h $version
 grep -v '#dev version' Makefile > pack_makefile_del_this
 grep -v '#cuda version' pack_makefile_del_this > $version/Makefile
 rm -f pack_makefile_del_this
-cp build_cpu.sh libMagLua.h libMagLua.cpp hardcode.lua bootstrap.lua COPYRIGHT modules.h modules.cpp loader.cpp loader.h import.h main.cpp makefile.common.cpu makefile.common.mpi makefile.common.config makefile.common.lua dofile.lua help.lua os_extensions.cpp os_extensions.h README main.h $version
+cp configure build_cpu.sh libMagLua.h libMagLua.cpp hardcode.lua bootstrap.lua COPYRIGHT modules.h modules.cpp loader.cpp loader.h import.h main.cpp makefile.common.cpu makefile.common.mpi makefile.common.lua dofile.lua help.lua os_extensions.cpp os_extensions.h README main.h $version
 make distclean
 cp Calibration_Tests.tar.gz $version
 

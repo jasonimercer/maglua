@@ -1,54 +1,10 @@
 #!/bin/bash
 
-# Set the following 2 variables with compilers for your system
-# the table below can help with these choices
 
-MPI_COMPILER=
-MAGLUA_COMPILER=
-
-# The following table has info for common machines and setups at MUN
-# Older versions of g++ will not work: need g++ 4.5 or greater
-#
-#                       MAGLUA_COMPILER        MPI_COMPILER
-# 
-#   Modern Linux            g++               mpicxx or mpic++
-# g++ 4.5 or better
-#
-#     Torngat               icc                  mpiicc
-#
-#
-#    Placentia             pgcpp      /usr/local/openmpi.pgi-1.4.4/bin/mpicxx
-#
-#
-#
-#  orcinus.westgrid.ca
-# *    first run:     *     icc                   mpicc
-# * module load intel *
-
-if [ -z $MPI_COMPILER ]; then
-	echo "Set the compiler variables in this script and rerun"
+if [ ! -f makefile.common.config ]; then
+	echo "makefile.common.config is missing, please use ./configure to create it."
 	exit 1
 fi
-if [ -z $MAGLUA_COMPILER ]; then
-	echo "Set the compiler variables in this script and rerun"
-	exit 1
-fi
-
-
-# don't want to bother looking for magic to tell if
-# portland group has optimizations turned on
-if [ "$MAGLUA_COMPILER" = "pgcpp" ]; then
-    MAGLUA_COMPILER="$MAGLUA_COMPILER -D__OPTIMIZE__"
-    MPI_COMPILER="$MPI_COMPILER -D__OPTIMIZE__"
-fi
-
-#enabling MPI by default
-MAGLUA_COMPILER="$MAGLUA_COMPILER -D_MPI"
-MPI_COMPILER="$MPI_COMPILER -D_MPI"
-
-
-MAGLUA_COMPILER=$MPI_COMPILER
-
 
 #  Set BUILD_STEP to restart a failed build
 #
@@ -57,25 +13,8 @@ MAGLUA_COMPILER=$MPI_COMPILER
 #  2   build fftw, build maglua
 #  3   build maglua
 
-BUILD_STEP=0
+BUILD_STEP=3
 
-
-# updating info.h with compiler info
-cp info.h info.base
-head -n 5 info.base > info.h
-# portland group has an odd version reporting method 
-# so we have to deal with it specially
-if [ "$MAGLUA_COMPILER" = "pgcpp" ]; then
-	echo "Compiler:            `$MAGLUA_COMPILER --version | head -n 2 | tail -n 1`\n\\" >> info.h
-else
-	echo "Compiler:            `$MAGLUA_COMPILER --version | head -n 1`\n\\" >> info.h
-fi
-tail -n 4 info.base >> info.h
-rm -f info.base
-
-
-#adding custom define to compiler cmd
-MPI_COMPILER="$MPI_COMPILER -D_MPI"
 
 if [[ $BUILD_STEP -le 0 ]]; then
   echo "#####################################################"
@@ -117,15 +56,16 @@ cp -r include $DEPDIR
 cd ..
 fi
 
-#build lua.pc & symlinks
-#echo "Building Lua pkgconfig file"
-head -n 10 lua-5.1.5/etc/lua.pc >  $DEPDIR/lib/pkgconfig/lua.pc
-echo "prefix= $DEPDIR"          >> $DEPDIR/lib/pkgconfig/lua.pc
-tail -n 20 lua-5.1.5/etc/lua.pc >> $DEPDIR/lib/pkgconfig/lua.pc
+if [ -f lua-5.1.5/etc/lua.pc ] ; then
+	#build lua.pc & symlinks
+	#echo "Building Lua pkgconfig file"
+	head -n 10 lua-5.1.5/etc/lua.pc >  $DEPDIR/lib/pkgconfig/lua.pc
+	echo "prefix= $DEPDIR"          >> $DEPDIR/lib/pkgconfig/lua.pc
+	tail -n 20 lua-5.1.5/etc/lua.pc >> $DEPDIR/lib/pkgconfig/lua.pc
 
-rm -f $DEPDIR/lib/pkgconfig/lua5.1.pc
-ln -s $DEPDIR/lib/pkgconfig/lua.pc $DEPDIR/lib/pkgconfig/lua5.1.pc
-
+	rm -f $DEPDIR/lib/pkgconfig/lua5.1.pc
+	ln -s $DEPDIR/lib/pkgconfig/lua.pc $DEPDIR/lib/pkgconfig/lua5.1.pc
+fi
 
 
 if [[ $BUILD_STEP -le 2 ]]; then
@@ -158,14 +98,14 @@ export PATH=$HOME/bin:$PATH
 export PKG_CONFIG_PATH=$DEPDIR/lib/pkgconfig:$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH=$DEPDIR/lib:$LD_LIBRARY_PATH
 
-#pkg-config  --list-all
-
+# pkg-config  --list-all
+# exit
 
 echo "#####################################################"
 echo "#################  Building MagLua ##################"
 echo "#####################################################"
 
-make MPICXX="$MPI_COMPILER -D_MPI" CXX="$MAGLUA_COMPILER"
+echo "PKG_CONFIG_PATH = $PKG_CONFIG_PATH"
 make install
 
 rm -rf libs
@@ -174,23 +114,9 @@ cd libs
 maglua --setup `pwd`
 cd ..
 
-cd modules/common/mpi
-make install MPICXX="$MPI_COMPILER -D_MPI" CXX="$MPI_COMPILER -D_MPI"
-cd ../../..
-
-cd modules/common
-make install MPICXX="$MPI_COMPILER -D_MPI" CXX="$MAGLUA_COMPILER"
-cd ../..
-
-cd modules/cpu
-make install MPICXX="$MPI_COMPILER -D_MPI" CXX="$MAGLUA_COMPILER"
-cd ../..
-
-cd modules/extras
-make install MPICXX="$MPI_COMPILER -D_MPI" CXX="$MAGLUA_COMPILER"
-cd ../..
-
-
+make -C modules/common install
+make -C modules/cpu install
+make -C modules/extras install
 
 
 maglua --write_docs maglua.html

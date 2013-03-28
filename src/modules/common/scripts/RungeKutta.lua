@@ -2,7 +2,7 @@
 -- 
 -- <pre>RK1, RK2, RK3, RK4, RK4_38, RK6, K3, BS3</pre>
 --
--- The integration types are available via the "make_rk_step_function(ss, type, fieldFunc, optional_dynamicsFunc, llg, optional_temp)" function which takes a *SpinSystem*, a type which is a string equal to one of the listed types above, a field function that takes a *SpinSystem* and computes the deterministic effective field, an LLG operator and an optional thermal operator. 
+-- The integration types are available via the "make_rk_step_function(ss, type, fieldFunc or table of fields, optional_dynamicsFunc, llg, optional_temp)" function which takes a *SpinSystem*, a type which is a string equal to one of the listed types above, a field function that takes a *SpinSystem* and computes the deterministic effective field, an LLG operator and an optional thermal operator. 
 -- Example:
 -- <pre>
 -- dofile("maglua://RungeKutta.lua")
@@ -44,6 +44,8 @@
 -- end
 -- 
 -- step = make_rk_step_function(ss, "RK4", calcField, llg, temp)
+-- -- the following would have been equivalent in this case:
+-- -- step = make_rk_step_function(ss, "RK4", {ex,dip,ani}, llg, temp)
 -- 
 -- while ss:time() < max_time do
 -- 	temp:set(temperature:value(ss:time()))
@@ -57,6 +59,20 @@ function make_rk_step_function(a1,a2,a3,a4,a5,a6)
 	local a = {a1,a2,a3,a4,a5,a6}
 	local args = {}
 
+	-- first we will check for a table and wrap a function around it
+	for i=1,6 do
+		if type(a[i]) == "table" then
+			local tt = a[i]
+			a[i] = function(ss)
+				ss:resetFields()
+				for k,f in pairs(tt) do
+					f:apply(ss)
+				end
+				ss:sumFields()
+			end
+		end
+	end
+	
 	args["userdata"] = {}
 	args["function"] = {}
 	args["string"] = {}
