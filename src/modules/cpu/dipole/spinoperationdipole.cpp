@@ -22,7 +22,7 @@
 #include <math.h>
 
 Dipole::Dipole(int nx, int ny, int nz)
-	: LongRange(Dipole::typeName(), DIPOLE_SLOT, nx, ny, nz, hash32(Dipole::typeName()))
+	: LongRange(nx, ny, nz, hash32(Dipole::typeName()))
 {
 
 }

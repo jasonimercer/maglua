@@ -22,7 +22,11 @@ function write_help(file_handle)
 	end
 
 	function lp(txt) -- Link Process, change *TEXT* into <a href="#TEXT">TEXT</a>. Also changing \n for <br>\n
-
+-- 		txt = string.gsub(txt, "<", "&lt;")
+-- 		txt = string.gsub(txt, ">", "&gt;")
+		
+		
+		
 		local function _ws(txt) --tab, br
 			txt = string.gsub(txt, "\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
 			txt = string.gsub(txt, "\n", "<br>")
@@ -79,44 +83,49 @@ function write_help(file_handle)
 		margin-left: 20px ;
 	}
 
-	h1, h2, h3, h4 {
-		font-weight: normal ;
-		font-style: italic ;
+	pre {
+		padding: 5px;
+		background-color: #eeffcc;
+		color: #333333;
+		line-height: 120%;
+		border: 1px solid #ac9;
+		border-left: none;
+		border-right: none;
 	}
 
-	h1 {
+
+	h1,h2
+	{
+		color: #FFFFFF;
+		font-weight: normal;
 		padding-top: 0.4em ;
 		padding-bottom: 0.4em ;
 		padding-left: 20px ;
 		margin-left: -20px ;
-		background-color: #AAAAAA;
-	}
-	
-	h2 {
-		padding-top: 0.1em ;
-		padding-bottom: 0.1em ;
-		padding-left: 20px ;
-		margin-left: -20px ;
-		background-color: #AAAAAA;
+		background-color:  #20435c;
 	}
 
-	h3 {
-		padding-left: 8px ;
-		border-left: solid #AAAAAA 1em ;
-	}
 
-	table h3 {
-		padding-left: 0px ;
-		border-left: none ; 
+	h3,h4,h5,h6
+	{
+		font-family: sans-serif;
+		background-color: #f2f2f2;
+		font-weight:bold;
+		color: #20435c;
+		border-top: 1px solid #999;
+		margin: 20px -20px 10px -20px;
+		padding: 3px 0 3px 10px;
+		display: block;
 	}
 
 	a:link {
-		color: #000080 ;
+		color: #20435c ;
 		background-color: inherit ;
 		text-decoration: none ;
 	}
 
 	a:visited {
+		color: #20435c ;
 		background-color: inherit ;
 		text-decoration: none ;
 	}
@@ -136,10 +145,14 @@ function write_help(file_handle)
 		color: #a0a0a0 ;
 		background-color: #a0a0a0 ;
 	}
-
-	:target {
-		background-color: #AAAAAA ;
-		border: solid #a0a0a0 2px ;
+	dt 
+	{
+		font-weight:bold;
+	}
+	
+	h1:target,h2:target {
+		background-color: #3c7dab ;
+		border: solid #4fa5e2 1px ;
 	}
 	</style>
 
@@ -150,9 +163,9 @@ function write_help(file_handle)
 	]])
 
 	f:write(lp([[
-	<H1>MagLua</H1>
-	<p>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations with the Lua scripting language.	<p>MagLua is composed of 2 conceptual parts following the Data Oriented Design paradigm
-	<ul><li>Data - Spin vectors and fields, these are held in a *SpinSystem*.<li>Transformations - Objects which modify data. Some calculate fields based on spins or external influences such as *Anisotropy*, *Dipole* and *Thermal*, others update the spin vectors such as *LLG.Cartesian*.	</ul>	<p>The <a href="#Index">Index</a> has links to all objects, methods and functions provided by MagLua.</p><p>The following is a list of the objects and functions which may be combined to create a simulation.]]))
+<H1>MagLua</H1>
+<p>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations with the Lua scripting language.	<p>MagLua is composed of 2 conceptual parts following the Data Oriented Design paradigm
+<ul><li>Data - Spin vectors and fields, these are held in a *SpinSystem*.<li>Transformations - Objects which modify data. Some calculate fields based on spins or external influences such as *Anisotropy*, *Dipole* and *Thermal*, others update the spin vectors such as *LLG.Cartesian*.	</ul>	<p>The <a href="#Index">Index</a> has links to all objects, methods and functions provided by MagLua.</p><p>The following is a list of the objects and functions which may be combined to create a simulation.]]))
 
 	-- table for the index
 	local index = {}	
@@ -179,7 +192,7 @@ function write_help(file_handle)
 		if a ~= "" then f:write("<dt>Description</dt><dd>" .. lp(a) .. "</dd>\n") end
 		if b ~= "" then f:write("<dt>Input</dt><dd>" .. lp(b) .. "</dd>\n") end
 		if c ~= "" then f:write("<dt>Output</dt><dd>" .. lp(c) .. "</dd>\n") end
-		f:write("</dl><hr>\n")
+		f:write("</dl>\n")
 	end
 
 
@@ -218,10 +231,11 @@ function write_help(file_handle)
 		if a then
 			addsection(n, 2)
 			f:write("<p>\n" .. lp(a) .. "\n")
-			if b then
-				f:write("<p><dl><dt>" .. n .. ".new() takes the following arguments</dt><dd>" .. lp(b) .. "</dd></dl>\n")
+			if b and b ~= "" then
+				f:write(string.format("<H3>%s.new</H3><dl><dt>Constructor Arguments</dt><dd>%s</dd></dl>", n,lp(b)))
+-- 				f:write("<p><dl><dt>" .. n .. ".new() takes the following arguments</dt><dd>" .. lp(b) .. "</dd></dl>\n")
 			end
-			f:write("<hr>\n");
+-- 			f:write("<hr>\n");
 		end
 
 		-- write documentation about all functions

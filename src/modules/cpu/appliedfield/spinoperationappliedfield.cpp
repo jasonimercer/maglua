@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 AppliedField::AppliedField(int nx, int ny, int nz)
-	: SpinOperation(AppliedField::typeName(), APPLIEDFIELD_SLOT, nx, ny, nz, hash32(AppliedField::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(AppliedField::typeName()))
 {
 	B[0] = 0;
 	B[1] = 0;
@@ -65,7 +65,7 @@ bool AppliedField::apply(SpinSystem* ss)
 	// the following is implemented in appliedfield_luafuncs.lua
 	// leaving this here for now in case people want to make direct 
 	// calls to the C implementation.
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 	ss->ensureSlotExists(slot);
 
 	ss->hx[slot]->setAll(B[0]*global_scale);

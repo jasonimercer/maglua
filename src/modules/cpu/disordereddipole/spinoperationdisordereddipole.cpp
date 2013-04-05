@@ -18,7 +18,7 @@
 #include <math.h>
 
 DisorderedDipole::DisorderedDipole(int nx, int ny, int nz)
-	: SpinOperation(DisorderedDipole::typeName(), DIPOLE_SLOT, nx, ny, nz, hash32(DisorderedDipole::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(DisorderedDipole::typeName()))
 {
 	posx = 0;
 	posy = 0;
@@ -113,15 +113,15 @@ void DisorderedDipole::setPosition(int site, double px, double py, double pz)
 
 bool DisorderedDipole::apply(SpinSystem* ss)
 {
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 
 	double* x = ss->x->data();
 	double* y = ss->y->data();
 	double* z = ss->z->data();
 	
-	double* hx = ss->hx[DIPOLE_SLOT]->data();
-	double* hy = ss->hy[DIPOLE_SLOT]->data();
-	double* hz = ss->hz[DIPOLE_SLOT]->data();
+	double* hx = ss->hx[slot]->data();
+	double* hy = ss->hy[slot]->data();
+	double* hz = ss->hz[slot]->data();
 	
 	double r1[3], r2[3];
 	double rij[3];

@@ -13,13 +13,13 @@
 #ifndef SPINOPERATION
 #define SPINOPERATION
 
-#define SUM_SLOT          0
-#define EXCHANGE_SLOT     1
-#define APPLIEDFIELD_SLOT 2
-#define ANISOTROPY_SLOT   3
-#define THERMAL_SLOT      4
-#define DIPOLE_SLOT       5
-#define NSLOTS            6
+// #define SUM_SLOT          0
+// #define EXCHANGE_SLOT     1
+// #define APPLIEDFIELD_SLOT 2
+// #define ANISOTROPY_SLOT   3
+// #define THERMAL_SLOT      4
+// #define DIPOLE_SLOT       5
+// #define NSLOTS            6
 
 //#include <omp.h>
 #include "maglua.h"
@@ -31,15 +31,16 @@ class SpinSystem;
 class CORE_API SpinOperation : public LuaBaseObject
 {
 public:
-	//encodetype will be phased out in favour of dynamic_cast<T>()
-	SpinOperation(std::string Name, int slot, int nx, int ny, int nz, int encodetype=0);
+	SpinOperation(int nx, int ny, int nz, int encodetype=0);
 	virtual ~SpinOperation();
 	
 	LINEAGE1("SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
-	
+
+	virtual const char* getSlotName();
+
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
@@ -53,21 +54,20 @@ public:
 
 	int nx, ny, nz;
 	int nxyz;
-	const std::string& name();
 
 	std::string errormsg;
 	
 	void  idx2xyz(int idx, int& x, int& y, int& z) const ;
 
+	
 	double global_scale;
 // 	virtual void encode(buffer* b) = 0;
 // 	virtual int  decode(buffer* b) = 0;
 
 protected:
-	void markSlotUsed(SpinSystem* ss);
+	int markSlotUsed(SpinSystem* ss);
 	
 	std::string operationName;
-	int slot;
 };
 
 CORE_API int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);

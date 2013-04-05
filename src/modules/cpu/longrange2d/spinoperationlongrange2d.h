@@ -34,13 +34,15 @@ using namespace std;
 class LONGRANGE2D_API LongRange2D : public SpinOperation
 {
 public:
-	LongRange2D(const char* name="LongRange2D", const int field_slot=DIPOLE_SLOT, int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange2D"));
+	LongRange2D(int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange2D"));
 	virtual ~LongRange2D();
 	
 	LINEAGE2("LongRange2D", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
+		
+	virtual const char* getSlotName() {return "LongRange2D";}
 
 	bool apply(SpinSystem* ss);
 	

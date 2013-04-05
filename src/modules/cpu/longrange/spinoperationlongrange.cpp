@@ -23,8 +23,8 @@
 #define DDD printf("(%s:%i)\n", __FILE__, __LINE__);
 #endif
 
-LongRange::LongRange(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
-	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
+LongRange::LongRange(int nx, int ny, int nz, const int encode_tag)
+	: SpinOperation(nx, ny, nz, encode_tag)
 {
     qXX = 0;
     XX = 0;
@@ -352,7 +352,7 @@ bool LongRange::updateData()
 
 bool LongRange::apply(SpinSystem* ss)
 {
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 	updateData();
 	const int nxy = nx*ny;
 

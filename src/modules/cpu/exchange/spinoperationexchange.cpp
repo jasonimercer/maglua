@@ -21,7 +21,7 @@
 #include <string.h>
 
 Exchange::Exchange(int nx, int ny, int nz)
-	: SpinOperation(Exchange::typeName(), EXCHANGE_SLOT, nx, ny, nz, hash32(Exchange::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(Exchange::typeName()))
 {
 	size = 32;
 	num  = 0;
@@ -113,7 +113,7 @@ Exchange::~Exchange()
 
 bool Exchange::apply(SpinSystem* ss)
 {
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 
 	dArray& hx = (*ss->hx[slot]);
 	dArray& hy = (*ss->hy[slot]);

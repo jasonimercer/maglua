@@ -254,6 +254,12 @@ public:
 		return true;
 	}
 	
+	// s1,s2 are inclusive
+	void copyRegionFromTo(int* s1, int* s2, Array<T>* dest, int* d1, int* d2)
+	{
+		arrayCopyRegionFromTo(data(), nx, ny, nz, s1, s2, dest->data(), dest->nx, dest->ny, dest->nz, d1, d2);
+	}
+
 	int xyz2idx(const int x, const int y, const int z) const
 	{
 		return x + y*nx + z*nx*ny;

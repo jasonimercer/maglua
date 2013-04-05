@@ -43,6 +43,8 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 	
+	virtual const char* getSlotName() {return "Thermal";}
+
 	bool apply(SpinSystem* ss, RNG* rand);
 	bool apply(SpinSystem* ss) {return apply(ss, 0);}
 

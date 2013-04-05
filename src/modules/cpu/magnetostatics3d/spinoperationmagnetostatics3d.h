@@ -34,7 +34,7 @@ using namespace std;
 class MAGNETOSTATICS3D_API Magnetostatics3D : public LongRange3D
 {
 public:
-	Magnetostatics3D(const char* name="Magnetostatics3D", const int field_slot=DIPOLE_SLOT, int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("Magnetostatics3D"));
+	Magnetostatics3D(int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("Magnetostatics3D"));
 	virtual ~Magnetostatics3D();
 	
 	LINEAGE3("Magnetostatics3D", "LongRange3D", "SpinOperation")
@@ -42,6 +42,8 @@ public:
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
+	
+	virtual const char* getSlotName() {return "Magnetostatics3D";}
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);

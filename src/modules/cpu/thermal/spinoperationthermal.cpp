@@ -17,7 +17,7 @@
 #include <stdio.h>
 
 Thermal::Thermal(int nx, int ny, int nz)
-	: SpinOperation(Thermal::typeName(), THERMAL_SLOT, nx, ny, nz, hash32(Thermal::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(Thermal::typeName()))
 {
 	scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	scale->setAll(1.0);
@@ -132,7 +132,7 @@ public:
 
 bool Thermal::apply(SpinSystem* ss, RNG* useThisRNG)
 {
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 	
 	RNG* rand = myRNG;
 	if(useThisRNG)

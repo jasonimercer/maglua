@@ -36,10 +36,10 @@ CUDABASE=$CUDABASE
 
 f_PrintCurrent() {
 if [ "x$NVCC" = "x" ]; then
-	echo $'\e[1;33m    CXX=$CXX\tMPICC=$MPICC\e[0m'
+	echo "    CXX=$CXX\tMPICC=$MPICC"
 else
-	echo $'\e[1;33m    CXX=$CXX\tMPICC=$MPICC\e[0m'
-	echo $'\e[1;33m    NVCC=$NVCC\tCUDABASE=$CUDABASE\e[0m'
+	echo "    CXX=$CXX\tMPICC=$MPICC"
+	echo "    NVCC=$NVCC\tCUDABASE=$CUDABASE"
 fi
 
 }
@@ -93,7 +93,7 @@ f_torngat()
 }
 
 f_QC () {
-echo $'\033[1;31mQuick Configure\033[0m'
+echo "Quick Configure"
 f_PrintCurrent;
 cat << **
 1. vulcan.physics.mun.ca
@@ -119,21 +119,21 @@ esac
 
 f_setcxx()
 {
-echo $'\033[1;31mSet CXX\033[0m'
+echo "Set CXX"
 echo "Specify CXX"
 read CXX
 }
 
 f_setmpicxx()
 {
-echo $'\033[1;31mSet MPICXX\033[0m'
+echo "Set MPICXX"
 echo "Specify MPICXX"
 read MPICXX
 }
 
 f_setnvcc()
 {
-echo $'\033[1;31mSet NVCC\033[0m'
+echo "Set NVCC"
 echo "Specify NVCC"
 read NVCC
 }
@@ -142,7 +142,7 @@ read NVCC
 while : # Loop forever
 do
 
-echo $'\e[1;31mMagLua Compile Configuration\e[0m'
+echo "MagLua Compile Configuration"
 f_PrintCurrent ;
 
 cat << !

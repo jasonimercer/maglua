@@ -29,13 +29,14 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 	: LuaBaseObject(hash32(slineage(0))), x(0), y(0), z(0),
 		ms(0),alpha(1.0),  gamma(1.0), dt(1.0),
 		nx(NX), ny(NY), nz(NZ),
-		nslots(NSLOTS), time(0)
+		nslots(4), time(0)
 {
 	registerWS();
 	site_alpha = 0;
 	site_gamma = 0;
 	L = 0;
     init();
+	
 }
 
 int SpinSystem::luaInit(lua_State* L)
@@ -258,12 +259,16 @@ bool SpinSystem::copyFrom(lua_State* _L, SpinSystem* src)
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 	L = _L;
-	ensureSlotExists(SUM_SLOT);
-	src->ensureSlotExists(SUM_SLOT);
 	
-	hx[SUM_SLOT]->copyFrom(src->hx[SUM_SLOT]);
-	hy[SUM_SLOT]->copyFrom(src->hy[SUM_SLOT]);
-	hz[SUM_SLOT]->copyFrom(src->hz[SUM_SLOT]);
+	int  here_sum_slot = register_slot_name("Total");
+	int there_sum_slot = src->register_slot_name("Total");
+	
+	ensureSlotExists(here_sum_slot);
+	src->ensureSlotExists(there_sum_slot);
+	
+	hx[here_sum_slot]->copyFrom(src->hx[there_sum_slot]);
+	hy[here_sum_slot]->copyFrom(src->hy[there_sum_slot]);
+	hz[here_sum_slot]->copyFrom(src->hz[there_sum_slot]);
 
 	x->copyFrom(src->x);
 	y->copyFrom(src->y);
@@ -345,26 +350,35 @@ bool SpinSystem::copySpinsFrom(lua_State* _L, SpinSystem* src)
 	return true;
 }
 
-bool SpinSystem::copyFieldFrom(lua_State* _L, SpinSystem* src, int slot)
+bool SpinSystem::copyFieldFrom(lua_State* _L, SpinSystem* src, const char* slot_name)
 {
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 	L = _L;
-	hx[slot]->copyFrom(src->hx[slot]);
-	hy[slot]->copyFrom(src->hy[slot]);
-	hz[slot]->copyFrom(src->hz[slot]);
 
-	fft_timeC[0] = time - 1.0;
-	fft_timeC[1] = time - 1.0;
-	fft_timeC[2] = time - 1.0;
-	return true;
+	int dst_slot = register_slot_name(slot_name);
+	int src_slot = src->register_slot_name(slot_name);
+	
+	if(dst_slot != -1 && src_slot != -1)
+	{
+		hx[dst_slot]->copyFrom(src->hx[src_slot]);
+		hy[dst_slot]->copyFrom(src->hy[src_slot]);
+		hz[dst_slot]->copyFrom(src->hz[src_slot]);
+
+		fft_timeC[0] = time - 1.0;
+		fft_timeC[1] = time - 1.0;
+		fft_timeC[2] = time - 1.0;
+		return true;
+	}
+	return false;
+	
 }
 
 bool SpinSystem::copyFieldsFrom(lua_State* _L, SpinSystem* src)
 {
 	L = _L;
-    return copyFieldFrom(L, src, SUM_SLOT);
+	return copyFieldFrom(L, src, "Total");
 }
 
 
@@ -382,15 +396,6 @@ void SpinSystem::deinit()
 			}
 		}
 	
-		
-// 		if(L)
-// 		{
-// 			for(int i=0; i<nxyz; i++)
-// 			{
-//                 lua_unref(L, extra_data[i]);
-// 			}
-// 		}
-
 		luaT_dec<dArray>(x); x = 0;
 		luaT_dec<dArray>(y);
 		luaT_dec<dArray>(z);
@@ -399,21 +404,23 @@ void SpinSystem::deinit()
 		luaT_dec<dArray>(site_alpha); site_alpha = 0;
 		luaT_dec<dArray>(site_gamma); site_gamma = 0;
 
-		delete [] slot_used;
-		
 		for(int i=0; i<nslots; i++)
 		{
 			luaT_dec<dArray>(hx[i]);
 			luaT_dec<dArray>(hy[i]);
 			luaT_dec<dArray>(hz[i]);
+			
+			if(registered_slot_names[i])
+				free(registered_slot_names[i]);
 		}
 
-		delete [] hx;
-		delete [] hy;
-		delete [] hz;
-
-// 		luaT_dec<dcArray>(ws);
-//		delete ws;
+		free(hx);
+		free(hy);
+		free(hz);
+		free(slot_used);
+		free(registered_slot_names);
+		registered_slot_names = 0;
+		
 		ws = 0;
 		
 		
@@ -447,21 +454,18 @@ void SpinSystem::init()
 	luaT_dec<dArray>(site_alpha); site_alpha = 0;
 	luaT_dec<dArray>(site_gamma); site_gamma = 0;
 	
-// 	for(int i=0; i<nxyz; i++)
-// 		set(i, 0, 0, 0);
-
-	hx = new dArray* [nslots];
-	hy = new dArray* [nslots];
-	hz = new dArray* [nslots];
-	
-	slot_used = new bool[nslots];
+	// moving to malloc for realloc
+	hx = (dArray**)malloc(sizeof(dArray*) * nslots);
+	hy = (dArray**)malloc(sizeof(dArray*) * nslots);
+	hz = (dArray**)malloc(sizeof(dArray*) * nslots);
+	slot_used = (bool*)malloc(sizeof(bool) * nslots);
+	registered_slot_names = (char**)malloc(sizeof(char*) * nslots);
 	
 	extra_data = new char*[nxyz];
 	extra_data_size = new int[nxyz];
 	
 	for(int i=0; i<nxyz; i++)
 	{
-// 		extra_data[i] = LUA_REFNIL;
 		extra_data[i] = 0;
 		extra_data_size[i] = 0;
 	}
@@ -471,10 +475,8 @@ void SpinSystem::init()
 		hx[i] = 0; //luaT_inc<dArray>(new dArray(nx,ny,nz));
 		hy[i] = 0; //luaT_inc<dArray>(new dArray(nx,ny,nz));
 		hz[i] = 0; //luaT_inc<dArray>(new dArray(nx,ny,nz));
-		
-// 		hx[i]->zero();
-// 		hy[i]->zero();
-// 		hz[i]->zero();
+		registered_slot_names[i] = 0;
+		slot_used[i] = false;
 	}
 	zeroFields();
 	
@@ -490,16 +492,103 @@ void SpinSystem::init()
 	fft_timeC[0] = -1;
 	fft_timeC[1] = -1;
 	fft_timeC[2] = -1;
+	
+	register_slot_name("Total"); //will get slot 0
 }
 
-// never needed
+
+dArray* SpinSystem::getFeildArray(int component, const char* name)
+{
+	int slot = getSlot(name);
+	if(slot < 0)
+		return 0;
+	
+	if(component == 0)
+		return hx[slot];
+	if(component == 1)
+		return hy[slot];
+	if(component == 2)
+		return hz[slot];
+	
+	return 0;
+}
+
+bool SpinSystem::setFeildArray(int component, const char* name, dArray* a)
+{
+	if(component < 0 || component > 2)
+		return false;
+	
+	int slot = register_slot_name(name);
+
+	if(slot < 0)
+		return false;
+		
+	dArray** hh[3] = {hx,hy,hz};
+	
+	luaT_inc<dArray>(a);
+	luaT_dec<dArray>(hh[component][slot]);
+	hh[component][slot] = a;
+	return true;
+}
+
+
+int SpinSystem::register_slot_name(const char* name)
+{
+	if(name == 0)
+		return -1;
+	
+	// checking to see if it's already registered
+	int slot = getSlot(name);
+	
+	
+	if(slot == -1) // then it needs to be registered
+	{
+		for(slot=0; slot<nslots && registered_slot_names[slot]; slot++)
+		{
+		};
+		
+		ensureSlotExists(slot); //grow things if needed
+		
+		const char ll = strlen(name);
+		registered_slot_names[slot] = (char*)malloc(ll+1);
+		memcpy(registered_slot_names[slot], name, ll+1);
+	}
+	return slot;
+}
+
+	
 void SpinSystem::ensureSlotExists(int slot)
 {
+	if(slot < 0)
+	{
+		fprintf(stderr, "(%s:%i) Slot index is negative\n", __FILE__, __LINE__, slot);
+		return;
+	}
+
+	if(slot >= nslots)
+	{
+		// increase number of slots
+		hx = (dArray**)realloc(hx, sizeof(dArray*) * nslots * 2);
+		hy = (dArray**)realloc(hy, sizeof(dArray*) * nslots * 2);
+		hz = (dArray**)realloc(hz, sizeof(dArray*) * nslots * 2);
+		
+		slot_used = (bool*)realloc(slot_used, sizeof(bool) * nslots * 2);
+		
+		registered_slot_names = (char**)realloc(registered_slot_names, sizeof(char*) * nslots * 2);
+		
+		for(int i=nslots; i<nslots*2; i++)
+		{
+			hx[i] = 0;
+			hy[i] = 0;
+			hz[i] = 0;
+			registered_slot_names[i] = 0;
+			slot_used[i] = false;
+		}
+		nslots *= 2;
+	}
+
 	if(hx[slot]) return;
 	
-	if(slot >= nslots)
-		fprintf(stderr, "(%s:%i) Slot index %i is too large\n", __FILE__, __LINE__, slot);
-
 	hx[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	hy[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	hz[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
@@ -674,37 +763,22 @@ int  SpinSystem::decode(buffer* b)
 
 void SpinSystem::sumFields()
 {
+	const int SUM_SLOT = getSlot("Total");
 	ensureSlotExists(SUM_SLOT);
 	hx[SUM_SLOT]->zero();
-	for(int i=1; i<NSLOTS; i++)
-		if(slot_used[i] && hx[i])
+	for(int i=1; i<nslots; i++)
+		if((i != SUM_SLOT) && slot_used[i] && hx[i])
 			dArray::pairwiseScaleAdd(hx[SUM_SLOT], 1.0, hx[SUM_SLOT], 1.0, hx[i]);
 
 	hy[SUM_SLOT]->zero();
-	for(int i=1; i<NSLOTS; i++)
-		if(slot_used[i] && hy[i])
+	for(int i=1; i<nslots; i++)
+		if((i != SUM_SLOT) && slot_used[i] && hy[i])
 			dArray::pairwiseScaleAdd(hy[SUM_SLOT], 1.0, hy[SUM_SLOT], 1.0, hy[i]);
-// 			(*hy[SUM_SLOT]) += (*hy[i]);
 
 	hz[SUM_SLOT]->zero();
-	for(int i=1; i<NSLOTS; i++)
-		if(slot_used[i] && hz[i])
+	for(int i=1; i<nslots; i++)
+		if((i != SUM_SLOT) && slot_used[i] && hz[i])
 			dArray::pairwiseScaleAdd(hz[SUM_SLOT], 1.0, hz[SUM_SLOT], 1.0, hz[i]);
-//			(*hz[SUM_SLOT]) += (*hz[i]);
-		
-	/*	
-	hx[SUM_SLOT]->copyFrom(hx[1]);
-	for(int i=2; i<NSLOTS; i++)
-		(*hx[SUM_SLOT]) += (*hx[i]);
-
-	hy[SUM_SLOT]->copyFrom(hy[1]);
-	for(int i=2; i<NSLOTS; i++)
-		(*hy[SUM_SLOT]) += (*hy[i]);
-
-	hz[SUM_SLOT]->copyFrom(hz[1]);
-	for(int i=2; i<NSLOTS; i++)
-		(*hz[SUM_SLOT]) += (*hz[i]);
-	*/
 }
 
 bool SpinSystem::addFields(double mult, SpinSystem* addThis)
@@ -713,52 +787,46 @@ bool SpinSystem::addFields(double mult, SpinSystem* addThis)
 	if(ny != addThis->ny) return false;
 	if(nz != addThis->nz) return false;
 	
-	dArray::pairwiseScaleAdd(hx[SUM_SLOT], 1.0, hx[SUM_SLOT], mult, addThis->hx[SUM_SLOT]);
-	dArray::pairwiseScaleAdd(hy[SUM_SLOT], 1.0, hy[SUM_SLOT], mult, addThis->hy[SUM_SLOT]);
-	dArray::pairwiseScaleAdd(hz[SUM_SLOT], 1.0, hz[SUM_SLOT], mult, addThis->hz[SUM_SLOT]);
-
-	/*
-	for(int j=0; j<nxyz; j++)
+	const int SUM_SLOT = getSlot("Total");
+	const int otherSUM_SLOT = addThis->getSlot("Total");
+	
+	if(SUM_SLOT >= 0 && otherSUM_SLOT >= 0)
 	{
-		(*hx[SUM_SLOT])[j] += mult * (*addThis->hx[SUM_SLOT])[j];
-		(*hy[SUM_SLOT])[j] += mult * (*addThis->hy[SUM_SLOT])[j];
-		(*hz[SUM_SLOT])[j] += mult * (*addThis->hz[SUM_SLOT])[j];
+		dArray::pairwiseScaleAdd(hx[SUM_SLOT], 1.0, hx[SUM_SLOT], mult, addThis->hx[otherSUM_SLOT]);
+		dArray::pairwiseScaleAdd(hy[SUM_SLOT], 1.0, hy[SUM_SLOT], mult, addThis->hy[otherSUM_SLOT]);
+		dArray::pairwiseScaleAdd(hz[SUM_SLOT], 1.0, hz[SUM_SLOT], mult, addThis->hz[otherSUM_SLOT]);
+
+		return true;
 	}
-	*/
-	return true;
+	return false;
 }
+
 
 const char* SpinSystem::slotName(int index)
 {
-	if(index == EXCHANGE_SLOT)
-		return "Exchange";
-	if(index == ANISOTROPY_SLOT)
-		return "Anisotropy";
-	if(index == THERMAL_SLOT)
-		return "Thermal";
-	if(index == DIPOLE_SLOT)
-		return "Dipole";
-	if(index == APPLIEDFIELD_SLOT)
-		return "Applied";
-	if(index == SUM_SLOT)
-		return "Total";
+	if(registered_slot_names == 0)
+		return 0;
+	
+	if(index >= 0 && index < nslots)
+		return registered_slot_names[index];
+	
 	return 0;
 }
 
 int SpinSystem::getSlot(const char* name)
 {
-	if(strcasecmp(name, "exchange") == 0)
-		return EXCHANGE_SLOT;
-	if(strcasecmp(name, "anisotropy") == 0)
-		return ANISOTROPY_SLOT;
-	if(strcasecmp(name, "thermal") == 0 || strcasecmp(name, "stochastic") == 0 || strcasecmp(name, "temperature") == 0)
-		return THERMAL_SLOT;
-	if(strcasecmp(name, "dipole") == 0 || strcasecmp(name, "magnetostatics") == 0 || strcasecmp(name, "magnetostatic") == 0  || strcasecmp(name, "longrange") == 0)
-		return DIPOLE_SLOT;
-	if(strcasecmp(name, "applied") == 0 || strcasecmp(name, "zeeman") == 0)
-		return APPLIEDFIELD_SLOT;
-	if(strcasecmp(name, "total") == 0 || strcasecmp(name, "sum") == 0)
-		return SUM_SLOT;
+	if(registered_slot_names == 0 || name == 0)
+		return -1;
+	
+	for(int i=0; i<nslots; i++)
+	{
+		if(registered_slot_names[i])
+		{
+			if(strcasecmp(name, registered_slot_names[i]) == 0)
+				return i;
+		}	
+	}
+	
 	return -1;
 }
 
@@ -805,7 +873,7 @@ void SpinSystem::fft(int component)
 
 void SpinSystem::zeroFields()
 {
-	for(int i=0; i<NSLOTS; i++)
+	for(int i=0; i<nslots; i++)
 	{
 		slot_used[i] = false;
 		if(hx[i])
@@ -1402,66 +1470,75 @@ static int l_netfield(lua_State* L)
 
 
 
-#define FA_HEADER \
-	LUA_PREAMBLE(SpinSystem, ss, 1);       \
-	const char* name = lua_tostring(L, 2); \
-	if(!name)                              \
-		return luaL_error(L, "Argument must a string"); \
-	int slot = ss->getSlot(name);                       \
-	if(slot < 0)                                        \
-		return luaL_error(L, "Unknown field type`%s'", name); 
-	
-#define GET_FA_BODY(C) \
-	ss->ensureSlotExists(slot); \
-	dArray* h = ss->h##C [slot]; \
-	if(!h)                       \
-		lua_pushnil(L);          \
-	else \
-		luaT_push<dArray>(L, h); \
-	return 1;
-
-	
 static int l_getfieldarrayx(lua_State* L)
 {
-	FA_HEADER;
-	GET_FA_BODY(x);
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	luaT_push<dArray>(L, ss->getFeildArray(0, name));
+	return 1;
 }
 static int l_getfieldarrayy(lua_State* L)
 {
-	FA_HEADER;
-	GET_FA_BODY(y);
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	luaT_push<dArray>(L, ss->getFeildArray(1, name));
+	return 1;
 }
 static int l_getfieldarrayz(lua_State* L)
 {
-	FA_HEADER;
-	GET_FA_BODY(z);
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	luaT_push<dArray>(L, ss->getFeildArray(2, name));
+	return 1;
 }
 
-#define SET_FA_BODY(C) \
-	// if(!ss->h##C [slot]) return 0; \
-	dArray* h = luaT_to<dArray>(L, 3); \
-	if(!h) return 0; \
-	//if(!ss->h##C [slot]->sameSize(h)) return 0; \
-	if(ss->nx() != h->nx() || ss->ny() != h->ny() || ss->nz() != h->nz()) \
-		return luaL_error(L, "Size mismatch");\
-	luaT_inc<dArray>(h); luaT_dec<dArray>(ss->h##C[slot]); \
-	ss->h##C[slot] = h; \
-	return 0;
-	
 static int l_setfieldarrayx(lua_State* L)
 {
-	FA_HEADER;
-	SET_FA_BODY(x);
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	LUA_PREAMBLE(dArray, a, 3);
+
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	ss->setFeildArray(0, name, a);
+	return 0;	
 }
 static int l_setfieldarrayy(lua_State* L)
 {
-	FA_HEADER;
-	SET_FA_BODY(y);
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	LUA_PREAMBLE(dArray, a, 3);
+
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	ss->setFeildArray(1, name, a);
+	return 0;	
 }
 static int l_setfieldarrayz(lua_State* L)
 {
-	FA_HEADER;
-	SET_FA_BODY(z);
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	LUA_PREAMBLE(dArray, a, 3);
+
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	ss->setFeildArray(2, name, a);
+	return 0;	
 }
 
 
@@ -1616,19 +1693,11 @@ static int l_copyfieldto(lua_State* L)
 	LUA_PREAMBLE(SpinSystem, src,  1);
 
     const char* slotname = lua_tostring(L, 2);
-    int i = src->getSlot(slotname);
 
 	LUA_PREAMBLE(SpinSystem, dest, 3);
 
-    if(i >= 0)
-    {
-		if(!dest->copyFieldFrom(L, src, i))
-			return luaL_error(L, "Failed to copyTo");
-    }
-    else
-    {
-		return luaL_error(L, "Unknown field name");
-    }
+	if(!dest->copyFieldFrom(L, src, slotname))
+		return luaL_error(L, "Failed to copyTo");
     return 0;
 }
 
@@ -2085,6 +2154,30 @@ static int l_setslotused(lua_State* L)
 	return 0;
 }
 
+static int l_registeredSlots(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+
+	lua_newtable(L);
+	
+	char** registered_slot_names = ss->registered_slot_names;
+	const int nslots = ss->nslots;
+	
+	int i = 0;
+	
+	if(registered_slot_names)
+	{
+		while(registered_slot_names[i] && i < nslots)
+		{
+			lua_pushinteger(L, i+1);
+			lua_pushstring(L, registered_slot_names[i]);
+			lua_settable(L, -3);
+			i++;
+		}
+	}
+	
+	return 1;
+}
 
 
 		// new site a, g
@@ -2266,19 +2359,6 @@ static int l_invalidatefourierdata(lua_State* L)
 
 int SpinSystem::help(lua_State* L)
 {
-	int i = 0;
-	char buf[1024];
-	buf[0] = 0;
-	const char* field_types;
-	do
-	{
-		field_types = SpinSystem::slotName(i); i++;
-		if(field_types)
-			sprintf(buf+strlen(buf), "\"%s\", ", field_types);
-	}while(field_types);
-	
-	buf[strlen(buf)-2] = 0;
-	
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Represents and contains a lattice of spins including orientation and resulting fields.");
@@ -2323,7 +2403,7 @@ int SpinSystem::help(lua_State* L)
 	if(func == l_netfield)
 	{
 		lua_pushstring(L, "Return average field due to an interaction. This field must be calculated with the appropriate operator.");
-		lua_pushfstring(L, "1 String: The name of the field type to return. One of: %s", buf);
+		lua_pushfstring(L, "1 String: The name of the field type to return. Must match a :slotName() of an applied operator.");
 		lua_pushstring(L, "3 numbers: Vector representing the average field due to an interaction type.");
 		return 3;
 	}
@@ -2431,7 +2511,7 @@ int SpinSystem::help(lua_State* L)
 	if(func == l_getfield)
 	{
 		lua_pushstring(L, "Get the field at a site due to an interaction");
-		lua_pushfstring(L, "1 String, 1 *3Vector*: The first argument identifies the field interaction type, one of: %s. The second argument selects the lattice site.", buf);
+		lua_pushfstring(L, "1 String, 1 *3Vector*: The first argument identifies the field interaction type, must match a :slotName() of an applied operator. The second argument selects the lattice site.");
 		lua_pushstring(L, "4 Numbers: The field vector at the site and the magnitude fo the field");
 		return 3;
 	}
@@ -2724,7 +2804,7 @@ int SpinSystem::help(lua_State* L)
 	
 	if(func == l_getslotused)
 	{
-		lua_pushstring(L, "Deternime if an internal field slot has been set");
+		lua_pushstring(L, "Determine if an internal field slot has been set");
 		lua_pushstring(L, "1 String: A field name");
 		lua_pushstring(L, "1 Boolean: The return value");
 		return 3;
@@ -2734,6 +2814,13 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "Set an internal variable. If true this field type will be added in the sum fields method.");
 		lua_pushstring(L, "1 String, 0 or 1 Boolean: A field name and a flag to include or exclude the field in the summation method. Default value is true");
 		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_registeredSlots)
+	{
+		lua_pushstring(L, "Get all the slot names registered with this SpinSystem.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Table of Strings: Slot names registered with this SpinSystem");
 		return 3;
 	}
 #if 0
@@ -2898,6 +2985,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"siteAlpha",         l_getsitealpha},
 		{"siteGamma",         l_getsitegamma},
 		
+		{"registeredSlots", l_registeredSlots},
 		
 		{"invalidateFourierData", l_invalidatefourierdata},
 		{NULL, NULL}

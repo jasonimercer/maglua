@@ -42,6 +42,8 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 
+	virtual const char* getSlotName() {return "Multipole";}
+
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	void precompute();

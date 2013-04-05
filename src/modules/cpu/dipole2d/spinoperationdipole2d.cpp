@@ -15,8 +15,8 @@
 #include "spinoperationdipole2d.h"
 
 
-Dipole2D::Dipole2D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
-	: LongRange2D(Name, field_slot, nx, ny, nz, encode_tag)
+Dipole2D::Dipole2D(int nx, int ny, int nz, const int encode_tag)
+	: LongRange2D(nx, ny, nz, encode_tag)
 {
 }
 

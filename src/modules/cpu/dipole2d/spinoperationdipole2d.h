@@ -34,13 +34,15 @@ using namespace std;
 class DIPOLE2D_API Dipole2D : public LongRange2D
 {
 public:
-	Dipole2D(const char* name="Dipole2D", const int field_slot=DIPOLE_SLOT, int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange2D"));
+	Dipole2D(int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange2D"));
 	virtual ~Dipole2D();
 	
 	LINEAGE3("Dipole2D", "LongRange2D", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
+	
+	virtual const char* getSlotName() {return "Dipole2D";}
 };
 
 

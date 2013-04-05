@@ -31,7 +31,7 @@
 #define ENCODE_WOOD (hash32("Wood"))
 
 Wood::Wood()
- : SpinOperation("Wood", SUM_SLOT, nx, ny, nz, hash32("Wood"))
+ : SpinOperation(nx, ny, nz, hash32("Wood"))
 {
 	DN = 0;
 	grain_size = 0;
@@ -129,6 +129,8 @@ void Wood::calcAllEnergyBarrier(SpinSystem* ss_src, Anisotropy* ani, Magnetostat
 	energyBarriers->zero();
 	int sitex, sitey, sitez;
 
+	const int SUM_SLOT = ss_src->getSlot("Total");
+	
 	for(int i=0; i<ani->num; i++)
 	{
 		const int site = ani->ops[i].site;
@@ -176,6 +178,7 @@ bool Wood::apply(SpinSystem* ss_src, Anisotropy* ani,  Magnetostatics2D* mag, Sp
 		if(ss_src->nz != ss_dest->nz) return false;
 	}
 	
+	const int SUM_SLOT = ss_src->getSlot("Total");
 
 	// anisotropy isn't a flat list, we will iterate over anisotropy sites,
 	// not spin sites. (anisotropy operator doesn't need to be densly/completely

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationanisotropy.o  
+OBJECTS=spinoperationanisotropy.o  spinoperationanisotropy_uniaxial.o  spinoperationanisotropy_cubic.o
 LIBNAME=Anisotropy
 CATEGORY=cpu
 

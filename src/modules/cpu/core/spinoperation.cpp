@@ -17,8 +17,8 @@
 using namespace std;
 int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);
 
-SpinOperation::SpinOperation(std::string Name, int Slot, int NX, int NY, int NZ, int etype)
-	: LuaBaseObject(etype), nx(NX), ny(NY), nz(NZ), operationName(Name), slot(Slot)
+SpinOperation::SpinOperation(int NX, int NY, int NZ, int etype)
+	: LuaBaseObject(etype), nx(NX), ny(NY), nz(NZ)
 {
 	nxyz = nx * ny * nz;
 	global_scale = 1.0;
@@ -116,16 +116,19 @@ int SpinOperation::decode(buffer* b)
 	return 0;
 }
 
-
-const string& SpinOperation::name()
+const char* SpinOperation::getSlotName()
 {
-	return operationName;
+	return 0;
 }
+
 	
-void SpinOperation::markSlotUsed(SpinSystem* ss)
+int SpinOperation::markSlotUsed(SpinSystem* ss)
 {
+	int slot = ss->register_slot_name( getSlotName() );
+
 	ss->ensureSlotExists(slot);
 	ss->slot_used[slot] = true;
+	return slot;
 }
 
 int SpinOperation::getSite(int x, int y, int z)
@@ -383,6 +386,18 @@ static int l_tostring(lua_State* L)
 	return 1;
 }
 
+static int l_getslotname(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	const char* n = so->getSlotName();
+	if(n)
+		lua_pushstring(L, n);
+	else
+		lua_pushnil(L);
+	return 1;
+}
+
+		
 int SpinOperation::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -393,13 +408,22 @@ int SpinOperation::help(lua_State* L)
 		return 3;
 	}
 	
-	if(!lua_isfunction(L, 1))
-	{
-		return luaL_error(L, "(%s:%i) Help expects zero arguments or 1 function.", __FILE__, __LINE__);
-	}
+// 	if(!lua_isfunction(L, 1))
+// 	{
+// 		return luaL_error(L, "(%s:%i) Help expects zero arguments or 1 function.", __FILE__, __LINE__);
+// 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 		
+	
+	if(func == l_getslotname)
+	{
+		lua_pushstring(L, "Get the slot name for this spin operator. When asking a *SpinSystem* for the field type use this name.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 String: Slot Name");
+		return 3;
+	}
+
 	if(func == l_member)
 	{
 		lua_pushstring(L, "Test if the given site index is part of the operator");
@@ -467,6 +491,7 @@ const luaL_Reg* SpinOperation::luaMethods()
 		{"apply",        l_apply},
 		{"setScale",     l_setscale},
 		{"scale",        l_getscale},
+		{"slotName",     l_getslotname},
 		{"nx",        l_nx},
 		{"ny",        l_ny},
 		{"nz",        l_nz},

@@ -32,13 +32,15 @@ using namespace std;
 class LONGRANGE_API LongRange : public SpinOperation
 {
 public:
-	LongRange(const char* name="LongRange", const int field_slot=DIPOLE_SLOT, int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange"));
+	LongRange(int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange"));
 	virtual ~LongRange();
 	
 	LINEAGE2("LongRange", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
+
+	virtual const char* getSlotName() {return "LongRange";}
 
 	bool apply(SpinSystem* ss);
 // 	void getMatrices();

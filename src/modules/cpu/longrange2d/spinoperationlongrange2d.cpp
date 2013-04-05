@@ -24,8 +24,8 @@
 #define DDD printf("(%s:%i)\n", __FILE__, __LINE__);
 #endif
 
-LongRange2D::LongRange2D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
-	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
+LongRange2D::LongRange2D(int nx, int ny, int nz, const int encode_tag)
+	: SpinOperation(nx, ny, nz, encode_tag)
 {
     qXX = 0;
     XX = 0;
@@ -387,7 +387,7 @@ bool LongRange2D::apply(SpinSystem* ss)
 	if(compileRequired)
 		compile();
 
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 
 	const int nxy = nx*ny;
 

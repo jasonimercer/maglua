@@ -46,7 +46,7 @@ local function apply(a, ss)
 		end
 		return
 	end
-	local name = "applied"
+	local name = a:slotName()
 	local scale = a:scale()
 	ss:fieldArrayX(name):setAll(a:x() * scale)
 	ss:fieldArrayY(name):setAll(a:y() * scale)

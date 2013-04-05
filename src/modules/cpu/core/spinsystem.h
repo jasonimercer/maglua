@@ -39,7 +39,7 @@ public:
 	bool copyFrom(lua_State* L, SpinSystem* src);
 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
-	bool copyFieldFrom(lua_State* L, SpinSystem* src, int slot);
+	bool copyFieldFrom(lua_State* L, SpinSystem* src, const char* slot_name);
 	void moveToward(SpinSystem* other, double r);
 
 	void rotateToward(SpinSystem* other, double max_angle, dArray* max_by_site);
@@ -62,9 +62,7 @@ public:
 	void zeroFields();
 	bool addFields(double mult, SpinSystem* addThis);
 	
-	int getSlot(const char* name);
-	static const char* slotName(int index);
-	void ensureSlotExists(int slot);
+
 	bool sameSize(const SpinSystem* other) const;
 	
 	void getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* site_scale3, double* v8, const double scale);
@@ -82,8 +80,19 @@ public:
 	dArray** hx;
 	dArray** hy;
 	dArray** hz;
-
 	bool* slot_used;
+
+	char** registered_slot_names;
+
+	int nslots;
+
+	int register_slot_name(const char* name);
+	int getSlot(const char* name);
+	const char* slotName(int index);
+	void ensureSlotExists(int slot);	
+	
+	dArray* getFeildArray(int component, const char* name);
+	bool setFeildArray(int component, const char* name, dArray* a);
 	
 	int* extra_data_size; //used for site specific lua data
 	char** extra_data;
@@ -100,7 +109,6 @@ public:
 	int nx, ny, nz;
 
 	int nxyz;
-	int nslots;
 
 	double time;
 	double fft_timeC[3]; //last time for fft of component i (x,y,z)

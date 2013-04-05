@@ -29,8 +29,8 @@
 // LongRange3D::LongRange3D(int nx, int ny, int nz)
 // 	: SpinOperation("LongRange3D", DIPOLE_SLOT, nx, ny, nz, hash32("LongRange3D"))
 	
-LongRange3D::LongRange3D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
-	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
+LongRange3D::LongRange3D(int nx, int ny, int nz, const int encode_tag)
+	: SpinOperation(nx, ny, nz, encode_tag)
 {
 	registerWS();
     qXX = 0;
@@ -372,7 +372,7 @@ bool LongRange3D::apply(SpinSystem* ss)
 	if(compileRequired)
 		compile();
 
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 
 	const int nxyz = nx*ny*nz;
 

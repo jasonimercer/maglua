@@ -646,3 +646,49 @@ ARRAY_API void arrayScaleMultAdd_o(floatComplex* dest, const int od, floatComple
 	arrayScaleMultAdd_<floatComplex>(dest, od, scale, src1, o1, src2, o2, src3, o3, nxy);
 }
 
+
+
+
+
+
+
+template<typename T>
+void arrayCopyRegionFromTo_(T* src, int sx, int sy, int sz, int* s1, int* s2, T* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	int dim1 = s2[0] - s1[0];
+	int dim2 = s2[1] - s1[1];
+	int dim3 = s2[2] - s1[2];
+	
+	for(int k=0; k<=dim3; k++)
+		for(int j=0; j<=dim2; j++)
+			for(int i=0; i<=dim1; i++)
+			{
+				dest[(i + d1[0]) + (j + d1[1]) * dx + (k + d1[2]) * dx*dy] = src[(i + s1[0]) + (j + s1[1]) * sx + (k + s1[2]) * sx*sy];
+			}
+}
+
+
+
+
+
+ARRAY_API void arrayCopyRegionFromTo(double* src, int sx, int sy, int sz, int* s1, int* s2, double* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<double>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}
+ARRAY_API void arrayCopyRegionFromTo( float* src, int sx, int sy, int sz, int* s1, int* s2,  float* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<float>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}
+ARRAY_API void arrayCopyRegionFromTo(   int* src, int sx, int sy, int sz, int* s1, int* s2,    int* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<int>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}
+ARRAY_API void arrayCopyRegionFromTo(doubleComplex* src, int sx, int sy, int sz, int* s1, int* s2, doubleComplex* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<doubleComplex>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}
+ARRAY_API void arrayCopyRegionFromTo( floatComplex* src, int sx, int sy, int sz, int* s1, int* s2,  floatComplex* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<floatComplex>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}
+

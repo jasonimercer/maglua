@@ -16,13 +16,20 @@
 #include <stdlib.h>
 
 Anisotropy::Anisotropy(int nx, int ny, int nz)
-	: SpinOperation(Anisotropy::typeName(), ANISOTROPY_SLOT, nx, ny, nz, hash32(Anisotropy::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(Anisotropy::typeName()))
 {
 	ops = 0;
 	//size = nx*ny*nz;
 	size = 0;
 	init();
 }
+
+const char* Anisotropy::getSlotName()
+{
+	return "Anisotropy";
+}
+
+
 
 int Anisotropy::luaInit(lua_State* L)
 {
@@ -244,7 +251,7 @@ Anisotropy::~Anisotropy()
 
 bool Anisotropy::apply(SpinSystem* ss)
 {
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 
 	dArray& hx = (*ss->hx[slot]);
 	dArray& hy = (*ss->hy[slot]);
@@ -423,11 +430,7 @@ int Anisotropy::help(lua_State* L)
 		return 3;
 	}
 	
-	if(!lua_iscfunction(L, 1))
-	{
-		return luaL_error(L, "help expect zero arguments or 1 function.");
-	}
-	
+
 	lua_CFunction func = lua_tocfunction(L, 1);
 		
 	if(func == l_add)
@@ -506,9 +509,13 @@ ANISOTROPY_API const char* lib_name(lua_State* L);
 ANISOTROPY_API int lib_main(lua_State* L);
 }
 
+#include "spinoperationanisotropy_uniaxial.h"
+#include "spinoperationanisotropy_cubic.h"
 ANISOTROPY_API int lib_register(lua_State* L)
 {
 	luaT_register<Anisotropy>(L);
+	luaT_register<AnisotropyUniaxial>(L);
+	luaT_register<AnisotropyCubic>(L);
 	return 0;
 }
 
