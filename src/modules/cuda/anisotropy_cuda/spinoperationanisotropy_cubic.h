@@ -10,8 +10,8 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifndef SPINOPERATIONANISOTROPY
-#define SPINOPERATIONANISOTROPY
+#ifndef SPINOPERATIONANISOTROPYCUBIC
+#define SPINOPERATIONANISOTROPYCUBIC
 
 #include "spinoperation.h"
 
@@ -20,39 +20,38 @@
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)
  #pragma warning(disable: 4251)
 
- #ifdef ANISOTROPY_EXPORTS
-  #define ANISOTROPY_API __declspec(dllexport)
+ #ifdef ANISOTROPYCUBIC_EXPORTS
+  #define ANISOTROPYCUBIC_API __declspec(dllexport)
  #else
-  #define ANISOTROPY_API __declspec(dllimport)
+  #define ANISOTROPYCUBIC_API __declspec(dllimport)
  #endif
 #else
- #define ANISOTROPY_API 
+ #define ANISOTROPYCUBIC_API 
 #endif
 
-class Anisotropy : public SpinOperation
+class AnisotropyCubic : public SpinOperation
 {
 public:
-	Anisotropy(int nx=32, int ny=32, int nz=1);
-	virtual ~Anisotropy();
+	AnisotropyCubic(int nx=32, int ny=32, int nz=1);
+	virtual ~AnisotropyCubic();
 	
-	LINEAGE2("Anisotropy", "SpinOperation")
+	LINEAGE2("Anisotropy.Cubic", "SpinOperation")
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 	
-	virtual const char* getSlotName() {return "Anisotropy";}
-	
-	
+	virtual const char* getSlotName();
+		
 	bool apply(SpinSystem* ss);
-	void addAnisotropy(int site, double nx, double ny, double nz, double K);
+	void addAnisotropy(int site, double* a1, double* a2, double* K3);
 
-	bool getAnisotropy(int site, double& nx, double& ny, double& nz, double& K);
+	bool getAnisotropy(int site, double* a1, double* a2, double* a3, double* K3);
 	
 	typedef struct ani
 	{
 		int site;
-		double axis[3];
-		double strength;
+		double axis[3][3];
+		double K[3];
 	} ani;
 	
 	ani* ops;

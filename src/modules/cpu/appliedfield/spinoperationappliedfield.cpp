@@ -60,17 +60,23 @@ AppliedField::~AppliedField()
 {
 }
 
+bool AppliedField::apply(SpinSystem** ss, int n)
+{
+	for(int i=0; i<n; i++)
+		apply(ss[i]);
+	return true;
+}
+
 bool AppliedField::apply(SpinSystem* ss)
 {
 	// the following is implemented in appliedfield_luafuncs.lua
 	// leaving this here for now in case people want to make direct 
 	// calls to the C implementation.
 	int slot = markSlotUsed(ss);
-	ss->ensureSlotExists(slot);
 
-	ss->hx[slot]->setAll(B[0]*global_scale);
-	ss->hy[slot]->setAll(B[1]*global_scale);
-	ss->hz[slot]->setAll(B[2]*global_scale);
+	ss->hx[slot]->addValue(B[0]*global_scale);
+	ss->hy[slot]->addValue(B[1]*global_scale);
+	ss->hz[slot]->addValue(B[2]*global_scale);
 	return true;
 }
 

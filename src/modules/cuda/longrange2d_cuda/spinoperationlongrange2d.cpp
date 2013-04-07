@@ -24,8 +24,8 @@
 #define DDD printf("(%s:%i)\n", __FILE__, __LINE__);
 #endif
 
-LongRange2D::LongRange2D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
-	: SpinOperation(Name, field_slot, nx, ny, nz, encode_tag)
+LongRange2D::LongRange2D(int nx, int ny, int nz, const int encode_tag)
+	: SpinOperation(nx, ny, nz, encode_tag)
 {
 	registerWS();
     qXX = 0;
@@ -389,7 +389,7 @@ bool LongRange2D::apply(SpinSystem* ss)
 	if(compileRequired)
 		compile();
 
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 
 	const int nxy = nx*ny;
 
@@ -420,8 +420,7 @@ bool LongRange2D::apply(SpinSystem* ss)
 	}
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hx->ddata(),  ws2->ddata(), nxyz);
-#if 0
-	// HY
+	
 	ws1->zero();
 	for(int d=0; d<nz; d++) //dest
 	{
@@ -436,9 +435,7 @@ bool LongRange2D::apply(SpinSystem* ss)
 	}
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hy->ddata(),  ws2->ddata(), nxyz);
-
-
-	// HZ
+	
 	ws1->zero();
 	for(int d=0; d<nz; d++) //dest
 	{
@@ -453,7 +450,6 @@ bool LongRange2D::apply(SpinSystem* ss)
 	}
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hz->ddata(),  ws2->ddata(), nxyz);
-#endif
 
 
 	for(int i=0; i<nz; i++)
@@ -527,7 +523,7 @@ static int l_setcompilereqd(lua_State* L) //should move to isCompileRequired and
 		lr->compileRequired = true;
 	return 0;
 }
-static int l_setrewdatareqd(lua_State* L) //should move to isCompileRequired and setCompileRequired
+static int l_setnewdatareqd(lua_State* L) //should move to isCompileRequired and setCompileRequired
 {
 	LUA_PREAMBLE(LongRange2D, lr, 1);
 	if(!lua_isnone(L, 2))
@@ -652,7 +648,7 @@ int LongRange2D::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
-	if(func == l_setrewdatareqd)
+	if(func == l_setnewdatareqd)
 	{
 		lua_pushstring(L, "Set internal new data required state. This is used in some internal routines where the data is set manually rather than calculated");
 		lua_pushstring(L, "1 Optional Boolean (default true): new internal data required flag state");
@@ -704,7 +700,7 @@ const luaL_Reg* LongRange2D::luaMethods()
 		{"tensorArray",   l_getTensorArray},
 		{"setTensorArray",l_setTensorArray},
 		{"setCompileRequired",       l_setcompilereqd},
-		{"setNewDataRequired",       l_setrewdatareqd},
+		{"setNewDataRequired",       l_setnewdatareqd},
 		{"setInternalData", l_setinternaldata},
 		{"internalData", l_getinternaldata},
 		{"setMakeDataFunction", l_setmakefunction},

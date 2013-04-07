@@ -41,6 +41,8 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 	
+	virtual const char* getSlotName() {return "Exchange";}
+
 	bool apply(SpinSystem* ss);
 	bool apply(SpinSystem** ss, int n);
 	

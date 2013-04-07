@@ -10,13 +10,13 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#include "spinoperationanisotropy.h"
+#include "spinoperationanisotropy_uniaxial.h"
 #include "spinsystem.h"
 
 #include <stdlib.h>
 
-Anisotropy::Anisotropy(int nx, int ny, int nz)
-	: SpinOperation(nx, ny, nz, hash32(Anisotropy::typeName()))
+AnisotropyUniaxial::AnisotropyUniaxial(int nx, int ny, int nz)
+	: SpinOperation(nx, ny, nz, hash32(AnisotropyUniaxial::typeName()))
 {
 	ops = 0;
 	//size = nx*ny*nz;
@@ -24,7 +24,14 @@ Anisotropy::Anisotropy(int nx, int ny, int nz)
 	init();
 }
 
-int Anisotropy::luaInit(lua_State* L)
+const char* AnisotropyUniaxial::getSlotName()
+{
+	return "UniaxialAnisotropy";
+}
+
+
+
+int AnisotropyUniaxial::luaInit(lua_State* L)
 {
 	deinit();
 	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
@@ -34,7 +41,7 @@ int Anisotropy::luaInit(lua_State* L)
 	return 0;
 }
 
-void Anisotropy::init()
+void AnisotropyUniaxial::init()
 {
 	num = 0;
 	if(size < 0)
@@ -43,7 +50,7 @@ void Anisotropy::init()
 	ops = (ani*)malloc(sizeof(ani) * size);
 }
 
-void Anisotropy::deinit()
+void AnisotropyUniaxial::deinit()
 {
 	if(ops)
 	{
@@ -55,7 +62,7 @@ void Anisotropy::deinit()
 
 
 
-static bool myfunction(Anisotropy::ani* i,Anisotropy::ani* j)
+static bool myfunction(AnisotropyUniaxial::ani* i,AnisotropyUniaxial::ani* j)
 {
 	return (i->site<j->site);
 }
@@ -64,8 +71,10 @@ static bool myfunction(Anisotropy::ani* i,Anisotropy::ani* j)
 #include <vector>       // std::vector
 using namespace std;
 // this is messy but more efficient than before
-int Anisotropy::merge()
+int AnisotropyUniaxial::merge()
 {
+	fprintf(stderr, "AnisotropyUniaxial merge() is unimplemented\n");
+#if 0
 	if(num == 0)
 		return 0;
 
@@ -113,63 +122,45 @@ int Anisotropy::merge()
 	int delta = original_number - num;
 	free(new_ops2);
 	return delta;
-}
-#if 0
-int Anisotropy::merge()
-{
-	ani* new_ops = (ani*) malloc(sizeof(ani)*size);
-	int new_num = 0;
-
-	for(int i=0; i<num; i++)
-	{
-		int site = ops[i].site;
-		
-		if(site >= 0)
-		{
-			new_ops[new_num].site = site;
-			new_ops[new_num].axis[0] = ops[i].axis[0];
-			new_ops[new_num].axis[1] = ops[i].axis[1];
-			new_ops[new_num].axis[2] = ops[i].axis[2];
-			new_ops[new_num].strength = 0;
-			
-			for(int j=i; j<num; j++)
-			{
-				if(ops[j].site == site)
-				{
-					new_ops[new_num].strength += ops[j].strength;
-					ops[j].site = -1; //remove from future searches
-				}
-			}
-			new_num++;
-		}
-	}
-
-	int delta = num - new_num;
-	free(ops);
-	ops = new_ops;
-	num = new_num;
-	return delta;
-}
 #endif
+	return 0;
+}
 
-bool Anisotropy::getAnisotropy(int site, double& nx, double& ny, double& nz, double& K)
+
+
+bool AnisotropyUniaxial::getAnisotropy(int site, double* axis, double& K1, double& K2)
 {
 	for(int i=0; i<num; i++)
 	{
 		if(ops[i].site == site)
 		{
-			nx = ops[i].axis[0];
-			ny = ops[i].axis[1];
-			nz = ops[i].axis[2];
-			K = ops[i].strength;
+			memcpy(axis, ops[i].axis, sizeof(double)*3);
+			K1 = ops[i].K[0];
+			K2 = ops[i].K[1];
 			return true;
 		}
 	}
 	return false;
 }
 
+static void cross(double* a, double* b, double* c)
+{
+	c[0] = a[1]*b[2] - a[2]*b[1];
+	c[1] = a[2]*b[0] - a[0]*b[2];
+	c[2] = a[0]*b[1] - a[1]*b[0];
+}
+static double dot(double* a, double* b)
+{
+	return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+}
+static void scale(double s, double* a)
+{
+	a[0] *= s;
+	a[1] *= s;
+	a[2] *= s;
+}
 
-void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double K)
+void AnisotropyUniaxial::addAnisotropy(int site, double* axis, double K1, double K2)
 {
 	if(num == size)
 	{
@@ -179,15 +170,20 @@ void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double
 			size = size * 2;
 		ops = (ani*)realloc(ops, sizeof(ani) * size);
 	}
+	
 	ops[num].site = site;
-	ops[num].axis[0] = nx;
-	ops[num].axis[1] = ny;
-	ops[num].axis[2] = nz;
-	ops[num].strength = K;
+	memcpy(ops[num].axis, axis, sizeof(double)*3);
+	
+	const double length = dot(ops[num].axis, ops[num].axis);
+	if(length > 0)
+		scale(1.0/length, ops[num].axis);
+		
+	ops[num].K[0] = K1;
+	ops[num].K[1] = K2;
 	num++;
 }
 
-void Anisotropy::encode(buffer* b)
+void AnisotropyUniaxial::encode(buffer* b)
 {
 	SpinOperation::encode(b); //nx,ny,nz,global_scale
 
@@ -198,14 +194,15 @@ void Anisotropy::encode(buffer* b)
 	for(int i=0; i<num; i++)
 	{
 		encodeInteger(ops[i].site, b);
-		encodeDouble(ops[i].axis[0], b);
-		encodeDouble(ops[i].axis[1], b);
-		encodeDouble(ops[i].axis[2], b);
-		encodeDouble(ops[i].strength, b);
+		for(int coordinate=0; coordinate<3; coordinate++)
+			encodeDouble(ops[i].axis[coordinate], b);
+
+		for(int j=0; j<2; j++)
+			encodeDouble(ops[i].K[j], b);
 	}
 }
 
-int Anisotropy::decode(buffer* b)
+int AnisotropyUniaxial::decode(buffer* b)
 {
 	deinit();
 	SpinOperation::decode(b); //nx,ny,nz,global_scale
@@ -221,12 +218,17 @@ int Anisotropy::decode(buffer* b)
 		for(int i=0; i<size; i++)
 		{
 			const int site = decodeInteger(b);
-			const double nx = decodeDouble(b);
-			const double ny = decodeDouble(b);
-			const double nz = decodeDouble(b);
-			const double  K = decodeDouble(b);
 			
-			addAnisotropy(site, nx, ny, nz, K);
+			double a[3];
+			double K[2];
+			
+			for(int coordinate=0; coordinate<3; coordinate++)
+				a[coordinate] = decodeDouble(b);
+			
+			for(int j=0; j<2; j++)
+				K[j] = decodeDouble(b);
+
+			addAnisotropy(site, a, K[0], K[1]);
 		}
 	}
 	else
@@ -237,12 +239,19 @@ int Anisotropy::decode(buffer* b)
 }
 
 
-Anisotropy::~Anisotropy()
+AnisotropyUniaxial::~AnisotropyUniaxial()
 {
 	deinit();
 }
 
-bool Anisotropy::apply(SpinSystem* ss)
+
+// E_anis = - K1 * <axis, m>^2 - K2 * <axis, m>^4
+// K1 = Second-order phenomenological anisotropy constant
+// K2 = Fourth-order phenomenological anisotropy constant
+
+// H_ani = [ 2 K1 (axis . s) + 4 K2 (axis . s)^3 ] axis
+
+bool AnisotropyUniaxial::apply(SpinSystem* ss)
 {
 	int slot = markSlotUsed(ss);
 
@@ -258,7 +267,7 @@ bool Anisotropy::apply(SpinSystem* ss)
 	hy.zero();
 	hz.zero();
 
- #pragma omp for schedule(static)
+// #pragma omp for schedule(static)
 	for(int j=0; j<num; j++)
 	{
 		const ani& op = ops[j];
@@ -266,16 +275,27 @@ bool Anisotropy::apply(SpinSystem* ss)
 		const double ms = (*ss->ms)[i];
 		if(ms > 0)
 		{
-			const double SpinDotEasyAxis = 
-								x[i] * op.axis[0] +
-								y[i] * op.axis[1] +
-								z[i] * op.axis[2];
+			// H_ani = [ 2 K1 (axis . s) + 4 K2 (axis . s)^3 ] axis
 
-			const double v = 2.0 * op.strength * SpinDotEasyAxis / (ms * ms);
+			const double sx = x[i] / ms;
+			const double sy = y[i] / ms;
+			const double sz = z[i] / ms;
+			
+			const double nx = op.axis[0];
+			const double ny = op.axis[1];
+			const double nz = op.axis[2];
+			
+			const double K1 = op.K[0];
+			const double K2 = op.K[1];
+			
+			const double SpinDotAxis  = sx*nx + sy*ny + sz*nx;
+			const double SpinDotAxis3 = SpinDotAxis * SpinDotAxis * SpinDotAxis;
+			
+			const double magnitude = 2.0 * K1 * SpinDotAxis + 4.0 * K2 * SpinDotAxis3;
 
-			hx[i] += op.axis[0] * v * global_scale;
-			hy[i] += op.axis[1] * v * global_scale;
-			hz[i] += op.axis[2] * v * global_scale;
+			hx[i] += nx * magnitude * global_scale;
+			hy[i] += ny * magnitude * global_scale;
+			hz[i] += nz * magnitude * global_scale;
 		}
 	}
 	return true;
@@ -289,9 +309,9 @@ bool Anisotropy::apply(SpinSystem* ss)
 
 static int l_get(lua_State* L)
 {
-	LUA_PREAMBLE(Anisotropy, ani, 1);
+	LUA_PREAMBLE(AnisotropyUniaxial, ani, 1);
 
-	double nx, ny, nz, K;
+	double n[3], K1, K2;
 
 	int p[3];
 	int r1 = lua_getNint(L, 3, p, 2, 1);
@@ -305,26 +325,30 @@ static int l_get(lua_State* L)
 	int idx = ani->getidx(p[0]-1, p[1]-1, p[2]-1);
 	
 
-	if(!ani->getAnisotropy(idx, nx, ny, nz, K))
+	if(!ani->getAnisotropy(idx, n, K1, K2))
 	{
-		lua_pushnumber(L, 1);
-		lua_pushnumber(L, 0);
+		lua_newtable(L);
+		lua_pushinteger(L, 1); lua_pushnumber(L, 0); lua_settable(L, -3);
+		lua_pushinteger(L, 2); lua_pushnumber(L, 0); lua_settable(L, -3);
+		lua_pushinteger(L, 3); lua_pushnumber(L, 1); lua_settable(L, -3);
 		lua_pushnumber(L, 0);
 		lua_pushnumber(L, 0);
 	}
 	else
 	{
-		lua_pushnumber(L, nx);
-		lua_pushnumber(L, ny);
-		lua_pushnumber(L, nz);
-		lua_pushnumber(L, K);
+		lua_newtable(L);
+		lua_pushinteger(L, 1); lua_pushnumber(L, n[0]); lua_settable(L, -3);
+		lua_pushinteger(L, 2); lua_pushnumber(L, n[1]); lua_settable(L, -3);
+		lua_pushinteger(L, 3); lua_pushnumber(L, n[2]); lua_settable(L, -3);
+		lua_pushnumber(L, K1);
+		lua_pushnumber(L, K2);
 	}
-	return 4;
+	return 3;
 }
 
 static int l_numofax(lua_State* L)
 {
-	LUA_PREAMBLE(Anisotropy, ani, 1);
+	LUA_PREAMBLE(AnisotropyUniaxial, ani, 1);
 	lua_pushinteger(L, ani->num);
 	return 1;
 }
@@ -332,7 +356,7 @@ static int l_numofax(lua_State* L)
 
 static int l_axisat(lua_State* L)
 {
-	LUA_PREAMBLE(Anisotropy, ani, 1);
+	LUA_PREAMBLE(AnisotropyUniaxial, ani, 1);
 	
 	int idx = lua_tointeger(L, 2) - 1;
 
@@ -342,7 +366,8 @@ static int l_axisat(lua_State* L)
 
 	const int site = ani->ops[idx].site;
 	const double* axis = ani->ops[idx].axis;
-	const double strength = ani->ops[idx].strength;
+	const double K1 = ani->ops[idx].K[0];
+	const double K2 = ani->ops[idx].K[1];
 	
 	int x,y,z;
 	ani->idx2xyz(site, x, y, z);
@@ -357,14 +382,15 @@ static int l_axisat(lua_State* L)
 	lua_pushinteger(L, 2); lua_pushnumber(L, axis[1]); lua_settable(L, -3);
 	lua_pushinteger(L, 3); lua_pushnumber(L, axis[2]); lua_settable(L, -3);
 	
-	lua_pushnumber(L, strength);
+	lua_pushnumber(L, K1);
+	lua_pushnumber(L, K2);
 	
 	return 3;
 }
 
 static int l_add(lua_State* L)
 {
-	LUA_PREAMBLE(Anisotropy, ani, 1);
+	LUA_PREAMBLE(AnisotropyUniaxial, ani, 1);
 
 	int p[3];
 
@@ -395,66 +421,74 @@ static int l_add(lua_State* L)
 	else
 		return 0; //don't add ani
 	
-	double K = 0;
+	double K1 = 0;
+	double K2 = 0;
 
 	if(lua_isnumber(L, 2+r1+r2))
-		K = lua_tonumber(L, 2+r1+r2);
+		K1 = lua_tonumber(L, 2+r1+r2);
 	else
 		return luaL_error(L, "anisotropy needs strength");
+
+	if(lua_isnumber(L, 2+r1+r2+1))
+		K2 = lua_tonumber(L, 2+r1+r2);
+
 	
-	ani->addAnisotropy(idx, a[0], a[1], a[2], K);
+	ani->addAnisotropy(idx, a, K1, K2);
 	return 0;
 }
 
 static int l_mergeAxes(lua_State* L)
 {
-	LUA_PREAMBLE(Anisotropy, ani, 1);
+	LUA_PREAMBLE(AnisotropyUniaxial, ani, 1);
 	lua_pushinteger(L, ani->merge());
 	return 1;	
 }
 
-int Anisotropy::help(lua_State* L)
+int AnisotropyUniaxial::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "Computes the single ion anisotropy fields for a *SpinSystem*");
+		lua_pushstring(L, "Computes the uniaxial anisotropy fields for a *SpinSystem* as the derivative of the following energy expression.\n"
+					"<pre>E_anis = - K1 * &lt;axis, m&gt;^2 - K2 * &lt;axis, m&gt;^4\n"
+					"K1 = Second-order phenomenological anisotropy constant\n"
+					"K2 = Fourth-order phenomenological anisotropy constant</pre>"
+		);
 		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
 	
-
 	lua_CFunction func = lua_tocfunction(L, 1);
 		
 	if(func == l_add)
 	{
 		lua_pushstring(L, "Add a lattice site to the anisotropy calculation");
-		lua_pushstring(L, "2 *3Vector*s, 1 number: The first *3Vector* defines a lattice site, the second defines an easy axis and is normalized. The number defines the strength of the Anisotropy.");
+		lua_pushstring(L, "2 *3Vector*s, 1 or 2 numbers: The first *3Vector* defines a lattice site, the second defines an axis and is normalized. The first number is required and defines the strength of the second order phenomenological constant. The second number is optional with a default of 0 and defines the fourth order phenomenological anisotropy constant.");
 		lua_pushstring(L, "");
 		return 3;
 	}
 	
 	if(func == l_get)
 	{
-		lua_pushstring(L, "Fetch the anisotropy direction and magnitude at a given site.");
+		lua_pushstring(L, "Fetch the anisotropy direction and magnitudes at a given site.");
 		lua_pushstring(L, "1 *3Vector*: The *3Vector* defines a lattice site.");
-		lua_pushstring(L, "4 Numbers: The first 3 numbers define the normal axis, the 4th number is the magnitude.");
+		lua_pushstring(L, "1 Table, 2 Numbers: The table defines the normal axis, the two numbers are the K1 and K2 for the site.");
 		return 3;
 	}
 	
 	if(func == l_axisat)
 	{
-		lua_pushstring(L, "Return the site, easy axis and strength at the given index.");
+		lua_pushstring(L, "Return the site, axis and strengths (K1, K2) at the given index.");
 		lua_pushstring(L, "1 Integer: Index of the axis.");
-		lua_pushstring(L, "1 Table of 3 Integers, 1 Table of 3 Numbers, 1 Number: Coordinates of the site, direction of the easy axis and strength of the easy axis.");
+		lua_pushstring(L, "1 Table of 3 Integers, 1 Table of 3 Numbers, 2 Numbers: Coordinates of the site, direction of the axis and strengths (K1, K2) of the axis.");
 		return 3;	
 	}
 	
 	if(func == l_numofax)
 	{
-		lua_pushstring(L, "Return the number of easy axes in the operator");
+		lua_pushstring(L, "Return the number of axes in the operator");
 		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Integer: Number of easy axes.");
+		lua_pushstring(L, "1 Integer: Number of axes.");
 		return 3;		
 	}
 	
@@ -472,7 +506,7 @@ int Anisotropy::help(lua_State* L)
 
 
 static luaL_Reg m[128] = {_NULLPAIR128};
-const luaL_Reg* Anisotropy::luaMethods()
+const luaL_Reg* AnisotropyUniaxial::luaMethods()
 {
 	if(m[127].name)return m;
 
@@ -492,41 +526,3 @@ const luaL_Reg* Anisotropy::luaMethods()
 }
 
 
-
-#include "info.h"
-extern "C"
-{
-ANISOTROPY_API int lib_register(lua_State* L);
-ANISOTROPY_API int lib_version(lua_State* L);
-ANISOTROPY_API const char* lib_name(lua_State* L);
-ANISOTROPY_API int lib_main(lua_State* L);
-}
-
-#include "spinoperationanisotropy_uniaxial.h"
-#include "spinoperationanisotropy_cubic.h"
-ANISOTROPY_API int lib_register(lua_State* L)
-{
-	luaT_register<Anisotropy>(L);
-	luaT_register<AnisotropyUniaxial>(L);
-	luaT_register<AnisotropyCubic>(L);
-	return 0;
-}
-
-ANISOTROPY_API int lib_version(lua_State* L)
-{
-	return __revi;
-}
-
-ANISOTROPY_API const char* lib_name(lua_State* L)
-{
-#if defined NDEBUG || defined __OPTIMIZE__
-	return "Anisotropy";
-#else
-	return "Anisotropy-Debug";
-#endif
-}
-
-ANISOTROPY_API int lib_main(lua_State* L)
-{
-	return 0;
-}

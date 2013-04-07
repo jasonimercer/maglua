@@ -40,9 +40,10 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 	
+	virtual const char* getSlotName() {return "Zeeman";}
+
 	bool apply(SpinSystem* ss);
 	bool apply(SpinSystem** ss, int n);
-	bool applyToSum(SpinSystem* ss);
 
 	double B[3];
 

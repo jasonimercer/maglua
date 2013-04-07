@@ -526,7 +526,7 @@ static int l_setcompilereqd(lua_State* L) //should move to isCompileRequired and
 		lr->compileRequired = true;
 	return 0;
 }
-static int l_setrewdatareqd(lua_State* L) //should move to isCompileRequired and setCompileRequired
+static int l_setnewdatareqd(lua_State* L) //should move to isCompileRequired and setCompileRequired
 {
 	LUA_PREAMBLE(LongRange2D, lr, 1);
 	if(!lua_isnone(L, 2))
@@ -651,7 +651,7 @@ int LongRange2D::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
-	if(func == l_setrewdatareqd)
+	if(func == l_setnewdatareqd)
 	{
 		lua_pushstring(L, "Set internal new data required state. This is used in some internal routines where the data is set manually rather than calculated");
 		lua_pushstring(L, "1 Optional Boolean (default true): new internal data required flag state");
@@ -703,7 +703,7 @@ const luaL_Reg* LongRange2D::luaMethods()
 		{"tensorArray",   l_getTensorArray},
 		{"setTensorArray",l_setTensorArray},
 		{"setCompileRequired",       l_setcompilereqd},
-		{"setNewDataRequired",       l_setrewdatareqd},
+		{"setNewDataRequired",       l_setnewdatareqd},
 		{"setInternalData", l_setinternaldata},
 		{"internalData", l_getinternaldata},
 		{"setMakeDataFunction", l_setmakefunction},

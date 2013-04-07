@@ -13,14 +13,6 @@
 #ifndef SPINOPERATION
 #define SPINOPERATION
 
-// #define SUM_SLOT          0
-// #define EXCHANGE_SLOT     1
-// #define APPLIEDFIELD_SLOT 2
-// #define ANISOTROPY_SLOT   3
-// #define THERMAL_SLOT      4
-// #define DIPOLE_SLOT       5
-// #define NSLOTS            6
-
 //#include <omp.h>
 #include "maglua.h"
 #include <string>
@@ -52,7 +44,7 @@ public:
 	int  getidx(int px, int py, int pz);
 
 	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
-	double** getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char data, const char component='Q', const int field=0);
+	double** getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char data, const char component='Q', const int* slots=0);
 	double*  getVectorOfValues(SpinSystem** sss, int n, const char* tag, const char data, const double scale=1.0);
 		
 	int nx, ny, nz;
@@ -69,9 +61,7 @@ public:
 
 protected:
 	void markSlotUsed(SpinSystem* ss);
-	
 	std::string operationName;
-	int slot;
 };
 
 CORECUDA_API int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);

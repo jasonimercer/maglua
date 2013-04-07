@@ -44,6 +44,7 @@ public:
 	virtual const char* getSlotName() {return "Zeeman";}
 
 	bool apply(SpinSystem* ss);
+	bool apply(SpinSystem** ss, int n);
 
 	double B[3];
 

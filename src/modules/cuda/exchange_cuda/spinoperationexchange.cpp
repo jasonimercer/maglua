@@ -25,7 +25,7 @@
 using namespace std;
 
 Exchange::Exchange(int nx, int ny, int nz)
-	: SpinOperation(Exchange::typeName(), EXCHANGE_SLOT, nx, ny, nz, hash32(Exchange::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(Exchange::typeName()))
 {
 	registerWS();
 	pathways = 0;
@@ -551,10 +551,12 @@ int  Exchange::decode(buffer* b)
 
 bool Exchange::apply(SpinSystem** sss, int n)
 {
+	vector<int> slots;
+	
 	for(int i=0; i<n; i++)
 	{
-		markSlotUsed(sss[i]);
-		sss[i]->ensureSlotExists(slot);
+		int slot = markSlotUsed(ss);
+		slots.push_back(slot);
 	}
 
 	if(!make_compressed())
@@ -566,9 +568,9 @@ bool Exchange::apply(SpinSystem** sss, int n)
     const double** d_sy_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_2", 's', 'y');
     const double** d_sz_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_3", 's', 'z');
 
-	      double** d_hx_N = getVectorOfVectors(sss, n, "SpinOperation::apply_4", 'h', 'x', slot);
-	      double** d_hy_N = getVectorOfVectors(sss, n, "SpinOperation::apply_5", 'h', 'y', slot);
-	      double** d_hz_N = getVectorOfVectors(sss, n, "SpinOperation::apply_6", 'h', 'z', slot);
+	      double** d_hx_N = getVectorOfVectors(sss, n, "SpinOperation::apply_4", 'h', 'x', &(slots[0]));
+	      double** d_hy_N = getVectorOfVectors(sss, n, "SpinOperation::apply_5", 'h', 'y', &(slots[0]));
+	      double** d_hz_N = getVectorOfVectors(sss, n, "SpinOperation::apply_6", 'h', 'z', &(slots[0]));
 	
 	if(compressed)
 	{

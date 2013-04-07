@@ -42,6 +42,8 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 
+	virtual const char* getSlotName() {return "LongRange2D";}
+
 	bool apply(SpinSystem* ss);
 	
 	virtual void encode(buffer* b);

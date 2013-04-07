@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 AppliedField::AppliedField(int nx, int ny, int nz)
-	: SpinOperation(AppliedField::typeName(), APPLIEDFIELD_SLOT, nx, ny, nz, hash32(AppliedField::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(AppliedField::typeName()))
 {
 	B[0] = 0;
 	B[1] = 0;
@@ -64,40 +64,19 @@ AppliedField::~AppliedField()
 bool AppliedField::apply(SpinSystem** ss, int n)
 {
 	for(int i=0; i<n; i++)
-	{
-		markSlotUsed(ss[i]);
-		ss[i]->ensureSlotExists(slot);
-
-		ss[i]->hx[slot]->setAll(B[0]*global_scale);
-		ss[i]->hy[slot]->setAll(B[1]*global_scale);
-		ss[i]->hz[slot]->setAll(B[2]*global_scale);
-	}
+		apply(ss[i]);
 	return true;
 }
 
 
 bool AppliedField::apply(SpinSystem* ss)
 {
-	markSlotUsed(ss);
-	ss->ensureSlotExists(slot);
+	int slot = markSlotUsed(ss);
 
-	ss->hx[slot]->setAll(B[0]*global_scale);
-	ss->hy[slot]->setAll(B[1]*global_scale);
-	ss->hz[slot]->setAll(B[2]*global_scale);
+	ss->hx[slot]->addValue(B[0]*global_scale);
+	ss->hy[slot]->addValue(B[1]*global_scale);
+	ss->hz[slot]->addValue(B[2]*global_scale);
 	
-	return true;
-}
-
-bool AppliedField::applyToSum(SpinSystem* ss)
-{
-//	ss->ensureSlotExists(slot);
-
-	ss->hx[SUM_SLOT]->addValue(B[0]*global_scale);
-	ss->hy[SUM_SLOT]->addValue(B[1]*global_scale);
-	ss->hz[SUM_SLOT]->addValue(B[2]*global_scale);
-	
-	ss->slot_used[SUM_SLOT] = true;
-
 	return true;
 }
 

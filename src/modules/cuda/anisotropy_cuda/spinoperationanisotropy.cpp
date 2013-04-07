@@ -21,7 +21,7 @@
 using namespace std;
 
 Anisotropy::Anisotropy(int nx, int ny, int nz)
-	: SpinOperation(Anisotropy::typeName(), ANISOTROPY_SLOT, nx, ny, nz, hash32(Anisotropy::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(Anisotropy::typeName()))
 {
 	registerWS();
 	d_nx = 0;
@@ -546,8 +546,9 @@ bool Anisotropy::apply(SpinSystem* ss)
 
 bool Anisotropy::apply(SpinSystem** sss, int n)
 {
+	vector<int> slots;
 	for(int i=0; i<n; i++)
-		markSlotUsed(sss[i]);
+		slots.push_back(markSlotUsed(sss[i]));
 
 	writeToMemory();
 	if(!make_compressed())
@@ -557,9 +558,9 @@ bool Anisotropy::apply(SpinSystem** sss, int n)
 	const double** d_sy_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_2", 's', 'y');
 	const double** d_sz_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_3", 's', 'z');
 
-	      double** d_hx_N = getVectorOfVectors(sss, n, "SpinOperation::apply_4", 'h', 'x', slot);
-	      double** d_hy_N = getVectorOfVectors(sss, n, "SpinOperation::apply_5", 'h', 'y', slot);
-	      double** d_hz_N = getVectorOfVectors(sss, n, "SpinOperation::apply_6", 'h', 'z', slot);
+	      double** d_hx_N = getVectorOfVectors(sss, n, "SpinOperation::apply_4", 'h', 'x', &(slots[0]));
+	      double** d_hy_N = getVectorOfVectors(sss, n, "SpinOperation::apply_5", 'h', 'y', &(slots[0]));
+	      double** d_hz_N = getVectorOfVectors(sss, n, "SpinOperation::apply_6", 'h', 'z', &(slots[0]));
 	
 	if(compressed)
 	{
@@ -586,6 +587,7 @@ bool Anisotropy::apply(SpinSystem** sss, int n)
 	
 	for(int i=0; i<n; i++)
 	{
+		int slot = slots[i];
 		sss[i]->hx[slot]->new_device = true;
 		sss[i]->hy[slot]->new_device = true;
 		sss[i]->hz[slot]->new_device = true;

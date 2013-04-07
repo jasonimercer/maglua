@@ -13,22 +13,19 @@
 #ifndef SPINOPERATION
 #define SPINOPERATION
 
-// #define SUM_SLOT          0
-// #define EXCHANGE_SLOT     1
-// #define APPLIEDFIELD_SLOT 2
-// #define ANISOTROPY_SLOT   3
-// #define THERMAL_SLOT      4
-// #define DIPOLE_SLOT       5
-// #define NSLOTS            6
-
-//#include <omp.h>
 #include "maglua.h"
 #include <string>
 #include "luabaseobject.h"
 
 class SpinSystem;
 
-class CORE_API SpinOperation : public LuaBaseObject
+#ifdef CUDA_VERSION
+#define EXPORT_API CORECUDA_API
+#else
+#define EXPORT_API CORE_API
+#endif
+
+class EXPORT_API SpinOperation : public LuaBaseObject
 {
 public:
 	SpinOperation(int nx, int ny, int nz, int encodetype=0);
@@ -44,13 +41,17 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
-	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
 	virtual bool apply(SpinSystem* ss);
 	virtual bool apply(SpinSystem** sss, int n);
 	int getSite(int x, int y, int z);
 
 	bool member(int px, int py, int pz);
 	int  getidx(int px, int py, int pz);
+
+	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
+	double** getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char data, const char component='Q', const int field=0);
+	double*  getVectorOfValues(SpinSystem** sss, int n, const char* tag, const char data, const double scale=1.0);
+		
 
 	int nx, ny, nz;
 	int nxyz;
@@ -61,8 +62,6 @@ public:
 
 	
 	double global_scale;
-// 	virtual void encode(buffer* b) = 0;
-// 	virtual int  decode(buffer* b) = 0;
 
 protected:
 	int markSlotUsed(SpinSystem* ss);
@@ -70,7 +69,7 @@ protected:
 	std::string operationName;
 };
 
-CORE_API int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);
-CORE_API int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def);
-CORE_API int lua_getnewargs(lua_State* L, int* vec3, int pos);
+EXPORT_API int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);
+EXPORT_API int lua_getNdouble(lua_State* L, int N, double* vec, int pos, double def);
+EXPORT_API int lua_getnewargs(lua_State* L, int* vec3, int pos);
 #endif

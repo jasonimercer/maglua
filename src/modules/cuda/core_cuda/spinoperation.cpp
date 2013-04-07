@@ -17,8 +17,8 @@
 using namespace std;
 int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);
 
-SpinOperation::SpinOperation(std::string Name, int Slot, int NX, int NY, int NZ, int etype)
-	: LuaBaseObject(etype), nx(NX), ny(NY), nz(NZ), operationName(Name), slot(Slot)
+SpinOperation::SpinOperation(int NX, int NY, int NZ, int etype)
+	: LuaBaseObject(etype), nx(NX), ny(NY), nz(NZ)      
 {
 	nxyz = nx * ny * nz;
 	global_scale = 1.0;
@@ -119,7 +119,7 @@ double*  SpinOperation::getVectorOfValues(SpinSystem** sss, int n, const char* t
 	return d_v;
 }
 
-double** SpinOperation::getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char _data, const char _component, const int field)
+double** SpinOperation::getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char _data, const char _component, const int* field)
 {
 	double **d_v, **h_v;
 
@@ -134,9 +134,9 @@ double** SpinOperation::getVectorOfVectors(SpinSystem** sss, int n, const char* 
 	case 'h':
 		for(int i=0; i<n; i++)
 		{
-			if(component == 'x') h_v[i] = sss[i]->hx[field]->ddata();
-			if(component == 'y') h_v[i] = sss[i]->hy[field]->ddata();
-			if(component == 'z') h_v[i] = sss[i]->hz[field]->ddata();
+			if(component == 'x') h_v[i] = sss[i]->hx[field[i]]->ddata();
+			if(component == 'y') h_v[i] = sss[i]->hy[field[i]]->ddata();
+			if(component == 'z') h_v[i] = sss[i]->hz[field[i]]->ddata();
 		}
 		break;
 	case 's':
