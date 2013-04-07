@@ -323,46 +323,46 @@ void reduceExtreme(const floatComplex* d_a, const int min_max, const int n, floa
 
 
 template<typename T>
-T arraySumAll_cplx_(const T* v, const int n)
+T arrayPowerSumAll_cplx_(const T* v, const double p, const int n)
 {
 	T res = 0;
 	for(int i=0; i<n; i++)
-		res += v[i];
+		res += pow(v[i], p);
 	
 	return res;
 }
 template<typename T>
-T arraySumAll_(const T* v, const int n)
+T arrayPowerSumAll_(const T* v, const double p, const int n)
 {
 	T res = 0;
-#pragma omp parallel for default(shared)	schedule(static) reduction(+:res)  
+// #pragma omp parallel for default(shared)	schedule(static) reduction(+:res)  
   for(int i=0; i<n; i++)
-		res += v[i];
+	  res += pow(v[i], p);
 	
 	return res;
 }
 
 
 
-void reduceSumAll(const double* a, const int n, double& v)
+void reducePowerSumAll(const double* a, const double p, const int n, double& v)
 {
-	v = arraySumAll_<double>(a, n);
+	v = arrayPowerSumAll_<double>(a, p, n);
 }
-void reduceSumAll(const float* a, const int n, float& v)
+void reducePowerSumAll(const float* a, const double p, const int n, float& v)
 {
-	v = arraySumAll_<float>(a, n);
+	v = arrayPowerSumAll_<float>(a, p, n);
 }
-void reduceSumAll(const int* a, const int n, int& v)
+void reducePowerSumAll(const int* a, const double p, const int n, int& v)
 {
-	v = arraySumAll_<int>(a, n);
+	v = arrayPowerSumAll_<int>(a, p, n);
 }
-void reduceSumAll(const doubleComplex* a, const int n, doubleComplex& v)
+void reducePowerSumAll(const doubleComplex* a, const double p, const int n, doubleComplex& v)
 {
-	v = arraySumAll_cplx_<doubleComplex>(a, n);
+	v = arrayPowerSumAll_cplx_<doubleComplex>(a, n, p);
 }
-void reduceSumAll(const floatComplex* a, const int n, floatComplex& v)
+void reducePowerSumAll(const floatComplex* a, const double p, const int n, floatComplex& v)
 {
-	v = arraySumAll_cplx_<floatComplex>(a, n);
+	v = arrayPowerSumAll_cplx_<floatComplex>(a, n, p);
 }
 
 

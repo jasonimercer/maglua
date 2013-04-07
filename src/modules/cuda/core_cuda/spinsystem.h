@@ -24,7 +24,13 @@
 
 using namespace std;
 
-class CORECUDA_API SpinSystem : public LuaBaseObject
+#ifdef CUDA_VERSION
+#define EXPORT_API CORECUDA_API
+#else
+#define EXPORT_API CORE_API
+#endif
+
+class EXPORT_API SpinSystem : public LuaBaseObject
 {
 public:
 	SpinSystem(const int nx=32, const int ny=32, const int nz=32);
@@ -39,11 +45,10 @@ public:
 	bool copyFrom(lua_State* L, SpinSystem* src);
 	bool copySpinsFrom(lua_State* L, SpinSystem* src);
 	bool copyFieldsFrom(lua_State* L, SpinSystem* src);
-	bool copyFieldFrom(lua_State* L, SpinSystem* src, int slot);
+	bool copyFieldFrom(lua_State* L, SpinSystem* src, const char* slot_name);
 	void moveToward(SpinSystem* other, double r);
 
 	void rotateToward(SpinSystem* other, double max_angle, dArray* max_by_site);
-	
 	
 	void setSiteAlpha(const int px, const int py, const int pz, const double a);
 	void setSiteAlpha(const int idx, double a);
@@ -52,8 +57,7 @@ public:
 	void setSiteGamma(const int px, const int py, const int pz, const double g);
 	void setSiteGamma(const int idx, double g);
 	void setGamma(const double g);
-	
-	
+
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
 	void set(const int idx, double x, const double y, const double z);
 	int  getidx(const int px, const int py, const int pz) const ;
@@ -64,12 +68,10 @@ public:
 	void zeroFields();
 	bool addFields(double mult, SpinSystem* addThis);
 	
-	int getSlot(const char* name);
-	static const char* slotName(int index);
-	void ensureSlotExists(int slot);
+
 	bool sameSize(const SpinSystem* other) const;
 	
-	void getNetMag(dArray* site_scale, double* v4, const double m = 1);
+	void getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* site_scale3, double* v8, const double scale);
 	
 	void diff(SpinSystem* other, double* v4);
 
@@ -84,13 +86,23 @@ public:
 	dArray** hx;
 	dArray** hy;
 	dArray** hz;
-
 	bool* slot_used;
 
+	char** registered_slot_names;
+
+	int nslots;
+
+	int register_slot_name(const char* name);
+	int getSlot(const char* name);
+	const char* slotName(int index);
+	void ensureSlotExists(int slot);	
+	
+	dArray* getFeildArray(int component, const char* name);
+	bool setFeildArray(int component, const char* name, dArray* a);
+	
 	int* extra_data_size; //used for site specific lua data
 	char** extra_data;
-	
-	
+
 	dArray* ms; // spin length
 	
 	double alpha;
@@ -103,7 +115,6 @@ public:
 	int nx, ny, nz;
 
 	int nxyz;
-	int nslots;
 
 	double time;
 	double fft_timeC[3]; //last time for fft of component i (x,y,z)
@@ -121,12 +132,7 @@ private:
 
 	dcArray* ws;
 	dcArray* ws2;
+	dArray* wsReal;
 };
-
-// CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
-// CORE_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
-// CORE_API int lua_isSpinSystem(lua_State* L, int idx);
-// CORE_API void lua_pushSpinSystem(lua_State* L, LuaBaseObject* ss);
-// CORE_API void registerSpinSystem(lua_State* L);
 
 #endif

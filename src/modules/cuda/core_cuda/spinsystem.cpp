@@ -26,23 +26,22 @@ using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
 
 SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
-	: LuaBaseObject(hash32("SpinSystem")), x(0), y(0), z(0), 
+	: LuaBaseObject(hash32(slineage(0))), x(0), y(0), z(0),
 		ms(0),alpha(1.0),  gamma(1.0), dt(1.0),
 		nx(NX), ny(NY), nz(NZ),
-		nslots(NSLOTS), time(0)
+		nslots(4), time(0)
 {
 	registerWS();
-
-	
 	site_alpha = 0;
 	site_gamma = 0;
-	
 	L = 0;
     init();
+	
 }
 
 int SpinSystem::luaInit(lua_State* L)
 {
+	LuaBaseObject::luaInit(L);
 	deinit();
 	int n[3];
 	if(luaT_is<SpinSystem>(L, 1))
@@ -69,6 +68,7 @@ SpinSystem::~SpinSystem()
 	deinit();
 	unregisterWS();
 }
+
 
 SpinSystem* SpinSystem::copy(lua_State* L)
 {
@@ -191,56 +191,59 @@ static void rotateSpinToward(double& x, double& y, double& z, const double l1, c
     z = (_w*(ux_vy_wz)+(_z*(_u*_u+_v*_v)-_w*(_u*_x+_v*_y))*cost + (-_v*_x+_u*_y)*sint);
 }
 
-// These rotateToward, moveToward are not GPU accelerated. TODO: GPU Accelerate
+
 void SpinSystem::rotateToward(SpinSystem* other, double max_angle, dArray* max_by_site)
 {
-	if(!sameSize(other))
-		return;
+    if(!sameSize(other))
+        return;
 
-	if(max_by_site == 0)
-	{
-		double* xx = x->data();
-		double* yy = y->data();
-		double* zz = z->data();
-		double* mm = ms->data();
+    if(max_by_site == 0)
+    {
+        double* xx = x->data();
+        double* yy = y->data();
+        double* zz = z->data();
+        double* mm = ms->data();
 
-		double* ox = other->x->data();
-		double* oy = other->y->data();
-		double* oz = other->z->data();
-		double* om = other->ms->data();
-		for(int idx=0; idx<nxyz; idx++)
-		{
-			rotateSpinToward(xx[idx], yy[idx], zz[idx], mm[idx],
-							 ox[idx], oy[idx], oz[idx], om[idx],
-							 max_angle);
-		}
+        double* ox = other->x->data();
+        double* oy = other->y->data();
+        double* oz = other->z->data();
+        double* om = other->ms->data();
+        for(int idx=0; idx<nxyz; idx++)
+        {
+            rotateSpinToward(xx[idx], yy[idx], zz[idx], mm[idx],
+                             ox[idx], oy[idx], oz[idx], om[idx],
+                             max_angle);
+        }
 
-	}
-	else
-	{
-		double* xx = x->data();
-		double* yy = y->data();
-		double* zz = z->data();
-		double* mm = ms->data();
-		double* max = max_by_site->data();
+    }
+    else
+    {
+        double* xx = x->data();
+        double* yy = y->data();
+        double* zz = z->data();
+        double* mm = ms->data();
+        double* max = max_by_site->data();
 
-		double* ox = other->x->data();
-		double* oy = other->y->data();
-		double* oz = other->z->data();
-		double* om = other->ms->data();
-		for(int idx=0; idx<nxyz; idx++)
-		{
-			rotateSpinToward(xx[idx], yy[idx], zz[idx], mm[idx],
-							 ox[idx], oy[idx], oz[idx], om[idx],
-							 max[idx]);
-		}
-	}
-		
+        double* ox = other->x->data();
+        double* oy = other->y->data();
+        double* oz = other->z->data();
+        double* om = other->ms->data();
+        for(int idx=0; idx<nxyz; idx++)
+        {
+            rotateSpinToward(xx[idx], yy[idx], zz[idx], mm[idx],
+                             ox[idx], oy[idx], oz[idx], om[idx],
+                             max[idx]);
+        }
+    }
+
+#ifdef CUDA_VERSION
 	x->new_host = true;
 	y->new_host = true;
 	z->new_host = true;
 	ms->new_host = true;
+#endif
 }
+
 
 void SpinSystem::moveToward(SpinSystem* other, double r)
 {
@@ -265,10 +268,13 @@ void SpinSystem::moveToward(SpinSystem* other, double r)
 		(*y)[i] *= scale_to_fix;
 		(*z)[i] *= scale_to_fix;
 	}
-	
+
+#ifdef CUDA_VERSION
 	x->new_host = true;
 	y->new_host = true;
 	z->new_host = true;
+	ms->new_host = true;
+#endif
 }
 
 	
@@ -283,13 +289,21 @@ void SpinSystem::diff(SpinSystem* other, double* v4)
 
 bool SpinSystem::copyFrom(lua_State* _L, SpinSystem* src)
 {
+	if(src == this) return true;
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 	L = _L;
-	hx[SUM_SLOT]->copyFrom(src->hx[SUM_SLOT]);
-	hy[SUM_SLOT]->copyFrom(src->hy[SUM_SLOT]);
-	hz[SUM_SLOT]->copyFrom(src->hz[SUM_SLOT]);
+	
+	int  here_sum_slot = register_slot_name("Total");
+	int there_sum_slot = src->register_slot_name("Total");
+	
+	ensureSlotExists(here_sum_slot);
+	src->ensureSlotExists(there_sum_slot);
+	
+	hx[here_sum_slot]->copyFrom(src->hx[there_sum_slot]);
+	hy[here_sum_slot]->copyFrom(src->hy[there_sum_slot]);
+	hz[here_sum_slot]->copyFrom(src->hz[there_sum_slot]);
 
 	x->copyFrom(src->x);
 	y->copyFrom(src->y);
@@ -371,26 +385,35 @@ bool SpinSystem::copySpinsFrom(lua_State* _L, SpinSystem* src)
 	return true;
 }
 
-bool SpinSystem::copyFieldFrom(lua_State* _L, SpinSystem* src, int slot)
+bool SpinSystem::copyFieldFrom(lua_State* _L, SpinSystem* src, const char* slot_name)
 {
 	if(nx != src->nx) return false;
 	if(ny != src->ny) return false;
 	if(nz != src->nz) return false;
 	L = _L;
-	hx[slot]->copyFrom(src->hx[slot]);
-	hy[slot]->copyFrom(src->hy[slot]);
-	hz[slot]->copyFrom(src->hz[slot]);
 
-	fft_timeC[0] = time - 1.0;
-	fft_timeC[1] = time - 1.0;
-	fft_timeC[2] = time - 1.0;
-	return true;
+	int dst_slot = register_slot_name(slot_name);
+	int src_slot = src->register_slot_name(slot_name);
+	
+	if(dst_slot != -1 && src_slot != -1)
+	{
+		hx[dst_slot]->copyFrom(src->hx[src_slot]);
+		hy[dst_slot]->copyFrom(src->hy[src_slot]);
+		hz[dst_slot]->copyFrom(src->hz[src_slot]);
+
+		fft_timeC[0] = time - 1.0;
+		fft_timeC[1] = time - 1.0;
+		fft_timeC[2] = time - 1.0;
+		return true;
+	}
+	return false;
+	
 }
 
 bool SpinSystem::copyFieldsFrom(lua_State* _L, SpinSystem* src)
 {
 	L = _L;
-    return copyFieldFrom(L, src, SUM_SLOT);
+	return copyFieldFrom(L, src, "Total");
 }
 
 
@@ -407,7 +430,7 @@ void SpinSystem::deinit()
 				extra_data_size[i] = 0;
 			}
 		}
-
+	
 		luaT_dec<dArray>(x); x = 0;
 		luaT_dec<dArray>(y);
 		luaT_dec<dArray>(z);
@@ -415,25 +438,26 @@ void SpinSystem::deinit()
 
 		luaT_dec<dArray>(site_alpha); site_alpha = 0;
 		luaT_dec<dArray>(site_gamma); site_gamma = 0;
-		
-		delete [] slot_used;
-		
+
 		for(int i=0; i<nslots; i++)
 		{
 			luaT_dec<dArray>(hx[i]);
 			luaT_dec<dArray>(hy[i]);
 			luaT_dec<dArray>(hz[i]);
+			
+			if(registered_slot_names[i])
+				free(registered_slot_names[i]);
 		}
 
-		delete [] hx;
-		delete [] hy;
-		delete [] hz;
-
-// 		luaT_dec<dcArray>(ws);
-// 		luaT_dec<dcArray>(ws2);
+		free(hx);
+		free(hy);
+		free(hz);
+		free(slot_used);
+		free(registered_slot_names);
+		registered_slot_names = 0;
 		
-		delete ws;
 		ws = 0;
+		wsReal = 0;
 		
 		luaT_dec<dcArray>(qx);
 		luaT_dec<dcArray>(qy);
@@ -460,46 +484,42 @@ void SpinSystem::init()
 	y->setAll(0);
 	z->setAll(0);
 	ms->setAll(0);
-	
+
 	// decs are real. Init is empty, clearing old if (by some chance) they exist
 	luaT_dec<dArray>(site_alpha); site_alpha = 0;
 	luaT_dec<dArray>(site_gamma); site_gamma = 0;
 	
-	// 	for(int i=0; i<nxyz; i++)
-// 		set(i, 0, 0, 0);
-
-	hx = new dArray* [nslots];
-	hy = new dArray* [nslots];
-	hz = new dArray* [nslots];
-	
-	slot_used = new bool[nslots];
+	// moving to malloc for realloc
+	hx = (dArray**)malloc(sizeof(dArray*) * nslots);
+	hy = (dArray**)malloc(sizeof(dArray*) * nslots);
+	hz = (dArray**)malloc(sizeof(dArray*) * nslots);
+	slot_used = (bool*)malloc(sizeof(bool) * nslots);
+	registered_slot_names = (char**)malloc(sizeof(char*) * nslots);
 	
 	extra_data = new char*[nxyz];
 	extra_data_size = new int[nxyz];
 	
 	for(int i=0; i<nxyz; i++)
 	{
-// 		extra_data[i] = LUA_REFNIL;
 		extra_data[i] = 0;
 		extra_data_size[i] = 0;
 	}
 	
-	
 	for(int i=0; i<nslots; i++)
 	{
-		hx[i] = luaT_inc<dArray>(new dArray(nx,ny,nz));
-		hy[i] = luaT_inc<dArray>(new dArray(nx,ny,nz));
-		hz[i] = luaT_inc<dArray>(new dArray(nx,ny,nz));
-		
-		hx[i]->zero();
-		hy[i]->zero();
-		hz[i]->zero();
+		hx[i] = 0; //luaT_inc<dArray>(new dArray(nx,ny,nz));
+		hy[i] = 0; //luaT_inc<dArray>(new dArray(nx,ny,nz));
+		hz[i] = 0; //luaT_inc<dArray>(new dArray(nx,ny,nz));
+		registered_slot_names[i] = 0;
+		slot_used[i] = false;
 	}
 	zeroFields();
 	
 // 	ws = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-// 	ws2= luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-	ws = getWSdcArray(nx,ny,nz,hash32("SpinSystem_FFT_Help"));
+
+	ws     = getWSdcArray(nx,ny,nz,hash32("SpinSystem_FFT_Help"));
+	wsReal = getWSdArray(nx,ny,nz,hash32("SpinSystem_Real_WS"));
+
 	
 	qx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	qy = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
@@ -508,11 +528,101 @@ void SpinSystem::init()
 	fft_timeC[0] = -1;
 	fft_timeC[1] = -1;
 	fft_timeC[2] = -1;
+	
+	register_slot_name("Total"); //will get slot 0
 }
 
-// never needed
+
+dArray* SpinSystem::getFeildArray(int component, const char* name)
+{
+	int slot = getSlot(name);
+	if(slot < 0)
+		return 0;
+	
+	if(component == 0)
+		return hx[slot];
+	if(component == 1)
+		return hy[slot];
+	if(component == 2)
+		return hz[slot];
+	
+	return 0;
+}
+
+bool SpinSystem::setFeildArray(int component, const char* name, dArray* a)
+{
+	if(component < 0 || component > 2)
+		return false;
+	
+	int slot = register_slot_name(name);
+
+	if(slot < 0)
+		return false;
+		
+	dArray** hh[3] = {hx,hy,hz};
+	
+	luaT_inc<dArray>(a);
+	luaT_dec<dArray>(hh[component][slot]);
+	hh[component][slot] = a;
+	return true;
+}
+
+
+int SpinSystem::register_slot_name(const char* name)
+{
+	if(name == 0)
+		return -1;
+	
+	// checking to see if it's already registered
+	int slot = getSlot(name);
+	
+	
+	if(slot == -1) // then it needs to be registered
+	{
+		for(slot=0; slot<nslots && registered_slot_names[slot]; slot++)
+		{
+		};
+		
+		ensureSlotExists(slot); //grow things if needed
+		
+		const char ll = strlen(name);
+		registered_slot_names[slot] = (char*)malloc(ll+1);
+		memcpy(registered_slot_names[slot], name, ll+1);
+	}
+	return slot;
+}
+
+	
 void SpinSystem::ensureSlotExists(int slot)
 {
+	if(slot < 0)
+	{
+		fprintf(stderr, "(%s:%i) Slot index is negative\n", __FILE__, __LINE__, slot);
+		return;
+	}
+
+	if(slot >= nslots)
+	{
+		// increase number of slots
+		hx = (dArray**)realloc(hx, sizeof(dArray*) * nslots * 2);
+		hy = (dArray**)realloc(hy, sizeof(dArray*) * nslots * 2);
+		hz = (dArray**)realloc(hz, sizeof(dArray*) * nslots * 2);
+		
+		slot_used = (bool*)realloc(slot_used, sizeof(bool) * nslots * 2);
+		
+		registered_slot_names = (char**)realloc(registered_slot_names, sizeof(char*) * nslots * 2);
+		
+		for(int i=nslots; i<nslots*2; i++)
+		{
+			hx[i] = 0;
+			hy[i] = 0;
+			hz[i] = 0;
+			registered_slot_names[i] = 0;
+			slot_used[i] = false;
+		}
+		nslots *= 2;
+	}
+
 	if(hx[slot]) return;
 	
 	hx[slot] = luaT_inc<dArray>(new dArray(nx,ny,nz));
@@ -528,7 +638,7 @@ void SpinSystem::ensureSlotExists(int slot)
 void SpinSystem::encode(buffer* b)
 {
 	char version = 0;
-	encodeChar(version, 0);
+	encodeChar(version, b);
 	encodeInteger(nx, b);
 	encodeInteger(ny, b);
 	encodeInteger(nz, b);
@@ -635,7 +745,6 @@ int  SpinSystem::decode(buffer* b)
 		z->decode(b);
 		ms->decode(b);
 		
-		
 		const int site_alpha_exists = decodeInteger(b);
 		if(site_alpha_exists)
 		{
@@ -649,7 +758,7 @@ int  SpinSystem::decode(buffer* b)
 			site_gamma = luaT_inc<dArray>(new dArray(nx,ny,nz));
 			site_gamma->decode(b);
 		}
-		
+	
 		int numPartialData = decodeInteger(b);
 		if(numPartialData < 0) //then all, implicitly
 		{
@@ -683,7 +792,6 @@ int  SpinSystem::decode(buffer* b)
 	{
 		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
-
 	return 0;
 }
 
@@ -691,35 +799,22 @@ int  SpinSystem::decode(buffer* b)
 
 void SpinSystem::sumFields()
 {
+	const int SUM_SLOT = getSlot("Total");
 	ensureSlotExists(SUM_SLOT);
 	hx[SUM_SLOT]->zero();
-	for(int i=1; i<NSLOTS; i++)
-		if(slot_used[i] && hx[i])
-			(*hx[SUM_SLOT]) += (*hx[i]);
+	for(int i=1; i<nslots; i++)
+		if((i != SUM_SLOT) && slot_used[i] && hx[i])
+			dArray::pairwiseScaleAdd(hx[SUM_SLOT], 1.0, hx[SUM_SLOT], 1.0, hx[i]);
 
 	hy[SUM_SLOT]->zero();
-	for(int i=1; i<NSLOTS; i++)
-		if(slot_used[i] && hy[i])
-			(*hy[SUM_SLOT]) += (*hy[i]);
+	for(int i=1; i<nslots; i++)
+		if((i != SUM_SLOT) && slot_used[i] && hy[i])
+			dArray::pairwiseScaleAdd(hy[SUM_SLOT], 1.0, hy[SUM_SLOT], 1.0, hy[i]);
 
 	hz[SUM_SLOT]->zero();
-	for(int i=1; i<NSLOTS; i++)
-		if(slot_used[i] && hz[i])
-			(*hz[SUM_SLOT]) += (*hz[i]);
-		
-	/*	
-	hx[SUM_SLOT]->copyFrom(hx[1]);
-	for(int i=2; i<NSLOTS; i++)
-		(*hx[SUM_SLOT]) += (*hx[i]);
-
-	hy[SUM_SLOT]->copyFrom(hy[1]);
-	for(int i=2; i<NSLOTS; i++)
-		(*hy[SUM_SLOT]) += (*hy[i]);
-
-	hz[SUM_SLOT]->copyFrom(hz[1]);
-	for(int i=2; i<NSLOTS; i++)
-		(*hz[SUM_SLOT]) += (*hz[i]);
-	*/
+	for(int i=1; i<nslots; i++)
+		if((i != SUM_SLOT) && slot_used[i] && hz[i])
+			dArray::pairwiseScaleAdd(hz[SUM_SLOT], 1.0, hz[SUM_SLOT], 1.0, hz[i]);
 }
 
 bool SpinSystem::addFields(double mult, SpinSystem* addThis)
@@ -728,52 +823,46 @@ bool SpinSystem::addFields(double mult, SpinSystem* addThis)
 	if(ny != addThis->ny) return false;
 	if(nz != addThis->nz) return false;
 	
-	dArray::pairwiseScaleAdd(hx[SUM_SLOT], 1.0, hx[SUM_SLOT], mult, addThis->hx[SUM_SLOT]);
-	dArray::pairwiseScaleAdd(hy[SUM_SLOT], 1.0, hy[SUM_SLOT], mult, addThis->hy[SUM_SLOT]);
-	dArray::pairwiseScaleAdd(hz[SUM_SLOT], 1.0, hz[SUM_SLOT], mult, addThis->hz[SUM_SLOT]);
-
-	/*
-	for(int j=0; j<nxyz; j++)
+	const int SUM_SLOT = getSlot("Total");
+	const int otherSUM_SLOT = addThis->getSlot("Total");
+	
+	if(SUM_SLOT >= 0 && otherSUM_SLOT >= 0)
 	{
-		(*hx[SUM_SLOT])[j] += mult * (*addThis->hx[SUM_SLOT])[j];
-		(*hy[SUM_SLOT])[j] += mult * (*addThis->hy[SUM_SLOT])[j];
-		(*hz[SUM_SLOT])[j] += mult * (*addThis->hz[SUM_SLOT])[j];
+		dArray::pairwiseScaleAdd(hx[SUM_SLOT], 1.0, hx[SUM_SLOT], mult, addThis->hx[otherSUM_SLOT]);
+		dArray::pairwiseScaleAdd(hy[SUM_SLOT], 1.0, hy[SUM_SLOT], mult, addThis->hy[otherSUM_SLOT]);
+		dArray::pairwiseScaleAdd(hz[SUM_SLOT], 1.0, hz[SUM_SLOT], mult, addThis->hz[otherSUM_SLOT]);
+
+		return true;
 	}
-	*/
-	return true;
+	return false;
 }
+
 
 const char* SpinSystem::slotName(int index)
 {
-	if(index == EXCHANGE_SLOT)
-		return "Exchange";
-	if(index == ANISOTROPY_SLOT)
-		return "Anisotropy";
-	if(index == THERMAL_SLOT)
-		return "Thermal";
-	if(index == DIPOLE_SLOT)
-		return "Dipole";
-	if(index == APPLIEDFIELD_SLOT)
-		return "Applied";
-	if(index == SUM_SLOT)
-		return "Total";
+	if(registered_slot_names == 0)
+		return 0;
+	
+	if(index >= 0 && index < nslots)
+		return registered_slot_names[index];
+	
 	return 0;
 }
 
 int SpinSystem::getSlot(const char* name)
 {
-	if(strcasecmp(name, "exchange") == 0)
-		return EXCHANGE_SLOT;
-	if(strcasecmp(name, "anisotropy") == 0)
-		return ANISOTROPY_SLOT;
-	if(strcasecmp(name, "thermal") == 0 || strcasecmp(name, "stochastic") == 0 || strcasecmp(name, "temperature") == 0)
-		return THERMAL_SLOT;
-	if(strcasecmp(name, "dipole") == 0 || strcasecmp(name, "magnetostatics") == 0 || strcasecmp(name, "magnetostatic") == 0  || strcasecmp(name, "longrange") == 0)
-		return DIPOLE_SLOT;
-	if(strcasecmp(name, "applied") == 0 || strcasecmp(name, "zeeman") == 0)
-		return APPLIEDFIELD_SLOT;
-	if(strcasecmp(name, "total") == 0 || strcasecmp(name, "sum") == 0)
-		return SUM_SLOT;
+	if(registered_slot_names == 0 || name == 0)
+		return -1;
+	
+	for(int i=0; i<nslots; i++)
+	{
+		if(registered_slot_names[i])
+		{
+			if(strcasecmp(name, registered_slot_names[i]) == 0)
+				return i;
+		}	
+	}
+	
 	return -1;
 }
 
@@ -820,7 +909,7 @@ void SpinSystem::fft(int component)
 
 void SpinSystem::zeroFields()
 {
-	for(int i=0; i<NSLOTS; i++)
+	for(int i=0; i<nslots; i++)
 	{
 		slot_used[i] = false;
 		if(hx[i])
@@ -842,6 +931,7 @@ bool SpinSystem::member(const int px, const int py, const int pz) const
 	
 	return true;
 }
+
 
 void SpinSystem::setSiteAlpha(const int px, const int py, const int pz, const double a)
 {
@@ -899,6 +989,7 @@ void SpinSystem::setGamma(const double g)
 }
 
 
+
 void  SpinSystem::set(const int i, double sx, double sy, double sz)
 {
 	(*x)[i] = sx;
@@ -906,12 +997,6 @@ void  SpinSystem::set(const int i, double sx, double sy, double sz)
 	(*z)[i] = sz;
 
 	(*ms)[i]= sqrt(sx*sx+sy*sy+sz*sz);
-	
-	x->new_host = true;
-	y->new_host = true;
-	z->new_host = true;
-	ms->new_host = true;
-	
 	invalidateFourierData();
 }
 
@@ -919,12 +1004,12 @@ void  SpinSystem::set(const int i, double sx, double sy, double sz)
 void SpinSystem::set(const int px, const int py, const int pz, const double sx, const double sy, const double sz)
 {
 	const int i = getidx(px, py, pz);
-	set(i, sx, sy, sz);
 	if(i < 0 || i >= nxyz) //force crash
 	{
 		int* i = 0;
 		*i = 4;
 	}
+	set(i, sx, sy, sz);
 }
 
 void SpinSystem::idx2xyz(int idx, int& x, int& y, int& z) const 
@@ -959,43 +1044,44 @@ int  SpinSystem::getidx(const int px, const int py, const int pz) const
 
 // return numspins * {<x>, <y>, <z>, <M>, <x^2>, <y^2>, <z^2>, <M^2>}
 
-void SpinSystem::getNetMag(dArray* a, double* v8, const double m)
+void SpinSystem::getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* site_scale3, double* v, const double m)
 {
 	for(int i=0; i<8; i++)
-		v8[i] = 0;
+		v[i] = 0;
 
-	if(a)
-		if(a->nxyz != nxyz)
+	if(site_scale1)
+		if(site_scale1->nxyz != nxyz)
+			return;
+	if(site_scale2)
+		if(site_scale2->nxyz != nxyz)
+			return;
+	if(site_scale3)
+		if(site_scale3->nxyz != nxyz)
 			return;
 
-	if(a)
+
+	dArray* xyz[3];
+	xyz[0] = x;
+	xyz[1] = y;
+	xyz[2] = z;
+
+	for(int i=0; i<3; i++)
 	{
-		for(int i=0; i<nxyz; i++)
-		{
-			const double d = (*a)[i] * m;
-			v8[0] += (*x)[i] * d;
-			v8[4] += (*x)[i] * (*x)[i] * d * d;
-			v8[1] += (*y)[i] * d;
-			v8[5] += (*y)[i] * (*y)[i] * d * d;
-			v8[2] += (*z)[i] * d;
-			v8[6] += (*z)[i] * (*z)[i] * d * d;
-		}
+		wsReal->copyFrom(xyz[i]);
+
+		if(site_scale1)
+			dArray::pairwiseMult(wsReal, wsReal, site_scale1);
+		if(site_scale2)
+			dArray::pairwiseMult(wsReal, wsReal, site_scale2);
+		if(site_scale3)
+			dArray::pairwiseMult(wsReal, wsReal, site_scale3);
+
+		v[i  ] = wsReal->sum(1.0) * m;
+		v[i+4] = wsReal->sum(2.0) * m;
 	}
-	else
-	{
-		for(int i=0; i<nxyz; i++)
-		{
-			const double d = m;
-			v8[0] += (*x)[i] * d;
-			v8[4] += (*x)[i] * (*x)[i] * d * d;
-			v8[1] += (*y)[i] * d;
-			v8[5] += (*y)[i] * (*y)[i] * d * d;
-			v8[2] += (*z)[i] * d;
-			v8[6] += (*z)[i] * (*z)[i] * d * d;
-		}
-	}
-	v8[3] = sqrt(v8[0]*v8[0] + v8[1]*v8[1] + v8[2]*v8[2]);
-	v8[7] = sqrt(v8[4]*v8[4] + v8[5]*v8[5] + v8[6]*v8[6]);	
+
+	v[3] = sqrt(v[0]*v[0] + v[1]*v[1] * v[2]*v[2]);
+	v[7] = sqrt(v[4]*v[4] + v[5]*v[5] * v[6]*v[6]);
 }
 
 
@@ -1029,7 +1115,7 @@ static int l_gettimestep(lua_State* L)
 static int l_setalpha(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-	ss->alpha = lua_tonumber(L, 2);
+	ss->setAlpha(lua_tonumber(L, 2));
 	return 0;
 }
 static int l_getalpha(lua_State* L)
@@ -1042,7 +1128,7 @@ static int l_getalpha(lua_State* L)
 static int l_setgamma(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
-	ss->gamma = lua_tonumber(L, 2);
+	ss->setGamma(lua_tonumber(L, 2));
 	return 0;
 }
 static int l_getgamma(lua_State* L)
@@ -1062,15 +1148,19 @@ static int l_netmoment(lua_State* L)
 	if(lua_isnumber(L, -1))
 		m = lua_tonumber(L, -1);
 	
-	if(luaT_is<dArray>(L, 2))
+	dArray* arrays[4] = {0,0,0,0};
+	int numArrays = 0;
+	
+	for(int i=2; i<=lua_gettop(L) && numArrays < 3; i++)
 	{
-		dArray* a = luaT_to<dArray>(L, 2);
-		ss->getNetMag(a, v8, m);
+		if(luaT_is<dArray>(L, i))
+		{
+			arrays[numArrays] = luaT_to<dArray>(L, i);
+			numArrays++;
+		}
 	}
-	else
-	{
-		ss->getNetMag(0, v8, m);
-	}
+	
+	ss->getNetMag(arrays[0], arrays[1], arrays[2], v8, m);
 
 	for(int i=0; i<8; i++)
 	{
@@ -1105,6 +1195,61 @@ static int l_setspin(lua_State* L)
 	double sx = spin[0];
 	double sy = spin[1];
 	double sz = spin[2];
+
+	if(n)
+	{
+		double len = fabs(lua_tonumber(L, 2+r1+r2));
+		double rr = sx*sx + sy*sy + sz*sz;
+		if(rr > 0)
+		{
+			rr = len / sqrt(rr);
+			sx *= rr;
+			sy *= rr;
+			sz *= rr;
+		}
+		else
+		{
+			sx = 0;
+			sy = 0;
+			sz = len;
+		}
+	}
+	
+	ss->set(px, py, pz, sx, sy, sz);
+	
+	return 0;
+}
+
+
+static int l_setspin_tpr(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	
+	int r1, r2;
+	int site[3];
+	double spin[3];
+	
+	r1 = lua_getNint(L, 3, site, 2, 1);
+	if(r1 < 0)
+		return luaL_error(L, "invalid site");
+	
+	r2 = lua_getNdouble(L, 3, spin, 2+r1, 0);
+	if(r2 < 0)
+		return luaL_error(L, "invalid spin");
+	
+	int n = lua_isnumber(L, 2+r1+r2);
+		
+	int px = site[0] - 1;
+	int py = site[1] - 1;
+	int pz = site[2] - 1;
+	
+	const double t = spin[0];
+	const double p = spin[1];
+	const double r = spin[2];
+	
+	double sx = r * cos(t) * sin(p);
+	double sy = r * sin(t) * sin(p);
+	double sz = r * cos(p);
 
 	if(n)
 	{
@@ -1177,60 +1322,6 @@ static int l_getspin(lua_State* L)
 }
 
 
-static int l_setspin_tpr(lua_State* L)
-{
-	LUA_PREAMBLE(SpinSystem, ss, 1);
-	
-	int r1, r2;
-	int site[3];
-	double spin[3];
-	
-	r1 = lua_getNint(L, 3, site, 2, 1);
-	if(r1 < 0)
-		return luaL_error(L, "invalid site");
-	
-	r2 = lua_getNdouble(L, 3, spin, 2+r1, 0);
-	if(r2 < 0)
-		return luaL_error(L, "invalid spin");
-	
-	int n = lua_isnumber(L, 2+r1+r2);
-		
-	int px = site[0] - 1;
-	int py = site[1] - 1;
-	int pz = site[2] - 1;
-	
-	const double t = spin[0];
-	const double p = spin[1];
-	const double r = spin[2];
-	
-	double sx = r * cos(t) * sin(p);
-	double sy = r * sin(t) * sin(p);
-	double sz = r * cos(p);
-
-	if(n)
-	{
-		double len = fabs(lua_tonumber(L, 2+r1+r2));
-		double rr = sx*sx + sy*sy + sz*sz;
-		if(rr > 0)
-		{
-			rr = len / sqrt(rr);
-			sx *= rr;
-			sy *= rr;
-			sz *= rr;
-		}
-		else
-		{
-			sx = 0;
-			sy = 0;
-			sz = len;
-		}
-	}
-	
-	ss->set(px, py, pz, sx, sy, sz);
-	
-	return 0;
-}
-
 static int l_getspin_tpr(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
@@ -1288,7 +1379,6 @@ static int l_getspin_tpr(lua_State* L)
 			
 	return 3;
 }
-
 
 
 static int l_getunitspin(lua_State* L)
@@ -1418,74 +1508,80 @@ static int l_netfield(lua_State* L)
 		lua_pushnumber(L, 0);
 		lua_pushnumber(L, 0);
 	}
-	
 	return 3;
 }
 
 
 
-#define FA_HEADER \
-	LUA_PREAMBLE(SpinSystem, ss, 1);       \
-	const char* name = lua_tostring(L, 2); \
-	if(!name)                              \
-		return luaL_error(L, "Argument must a string"); \
-	int slot = ss->getSlot(name);                       \
-	if(slot < 0)                                        \
-		return luaL_error(L, "Unknown field type`%s'", name); 
-	
-#define GET_FA_BODY(C) \
-	ss->ensureSlotExists(slot); \
-	dArray* h = ss->h##C [slot]; \
-	if(!h)                       \
-		lua_pushnil(L);          \
-	else \
-		luaT_push<dArray>(L, h); \
-	return 1;
-
-	
 static int l_getfieldarrayx(lua_State* L)
 {
-	FA_HEADER;
-	GET_FA_BODY(x);
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	luaT_push<dArray>(L, ss->getFeildArray(0, name));
+	return 1;
 }
 static int l_getfieldarrayy(lua_State* L)
 {
-	FA_HEADER;
-	GET_FA_BODY(y);
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	luaT_push<dArray>(L, ss->getFeildArray(1, name));
+	return 1;
 }
 static int l_getfieldarrayz(lua_State* L)
 {
-	FA_HEADER;
-	GET_FA_BODY(z);
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	luaT_push<dArray>(L, ss->getFeildArray(2, name));
+	return 1;
 }
-
-#define SET_FA_BODY(C) \
-	// if(!ss->h##C [slot]) return 0; \
-	dArray* h = luaT_to<dArray>(L, 3); \
-	if(!h) return 0; \
-	//if(!ss->h##C [slot]->sameSize(h)) return 0; \
-	if(ss->nx() != h->nx() || ss->ny() != h->ny() || ss->nz() != h->nz()) \
-		return luaL_error(L, "Size mismatch");\
-	luaT_inc<dArray>(h); luaT_dec<dArray>(ss->h##C[slot]); \
-	ss->h##C[slot] = h; \
 
 static int l_setfieldarrayx(lua_State* L)
 {
-	FA_HEADER;
-	SET_FA_BODY(x);
-	return 0;
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	LUA_PREAMBLE(dArray, a, 3);
+
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	ss->setFeildArray(0, name, a);
+	return 0;	
 }
 static int l_setfieldarrayy(lua_State* L)
 {
-	FA_HEADER;
-	SET_FA_BODY(y);
-	return 0;
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	LUA_PREAMBLE(dArray, a, 3);
+
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	ss->setFeildArray(1, name, a);
+	return 0;	
 }
 static int l_setfieldarrayz(lua_State* L)
 {
-	FA_HEADER;
-	SET_FA_BODY(z);
-	return 0;
+	LUA_PREAMBLE(SpinSystem, ss, 1);
+	const char* name = lua_tostring(L, 2);
+	LUA_PREAMBLE(dArray, a, 3);
+
+	if(ss->getSlot(name) < 0)
+		return luaL_error(L, "Failed to lookup field name. Consider using :registeredSlots() to see what fields are available.");
+	
+	ss->setFeildArray(2, name, a);
+	return 0;	
 }
 
 
@@ -1576,7 +1672,7 @@ static int l_getfield(lua_State* L)
 		lua_pushnumber(L, 0);
 		lua_pushnumber(L, 0);
 	}
-		
+	
 	return 4;
 }
 
@@ -1640,19 +1736,11 @@ static int l_copyfieldto(lua_State* L)
 	LUA_PREAMBLE(SpinSystem, src,  1);
 
     const char* slotname = lua_tostring(L, 2);
-    int i = src->getSlot(slotname);
 
 	LUA_PREAMBLE(SpinSystem, dest, 3);
 
-    if(i >= 0)
-    {
-		if(!dest->copyFieldFrom(L, src, i))
-			return luaL_error(L, "Failed to copyTo");
-    }
-    else
-    {
-		return luaL_error(L, "Unknown field name");
-    }
+	if(!dest->copyFieldFrom(L, src, slotname))
+		return luaL_error(L, "Failed to copyTo");
     return 0;
 }
 
@@ -1713,7 +1801,7 @@ static int l_siteiterator(lua_State* L)
 	if(lua_pcall(L, 2, 1, 0))
 		return luaL_error(L, lua_tostring(L, -1));
 	
-	return 1;	
+	return 1;
 }
 
 static int l_exdatit(lua_State* L)
@@ -1756,7 +1844,7 @@ static int l_exdatit(lua_State* L)
 		return luaL_error(L, lua_tostring(L, -1));
 
 	lua_pushvalue(L, 1);
-	lua_pushboolean(L, skip_nil);
+	lua_pushboolean(L, !skip_nil);
 	
 	if(lua_pcall(L, 2, 1, 0))
 		return luaL_error(L, lua_tostring(L, -1));
@@ -1788,6 +1876,7 @@ static int l_getextradata(lua_State* L)
 	{
 		lua_pushnil(L);
 	}
+	
 	return 1;
 }
 
@@ -2104,8 +2193,35 @@ static int l_setslotused(lua_State* L)
 		s->slot_used[slot] = lua_toboolean(L, 3);
 	else
 		s->slot_used[slot] = 1;
+
 	return 0;
 }
+
+static int l_registeredSlots(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+
+	lua_newtable(L);
+	
+	char** registered_slot_names = ss->registered_slot_names;
+	const int nslots = ss->nslots;
+	
+	int i = 0;
+	
+	if(registered_slot_names)
+	{
+		while(registered_slot_names[i] && i < nslots)
+		{
+			lua_pushinteger(L, i+1);
+			lua_pushstring(L, registered_slot_names[i]);
+			lua_settable(L, -3);
+			i++;
+		}
+	}
+	
+	return 1;
+}
+
 
 		// new site a, g
 static int l_setsitealphaarray(lua_State* L)
@@ -2286,19 +2402,6 @@ static int l_invalidatefourierdata(lua_State* L)
 
 int SpinSystem::help(lua_State* L)
 {
-	int i = 0;
-	char buf[1024];
-	buf[0] = 0;
-	const char* field_types;
-	do
-	{
-		field_types = SpinSystem::slotName(i); i++;
-		if(field_types)
-			sprintf(buf+strlen(buf), "\"%s\", ", field_types);
-	}while(field_types);
-	
-	buf[strlen(buf)-2] = 0;
-	
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Represents and contains a lattice of spins including orientation and resulting fields.");
@@ -2312,10 +2415,10 @@ int SpinSystem::help(lua_State* L)
 		return 0;
 	}
 	
-// 	if(!lua_iscfunction(L, 1))
-// 	{
-// 		return luaL_error(L, "help expects zero arguments or 1 function.");
-// 	}
+	if(!lua_iscfunction(L, 1))
+	{
+		return luaL_error(L, "help expects zero arguments or 1 function.");
+	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 
@@ -2335,15 +2438,15 @@ int SpinSystem::help(lua_State* L)
 	if(func == l_netmoment)
 	{
 		lua_pushstring(L, "Calculate and return net magnetization of a spin system");
-		lua_pushstring(L, "1 Optional Array.Double, 1 Optional Number: The optional double array scales each site by a certain value, the optional number scales all sites by a single number. Both arguments can be supplied.");
-		lua_pushstring(L, "8 numbers: mean(x), mean(y), mean(z), mean(M), mean(xx), mean(yy), mean(zz), mean(MM)");
+		lua_pushstring(L, "Up to 3 Optional Array.Double, 1 Optional Number: The optional double arrays scale each site by the product of their values, the optional number scales all sites by a single number. A combination of arrays and a single value can be supplied.");
+		lua_pushstring(L, "8 numbers: mean(x), mean(y), mean(z), vector length of {x,y,z}, mean(x^2), mean(y^2), mean(z^2), length of {x^2, y^2, z^2}");
 		return 3;
 	}
 	
 	if(func == l_netfield)
 	{
 		lua_pushstring(L, "Return average field due to an interaction. This field must be calculated with the appropriate operator.");
-		lua_pushfstring(L, "1 String: The name of the field type to return. One of: %s", buf);
+		lua_pushfstring(L, "1 String: The name of the field type to return. Must match a :slotName() of an applied operator.");
 		lua_pushstring(L, "3 numbers: Vector representing the average field due to an interaction type.");
 		return 3;
 	}
@@ -2360,11 +2463,29 @@ int SpinSystem::help(lua_State* L)
 	{
 		lua_pushstring(L, "Get the orientation and magnitude of a spin at a site.");
 		lua_pushstring(L, "1 *3Vector*: The lattice site.");
-		lua_pushstring(L, "4 Numbers*: The spin vector at the lattice site and magnitude.");
+		lua_pushstring(L, "4 Numbers: The spin vector at the lattice site and magnitude.");
 		return 3;
 	}
 	
+	//
+	if(func == l_setspin_tpr)
+	{
+		lua_pushstring(L, "Set the orientation and magnitude of a spin at a site using spherical coodinates. Note, the theta and phi follow math conventions, not physics conventions. Theta is the azimuthal angle renging from 0 to 2pi, Phi is the zenith angle ranging from 0 to pi.");
+		lua_pushstring(L, "2 *3Vector*s: The first argument represents a lattice site. The second represents the spin vector in spherical coordinates.");
+		lua_pushstring(L, "");
+		return 3;
+	}
 	
+	if(func == l_getspin_tpr)
+	{
+		lua_pushstring(L, "Get the orientation and magnitude of a spin at a site using spherical coodinates. Note, the theta and phi follow math conventions, not physics conventions. Theta is the azimuthal angle renging from 0 to 2pi, Phi is the zenith angle ranging from 0 to pi.");
+		lua_pushstring(L, "1 *3Vector*: The lattice site.");
+		lua_pushstring(L, "3 Numbers: The azimutal, zenith and radial components.");
+		return 3;
+	}
+	//
+
+
 	if(func == l_getunitspin)
 	{
 		lua_pushstring(L, "Get the orientation of a spin at a site.");
@@ -2433,7 +2554,7 @@ int SpinSystem::help(lua_State* L)
 	if(func == l_getfield)
 	{
 		lua_pushstring(L, "Get the field at a site due to an interaction");
-		lua_pushfstring(L, "1 String, 1 *3Vector*: The first argument identifies the field interaction type, one of: %s. The second argument selects the lattice site.", buf);
+		lua_pushfstring(L, "1 String, 1 *3Vector*: The first argument identifies the field interaction type, must match a :slotName() of an applied operator. The second argument selects the lattice site.");
 		lua_pushstring(L, "4 Numbers: The field vector at the site and the magnitude fo the field");
 		return 3;
 	}
@@ -2514,13 +2635,13 @@ int SpinSystem::help(lua_State* L)
 		return 3;
 	}
 
-        if(func == l_copyfieldto)
-        {
+	if(func == l_copyfieldto)
+	{
 	    lua_pushstring(L, "Copy a field type of the calling *SpinSystem* to the given system.");
 	    lua_pushstring(L, "1 string, 1 *SpinSystem*: Field name, destination spin system.");
 	    lua_pushstring(L, "");
 	    return 3;
-        }
+	}
 
 
 	if(func == l_setalpha)
@@ -2599,7 +2720,7 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "1 Iterator Function: Each function call returns a table of {i,j,k} and the data at that position.");
 		return 3;
 	}
-	
+
 	if(func == l_getdiff)
 	{
 		lua_pushstring(L, "Compute the absolute difference between the current *SpinSystem* and a given *SpinSystem*. dx = Sum( |x[i] - other:x[i]|)");
@@ -2726,7 +2847,7 @@ int SpinSystem::help(lua_State* L)
 	
 	if(func == l_getslotused)
 	{
-		lua_pushstring(L, "Deternime if an internal field slot has been set");
+		lua_pushstring(L, "Determine if an internal field slot has been set");
 		lua_pushstring(L, "1 String: A field name");
 		lua_pushstring(L, "1 Boolean: The return value");
 		return 3;
@@ -2736,6 +2857,13 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "Set an internal variable. If true this field type will be added in the sum fields method.");
 		lua_pushstring(L, "1 String, 0 or 1 Boolean: A field name and a flag to include or exclude the field in the summation method. Default value is true");
 		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == l_registeredSlots)
+	{
+		lua_pushstring(L, "Get all the slot names registered with this SpinSystem.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Table of Strings: Slot names registered with this SpinSystem");
 		return 3;
 	}
 #if 0
@@ -2804,7 +2932,6 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "1 Number: Value");
 		return 3;
 	}	
-	
 
 	if(func == l_invalidatefourierdata)
 	{
@@ -2813,22 +2940,6 @@ int SpinSystem::help(lua_State* L)
 						  "and modified, when the SpinSystem isn't aware of changes. This function help to deal with those extreme cases");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "");
-		return 3;
-	}
-	
-	if(func == l_setspin_tpr)
-	{
-		lua_pushstring(L, "Set the orientation and magnitude of a spin at a site using spherical coodinates. Note, the theta and phi follow math conventions, not physics conventions. Theta is the azimuthal angle renging from 0 to 2pi, Phi is the zenith angle ranging from 0 to pi.");
-		lua_pushstring(L, "2 *3Vector*s: The first argument represents a lattice site. The second represents the spin vector in spherical coordinates.");
-		lua_pushstring(L, "");
-		return 3;
-	}
-	
-	if(func == l_getspin_tpr)
-	{
-		lua_pushstring(L, "Get the orientation and magnitude of a spin at a site using spherical coodinates. Note, the theta and phi follow math conventions, not physics conventions. Theta is the azimuthal angle renging from 0 to 2pi, Phi is the zenith angle ranging from 0 to pi.");
-		lua_pushstring(L, "1 *3Vector*: The lattice site.");
-		lua_pushstring(L, "3 Numbers: The azimutal, zenith and radial components.");
 		return 3;
 	}
 
@@ -2852,10 +2963,8 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"eachSite",     l_siteiterator},
 		{"setSpin",      l_setspin},
 		{"spin"   ,      l_getspin},
-
 		{"setSpinTPR",      l_setspin_tpr},
 		{"spinTPR"   ,      l_getspin_tpr},
-
 		{"unitSpin",     l_getunitspin},
 		{"nx",           l_nx},
 		{"ny",           l_ny},
@@ -2909,7 +3018,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"slotUsed", l_getslotused},
 		{"setSlotUsed", l_setslotused},
 
-				// new site a, g
+		// new site a, g
 		{"setSiteAlphaArray", l_setsitealphaarray},
 		{"setSiteGammaArray", l_setsitegammaarray},
 		{"siteAlphaArray",    l_getsitealphaarray},
@@ -2919,6 +3028,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"siteAlpha",         l_getsitealpha},
 		{"siteGamma",         l_getsitegamma},
 		
+		{"registeredSlots", l_registeredSlots},
 		
 		{"invalidateFourierData", l_invalidatefourierdata},
 		{NULL, NULL}

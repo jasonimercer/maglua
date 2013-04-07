@@ -477,7 +477,7 @@ public:
 	T mean()
 	{
 		T v;
-		reduceSumAll(_data, nxyz, v);
+		reducePowerSumAll(_data, 1.0, nxyz, v);
 		return v / T(nxyz);
 	}
 	T min(int& idx)
@@ -487,11 +487,11 @@ public:
 		return v;
 	}
 
-	T sum()
+	T sum(double power=1.0)
 	{
 		sync_hd(); 
 		T v;
-		reduceSumAll(_data, nxyz, v);
+		reducePowerSumAll(_data, power, nxyz, v);
 		return v;
 	}
 

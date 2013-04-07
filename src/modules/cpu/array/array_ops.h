@@ -71,11 +71,11 @@ ARRAY_API void arraySumAll(   int* d_dest,    const int* d_src1,    const int* d
 ARRAY_API void arraySumAll(doubleComplex* d_dest, const doubleComplex* d_src1, const doubleComplex* d_src2, const int n);
 ARRAY_API void arraySumAll( floatComplex* d_dest,  const floatComplex* d_src1,  const floatComplex* d_src2, const int n);
 
-ARRAY_API void reduceSumAll(const double* d, const int n, double& v);
-ARRAY_API void reduceSumAll(const  float* d, const int n, float& v);
-ARRAY_API void reduceSumAll(const    int* d, const int n, int& v);
-ARRAY_API void reduceSumAll(const doubleComplex* d, const int n, doubleComplex& v);
-ARRAY_API void reduceSumAll(const  floatComplex* d, const int n, floatComplex& v);
+ARRAY_API void reducePowerSumAll(const double* d, const double p, const int n, double& v);
+ARRAY_API void reducePowerSumAll(const  float* d, const double p, const int n, float& v);
+ARRAY_API void reducePowerSumAll(const    int* d, const double p, const int n, int& v);
+ARRAY_API void reducePowerSumAll(const doubleComplex* d, const double p, const int n, doubleComplex& v);
+ARRAY_API void reducePowerSumAll(const  floatComplex* d, const double p, const int n, floatComplex& v);
 
 ARRAY_API void arrayNormAll(double* d_dest, double* d_src1, const int n);
 ARRAY_API void arrayNormAll(float* d_dest, float* d_src1, const int n);

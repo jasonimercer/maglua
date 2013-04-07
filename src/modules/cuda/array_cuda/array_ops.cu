@@ -384,7 +384,7 @@ void arrayNormAll(floatComplex* d_dest, floatComplex* d_src1, const int n)
 
 
 template <unsigned int blockSize, typename T>
-__global__ void reduceSumAll__(T *g_odata, const T *g_idata, unsigned int n)
+__global__ void reducePowerSumAll__(T *g_odata, const T *g_idata, double p, unsigned int n)
 {
 	__shared__ T sdata[blockSize];
 
@@ -399,7 +399,12 @@ __global__ void reduceSumAll__(T *g_odata, const T *g_idata, unsigned int n)
 	for(int j=0; j<blockSize; j++)
 	{
 		const int k = base + j*blockSize + tid;
-		if(k < n) plus_equal<T>(mysum, g_idata[k]);
+		if(k < n) 
+		{
+			T res;
+			powT(g_idata[k], p, res);
+			plus_equal<T>(mysum, res);
+		}
 	}
 	sdata[tid] = mysum;
 	__syncthreads();
@@ -418,7 +423,7 @@ __global__ void reduceSumAll__(T *g_odata, const T *g_idata, unsigned int n)
 
 #define BS 64
 template<typename T>
-T reduceSumAll_(const T* d_v, const int n)
+T reducePowerSumAll_(const T* d_v, double p, const int n)
 {
 	const int work = BS*BS;
 	const int blocks = 1 + n / work;
@@ -429,7 +434,7 @@ T reduceSumAll_(const T* d_v, const int n)
 
 	malloc_dh(&d_ws1,&h_ws1, sizeof(T)*n);
 
-	reduceSumAll__<BS><<<blocks, threads>>>(d_ws1, d_v, n);
+	reducePowerSumAll__<BS><<<blocks, threads>>>(d_ws1, d_v, p, n);
 	KCHECK
 
 	memcpy_d2h(h_ws1, d_ws1, sizeof(T)*blocks);
@@ -444,25 +449,25 @@ T reduceSumAll_(const T* d_v, const int n)
 	return res;
 }
 #undef BS
-void reduceSumAll(const double* a, const int n, double& v)
+void reducePowerSumAll(const double* a, double p, const int n, double& v)
 {
-	v = reduceSumAll_<double>(a, n);
+	v = reducePowerSumAll_<double>(a, p, n);
 }
-void reduceSumAll(const float* a, const int n, float& v)
+void reducePowerSumAll(const float* a, double p, const int n, float& v)
 {
-	v = reduceSumAll_<float>(a, n);
+	v = reducePowerSumAll_<float>(a, p, n);
 }
-void reduceSumAll(const int* a, const int n, int& v)
+void reducePowerSumAll(const int* a, double p, const int n, int& v)
 {
-	v = reduceSumAll_<int>(a, n);
+	v = reducePowerSumAll_<int>(a, p, n);
 }
-void reduceSumAll(const doubleComplex* a, const int n, doubleComplex& v)
+void reducePowerSumAll(const doubleComplex* a, double p, const int n, doubleComplex& v)
 {
-	v = reduceSumAll_<doubleComplex>(a, n);
+	v = reducePowerSumAll_<doubleComplex>(a, p, n);
 }
-void reduceSumAll(const floatComplex* a, const int n, floatComplex& v)
+void reducePowerSumAll(const floatComplex* a, double p, const int n, floatComplex& v)
 {
-	v = reduceSumAll_<floatComplex>(a, n);
+	v = reducePowerSumAll_<floatComplex>(a, p, n);
 }
 
 

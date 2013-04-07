@@ -504,7 +504,7 @@ public:
 	T mean()
 	{
 		T v;
-		reduceSumAll(ddata(), nxyz, v);
+		reducePowerSumAll(ddata(), 1.0, nxyz, v);
 		divide_real<T>(v, v, nxyz);
 		return v;
 	}
@@ -515,11 +515,11 @@ public:
 		return v;
 	}
 
-	T sum()
+	T sum(double p=1.0)
 	{
 		sync_hd(); 
 		T v;
-		reduceSumAll(ddata(), nxyz, v);
+		reducePowerSumAll(ddata(), p, nxyz, v);
 		return v;
 	}
 

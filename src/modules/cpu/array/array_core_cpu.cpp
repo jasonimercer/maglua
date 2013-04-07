@@ -232,7 +232,10 @@ template<typename T>
 static int l_sum(lua_State* L)
 {
 	LUA_PREAMBLE(Array<T>, a, 1);
-	T t = a->sum();
+	double p = 1;
+	if(lua_isnumber(L, 2))
+		p = lua_tonumber(L, 2);
+	T t = a->sum(p);
 	luaT<T>::push(L, t);
 	return luaT<T>::elements();
 }
@@ -592,8 +595,8 @@ static int Array_help(lua_State* L)
 	lua_CFunction f15 = l_sum<T>;
 	if(func == f15)
 	{
-		lua_pushstring(L, "Find sum of array");
-		lua_pushstring(L, "");
+		lua_pushstring(L, "Calculate sum of array");
+		lua_pushstring(L, "1 optional Number: The power each element will be raised to before summing. Default = 1.");
 		lua_pushstring(L, "1 value");
 		return 3;
 	}
@@ -601,7 +604,7 @@ static int Array_help(lua_State* L)
 	if(func == f16)
 	{
 		lua_pushstring(L, "Scale all values in the array by the given value");
-		lua_pushstring(L, "1 Value: The scaling factor");
+		lua_pushstring(L, "1 Value: The scaling factor.");
 		lua_pushstring(L, "");
 		return 3;
 	}

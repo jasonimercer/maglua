@@ -24,7 +24,13 @@
 
 using namespace std;
 
-class CORE_API SpinSystem : public LuaBaseObject
+#ifdef CUDA_VERSION
+#define EXPORT_API CORECUDA_API
+#else
+#define EXPORT_API CORE_API
+#endif
+
+class EXPORT_API SpinSystem : public LuaBaseObject
 {
 public:
 	SpinSystem(const int nx=32, const int ny=32, const int nz=32);
@@ -125,12 +131,8 @@ private:
 	void deinit();
 
 	dcArray* ws;
+	dcArray* ws2;
+	dArray* wsReal;
 };
-
-// CORE_API SpinSystem* checkSpinSystem(lua_State* L, int idx);
-// CORE_API SpinSystem* lua_toSpinSystem(lua_State* L, int idx);
-// CORE_API int lua_isSpinSystem(lua_State* L, int idx);
-// CORE_API void lua_pushSpinSystem(lua_State* L, LuaBaseObject* ss);
-// CORE_API void registerSpinSystem(lua_State* L);
 
 #endif

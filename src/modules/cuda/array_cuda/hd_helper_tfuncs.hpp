@@ -37,6 +37,42 @@ __host__ __device__ inline void plus_equal<doubleComplex>(doubleComplex& lhs, co
 	lhs = cuCadd(lhs, rhs);
 }
 
+template<typename T>
+__host__ __device__ inline T zero()
+{
+	return 0;
+}
+template<>
+__host__ __device__ inline floatComplex zero<floatComplex>()
+{
+	return make_cuFloatComplex(0.0,0.0);
+}
+template<>
+__host__ __device__ inline doubleComplex zero<doubleComplex>()
+{
+	return make_cuDoubleComplex(0.0,0.0);
+}
+
+
+template<typename T>
+__host__ __device__ inline void powT(const T b, const double e, T& res)
+{
+	res = pow((double)b, (double)e);
+}
+template<>
+__host__ __device__ inline void powT(const floatComplex b, const double e, floatComplex& res)
+{
+	res = zero<floatComplex>(); //unimplemented
+	// res = pow(b, e);
+}
+template<>
+__host__ __device__ inline void powT(const doubleComplex b, const double e, doubleComplex& res)
+{
+	res = zero<doubleComplex>(); //unimplemented
+	// res = pow(b, e);
+}
+
+
 
 template<typename T>
 __host__ __device__ inline void times_equal(T& lhs, const T& rhs)
@@ -55,21 +91,6 @@ __device__ inline void times_equal<doubleComplex>(doubleComplex& lhs, const doub
 }
 
 
-template<typename T>
-__host__ __device__ inline T zero()
-{
-	return 0;
-}
-template<>
-__host__ __device__ inline floatComplex zero<floatComplex>()
-{
-	return make_cuFloatComplex(0.0,0.0);
-}
-template<>
-__host__ __device__ inline doubleComplex zero<doubleComplex>()
-{
-	return make_cuDoubleComplex(0.0,0.0);
-}
 
 
 template<typename T>

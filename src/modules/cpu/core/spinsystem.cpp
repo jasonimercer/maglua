@@ -194,28 +194,56 @@ static void rotateSpinToward(double& x, double& y, double& z, const double l1, c
 
 void SpinSystem::rotateToward(SpinSystem* other, double max_angle, dArray* max_by_site)
 {
-	if(!sameSize(other))
-		return;
+    if(!sameSize(other))
+        return;
 
-	if(max_by_site == 0)
-	{
-		for(int idx=0; idx<nxyz; idx++)
-		{
-			rotateSpinToward((*x) [idx], (*y) [idx], (*z) [idx], (*ms) [idx],
-							 (*other->x)[idx], (*other->y)[idx], (*other->z)[idx], (*other->ms)[idx],
-							 max_angle);
-		}
-	}
-	else
-	{
-		for(int idx=0; idx<nxyz; idx++)
-		{
-			rotateSpinToward((*x) [idx], (*y) [idx], (*z) [idx], (*ms) [idx],
-							 (*other->x)[idx], (*other->y)[idx], (*other->z)[idx], (*other->ms)[idx],
-							 (*max_by_site)[idx]);
-		}
-	}
+    if(max_by_site == 0)
+    {
+        double* xx = x->data();
+        double* yy = y->data();
+        double* zz = z->data();
+        double* mm = ms->data();
+
+        double* ox = other->x->data();
+        double* oy = other->y->data();
+        double* oz = other->z->data();
+        double* om = other->ms->data();
+        for(int idx=0; idx<nxyz; idx++)
+        {
+            rotateSpinToward(xx[idx], yy[idx], zz[idx], mm[idx],
+                             ox[idx], oy[idx], oz[idx], om[idx],
+                             max_angle);
+        }
+
+    }
+    else
+    {
+        double* xx = x->data();
+        double* yy = y->data();
+        double* zz = z->data();
+        double* mm = ms->data();
+        double* max = max_by_site->data();
+
+        double* ox = other->x->data();
+        double* oy = other->y->data();
+        double* oz = other->z->data();
+        double* om = other->ms->data();
+        for(int idx=0; idx<nxyz; idx++)
+        {
+            rotateSpinToward(xx[idx], yy[idx], zz[idx], mm[idx],
+                             ox[idx], oy[idx], oz[idx], om[idx],
+                             max[idx]);
+        }
+    }
+
+#ifdef CUDA_VERSION
+	x->new_host = true;
+	y->new_host = true;
+	z->new_host = true;
+	ms->new_host = true;
+#endif
 }
+
 
 void SpinSystem::moveToward(SpinSystem* other, double r)
 {
@@ -240,6 +268,13 @@ void SpinSystem::moveToward(SpinSystem* other, double r)
 		(*y)[i] *= scale_to_fix;
 		(*z)[i] *= scale_to_fix;
 	}
+
+#ifdef CUDA_VERSION
+	x->new_host = true;
+	y->new_host = true;
+	z->new_host = true;
+	ms->new_host = true;
+#endif
 }
 
 	
@@ -422,7 +457,7 @@ void SpinSystem::deinit()
 		registered_slot_names = 0;
 		
 		ws = 0;
-		
+		wsReal = 0;
 		
 		luaT_dec<dcArray>(qx);
 		luaT_dec<dcArray>(qy);
@@ -482,7 +517,8 @@ void SpinSystem::init()
 	
 // 	ws = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
-	ws = getWSdcArray(nx,ny,nz,hash32("SpinSystem_FFT_Help"));
+	ws     = getWSdcArray(nx,ny,nz,hash32("SpinSystem_FFT_Help"));
+	wsReal = getWSdArray(nx,ny,nz,hash32("SpinSystem_Real_WS"));
 
 	
 	qx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
@@ -1008,10 +1044,10 @@ int  SpinSystem::getidx(const int px, const int py, const int pz) const
 
 // return numspins * {<x>, <y>, <z>, <M>, <x^2>, <y^2>, <z^2>, <M^2>}
 
-void SpinSystem::getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* site_scale3, double* v8, const double m)
+void SpinSystem::getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* site_scale3, double* v, const double m)
 {
 	for(int i=0; i<8; i++)
-		v8[i] = 0;
+		v[i] = 0;
 
 	if(site_scale1)
 		if(site_scale1->nxyz != nxyz)
@@ -1023,22 +1059,29 @@ void SpinSystem::getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* sit
 		if(site_scale3->nxyz != nxyz)
 			return;
 
-	for(int i=0; i<nxyz; i++)
-	{
-		double d = m;
-		if(site_scale1) d *= (*site_scale1)[i];
-		if(site_scale2) d *= (*site_scale2)[i];
-		if(site_scale3) d *= (*site_scale3)[i];
 
-		v8[0] += (*x)[i] * d;
-		v8[4] += (*x)[i] * (*x)[i] * d * d;
-		v8[1] += (*y)[i] * d;
-		v8[5] += (*y)[i] * (*y)[i] * d * d;
-		v8[2] += (*z)[i] * d;
-		v8[6] += (*z)[i] * (*z)[i] * d * d;
+	dArray* xyz[3];
+	xyz[0] = x;
+	xyz[1] = y;
+	xyz[2] = z;
+
+	for(int i=0; i<3; i++)
+	{
+		wsReal->copyFrom(xyz[i]);
+
+		if(site_scale1)
+			dArray::pairwiseMult(wsReal, wsReal, site_scale1);
+		if(site_scale2)
+			dArray::pairwiseMult(wsReal, wsReal, site_scale2);
+		if(site_scale3)
+			dArray::pairwiseMult(wsReal, wsReal, site_scale3);
+
+		v[i  ] = wsReal->sum(1.0) * m;
+		v[i+4] = wsReal->sum(2.0) * m;
 	}
-	v8[3] = sqrt(v8[0]*v8[0] + v8[1]*v8[1] + v8[2]*v8[2]);
-	v8[7] = sqrt(v8[4]*v8[4] + v8[5]*v8[5] + v8[6]*v8[6]);	
+
+	v[3] = sqrt(v[0]*v[0] + v[1]*v[1] * v[2]*v[2]);
+	v[7] = sqrt(v[4]*v[4] + v[5]*v[5] * v[6]*v[6]);
 }
 
 
@@ -2396,7 +2439,7 @@ int SpinSystem::help(lua_State* L)
 	{
 		lua_pushstring(L, "Calculate and return net magnetization of a spin system");
 		lua_pushstring(L, "Up to 3 Optional Array.Double, 1 Optional Number: The optional double arrays scale each site by the product of their values, the optional number scales all sites by a single number. A combination of arrays and a single value can be supplied.");
-		lua_pushstring(L, "8 numbers: mean(x), mean(y), mean(z), mean(M), mean(xx), mean(yy), mean(zz), mean(MM)");
+		lua_pushstring(L, "8 numbers: mean(x), mean(y), mean(z), vector length of {x,y,z}, mean(x^2), mean(y^2), mean(z^2), length of {x^2, y^2, z^2}");
 		return 3;
 	}
 	

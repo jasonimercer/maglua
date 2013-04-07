@@ -75,11 +75,12 @@ ARRAY_CUDA_API void arraySumAll(   int* d_dest,    const int* d_src1,    const i
 ARRAY_CUDA_API void arraySumAll(doubleComplex* d_dest, const doubleComplex* d_src1, const doubleComplex* d_src2, const int n);
 ARRAY_CUDA_API void arraySumAll( floatComplex* d_dest,  const floatComplex* d_src1,  const floatComplex* d_src2, const int n);
 
-ARRAY_CUDA_API void reduceSumAll(const double* d, const int n, double& v);
-ARRAY_CUDA_API void reduceSumAll(const  float* d, const int n, float& v);
-ARRAY_CUDA_API void reduceSumAll(const    int* d, const int n, int& v);
-ARRAY_CUDA_API void reduceSumAll(const doubleComplex* d, const int n, doubleComplex& v);
-ARRAY_CUDA_API void reduceSumAll(const  floatComplex* d, const int n, floatComplex& v);
+ARRAY_CUDA_API void reducePowerSumAll(const double* d_a, double p, const int n, double& v);
+ARRAY_CUDA_API void reducePowerSumAll(const  float* d_a, double p, const int n, float& v);
+ARRAY_CUDA_API void reducePowerSumAll(const    int* d_a, double p, const int n, int& v);
+ARRAY_CUDA_API void reducePowerSumAll(const doubleComplex* d_a, double p, const int n, doubleComplex& v);
+ARRAY_CUDA_API void reducePowerSumAll(const floatComplex* d_a, double p, const int n, floatComplex& v);
+
 
 ARRAY_CUDA_API void arrayNormAll(double* d_dest, double* d_src1, const int n);
 ARRAY_CUDA_API void arrayNormAll(float* d_dest, float* d_src1, const int n);
@@ -196,13 +197,6 @@ void arrayAddAll(float* d_a, const float& v, const int n);
 void arrayAddAll(int* d_a, const int& v, const int n);
 void arrayAddAll(doubleComplex* d_a, const doubleComplex& v, const int n);
 void arrayAddAll(floatComplex* d_a, const floatComplex& v, const int n);
-
-
-void reduceSumAll(double* d_a, const int n, double& v);
-void reduceSumAll(float* d_a, const int n, float& v);
-void reduceSumAll(int* d_a, const int n, int& v);
-void reduceSumAll(doubleComplex* d_a, const int n, doubleComplex& v);
-void reduceSumAll(floatComplex* d_a, const int n, floatComplex& v);
 
 void reduceDiffSumAll(const double* d_a, const double* d_b, const int n, double& v);
 void reduceDiffSumAll(const float* d_a, const float* d_b, const int n, float& v);

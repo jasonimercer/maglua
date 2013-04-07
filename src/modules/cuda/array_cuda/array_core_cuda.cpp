@@ -131,7 +131,10 @@ template<typename T>
 static int l_sum(lua_State* L)
 {
 	LUA_PREAMBLE(Array<T>, a, 1);
-	T t = a->sum();
+	double p = 1.0;
+	if(lua_isnumber(L, 2))
+		p = lua_tonumber(L, 2);
+	T t = a->sum(p);
 	luaT<T>::push(L, t);
 	return luaT<T>::elements();
 }

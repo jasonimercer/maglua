@@ -73,7 +73,8 @@ function write_help(file_handle)
 	<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 	<html>
 	<head>
-	<style media="screen" type="text/css">
+	<style media="screen,print" type="text/css">
+	
 	body {
 		color: #000000 ;
 		background-color: #FFFFFF ;
@@ -84,6 +85,7 @@ function write_help(file_handle)
 	}
 
 	pre {
+		-webkit-print-color-adjust: exact; 
 		padding: 5px;
 		background-color: #eeffcc;
 		color: #333333;
@@ -96,6 +98,7 @@ function write_help(file_handle)
 
 	h1,h2
 	{
+		-webkit-print-color-adjust: exact; 
 		color: #FFFFFF;
 		font-weight: normal;
 		padding-top: 0.4em ;
@@ -108,6 +111,7 @@ function write_help(file_handle)
 
 	h3,h4,h5,h6
 	{
+		-webkit-print-color-adjust: exact; 
 		font-family: sans-serif;
 		background-color: #f2f2f2;
 		font-weight:bold;

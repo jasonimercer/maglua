@@ -13,13 +13,13 @@
 #ifndef SPINOPERATION
 #define SPINOPERATION
 
-#define SUM_SLOT          0
-#define EXCHANGE_SLOT     1
-#define APPLIEDFIELD_SLOT 2
-#define ANISOTROPY_SLOT   3
-#define THERMAL_SLOT      4
-#define DIPOLE_SLOT       5
-#define NSLOTS            6
+// #define SUM_SLOT          0
+// #define EXCHANGE_SLOT     1
+// #define APPLIEDFIELD_SLOT 2
+// #define ANISOTROPY_SLOT   3
+// #define THERMAL_SLOT      4
+// #define DIPOLE_SLOT       5
+// #define NSLOTS            6
 
 //#include <omp.h>
 #include "maglua.h"
