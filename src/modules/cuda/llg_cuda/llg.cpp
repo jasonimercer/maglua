@@ -12,6 +12,7 @@
 
 #include "llg.h"
 #include "spinsystem.h"
+#include "spinoperation.h"
 
 LLG::LLG(int encode_type)
 : LuaBaseObject(encode_type), disableRenormalization(false)
@@ -55,136 +56,6 @@ int  LLG::decode(buffer* b)
 	return 0;
 }
 
-void LLG::getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss)
-{
-	int initial_size = lua_gettop(L);
-	
-	if(pos < 0)
-	{
-		pos = initial_size + pos + 1;
-	}
-	if(lua_istable(L, pos))
-	{
-		if(lua_istable(L, pos))
-		{
-			lua_pushnil(L);
-			while(lua_next(L, pos))
-			{
-				SpinSystem* ss = luaT_to<SpinSystem>(L, -1);
-				if(ss)
-					sss.push_back(ss);
-				lua_pop(L, 1);
-			}
-		}
-	}
-	else
-	{
-		if(luaT_is<SpinSystem>(L, pos))
-		{
-			sss.push_back(luaT_to<SpinSystem>(L, pos));
-		}
-	}
-
-	
-	while(lua_gettop(L) > initial_size)
-		lua_pop(L, 1);
-}
-
-
-
-double*  LLG::getVectorOfValues(SpinSystem** sss, int n, const char* tag, const char _data, const double scale)
-{
-	double *d_v, *h_v;
-	const char data = _data | 0x20; // make data lower case
-
-    getWSMemD(&d_v, sizeof(double)*n, hash32(tag));
-    getWSMemH(&h_v, sizeof(double)*n, hash32(tag));
-	
-	switch(data)
-	{
-	case 'a':
-		for(int i=0; i<n; i++)
-			h_v[i] = sss[i]->alpha;
-		break;
-	case 'g':
-		for(int i=0; i<n; i++)
-			h_v[i] = sss[i]->gamma;
-		break;
-	case 'd':
-		for(int i=0; i<n; i++)
-			h_v[i] = sss[i]->dt;
-		break;
-	default:
-		fprintf(stderr, "(%s:%i) don't know what to do with %c\n", __FILE__, __LINE__, _data);
-	}
-	
-	for(int i=0; i<n; i++)
-	{
-		h_v[i] *= scale;
-	}
-	
-	memcpy_h2d(d_v, h_v, sizeof(double)*n);
-	return d_v;
-}
-
-double** LLG::getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char _data, const char _component, const int field)
-{
-	double **d_v, **h_v;
-
-	char data = _data | 0x20; // make data lower case
-	char component = _component | 0x20; // make component lower case
-
-    getWSMemD(&d_v, sizeof(double*)*n, hash32(tag));
-    getWSMemH(&h_v, sizeof(double*)*n, hash32(tag));
-
-	switch(data)
-	{
-	case 'h':
-		for(int i=0; i<n; i++)
-		{
-			if(component == 'x') h_v[i] = sss[i]->hx[field]->ddata();
-			if(component == 'y') h_v[i] = sss[i]->hy[field]->ddata();
-			if(component == 'z') h_v[i] = sss[i]->hz[field]->ddata();
-		}
-		break;
-	case 's':
-		for(int i=0; i<n; i++)
-		{
-			if(component == 'x') h_v[i] = sss[i]->x->ddata();
-			if(component == 'y') h_v[i] = sss[i]->y->ddata();
-			if(component == 'z') h_v[i] = sss[i]->z->ddata();
-			if(component == 'm') h_v[i] = sss[i]->ms->ddata();
-		}
-		break;
-	case 'a':
-		for(int i=0; i<n; i++)
-		{
-			if(sss[i]->site_alpha)
-				h_v[i] = sss[i]->site_alpha->ddata();
-			else
-				h_v[i] = 0;
-		}
-		break;
-	case 'g':
-		for(int i=0; i<n; i++)
-		{
-			if(sss[i]->site_gamma)
-				h_v[i] = sss[i]->site_gamma->ddata();
-			else
-				h_v[i] = 0;
-		}
-		break;
-	default:
-		fprintf(stderr, "(%s:%i) don't know what to do with %c\n", __FILE__, __LINE__, _data);
-	}
-	
-	memcpy_h2d(d_v, h_v, sizeof(double*)*n);
-
-	return d_v;
-}
-
-
-
 
 
 // 
@@ -226,7 +97,7 @@ static int l_apply(lua_State* L)
 
 	ss[0] = &v1;
 
-	llg->getSpinSystemsAtPosition(L, sys1_pos, *ss[0]);
+	SpinOperation::getSpinSystemsAtPosition(L, sys1_pos, *ss[0]);
 	
 // 	ss[0] = luaT_to<SpinSystem>(L, sys1_pos);
 	ss[1] = ss[0];
@@ -236,13 +107,13 @@ static int l_apply(lua_State* L)
 	if(luaT_is<SpinSystem>(L, sys2_pos+0) || lua_istable(L, sys2_pos+0))
 	{
 		ss[1] = &v2;
-		llg->getSpinSystemsAtPosition(L, sys2_pos+0, *ss[1]);
+		SpinOperation::getSpinSystemsAtPosition(L, sys2_pos+0, *ss[1]);
 	}
 
 	if(luaT_is<SpinSystem>(L, sys2_pos+1) || lua_istable(L, sys2_pos+1))
 	{
 		ss[2] = &v3;
-		llg->getSpinSystemsAtPosition(L, sys2_pos+1, *ss[2]);
+		SpinOperation::getSpinSystemsAtPosition(L, sys2_pos+1, *ss[2]);
 	}
 
 	if(ss[0]->size() != ss[1]->size() || ss[1]->size() != ss[2]->size())

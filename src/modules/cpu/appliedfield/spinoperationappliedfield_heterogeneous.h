@@ -10,58 +10,35 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
-#ifndef SPINOPERATIONTHERMAL
-#define SPINOPERATIONTHERMAL
+#ifndef SPINOPERATIONAPPLIEDFIELD_HETERO
+#define SPINOPERATIONAPPLIEDFIELD_HETERO
 
 #include "spinoperation.h"
 #include "array.h"
-#include <stdint.h>
 
-#ifdef WIN32
- #define strcasecmp(A,B) _stricmp(A,B)
- #define strncasecmp(A,B,C) _strnicmp(A,B,C)
- #pragma warning(disable: 4251)
 
- #ifdef THERMALCUDA_EXPORTS
-  #define THERMALCUDA_API __declspec(dllexport)
- #else
-  #define THERMALCUDA_API __declspec(dllimport)
- #endif
-#else
- #define THERMALCUDA_API 
-#endif
-
-class RNG;
-
-class THERMALCUDA_API Thermal : public SpinOperation
+class AppliedField_Heterogeneous : public SpinOperation
 {
 public:
-	Thermal(int nx=32, int ny=32, int nz=1);
-	virtual ~Thermal();
-
-	LINEAGE2("Thermal", "SpinOperation")
-    static const luaL_Reg* luaMethods();
+	AppliedField_Heterogeneous(int nx=32, int ny=32, int nz=1);
+	virtual ~AppliedField_Heterogeneous();
+	
+	LINEAGE2("AppliedField.Heterogeneous", "SpinOperation")
+	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
-
-	virtual const char* getSlotName() {return "Thermal";}
-
-	bool apply(SpinSystem* ss, RNG* rand);
-	bool apply(SpinSystem* ss) {return apply(ss, 0);}
 	
-	void scaleSite(int px, int py, int pz, double strength);
+	virtual const char* getSlotName() {return "Zeeman_Heterogeneous";}
 
-	double temperature;
-	dArray* scale;
+	bool apply(SpinSystem* ss);
+	bool apply(SpinSystem** ss, int n);
+
+	dArray* hx;
+	dArray* hy;
+	dArray* hz;
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
-	
-	RNG* myRNG;
-
-	void init();
-	void deinit();
 };
-
 
 #endif

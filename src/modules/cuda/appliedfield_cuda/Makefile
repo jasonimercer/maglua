@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationappliedfield.o spinoperationappliedfield.cuo
+OBJECTS=appliedfield_luafuncs.lo spinoperationappliedfield.o spinoperationappliedfield.cuo
 LIBNAME=AppliedFieldCuda
 CATEGORY=cuda
 
@@ -20,3 +20,4 @@ EXTRALIBS=-lcudart -lcuda
 include $(BASEDIR)/makefile.common.cpu
 include $(BASEDIR)/makefile.common.gpu
 
+EXTRA_CLEAN=appliedfield_luafuncs.cpp appliedfield_luafuncs.h

@@ -46,6 +46,7 @@ local function apply(a, ss)
 		end
 		return
 	end
+	ss:ensureSlotExists(a:slotName())
 	local name = a:slotName()
 	local scale = a:scale()
 	ss:fieldArrayX(name):setAll(a:x() * scale)

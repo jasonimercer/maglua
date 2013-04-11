@@ -21,7 +21,7 @@
 #include "spinoperationthermal.hpp"
 
 Thermal::Thermal(int nx, int ny, int nz)
-	: SpinOperation(Thermal::typeName(), THERMAL_SLOT, nx, ny, nz, hash32(Thermal::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(Thermal::typeName()))
 {
  	registerWS();
 	scale = 0;
@@ -110,62 +110,6 @@ Thermal::~Thermal()
 	unregisterWS();
 }
 
-bool Thermal::applyToSum(SpinSystem* ss, RNG* rng)
-{
-	HybridTaus* ht = dynamic_cast<HybridTaus*>(myRNG);
-
-	if(rng)
-		ht = dynamic_cast<HybridTaus*>(rng);
-
-	if(!ht)
-	{
-		errormsg = "CUDA Thermal calculations require a GPU based Random Number Generator (HybrisTaus)";
-		return false;
-	}
-
-	ss->ensureSlotExists(slot);
-
-	int twiddle = 0;
-	float* d_rngs = ht->get6Normals(nx,ny,nz,twiddle);
-
-	double* d_wsx;
-	double* d_wsy;
-	double* d_wsz;
-	
-	const int sz = sizeof(double)*nxyz;
-	getWSMemD(&d_wsx, sz, hash32("SpinOperation::apply_1"));
-	getWSMemD(&d_wsy, sz, hash32("SpinOperation::apply_2"));
-	getWSMemD(&d_wsz, sz, hash32("SpinOperation::apply_3"));
-	
-	const double alpha = ss->alpha;
-	const double dt    = ss->dt;
-	const double gamma = ss->gamma;
-	
-	const double* d_gamma = ss->site_gamma?(ss->site_gamma->ddata()):0;
-	const double* d_alpha = ss->site_alpha?(ss->site_alpha->ddata()):0;
-
-	cuda_thermal(d_rngs, twiddle, 
-		temperature * global_scale,
-		d_wsx, d_wsy, d_wsz, ss->ms->ddata(),
-		scale->ddata(),
-		nx*ny*nz,
-		dt, alpha, d_alpha, gamma, d_gamma);
-
-
-	const int nxyz = nx*ny*nz;
-	arraySumAll(ss->hx[SUM_SLOT]->ddata(), ss->hx[SUM_SLOT]->ddata(), d_wsx, nxyz);
-	arraySumAll(ss->hy[SUM_SLOT]->ddata(), ss->hy[SUM_SLOT]->ddata(), d_wsy, nxyz);
-	arraySumAll(ss->hz[SUM_SLOT]->ddata(), ss->hz[SUM_SLOT]->ddata(), d_wsz, nxyz);
-	
-	ss->hx[SUM_SLOT]->new_device = true;
-	ss->hy[SUM_SLOT]->new_device = true;
-	ss->hz[SUM_SLOT]->new_device = true;
-	ss->slot_used[SUM_SLOT] = true;
-	
-	
-	return true;
-}
-
 bool Thermal::apply(SpinSystem* ss, RNG* rng )
 {
 	HybridTaus* ht = dynamic_cast<HybridTaus*>(myRNG);
@@ -179,8 +123,7 @@ bool Thermal::apply(SpinSystem* ss, RNG* rng )
 		return false;
 	}
 
-	ss->ensureSlotExists(slot);
-	markSlotUsed(ss);
+	int slot = markSlotUsed(ss);
 
 	//this twiddle is output in get6Normals
 	int twiddle = 0;
@@ -236,25 +179,6 @@ static int l_apply(lua_State* L)
 	else
 	{
 		if(!th->apply(ss))
-			return luaL_error(L, th->errormsg.c_str());
-	}
-	
-	return 0;
-}
-
-static int l_applytosum(lua_State* L)
-{
-	LUA_PREAMBLE(Thermal, th, 1);
-	LUA_PREAMBLE(SpinSystem, ss, 2);
-
-	if(luaT_is<RNG>(L, 3))
-	{
-		if(!th->applyToSum(ss, luaT_to<RNG>(L, 3)))
-			return luaL_error(L, th->errormsg.c_str());
-	}
-	else
-	{
-		if(!th->applyToSum (ss))
 			return luaL_error(L, th->errormsg.c_str());
 	}
 	
@@ -338,16 +262,7 @@ int Thermal::help(lua_State* L)
         return 3;
     }
 
-	if(lua_istable(L, 1))
-	{
-		return 0;
-	}
-	
-	if(!lua_iscfunction(L, 1))
-	{
-		return luaL_error(L, "help expect zero arguments or 1 function.");
-	}
-	
+
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
 	if(func == l_apply)
@@ -357,13 +272,7 @@ int Thermal::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}	
-	if(func == l_applytosum)
-	{
-		lua_pushstring(L, "Generates a the random thermal field of a *SpinSystem*");
-		lua_pushstring(L, "1 *SpinSystem*, 1 Optional *Random*: The first argument is the spin system which will receive the field. The second argument is an optional random number generator that is used as a source of random values. If no RNG is supplied the RNG supplied at object creation is used. This method applied the field directly to the total arrays. Note: The RNG must be GPU based.");
-		lua_pushstring(L, "");
-		return 3;
-	}
+
 
 	if(func == l_scalesite)
 	{
@@ -425,7 +334,6 @@ const luaL_Reg* Thermal::luaMethods()
 	static const luaL_Reg _m[] =
 	{
 		{"apply",        l_apply},
-		{"applyToSum",        l_applytosum},
 		{"scaleSite",    l_scalesite},
 		{"setTemperature", l_settemp},
 		{"set",          l_settemp},

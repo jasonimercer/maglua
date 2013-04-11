@@ -125,8 +125,15 @@ public:
 
 bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
-	dmdt->ensureSlotExists(SUM_SLOT);
-	dmdt->ensureSlotExists(THERMAL_SLOT);
+	const int SUM_SLOT = dmdt->getSlot("Total");
+	const int THERMAL_SLOT = dmdt->getSlot("Thermal");
+	
+	if(SUM_SLOT < 0) //nothing to do
+	{
+		if(advancetime)
+			spinto->time = spinfrom->time + dmdt->dt * scaledmdt;
+		return true;
+	}
 	
 	const double* sx = spinfrom->x->data();
 	const double* sy = spinfrom->y->data();
@@ -195,10 +202,19 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 				M[0]=mx[i]; M[1]=my[i]; M[2]=mz[i];
 				H[0]=hx[i]; H[1]=hy[i]; H[2]=hz[i];
 
-				h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
-				h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
-				h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
-
+				if(THERMAL_SLOT >= 0)
+				{
+					h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
+					h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
+					h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
+				}
+				else
+				{
+					h[0] = H[0];
+					h[1] = H[1];
+					h[2] = H[2];
+				}
+				
 				CROSS(Sh, M, h);
 				for(int j=0; j<3; j++)
 					H[j] += alpha * Sh[j] * inv;

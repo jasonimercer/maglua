@@ -533,7 +533,6 @@ public:
 	
 	void copyFrom(Array<T>* other)
 	{
-		sync_hd();
 		memcpy_d2d(ddata(), other->ddata(), sizeof(T)*nxyz);
 		other->new_device = true;
 		other->new_host = false;

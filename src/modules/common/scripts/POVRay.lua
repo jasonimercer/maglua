@@ -285,7 +285,7 @@ function POVRay(filename, ss, custom)
 --     {{light1x, light1y, light1z}, {light2x, light2y, light2z}, {light3...}, ...}},  
 --      optional_colour_func, draw_function )
 --  function make_povray(filename, ss, six_col)
-	custom = custom or {}
+	local custom = custom or {}
 	if type(filename) ~= "string" then
 		error("Expected a string for a filename (argument 1)", 2)
 	end
@@ -300,18 +300,19 @@ function POVRay(filename, ss, custom)
 	local draw_func = custom.draw_function or function() return nil end
 	local q, qz = 30, 20
 	
-	local lights = custom.lights or {{q,0,qz}, {0, q,qz}, {-q,0,qz}, {0,-q,qz}}
-	local scale = custom.scale or 1
+	local _POVRay_lights = custom.lights or  {{q,0,qz}, {0, q,qz}, {-q,0,qz}, {0,-q,qz}}
+	local POVRay_scale = custom.scale or 1
 	
 	local function switch_yz(t)
 		return {t[1], t[3], t[2]}
 	end
 
-	cam_pos = switch_yz(cam_pos)
-	cam_at  = switch_yz(cam_at)
+	local cam_pos = switch_yz(cam_pos)
+	local cam_at  = switch_yz(cam_at)
 
-	for k,v in pairs(lights) do
-		lights[k] = switch_yz(lights[k])
+	local POVRay_lights = {}
+	for k,v in pairs(_POVRay_lights) do
+		POVRay_lights[k] = switch_yz(v)
 	end
 
 	local pov  = io.open(filename, "w")
@@ -321,27 +322,26 @@ function POVRay(filename, ss, custom)
 	end
 	
 	local at = cam_at
-	local lightpos = lights
 	local cam = cam_pos
 	local hard_scale = 0.35
 	
-	pov:write( povprefix(cam_pos, cam_at, lights, custom.prefix) )
+	pov:write( povprefix(cam_pos, cam_at, POVRay_lights, custom.prefix) )
 
 	local pov_string = {}
 
-	if type(scale) == "number" then -- not an array
-		scale = scale * hard_scale
+	if type(POVRay_scale) == "number" then -- not an array
+		POVRay_scale = POVRay_scale * hard_scale
 		for z=1,nz do
 			for y=1,ny do
 				for x=1,nx do
 					local sx, sy, sz, mm = ss:spin(x,y,z)
 
-					if mm*scale > 1e-8 then
+					if mm*POVRay_scale > 1e-8 then
 						local xx,yy,zz = pos(x,y,z)
 						local r, g, b = color_func(sx, sy, sz) 
 						local draw_string = draw_func(ss, x,y,z, r,g,b, xx,zz,yy)
 						if draw_string == nil then
-							table.insert(pov_string, spin(sx*scale, sy*scale, sz*scale, xx,zz,yy, r, g, b)) --coord twiddle
+							table.insert(pov_string, spin(sx*POVRay_scale, sy*POVRay_scale, sz*POVRay_scale, xx,zz,yy, r, g, b)) --coord twiddle
 						else
 							table.insert(pov_string, draw_string)
 						end
@@ -352,20 +352,20 @@ function POVRay(filename, ss, custom)
 			pov_string = {}
 		end
 	else -- scale may be an array. we'll see!
-		if type(scale) == "function" then
-			local sf = scale --function
+		if type(POVRay_scale) == "function" then
+			local sf = POVRay_scale --function
 			for z=1,nz do
 				for y=1,ny do
 					for x=1,nx do
 						local sx, sy, sz, mm = ss:spin(x,y,z)
-						local scale = sf(x,y,z) * hard_scale
+						local POVRay_scale = sf(x,y,z) * hard_scale
 
-						if mm*scale > 1e-8 then
+						if mm*POVRay_scale > 1e-8 then
 							local xx,yy,zz = pos(x,y,z)
 							local r, g, b = color_func(sx, sy, sz) 
 							local draw_string = draw_func(ss, x,y,z, r,g,b, xx,zz,yy)
 							if draw_string == nil then
-								table.insert(pov_string, spin(sx*scale, sy*scale, sz*scale, xx,zz,yy, r, g, b)) --coord twiddle
+								table.insert(pov_string, spin(sx*POVRay_scale, sy*POVRay_scale, sz*POVRay_scale, xx,zz,yy, r, g, b)) --coord twiddle
 							else
 								table.insert(pov_string, draw_string)
 							end
@@ -376,19 +376,19 @@ function POVRay(filename, ss, custom)
 				pov_string = {}
 			end	
 		else
-			local sa = scale --assuming array
+			local sa = POVRay_scale --assuming array
 			for z=1,nz do
 				for y=1,ny do
 					for x=1,nx do
 						local sx, sy, sz, mm = ss:spin(x,y,z)
-						local scale = sa:get(x,y,z) * hard_scale
+						local POVRay_scale = sa:get(x,y,z) * hard_scale
 
-						if mm*scale > 1e-8 then
+						if mm*POVRay_scale > 1e-8 then
 							local xx,yy,zz = pos(x,y,z)
 							local r, g, b = color_func(sx, sy, sz) 
 							local draw_string = draw_func(ss, x,y,z, r,g,b, xx,zz,yy)
 							if draw_string == nil then
-								table.insert(pov_string, spin(sx*scale, sy*scale, sz*scale, xx,zz,yy, r, g, b)) --coord twiddle
+								table.insert(pov_string, spin(sx*POVRay_scale, sy*POVRay_scale, sz*POVRay_scale, xx,zz,yy, r, g, b)) --coord twiddle
 							else
 								table.insert(pov_string, draw_string)
 							end

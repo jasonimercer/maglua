@@ -18,7 +18,7 @@ using namespace std;
 int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);
 
 SpinOperation::SpinOperation(int NX, int NY, int NZ, int etype)
-	: LuaBaseObject(etype), nx(NX), ny(NY), nz(NZ)      
+	: LuaBaseObject(etype), nx(NX), ny(NY), nz(NZ)
 {
 	nxyz = nx * ny * nz;
 	global_scale = 1.0;
@@ -33,7 +33,7 @@ SpinOperation::~SpinOperation()
 int SpinOperation::luaInit(lua_State* L)
 {
 	LuaBaseObject::luaInit(L);
-	int n[3];
+	int n[3] = {1,1,1};
 	
 	if(luaT_is<SpinSystem>(L, 1))
 	{
@@ -46,7 +46,6 @@ int SpinOperation::luaInit(lua_State* L)
 	{
 		lua_getNint(L, 3, n, 1, 1);
 	}
-	
 	nx = n[0];
 	ny = n[1];
 	nz = n[2];
@@ -80,7 +79,6 @@ int SpinOperation::decode(buffer* b)
 	{
 		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
-
 	return 0;
 }
 
@@ -89,8 +87,12 @@ double*  SpinOperation::getVectorOfValues(SpinSystem** sss, int n, const char* t
 	double *d_v, *h_v;
 	const char data = _data | 0x20; // make data lower case
 
+#if CUDA_VERSION
     getWSMemD(&d_v, sizeof(double)*n, hash32(tag));
     getWSMemH(&h_v, sizeof(double)*n, hash32(tag));
+#else
+    getWSMem(&h_v, sizeof(double)*n, hash32(tag));
+#endif
 	
 	switch(data)
 	{
@@ -115,10 +117,16 @@ double*  SpinOperation::getVectorOfValues(SpinSystem** sss, int n, const char* t
 		h_v[i] *= scale;
 	}
 	
+#if CUDA_VERSION
 	memcpy_h2d(d_v, h_v, sizeof(double)*n);
 	return d_v;
+#else
+	return h_v;
+#endif
 }
 
+// ok, this looks strange setting h_v = ddata() but we're interested in the
+// pointers, not the values
 double** SpinOperation::getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char _data, const char _component, const int* field)
 {
 	double **d_v, **h_v;
@@ -126,17 +134,28 @@ double** SpinOperation::getVectorOfVectors(SpinSystem** sss, int n, const char* 
 	char data = _data | 0x20; // make data lower case
 	char component = _component | 0x20; // make component lower case
 
+#if CUDA_VERSION
     getWSMemD(&d_v, sizeof(double*)*n, hash32(tag));
     getWSMemH(&h_v, sizeof(double*)*n, hash32(tag));
-
+#else
+    getWSMem(&h_v, sizeof(double*)*n, hash32(tag));
+#endif
+	
 	switch(data)
 	{
 	case 'h':
 		for(int i=0; i<n; i++)
 		{
-			if(component == 'x') h_v[i] = sss[i]->hx[field[i]]->ddata();
-			if(component == 'y') h_v[i] = sss[i]->hy[field[i]]->ddata();
-			if(component == 'z') h_v[i] = sss[i]->hz[field[i]]->ddata();
+			if(field[i] >= 0)
+			{
+				if(component == 'x') h_v[i] = sss[i]->hx[field[i]]->ddata();
+				if(component == 'y') h_v[i] = sss[i]->hy[field[i]]->ddata();
+				if(component == 'z') h_v[i] = sss[i]->hz[field[i]]->ddata();
+			}
+			else
+			{
+				h_v[i] = 0;
+			}
 		}
 		break;
 	case 's':
@@ -170,9 +189,19 @@ double** SpinOperation::getVectorOfVectors(SpinSystem** sss, int n, const char* 
 		fprintf(stderr, "(%s:%i) don't know what to do with %c\n", __FILE__, __LINE__, _data);
 	}
 	
+#ifdef CUDA_VERSION
+// 	for(int i=0; i<n; i++)
+// 	{
+// 		if(field)
+// 			printf("tag(%s) data(%c) component(%c) field(%i)\n", tag, data, component, field[i]);
+// 		else
+// 			printf("tag(%s) data(%c) component(%c) field(0x00)\n", tag, data, component);
+// 	}
 	memcpy_h2d(d_v, h_v, sizeof(double*)*n);
-
 	return d_v;
+#else
+	return h_v;
+#endif
 }
 
 void SpinOperation::getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss)
@@ -210,15 +239,20 @@ void SpinOperation::getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinS
 		lua_pop(L, 1);
 }
 
-const string& SpinOperation::name()
+
+const char* SpinOperation::getSlotName()
 {
-	return operationName;
+	return 0;
 }
+
 	
-void SpinOperation::markSlotUsed(SpinSystem* ss)
+int SpinOperation::markSlotUsed(SpinSystem* ss)
 {
+	int slot = ss->register_slot_name( getSlotName() );
+
 	ss->ensureSlotExists(slot);
 	ss->slot_used[slot] = true;
+	return slot;
 }
 
 int SpinOperation::getSite(int x, int y, int z)
@@ -264,14 +298,15 @@ void SpinOperation::idx2xyz(int idx, int& x, int& y, int& z) const
 
 bool SpinOperation::apply(SpinSystem** sss, int n)
 {
-	errormsg="No multi-spinsystem apply method is defined for this operator";
-	return false;
+	for(int i=0; i<n; i++)
+	{
+		apply(sss[i]);
+	}
 }
-
 
 bool SpinOperation::apply(SpinSystem* ss)
 {
-	errormsg="No apply method is defined for this operator";
+// 	printf("(%s:%i) SpinOperation apply\n", __FILE__, __LINE__);
 	return false;
 }
 
@@ -475,6 +510,18 @@ static int l_tostring(lua_State* L)
 	return 1;
 }
 
+static int l_getslotname(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	const char* n = so->getSlotName();
+	if(n)
+		lua_pushstring(L, n);
+	else
+		lua_pushnil(L);
+	return 1;
+}
+
+		
 int SpinOperation::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -485,13 +532,22 @@ int SpinOperation::help(lua_State* L)
 		return 3;
 	}
 	
-	if(!lua_isfunction(L, 1))
-	{
-		return luaL_error(L, "(%s:%i) Help expects zero arguments or 1 function.", __FILE__, __LINE__);
-	}
+// 	if(!lua_isfunction(L, 1))
+// 	{
+// 		return luaL_error(L, "(%s:%i) Help expects zero arguments or 1 function.", __FILE__, __LINE__);
+// 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 		
+	
+	if(func == l_getslotname)
+	{
+		lua_pushstring(L, "Get the slot name for this spin operator. When asking a *SpinSystem* for the field type use this name.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 String: Slot Name");
+		return 3;
+	}
+
 	if(func == l_member)
 	{
 		lua_pushstring(L, "Test if the given site index is part of the operator");
@@ -559,6 +615,7 @@ const luaL_Reg* SpinOperation::luaMethods()
 		{"apply",        l_apply},
 		{"setScale",     l_setscale},
 		{"scale",        l_getscale},
+		{"slotName",     l_getslotname},
 		{"nx",        l_nx},
 		{"ny",        l_ny},
 		{"nz",        l_nz},

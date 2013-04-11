@@ -37,6 +37,8 @@ __global__ void llg_cart_apply_N(const int nxyz,
 	const int j = blockDim.y * blockIdx.y + threadIdx.y;
 	if(j >= n) return;
 	
+	if(dmdt_hx[j] == 0 || dmdt_hy[j] == 0 || dmdt_hz[j] == 0)
+		return;
 
 	double alpha;
 	double gamma;
@@ -47,7 +49,7 @@ __global__ void llg_cart_apply_N(const int nxyz,
 	}
 	else
 	{
-		alpha =  d_alpha[i];
+		alpha =  d_alpha[j];
 	}
 	
 	if(d_gamma_N[j])
@@ -56,7 +58,7 @@ __global__ void llg_cart_apply_N(const int nxyz,
 	}
 	else
 	{
-		gamma =  d_gamma[i];
+		gamma =  d_gamma[j];
 	}
 
 	
@@ -71,13 +73,21 @@ __global__ void llg_cart_apply_N(const int nxyz,
 		double  FirstTerm[3];
 		double  SecondTerm[3];
 	
-		
 		if(thermal_both_terms == 0) //so thermal only in 1st term, subtracting out of 2nd term
 		{
 			double h[3];
-			h[0] = dmdt_hx[i] - dmdt_tx[i];
-			h[1] = dmdt_hy[i] - dmdt_ty[i];
-			h[2] = dmdt_hz[i] - dmdt_tz[i];
+			if(dmdt_tx[j])
+			{
+				h[0] = dmdt_hx[j][i] - dmdt_tx[j][i];
+				h[1] = dmdt_hy[j][i] - dmdt_ty[j][i];
+				h[2] = dmdt_hz[j][i] - dmdt_tz[j][i];
+			}
+			else
+			{
+				h[0] = dmdt_hx[j][i];
+				h[1] = dmdt_hy[j][i];
+				h[2] = dmdt_hz[j][i];
+			}
 			
 			CROSS(MH, 	dmdt_sx[j][i], dmdt_sy[j][i], dmdt_sz[j][i],  h[0], h[1], h[2]); // really Mh
 			CROSS(SecondTerm,  dmdt_sx[j][i], dmdt_sy[j][i], dmdt_sz[j][i],  MH[0], MH[1], MH[2]); // MMh
@@ -87,7 +97,6 @@ __global__ void llg_cart_apply_N(const int nxyz,
 		if(thermal_both_terms == 1) // thermal in both, no need to subtract
 		{
 			// M x (H ) + M/|M| x (M x H)
-
 			CROSS(FirstTerm, dmdt_sx[j][i], dmdt_sy[j][i], dmdt_sz[j][i],   dmdt_hx[j][i], dmdt_hy[j][i], dmdt_hz[j][i]);
 
 			CROSS(SecondTerm, dmdt_sx[j][i], dmdt_sy[j][i], dmdt_sz[j][i],   FirstTerm[0], FirstTerm[1], FirstTerm[2]);
@@ -100,7 +109,7 @@ __global__ void llg_cart_apply_N(const int nxyz,
 		MH[0] = spinfrom_x[j][i] - gadt * (FirstTerm[0] + as * SecondTerm[0]);
 		MH[1] = spinfrom_y[j][i] - gadt * (FirstTerm[1] + as * SecondTerm[1]);
 		MH[2] = spinfrom_z[j][i] - gadt * (FirstTerm[2] + as * SecondTerm[2]);
-	    
+		
 		if(do_renormalize == 1)
 		{
 			//renormalize step, reusing variable

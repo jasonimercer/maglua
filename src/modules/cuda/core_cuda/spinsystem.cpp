@@ -951,6 +951,7 @@ void SpinSystem::setSiteAlpha(const int idx, double a)
 		site_alpha->setAll(alpha);
 	}
 	(*site_alpha)[idx] = a;
+	site_alpha->new_host = true;
 }
 void SpinSystem::setAlpha(const double a)
 {
@@ -980,6 +981,7 @@ void SpinSystem::setSiteGamma(const int idx, double g)
 		site_gamma->setAll(gamma);
 	}
 	(*site_gamma)[idx] = g;
+	site_gamma->new_host = true;
 }
 void SpinSystem::setGamma(const double g)
 {
@@ -997,6 +999,12 @@ void  SpinSystem::set(const int i, double sx, double sy, double sz)
 	(*z)[i] = sz;
 
 	(*ms)[i]= sqrt(sx*sx+sy*sy+sz*sz);
+	
+	x->new_host = true;
+	y->new_host = true;
+	z->new_host = true;
+	ms->new_host = true;
+	
 	invalidateFourierData();
 }
 
@@ -2177,6 +2185,18 @@ static int l_getslotused(lua_State* L)
 	lua_pushboolean(L, s->slot_used[slot]);
 	return 1;
 }
+static int l_ensureslotexists(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+
+	const char* name = lua_tostring(L, 2);
+	if(!name)                             
+		return luaL_error(L, "Argument must be a string");
+	
+	ss->ensureSlotExists(ss->register_slot_name(name));
+
+	return 0;
+}
 
 static int l_setslotused(lua_State* L)
 {
@@ -2844,7 +2864,13 @@ int SpinSystem::help(lua_State* L)
 		return 3;
 	}
 	
-	
+	if(func == l_ensureslotexists)
+	{
+		lua_pushstring(L, "Ensure the *SpinSystem* has a field slot with the given name");
+		lua_pushstring(L, "1 String: A field name");
+		lua_pushstring(L, "");
+		return 3;
+	}	
 	if(func == l_getslotused)
 	{
 		lua_pushstring(L, "Determine if an internal field slot has been set");
@@ -3017,6 +3043,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		
 		{"slotUsed", l_getslotused},
 		{"setSlotUsed", l_setslotused},
+		{"ensureSlotExists", l_ensureslotexists},
 
 		// new site a, g
 		{"setSiteAlphaArray", l_setsitealphaarray},

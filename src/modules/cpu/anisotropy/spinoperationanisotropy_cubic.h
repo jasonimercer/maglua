@@ -43,7 +43,7 @@ public:
 	virtual const char* getSlotName();
 		
 	bool apply(SpinSystem* ss);
-	void addAnisotropy(int site, double* a1, double* a2, double* K3);
+	int addAnisotropy(int site, double* a1, double* a2, double* K3);
 
 	bool getAnisotropy(int site, double* a1, double* a2, double* a3, double* K3);
 	

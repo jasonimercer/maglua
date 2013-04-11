@@ -555,7 +555,7 @@ bool Exchange::apply(SpinSystem** sss, int n)
 	
 	for(int i=0; i<n; i++)
 	{
-		int slot = markSlotUsed(ss);
+		int slot = markSlotUsed(sss[i]);
 		slots.push_back(slot);
 	}
 
@@ -591,9 +591,9 @@ bool Exchange::apply(SpinSystem** sss, int n)
 	
 	for(int i=0; i<n; i++)
 	{
-		sss[i]->hx[slot]->new_device = true;
-		sss[i]->hy[slot]->new_device = true;
-		sss[i]->hz[slot]->new_device = true;
+		sss[i]->hx[slots[i]]->new_device = true;
+		sss[i]->hy[slots[i]]->new_device = true;
+		sss[i]->hz[slots[i]]->new_device = true;
 	}
 
 	return true;

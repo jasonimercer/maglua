@@ -431,7 +431,7 @@ T reducePowerSumAll_(const T* d_v, double p, const int n)
 
 	T* d_ws1;
 	T* h_ws1;
-
+	
 	malloc_dh(&d_ws1,&h_ws1, sizeof(T)*n);
 
 	reducePowerSumAll__<BS><<<blocks, threads>>>(d_ws1, d_v, p, n);

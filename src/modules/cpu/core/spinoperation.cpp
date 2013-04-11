@@ -138,7 +138,7 @@ double** SpinOperation::getVectorOfVectors(SpinSystem** sss, int n, const char* 
     getWSMemD(&d_v, sizeof(double*)*n, hash32(tag));
     getWSMemH(&h_v, sizeof(double*)*n, hash32(tag));
 #else
-    getWSMem(&h_v, sizeof(double)*n, hash32(tag));
+    getWSMem(&h_v, sizeof(double*)*n, hash32(tag));
 #endif
 	
 	switch(data)

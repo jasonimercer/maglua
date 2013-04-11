@@ -17,6 +17,7 @@
 #include "llgalign.h"
 #include <string.h>
 #include "spinsystem.h"
+#include "spinoperation.h"
 
 LLG::LLG(int encode_type)
 : LuaBaseObject(encode_type), disableRenormalization(false)
@@ -67,40 +68,6 @@ int  LLG::decode(buffer* b)
 	return 0;
 }
 
-void LLG::getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss)
-{
-	int initial_size = lua_gettop(L);
-	
-	if(pos < 0)
-	{
-		pos = initial_size + pos + 1;
-	}
-	if(lua_istable(L, pos))
-	{
-		if(lua_istable(L, pos))
-		{
-			lua_pushnil(L);
-			while(lua_next(L, pos))
-			{
-				SpinSystem* ss = luaT_to<SpinSystem>(L, -1);
-				if(ss)
-					sss.push_back(ss);
-				lua_pop(L, 1);
-			}
-		}
-	}
-	else
-	{
-		if(luaT_is<SpinSystem>(L, pos))
-		{
-			sss.push_back(luaT_to<SpinSystem>(L, pos));
-		}
-	}
-
-	
-	while(lua_gettop(L) > initial_size)
-		lua_pop(L, 1);
-}
 
 bool LLG::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, SpinSystem** spinto, bool advancetime, int n)
 {
@@ -149,7 +116,7 @@ static int l_apply(lua_State* L)
 
 	ss[0] = &v1;
 
-	llg->getSpinSystemsAtPosition(L, sys1_pos, *ss[0]);
+	SpinOperation::getSpinSystemsAtPosition(L, sys1_pos, *ss[0]);
 	
 // 	ss[0] = luaT_to<SpinSystem>(L, sys1_pos);
 	ss[1] = ss[0];
@@ -159,13 +126,13 @@ static int l_apply(lua_State* L)
 	if(luaT_is<SpinSystem>(L, sys2_pos+0) || lua_istable(L, sys2_pos+0))
 	{
 		ss[1] = &v2;
-		llg->getSpinSystemsAtPosition(L, sys2_pos+0, *ss[1]);
+		SpinOperation::getSpinSystemsAtPosition(L, sys2_pos+0, *ss[1]);
 	}
 
 	if(luaT_is<SpinSystem>(L, sys2_pos+1) || lua_istable(L, sys2_pos+1))
 	{
 		ss[2] = &v3;
-		llg->getSpinSystemsAtPosition(L, sys2_pos+1, *ss[2]);
+		SpinOperation::getSpinSystemsAtPosition(L, sys2_pos+1, *ss[2]);
 	}
 
 	if(ss[0]->size() != ss[1]->size() || ss[1]->size() != ss[2]->size())

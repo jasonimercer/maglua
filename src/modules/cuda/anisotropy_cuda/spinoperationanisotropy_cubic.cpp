@@ -11,13 +11,27 @@
 ******************************************************************************/
 
 #include "spinoperationanisotropy_cubic.h"
+#include "spinoperationanisotropy_cubic.hpp"
 #include "spinsystem.h"
 
+#include <vector>
+#include <algorithm>
 #include <stdlib.h>
+
+// 3 axes and 3 K constants
+#define LUT_ENTRY_LENGTH (3+3+3+3)
 
 AnisotropyCubic::AnisotropyCubic(int nx, int ny, int nz)
 	: SpinOperation(nx, ny, nz, hash32(AnisotropyCubic::typeName()))
 {
+	d_nx[0] = 0;
+	d_LUT = 0;
+	d_idx = 0;
+	
+	new_host = true;
+	compressed = false;
+	newDataFromScript = false;
+
 	ops = 0;
 	//size = nx*ny*nz;
 	size = 0;
@@ -47,6 +61,7 @@ void AnisotropyCubic::init()
 		size = 1;
 
 	ops = (ani*)malloc(sizeof(ani) * size);
+	d_nx[0] = 0;
 }
 
 void AnisotropyCubic::deinit()
@@ -57,14 +72,274 @@ void AnisotropyCubic::deinit()
 	}
 	size = 0;
 	ops = 0;
+	
+	delete_host();
+	delete_compressed();
+	delete_uncompressed();
 }
 
 
 
-static bool myfunction(AnisotropyCubic::ani* i,AnisotropyCubic::ani* j)
+void AnisotropyCubic::delete_host()
 {
-	return (i->site<j->site);
+	if(d_nx[0])
+	{
+		for(int i=0; i<3; i++)
+		{
+			free_host(h_nx[i]);
+			free_host(h_ny[i]);
+			free_host(h_nz[i]);
+			free_host(h_k[i]);
+		}
+
+		d_nx[0] = 0;
+	}	
 }
+bool AnisotropyCubic::make_host()
+{
+	if(h_nx[0])
+		return true;
+
+	for(int i=0; i<3; i++)
+	{
+		malloc_host(&(h_nx[i]), sizeof(double) * nxyz);
+		malloc_host(&(h_ny[i]), sizeof(double) * nxyz);
+		malloc_host(&(h_nz[i]), sizeof(double) * nxyz);
+		malloc_host(&(h_k[i]),  sizeof(double) * nxyz);
+	}
+
+	for(int j=0; j<3; j++)
+	for(int i=0; i<nxyz; i++)
+	{
+		h_nx[j][i] = 0;
+		h_ny[j][i] = 0;
+		h_nz[j][i] = 0;
+		h_k[j][i]  = 0;
+	}
+	return true;
+}
+
+void AnisotropyCubic::delete_compressed()
+{
+	void** a[2] = {(void**)&d_LUT, (void**)&d_idx};
+	for(int i=0; i<2; i++)
+	{
+		if(*a[i])
+			free_device(*a[i]);
+		*a[i] = 0;
+	}
+	compressed = false;
+}
+
+void AnisotropyCubic::delete_uncompressed()
+{
+	void*** a[4] = {
+		(void***)&d_nx, (void***)&d_ny,
+		(void***)&d_nz, (void***)&d_k
+	};
+	
+	for(int i=0; i<4; i++)
+	{
+		for(int j=0; j<3; j++)
+		{
+			if(*a[i][j])
+				free_device(*a[i][j]);
+			*a[i][j] = 0;
+		}
+	}
+}
+
+class sani3
+{
+public:
+	sani3(int s, double* a1, double* a2, double* a3, double* _K)
+	{
+		site = s;
+		memcpy(axis[0], a1, sizeof(double)*3);
+		memcpy(axis[1], a2, sizeof(double)*3);
+		memcpy(axis[2], a3, sizeof(double)*3);
+		memcpy(k, _K, sizeof(double)*3);
+		
+		// making axes +x
+		for(int i=0; i<2; i++)
+		{
+			if(axis[i][0] < 0)
+			{
+				axis[i][0] *= -1.0;
+				axis[i][1] *= -1.0;
+				axis[i][2] *= -1.0;
+			}
+		}
+	}
+	sani3(const sani3& s)
+	{
+		site = s.site;
+		memcpy(axis[0], s.axis[0], sizeof(double)*3);
+		memcpy(axis[1], s.axis[1], sizeof(double)*3);
+		memcpy(axis[2], s.axis[3], sizeof(double)*3);
+		memcpy(k, s.k, sizeof(double)*3);
+	
+	}
+
+	// same other than site
+	bool operator==(const sani3 &other) const
+	{
+		for(int i=0; i<3; i++)
+		{
+			if(axis[0][i] != other.axis[0][i]) return false;
+			if(axis[1][i] != other.axis[1][i]) return false;
+			if(axis[2][i] != other.axis[2][i]) return false;
+			if(k[i] != other.k[i]) return false;
+		}
+		return true;
+	}
+	
+	// implementation doesn't really matter. Just needs to be consistent
+	bool operator<(const sani3 &other) const
+	{
+		for(int i=0; i<3; i++)
+		{
+			if(axis[0][i] >= other.axis[0][i]) return false;
+			if(axis[1][i] >= other.axis[1][i]) return false;
+			if(axis[2][i] >= other.axis[2][i]) return false;
+			if(k[i] >= other.k[i]) return false;
+		}
+		return true;
+	}
+	
+	int site;
+	double axis[3][3];
+	double k[3];
+	char id;
+};
+
+bool AnisotropyCubic::make_compressed()
+{
+	if(compressAttempted)
+		return compressed;
+		
+	delete_compressed();
+	delete_uncompressed();
+	
+	compressAttempted = true;
+	if(!nxyz)
+		return false;
+	
+
+	
+	compressing = true;
+	
+	vector<sani3> aa;
+	for(int i=0; i<nxyz; i++)
+	{
+		double a1[3];
+		double a2[3];
+		double a3[3];
+		double k[3];
+		
+		a1[0] = h_nx[0][i];
+		a1[1] = h_ny[0][i];
+		a1[2] = h_nz[0][i];
+
+		a2[0] = h_nx[1][i];
+		a2[1] = h_ny[1][i];
+		a2[2] = h_nz[1][i];
+		
+		a3[0] = h_nx[2][i];
+		a3[1] = h_ny[2][i];
+		a3[2] = h_nz[2][i];
+		
+		k[0] = h_k[0][i];
+		k[1] = h_k[1][i];
+		k[2] = h_k[2][i];
+		
+		aa.push_back(sani3(i, a1, a2, a3, k));
+	}
+		
+	
+	std::sort(aa.begin(), aa.end());
+	
+	unsigned int last_one = 0;
+	
+	vector<unsigned int> uu; //uniques
+	uu.push_back(0);
+	aa[0].id = 0;
+	
+	for(int i=1; i<nxyz; i++)
+	{
+		if(!(aa[i] ==  aa[last_one]))
+		{
+			last_one = i;
+			uu.push_back(i);
+			
+		}
+		aa[i].id = uu.size()-1;
+	}
+	
+	if(uu.size() >= 255)
+	{
+		compressing = false;
+		return false;
+	}
+	unique = uu.size();
+
+	//ani can be compressed, build LUT
+	double* h_LUT;// = new double[unique * 4];
+	unsigned char* h_idx;
+	
+	malloc_host(&h_LUT, sizeof(double) * unique * LUT_ENTRY_LENGTH);
+	malloc_host(&h_idx, sizeof(unsigned char) * nxyz);
+	
+	for(unsigned int i=0; i<uu.size(); i++)
+	{
+		sani3& q = aa[ uu[i] ];
+		h_LUT[i*LUT_ENTRY_LENGTH+0] = q.axis[0][0];
+		h_LUT[i*LUT_ENTRY_LENGTH+1] = q.axis[0][1];
+		h_LUT[i*LUT_ENTRY_LENGTH+2] = q.axis[0][2];
+
+		h_LUT[i*LUT_ENTRY_LENGTH+3] = q.axis[1][0];
+		h_LUT[i*LUT_ENTRY_LENGTH+4] = q.axis[1][1];
+		h_LUT[i*LUT_ENTRY_LENGTH+5] = q.axis[1][2];
+
+		h_LUT[i*LUT_ENTRY_LENGTH+6] = q.axis[2][0];
+		h_LUT[i*LUT_ENTRY_LENGTH+7] = q.axis[2][1];
+		h_LUT[i*LUT_ENTRY_LENGTH+8] = q.axis[2][2];
+
+		h_LUT[i*LUT_ENTRY_LENGTH+ 9] = q.k[0];
+		h_LUT[i*LUT_ENTRY_LENGTH+10] = q.k[1];
+		h_LUT[i*LUT_ENTRY_LENGTH+11] = q.k[2];
+	}
+	
+	for(int i=0; i<nxyz; i++)
+	{
+		h_idx[i] = aa[i].id;
+	}
+	
+	bool ok;
+	ok  = malloc_device(&d_LUT, sizeof(double) * unique * LUT_ENTRY_LENGTH);
+	ok &= malloc_device(&d_idx, sizeof(unsigned char) * nxyz);
+	
+	if(!ok)
+	{
+		delete_compressed(); //incase LUT generated
+		compressed = false;
+		compressing = false;
+		//should probably say something: this is bad.
+		return false;
+	}
+	
+	memcpy_h2d(d_LUT, h_LUT, sizeof(double) * unique * LUT_ENTRY_LENGTH);
+	memcpy_h2d(d_idx, h_idx, sizeof(unsigned char) * nxyz);
+	
+	free_host(h_LUT);
+	free_host(h_idx);
+	
+	compressed = true;
+	compressing = false;
+	return true;
+}
+
+
 
 #include <algorithm>    // std::sort
 #include <vector>       // std::vector
@@ -73,6 +348,7 @@ using namespace std;
 int AnisotropyCubic::merge()
 {
 	fprintf(stderr, "AnisotropyCubic merge() is unimplemented\n");
+	return 0;
 #if 0
 	if(num == 0)
 		return 0;
@@ -122,7 +398,6 @@ int AnisotropyCubic::merge()
 	free(new_ops2);
 	return delta;
 #endif
-	return 0;
 }
 
 bool AnisotropyCubic::getAnisotropy(int site, double* a1, double* a2, double* a3, double* K3)
@@ -258,94 +533,130 @@ AnisotropyCubic::~AnisotropyCubic()
 }
 
 
+bool AnisotropyCubic::apply(SpinSystem* ss)
+{
+	SpinSystem* sss[1];
+	sss[0] = ss;
+	return apply(sss, 1);
+}
+
+// convert from cpu style info to gpu precursor style info
+void AnisotropyCubic::writeToMemory()
+{
+	if(!newDataFromScript)
+		return;
+	newDataFromScript = false;
+
+	make_uncompressed();
+// 	merge();
+
+	for(int i=0; i<num; i++)
+	{
+		const int site = ops[i].site;
+		double nx1 = ops[i].axis[0][0];
+		double nx2 = ops[i].axis[1][0];
+		double nx3 = ops[i].axis[2][0];
+
+		double ny1 = ops[i].axis[0][1];
+		double ny2 = ops[i].axis[1][1];
+		double ny3 = ops[i].axis[2][1];
+
+		double nz1 = ops[i].axis[0][2];
+		double nz2 = ops[i].axis[1][2];
+		double nz3 = ops[i].axis[2][2];
+
+		double K1 = ops[i].K[0];
+		double K2 = ops[i].K[1];
+		double K3 = ops[i].K[2];
+
+		if(site >= 0 && site < nxyz)
+		{
+			make_host();
+		
+			h_nx[0][site] = nx1;
+			h_nx[1][site] = nx2;
+			h_nx[2][site] = nx3;
+
+			h_ny[0][site] = ny1;
+			h_ny[1][site] = ny2;
+			h_ny[2][site] = ny3;
+
+			h_nz[0][site] = nz1;
+			h_nz[1][site] = nz2;
+			h_nz[2][site] = nz3;
+
+			h_k[0][site] = K1;
+			h_k[1][site] = K2;
+			h_k[2][site] = K3;
+			
+			new_host = true;
+			compressAttempted = false;
+			delete_compressed();
+			delete_uncompressed();
+		}
+	}
+}
+
+
 // E_anis = K1 * (<axis1,m>^2 <axis2,m>^2 + <axis1,m>^2 <axis3,m>^2 + <axis2,m>^2 <axis3,m>^2)
 //        + K2 * (<axis1,m>^2 <axis2,m>^2 <axis3,m>^2)
 //        + K3 * (<axis1,m>^4 <axis2,m>^4 + <axis1,m>^4 <axis3,m>^4 + <axis2,m>^4 <axis3,m>^4)
 
-bool AnisotropyCubic::apply(SpinSystem* ss)
+bool AnisotropyCubic::apply(SpinSystem** sss, int n)
 {
-	int slot = markSlotUsed(ss);
+	vector<int> slots;
+	for(int i=0; i<n; i++)
+		slots.push_back(markSlotUsed(sss[i]));
 
-	dArray& hx = (*ss->hx[slot]);
-	dArray& hy = (*ss->hy[slot]);
-	dArray& hz = (*ss->hz[slot]);
+	writeToMemory();
+	if(!make_compressed())
+		make_uncompressed();
+	
+	const double** d_sx_N = (const double**)SpinOperation::getVectorOfVectors(sss, n, "SpinOperation::apply_1", 's', 'x');
+	const double** d_sy_N = (const double**)SpinOperation::getVectorOfVectors(sss, n, "SpinOperation::apply_2", 's', 'y');
+	const double** d_sz_N = (const double**)SpinOperation::getVectorOfVectors(sss, n, "SpinOperation::apply_3", 's', 'z');
 
-	dArray& x = (*ss->x);
-	dArray& y = (*ss->y);
-	dArray& z = (*ss->z);
-
-	hx.zero();
-	hy.zero();
-	hz.zero();
-
-//  #pragma omp for schedule(static)
-	for(int j=0; j<num; j++)
+	      double** d_hx_N = SpinOperation::getVectorOfVectors(sss, n, "SpinOperation::apply_4", 'h', 'x', &(slots[0]));
+	      double** d_hy_N = SpinOperation::getVectorOfVectors(sss, n, "SpinOperation::apply_5", 'h', 'y', &(slots[0]));
+	      double** d_hz_N = SpinOperation::getVectorOfVectors(sss, n, "SpinOperation::apply_6", 'h', 'z', &(slots[0]));
+	
+	if(compressed)
 	{
-		const ani& op = ops[j];
-		const int i = op.site;
-		const double ms = (*ss->ms)[i];
-		if(ms > 0)
-		{
-			const double sx = x[i] / ms;
-			const double sy = y[i] / ms;
-			const double sz = z[i] / ms;
-		
-			const double n1x = op.axis[0][0];
-			const double n1y = op.axis[0][1];
-			const double n1z = op.axis[0][2];
-			
-			const double n2x = op.axis[1][0];
-			const double n2y = op.axis[1][1];
-			const double n2z = op.axis[1][2];
-			
-			const double n3x = op.axis[2][0];
-			const double n3y = op.axis[2][1];
-			const double n3z = op.axis[2][2];
-			
-			const double K1 = op.K[0];
-			const double K2 = op.K[1];
-			const double K3 = op.K[2];
-			
-			const double n1s = n1x*sx + n1y*sy + n1z*sz;
-			const double n2s = n2x*sx + n2y*sy + n2z*sz;
-			const double n3s = n3x*sx + n3y*sy + n3z*sz;
-			
-			const double n1s2 = n1s * n1s;
-			const double n2s2 = n2s * n2s;
-			const double n3s2 = n3s * n3s;
-
-			const double n1s3 = n1s2 * n1s;
-			const double n2s3 = n2s2 * n2s;
-			const double n3s3 = n3s2 * n3s;
-
-			const double n1s4 = n1s2 * n1s2;
-			const double n2s4 = n2s2 * n2s2;
-			const double n3s4 = n3s2 * n3s2;
-
-// 			Hx = 2K1 (n1x n1s (n2s^2 + n3s^3) + n2x n2s (n1s^2 + n3s^2) + n3x n3s (n1s^2 + n2s^2)) +       //Term1
-// 			     2K2 (n1s n2s n3s (n1x n2s n3s + n2x n1s n3s + n3x n1s n2s)) +                             //Term2
-// 			     4K3 (n1x n1s^3 (n2s^4 + n3s^4) + n2x n2s^3 (n1s^4 + n3s^4) + n3x n3s^3 (n1s^4 + n2s^4))   //Term3
-			
-			const double t1x = 2.0 * K1 * (n1x * n1s * (n2s2 + n3s3) + n2x * n2s * (n1s2 + n3s2) + n3x * n3s * (n1s2 + n2s2));
-			const double t1y = 2.0 * K1 * (n1y * n1s * (n2s2 + n3s3) + n2y * n2s * (n1s2 + n3s2) + n3y * n3s * (n1s2 + n2s2));
-			const double t1z = 2.0 * K1 * (n1z * n1s * (n2s2 + n3s3) + n2z * n2s * (n1s2 + n3s2) + n3z * n3s * (n1s2 + n2s2));
-			
-			const double t2x = 2.0 * K2 * (n1s * n2s * n3s * (n1x * n2s * n3s + n2x * n1s * n3s + n3x * n1s * n2s));
-			const double t2y = 2.0 * K2 * (n1s * n2s * n3s * (n1y * n2s * n3s + n2y * n1s * n3s + n3y * n1s * n2s));
-			const double t2z = 2.0 * K2 * (n1s * n2s * n3s * (n1z * n2s * n3s + n2z * n1s * n3s + n3z * n1s * n2s));
-			
-			const double t3x = 4.0 * K3 * (n1x * n1s3 * (n2s4 + n3s4) + n2x * n2s3 * (n1s4 + n3s4) + n3x * n3s3 * (n1s4 + n2s4));
-			const double t3y = 4.0 * K3 * (n1y * n1s3 * (n2s4 + n3s4) + n2y * n2s3 * (n1s4 + n3s4) + n3y * n3s3 * (n1s4 + n2s4));
-			const double t3z = 4.0 * K3 * (n1z * n1s3 * (n2s4 + n3s4) + n2z * n2s3 * (n1s4 + n3s4) + n3z * n3s3 * (n1s4 + n2s4));
-			
-			hx[i] += global_scale * (t1x + t2x + t3x);
-			hy[i] += global_scale * (t1y + t2y + t3y);
-			hz[i] += global_scale * (t1z + t2z + t3z);
-		}
+		// d_LUT is non-null (since compressed)
+		cuda_anisotropy_cubic_compressed_N(
+			global_scale,
+			d_sx_N, d_sy_N, d_sz_N,
+			d_LUT, d_idx, 
+			d_hx_N, d_hy_N, d_hz_N,
+			nxyz, n);
 	}
+	else
+	{
+		if(!d_nx[0])
+			make_uncompressed();
+		
+		cuda_anisotropy_cubic_N(
+			global_scale,
+			d_sx_N, d_sy_N, d_sz_N,
+			d_nx[0], d_nx[1], d_nx[2],
+			d_ny[0], d_ny[1], d_ny[2],
+			d_nz[0], d_nz[1], d_nz[2],
+			d_k[0], d_k[1], d_k[2],
+			d_hx_N, d_hy_N, d_hz_N,
+			nxyz, n);
+	}
+	
+	for(int i=0; i<n; i++)
+	{
+		int slot = slots[i];
+		sss[i]->hx[slot]->new_device = true;
+		sss[i]->hy[slot]->new_device = true;
+		sss[i]->hz[slot]->new_device = true;
+	}
+	
+
 	return true;
 }
-
 
 
 

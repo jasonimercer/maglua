@@ -89,8 +89,16 @@ public:
 	
 bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
-	dmdt->ensureSlotExists(SUM_SLOT);
-	dmdt->ensureSlotExists(THERMAL_SLOT);
+	const int SUM_SLOT = dmdt->getSlot("Total");
+	const int THERMAL_SLOT = dmdt->getSlot("Thermal");
+	
+	if(SUM_SLOT < 0) //nothing to do
+	{
+		if(advancetime)
+			spinto->time = spinfrom->time + scaledmdt * dmdt->dt;
+		return true;
+	}
+	
 	
 	const double* sx = spinfrom->x->data();
 	const double* sy = spinfrom->y->data();
@@ -143,9 +151,18 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 
 	#ifdef THERMAL_ONLY_FIRST_TERM
 				double h[3];
-				h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
-				h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
-				h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
+				if(THERMAL_SLOT >= 0)
+				{
+					h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
+					h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
+					h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
+				}
+				else
+				{
+					h[0] = H[0];
+					h[1] = H[1];
+					h[2] = H[2];
+				}
 				
 				CROSS(MH, M, h);   // M x h
 				CROSS(MMH, M, MH); // M x (M x h)
@@ -189,9 +206,18 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 
 	#ifdef THERMAL_ONLY_FIRST_TERM
 				double h[3];
-				h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
-				h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
-				h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
+				if(THERMAL_SLOT >= 0)
+				{
+					h[0] = H[0] - dmdt->hx[THERMAL_SLOT]->data()[i];
+					h[1] = H[1] - dmdt->hy[THERMAL_SLOT]->data()[i];
+					h[2] = H[2] - dmdt->hz[THERMAL_SLOT]->data()[i];
+				}
+				else
+				{
+					h[0] = H[0];
+					h[1] = H[1];
+					h[2] = H[2];
+				}
 				
 				CROSS(MH, M, h);   // M x h
 				CROSS(MMH, M, MH); // M x (M x h)

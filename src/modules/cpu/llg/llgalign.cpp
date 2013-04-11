@@ -25,8 +25,15 @@ bool  LLGAlign::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, 
 // 	const double* sx = spinfrom->x->data;
 // 	const double* sy = spinfrom->y->data;
 // 	const double* sz = spinfrom->z->data;
-	dmdt->ensureSlotExists(SUM_SLOT);
-	dmdt->ensureSlotExists(THERMAL_SLOT);
+	const int SUM_SLOT = dmdt->getSlot("Total");
+// 	const int THERMAL_SLOT = dmdt->getSlot("Thermal");
+	
+	if(SUM_SLOT < 0) //nothing to do
+	{
+		if(advancetime)
+			spinto->time = spinfrom->time + scaledmdt * dmdt->dt;
+		return true;
+	}
 	
 	const double* ms = spinfrom->ms->data();
 	      double* mt = spinto->ms->data();

@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=appliedfield_luafuncs.lo spinoperationappliedfield.o
+OBJECTS=appliedfield_luafuncs.lo appliedfield_heterogeneous_luafuncs.lo spinoperationappliedfield.o spinoperationappliedfield_heterogeneous.o
 LIBNAME=AppliedField
 CATEGORY=cpu
 

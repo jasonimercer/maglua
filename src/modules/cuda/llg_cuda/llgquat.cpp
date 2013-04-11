@@ -41,12 +41,28 @@ LLGQuaternion::~LLGQuaternion()
 	unregisterWS();
 }
 
+bool LLGQuaternion::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, SpinSystem** spinto, bool advancetime, int n)
+{
+	for(int i=0; i<n; i++)
+	{
+		apply(spinfrom[i], scaledmdt, dmdt[i], spinto[i], advancetime);
+	}
+}
 
 bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmdt, SpinSystem* spinto, bool advancetime)
 {
     // if new spins/fields exist on the host copy them to the device
-    dmdt->ensureSlotExists(SUM_SLOT);
-    dmdt->ensureSlotExists(THERMAL_SLOT);
+//     dmdt->ensureSlotExists(SUM_SLOT);
+//     dmdt->ensureSlotExists(THERMAL_SLOT);
+	const int SUM_SLOT = dmdt->getSlot("Total");
+	const int THERMAL_SLOT = dmdt->getSlot("Thermal");
+	
+	if(SUM_SLOT < 0) //nothing to do
+	{
+		if(advancetime)
+			spinto->time = spinfrom->time + scaledmdt * dmdt->dt;
+		return true;
+	}
 
 	const int nx = spinfrom->nx;
 	const int ny = spinfrom->ny;
@@ -71,36 +87,35 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 	getWSMemD(&d_ws2, sz, hash32("SpinOperation::apply_2"));
 	getWSMemD(&d_ws3, sz, hash32("SpinOperation::apply_3"));
 	getWSMemD(&d_ws4, sz, hash32("SpinOperation::apply_4"));
-	
+
 #define S SUM_SLOT
 #define T THERMAL_SLOT
 
-#define dd(xx)  (xx?xx->ddata():0);
+#define dd(Q,xx)  ((Q>=0)?(xx?xx->ddata():0):0);
 
-	double* Tx = dd(dmdt->hx[T]);
-	double* Ty = dd(dmdt->hy[T]);
-	double* Tz = dd(dmdt->hz[T]);
+	double* Tx = dd(T,dmdt->hx[T]);
+	double* Ty = dd(T,dmdt->hy[T]);
+	double* Tz = dd(T,dmdt->hz[T]);
 	
-	double* Sx = dd(dmdt->hx[S]);
-	double* Sy = dd(dmdt->hy[S]);
-	double* Sz = dd(dmdt->hz[S]);
+	double* Sx = dd(S,dmdt->hx[S]);
+	double* Sy = dd(S,dmdt->hy[S]);
+	double* Sz = dd(S,dmdt->hz[S]);
 
-	double* stx = dd(spinto->x);
-	double* sty = dd(spinto->y);
-	double* stz = dd(spinto->z);
-	double* stms= dd(spinto->ms);
+	double* stx = dd(1,spinto->x);
+	double* sty = dd(1,spinto->y);
+	double* stz = dd(1,spinto->z);
+	double* stms= dd(1,spinto->ms);
 	
-	double* sfx = dd(spinfrom->x);
-	double* sfy = dd(spinfrom->y);
-	double* sfz = dd(spinfrom->z);
-	double* sfms= dd(spinfrom->ms);
+	double* sfx = dd(1,spinfrom->x);
+	double* sfy = dd(1,spinfrom->y);
+	double* sfz = dd(1,spinfrom->z);
+	double* sfms= dd(1,spinfrom->ms);
 	
-	double* dmx = dd(dmdt->x);
-	double* dmy = dd(dmdt->y);
-	double* dmz = dd(dmdt->z);
-	double* dmms= dd(dmdt->ms);
+	double* dmx = dd(1,dmdt->x);
+	double* dmy = dd(1,dmdt->y);
+	double* dmz = dd(1,dmdt->z);
+	double* dmms= dd(1,dmdt->ms);
 	
-
 	cuda_llg_quat_apply(nx, ny, nz,
 			stx, sty, stz, stms,
 			sfx, sfy, sfz, sfms,

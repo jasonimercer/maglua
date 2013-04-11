@@ -91,7 +91,7 @@ __global__ void llg_quat_apply_1(
 	double hZ = hz[i];
 	
 	// subtracting thermal term from Heff in damping contribution
-	if(thermalOnlyFirstTerm == 1)
+	if(thermalOnlyFirstTerm == 1 && htx)
 	{
 		hX -= htx[i];
 		hY -= hty[i];

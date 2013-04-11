@@ -88,10 +88,10 @@ bool Anisotropy::make_host()
 	if(h_nx)
 		return true;
 
-	h_nx = new double[nxyz];
-	h_ny = new double[nxyz];
-	h_nz = new double[nxyz];
-	h_k  = new double[nxyz];
+	malloc_host(&(h_nx), sizeof(double) * nxyz);
+	malloc_host(&(h_ny), sizeof(double) * nxyz);
+	malloc_host(&(h_nz), sizeof(double) * nxyz);
+	malloc_host(&(h_k),  sizeof(double) * nxyz);
 
 	for(int i=0; i<nxyz; i++)
 	{
@@ -217,7 +217,7 @@ public:
 	char id;
 };
 
-bool sani_sort(const sani& d1, const sani& d2)
+static bool sani_sort(const sani& d1, const sani& d2)
 {
 	if(d1.nx < d2.nx) return true;
 	if(d1.nx > d2.nx) return false;
@@ -234,7 +234,7 @@ bool sani_sort(const sani& d1, const sani& d2)
 	return false;
 }
 
-bool sani_same(const sani& d1, const sani& d2)
+static bool sani_same(const sani& d1, const sani& d2)
 {
 	if(d1.nx != d2.nx)
 		return false;
@@ -343,10 +343,10 @@ void Anisotropy::delete_host()
 {
 	if(h_nx)
 	{
-		delete [] h_nx;
-		delete [] h_ny;
-		delete [] h_nz;
-		delete [] h_k;
+		free_host(h_nx);
+		free_host(h_ny);
+		free_host(h_nz);
+		free_host(h_k);
 		h_nx = 0;
 		h_ny = 0;
 		h_nz = 0;

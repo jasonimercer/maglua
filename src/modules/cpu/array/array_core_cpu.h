@@ -285,6 +285,7 @@ public:
 	int nx, ny, nz, nxyz;
 	
 	T* data() {return _data;}
+	T* ddata() {return _data;} // to make things work nicely with the gpu code
 	const T* constData() const {return _data;}
 	T* _data;
 	bool i_own_my_memory;

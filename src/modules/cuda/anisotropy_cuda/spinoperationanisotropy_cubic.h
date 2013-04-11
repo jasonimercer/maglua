@@ -43,6 +43,8 @@ public:
 	virtual const char* getSlotName();
 		
 	bool apply(SpinSystem* ss);
+	bool apply(SpinSystem** sss, int n);
+	
 	void addAnisotropy(int site, double* a1, double* a2, double* K3);
 
 	bool getAnisotropy(int site, double* a1, double* a2, double* a3, double* K3);
@@ -65,6 +67,39 @@ public:
 
 	void init();
 	void deinit();
+	
+	bool make_uncompressed();
+	bool make_compressed();
+	bool make_host();
+	
+	void delete_uncompressed();
+	void delete_compressed();
+	void delete_host();
+	
+	void writeToMemory();
+
+	bool compressed;
+	bool compressing;
+	bool compressAttempted;
+	
+	bool new_host; // if host data is most recent
+	bool newDataFromScript;
+
+	double* d_nx[3];
+	double* d_ny[3];
+	double* d_nz[3];
+	double* d_k[3];
+	
+	double* h_nx[3];
+	double* h_ny[3];
+	double* h_nz[3];
+	double* h_k[3];
+	
+	
+	double* d_LUT;
+	char*   d_idx;
+private:
+	int unique; //number of LUT entries
 };
 
 

@@ -37,11 +37,6 @@ public:
 	bool disableRenormalization;
 	bool thermalOnlyFirstTerm;
 	
-	// copied from SpinOperation
-	double** getVectorOfVectors(SpinSystem** sss, int n, const char* tag, const char data, const char component='Q', const int field=0);
-	double*  getVectorOfValues(SpinSystem** sss, int n, const char* tag, const char data, const double scale=1.0);
-	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
-	
 	void encode(buffer* b);
 	int  decode(buffer* b);
 };

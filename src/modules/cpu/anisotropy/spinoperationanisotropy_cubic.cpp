@@ -160,14 +160,29 @@ static double dot(double* a, double* b)
 {
 	return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
 }
-static void scale(double s, double* a)
+// vector scale add
+static void vsadd(double* s1, double a, double* s2, double* dest)
 {
-	a[0] *= s;
-	a[1] *= s;
-	a[2] *= s;
+	for(int i=0; i<3; i++)
+		dest[i] = s1[i] + a * s2[i];
+}
+static void scale(double s, double* a, double* dest=0)
+{
+	if(dest)
+	{
+		dest[0] = a[0] * s;
+		dest[1] = a[1] * s;
+		dest[2] = a[2] * s;
+	}
+	else
+	{
+		a[0] *= s;
+		a[1] *= s;
+		a[2] *= s;
+	}
 }
 
-void AnisotropyCubic::addAnisotropy(int site, double* a1, double* a2, double* K3)
+int AnisotropyCubic::addAnisotropy(int site, double* a1, double* a2, double* K3)
 {
 	if(num == size)
 	{
@@ -177,6 +192,36 @@ void AnisotropyCubic::addAnisotropy(int site, double* a1, double* a2, double* K3
 			size = size * 2;
 		ops = (ani*)realloc(ops, sizeof(ani) * size);
 	}
+	
+	//normalize vectors
+	if(dot(a1,a1) == 0 || dot(a2,a2) == 0)
+	{
+		return 1; // 0 length vector = bad
+	}
+	
+	scale(1.0/sqrt(dot(a1,a1)), a1);
+	scale(1.0/sqrt(dot(a2,a2)), a2);
+	
+	if(fabs(dot(a1,a2)) == 1)
+	{
+		return 2; // colinear vectors = bad
+	}
+	
+	double a3[3];
+	cross(a1, a2, a3);
+	scale(1.0/sqrt(dot(a3,a3)), a3);
+
+	// first need to make sure a1, a2 are ortho (or ortho-able)
+	if(dot(a1,a2) != 0)
+	{
+		// project vector a2 onto a3
+		double a2_proj_a1[3];
+		scale(dot(a1,a2), a1, a2_proj_a1);
+		
+		// subtract from 
+		vsadd(a2, -1, a2_proj_a1, a2);
+	}
+	
 	ops[num].site = site;
 	memcpy(ops[num].axis[0], a1, sizeof(double)*3);
 	memcpy(ops[num].axis[1], a2, sizeof(double)*3);
@@ -473,7 +518,8 @@ static int l_add(lua_State* L)
 	if(t == 0)
 		return luaL_error(L, "anisotropy needs strength");
 	
-	ani->addAnisotropy(idx, a[0], a[1], K);
+	if(ani->addAnisotropy(idx, a[0], a[1], K))
+		return luaL_error(L, "Failed to add anisotropy, are your vectors colinear or empty?");
 	return 0;
 }
 

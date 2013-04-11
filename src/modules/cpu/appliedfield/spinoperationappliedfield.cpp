@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (C) 2008-2011 Jason Mercer.  All rights reserved.
+* Copyright (C) 2008-2013 Jason Mercer.  All rights reserved.
 *
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -204,6 +204,8 @@ APPLIEDFIELD_API int lib_main(lua_State* L);
 }
 
 #include "appliedfield_luafuncs.h"
+#include "appliedfield_heterogeneous_luafuncs.h"
+
 static int l_getmetatable(lua_State* L)
 {
     if(!lua_isstring(L, 1))
@@ -212,15 +214,25 @@ static int l_getmetatable(lua_State* L)
     return 1;
 }
 
+#include "spinoperationappliedfield_heterogeneous.h"
 APPLIEDFIELD_API int lib_register(lua_State* L)
 {
 	luaT_register<AppliedField>(L);
+	luaT_register<AppliedField_Heterogeneous>(L);
 	
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
+	
 	if(luaL_dostring(L, __appliedfield_luafuncs()))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		return luaL_error(L, lua_tostring(L, -1));
+	}
+
+	if(luaL_dostring(L, __appliedfield_heterogeneous_luafuncs()))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		fprintf(stderr, "%s\n", AppliedField_Heterogeneous::typeName());
 		return luaL_error(L, lua_tostring(L, -1));
 	}
 

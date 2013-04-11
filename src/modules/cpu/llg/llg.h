@@ -56,9 +56,6 @@ public:
 	bool disableRenormalization;
 	bool thermalOnlyFirstTerm;
 
-	// copied from SpinOperation
-	void getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinSystem*>& sss);
-
 	// 	void encode(buffer* b);
 // 	int  decode(buffer* b);
 };

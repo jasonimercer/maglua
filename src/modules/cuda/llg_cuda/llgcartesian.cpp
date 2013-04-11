@@ -50,48 +50,49 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 bool LLGCartesian::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, SpinSystem** spinto, bool advancetime, int n)
 // bool LLGQuaternion::apply(SpinSystem* spinfrom, SpinSystem* fieldfrom, SpinSystem* spinto, bool advancetime)
 {
-#define S SUM_SLOT
-#define T THERMAL_SLOT
+	vector<int> sum_slots;
+	vector<int> thermal_slots;
+
 	for(int i=0; i<n; i++)
 	{
-		dmdt[i]->ensureSlotExists(SUM_SLOT);
-		dmdt[i]->ensureSlotExists(THERMAL_SLOT);
+		sum_slots.push_back(dmdt[i]->getSlot("Total"));
+		thermal_slots.push_back(dmdt[i]->getSlot("Thermal"));
 	}
 	
 	const int nx = spinfrom[0]->nx;
 	const int ny = spinfrom[0]->ny;
 	const int nz = spinfrom[0]->nz;
 	
-	double** d_spinto_x_N = getVectorOfVectors(spinto, n, "apply_1", 's', 'x');
-	double** d_spinto_y_N = getVectorOfVectors(spinto, n, "apply_2", 's', 'y');
-	double** d_spinto_z_N = getVectorOfVectors(spinto, n, "apply_3", 's', 'z');
-	double** d_spinto_m_N = getVectorOfVectors(spinto, n, "apply_4", 's', 'm');
+	double** d_spinto_x_N = SpinOperation::getVectorOfVectors(spinto, n, "apply_1", 's', 'x');
+	double** d_spinto_y_N = SpinOperation::getVectorOfVectors(spinto, n, "apply_2", 's', 'y');
+	double** d_spinto_z_N = SpinOperation::getVectorOfVectors(spinto, n, "apply_3", 's', 'z');
+	double** d_spinto_m_N = SpinOperation::getVectorOfVectors(spinto, n, "apply_4", 's', 'm');
 
-	double** d_spinfrom_x_N = getVectorOfVectors(spinfrom, n, "apply_5", 's', 'x');
-	double** d_spinfrom_y_N = getVectorOfVectors(spinfrom, n, "apply_6", 's', 'y');
-	double** d_spinfrom_z_N = getVectorOfVectors(spinfrom, n, "apply_7", 's', 'z');
-	double** d_spinfrom_m_N = getVectorOfVectors(spinfrom, n, "apply_8", 's', 'm');
+	double** d_spinfrom_x_N = SpinOperation::getVectorOfVectors(spinfrom, n, "apply_5", 's', 'x');
+	double** d_spinfrom_y_N = SpinOperation::getVectorOfVectors(spinfrom, n, "apply_6", 's', 'y');
+	double** d_spinfrom_z_N = SpinOperation::getVectorOfVectors(spinfrom, n, "apply_7", 's', 'z');
+	double** d_spinfrom_m_N = SpinOperation::getVectorOfVectors(spinfrom, n, "apply_8", 's', 'm');
 
-	double** d_dmdt_x_N = getVectorOfVectors(dmdt, n, "apply_9", 's', 'x');
-	double** d_dmdt_y_N = getVectorOfVectors(dmdt, n, "apply_10", 's', 'y');
-	double** d_dmdt_z_N = getVectorOfVectors(dmdt, n, "apply_11", 's', 'z');
-	double** d_dmdt_m_N = getVectorOfVectors(dmdt, n, "apply_12", 's', 'm');
+	double** d_dmdt_x_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_9", 's', 'x');
+	double** d_dmdt_y_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_10", 's', 'y');
+	double** d_dmdt_z_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_11", 's', 'z');
+	double** d_dmdt_m_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_12", 's', 'm');
 
 	
-	double** d_dmdt_hT_x_N = getVectorOfVectors(dmdt, n, "apply_13", 'h', 'x', T);
-	double** d_dmdt_hT_y_N = getVectorOfVectors(dmdt, n, "apply_14", 'h', 'y', T);
-	double** d_dmdt_hT_z_N = getVectorOfVectors(dmdt, n, "apply_15", 'h', 'z', T);
+	double** d_dmdt_hT_x_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_13", 'h', 'x', &(thermal_slots[0]));
+	double** d_dmdt_hT_y_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_14", 'h', 'y', &(thermal_slots[0]));
+	double** d_dmdt_hT_z_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_15", 'h', 'z', &(thermal_slots[0]));
 
-	double** d_dmdt_hS_x_N = getVectorOfVectors(dmdt, n, "apply_16", 'h', 'x', S);
-	double** d_dmdt_hS_y_N = getVectorOfVectors(dmdt, n, "apply_17", 'h', 'y', S);
-	double** d_dmdt_hS_z_N = getVectorOfVectors(dmdt, n, "apply_18", 'h', 'z', S);
+	double** d_dmdt_hS_x_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_16", 'h', 'x', &(sum_slots[0]));
+	double** d_dmdt_hS_y_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_17", 'h', 'y', &(sum_slots[0]));
+	double** d_dmdt_hS_z_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_18", 'h', 'z', &(sum_slots[0]));
 
-	double** d_alpha_N = getVectorOfVectors(dmdt, n, "apply_19", 'a');
-	double** d_gamma_N = getVectorOfVectors(dmdt, n, "apply_20", 'g');
+	double** d_alpha_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_19", 'a');
+	double** d_gamma_N = SpinOperation::getVectorOfVectors(dmdt, n, "apply_20", 'g');
 
-	double*  d_alpha   = (double*)getVectorOfValues(dmdt, n, "apply_21", 'a');
-	double*  d_gamma   = (double*)getVectorOfValues(dmdt, n, "apply_22", 'g');
-	double*  d_dt      = (double*)getVectorOfValues(dmdt, n, "apply_23", 'd', scaledmdt);
+	double*  d_alpha   = (double*)SpinOperation::getVectorOfValues(dmdt, n, "apply_21", 'a');
+	double*  d_gamma   = (double*)SpinOperation::getVectorOfValues(dmdt, n, "apply_22", 'g');
+	double*  d_dt      = (double*)SpinOperation::getVectorOfValues(dmdt, n, "apply_23", 'd', scaledmdt);
 
 	cuda_llg_cart_apply_N(nx, ny, nz,
 			    d_spinto_x_N,   d_spinto_y_N,   d_spinto_z_N,   d_spinto_m_N,

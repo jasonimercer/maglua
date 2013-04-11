@@ -2178,13 +2178,26 @@ static int l_getslotused(lua_State* L)
 	return 1;
 }
 
+static int l_ensureslotexists(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, ss,  1);
+
+	const char* name = lua_tostring(L, 2);
+	if(!name)                             
+		return luaL_error(L, "Argument must be a string");
+	
+	ss->ensureSlotExists(ss->register_slot_name(name));
+
+	return 0;
+}
+
 static int l_setslotused(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, s,  1);
 
 	const char* name = lua_tostring(L, 2);
 	if(!name)                             
-		return luaL_error(L, "Argument must a string");
+		return luaL_error(L, "Argument must be a string");
 	int slot = s->getSlot(name);                      
 	if(slot < 0)                                       
 		return luaL_error(L, "Unknown field type`%s'", name); 
@@ -2434,6 +2447,7 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "1 Iterator Function: Each function call returns a table of position as {i,j,k} and the moment direction and magnitude as a table {x,y,z,m}.");
 		return 3;
 	}
+	
 	
 	if(func == l_netmoment)
 	{
@@ -2844,6 +2858,13 @@ int SpinSystem::help(lua_State* L)
 		return 3;
 	}
 	
+	if(func == l_ensureslotexists)
+	{
+		lua_pushstring(L, "Ensure the *SpinSystem* has a field slot with the given name");
+		lua_pushstring(L, "1 String: A field name");
+		lua_pushstring(L, "");
+		return 3;
+	}
 	
 	if(func == l_getslotused)
 	{
@@ -3017,6 +3038,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		
 		{"slotUsed", l_getslotused},
 		{"setSlotUsed", l_setslotused},
+		{"ensureSlotExists", l_ensureslotexists},
 
 		// new site a, g
 		{"setSiteAlphaArray", l_setsitealphaarray},

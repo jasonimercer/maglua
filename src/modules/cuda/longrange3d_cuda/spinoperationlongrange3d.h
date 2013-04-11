@@ -32,7 +32,7 @@ using namespace std;
 class LONGRANGE_API LongRange3D : public SpinOperation
 {
 public:
-	LongRange3D(const char* name="LongRange3D", const int field_slot=DIPOLE_SLOT, int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange3D"));
+	LongRange3D(int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange3D"));
 	virtual ~LongRange3D();
 	
 	LINEAGE2("LongRange3D", "SpinOperation")
