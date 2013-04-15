@@ -3,6 +3,13 @@
 
 
 template<typename T>
+static int l_mattrans(lua_State* L);
+
+static int l_matdet(lua_State* L);
+
+static int l_matmul(lua_State* L);
+
+template<typename T>
 static int l_sameSize(lua_State* L)
 {
 	LUA_PREAMBLE(Array<T>, a, 1);
@@ -426,6 +433,10 @@ static const luaL_Reg* get_base_methods()
 		{"scale",   l_scale<T>},
 		
 		{"slice",    l_manip_region<T>},
+
+		{"matTrans",     l_mattrans<T>},
+		{"matDet",       l_matdet},
+		{"matMul",       l_matmul},
 		
 		{NULL, NULL}
 	};
@@ -618,7 +629,34 @@ static int Array_help(lua_State* L)
 		return 3;
 	}
 
+	lua_CFunction f18 = l_mattrans<T>;
+	if(func == f18)
+	{
+		lua_pushstring(L, "Transpose the z=1 section of the array");
+		lua_pushstring(L, "1 Optional Array: Destination array which will contain the transpose, may be the calling array. Must be of the appropriate dimensions.");
+		lua_pushstring(L, "1 Array: Transpose of array. If the optional array is given it will be the same array otherwaise a new array will be created.");
+		return 3;
+	}
+
 	
+	lua_CFunction f19 = l_matdet;
+	if(func == f19)
+	{
+		lua_pushstring(L, "Treat array like a matrix and compute the determinant of the z=1 slice.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Value: The determinant.");
+		return 3;
+	}
+	
+	lua_CFunction f20 = l_matmul;
+	if(func == f20)
+	{
+		lua_pushstring(L, "Treat arrays like matrices and do Matrix Multiplication on the z=1 layer");
+		lua_pushstring(L, "1 Array, 1 Optional Array: The given array will be multiply the calling Array, their dimensions must match to allow legal matrix multiplication. If a 2nd Array is supplied the product will be stored in it, otherise a new Array will be created.");
+		lua_pushstring(L, "1 Array: The product of the multiplication.");
+		return 3;
+	}
+
 	return LuaBaseObject::help(L);
 }
 
@@ -902,6 +940,106 @@ ARRAY_API iArray* getWSiArray(int nx, int ny, int nz, long level)
 }
 
 
+
+template <typename T>
+static void matminor(const T* A, const int nx, const int ny, int i, int j, T* dest)
+{
+	for(int y=0; (y<j) && (y<ny); y++)
+	{
+		for(int x=0; (x<i) && (x<nx); x++)
+		{
+			dest[x + (y*(nx-1))] = A[x+nx*y];
+		}
+		for(int x=i+1; x<nx; x++)
+		{
+			// printf("A[%i,%i] -> m[%i,%i]\n", x-1,y,x,y);
+			dest[(x-1) + (y*(nx-1))] = A[x+nx*y];
+		}
+	}
+
+	for(int y=j+1; y<ny; y++)
+	{
+		for(int x=0; x<i && x<nx; x++)
+		{
+			// printf("A[%i,%i] -> m[%i,%i]\n", x,y-1,x,y);
+			dest[x + ((y-1)*(nx-1))] = A[x+nx*y];
+		}
+		for(int x=i+1; x<nx; x++)
+		{
+			// printf("A[%i,%i] -> m[%i,%i]\n", x-1,y-1,x,y);
+			dest[(x-1) + ((y-1)*(nx-1))] = A[x+nx*y];
+		}
+	}
+}
+
+
+template <typename T>
+static T matdet(const T* A, const int nx, const int ny, bool& ok)
+{
+	ok = true;
+	if(nx != ny)
+	{
+		ok = false;
+		return A[0];
+	}
+
+	if(nx == 0)
+	{
+		return 0;
+	}
+
+	if(nx == 1)
+	{
+		return A[0];
+	}
+
+	if(nx == 2)
+	{
+		return A[0]*A[3] - A[1]*A[2];
+	}
+
+	T* m = new T[(nx-1)*(ny-1)];
+	T sum = 0;
+	for(int i=0; i<nx; i++)
+	{
+#if 0
+		cout << "making minor " << i << ", 0 for matrix:" << endl;
+		for(int a=0; a<nx; a++)
+		{
+			for(int b=0; b<nx; b++)
+			{
+				cout << A[b*nx + a] << "\t";
+			}
+			cout << endl;
+		}
+#endif
+		matminor(A, nx, ny, i, 0, m);
+#if 0
+		cout << "minor:" << endl;
+		for(int a=0; a<nx-1; a++)
+		{
+			for(int b=0; b<nx-1; b++)
+			{
+				cout << m[b*(nx-1) + a] << "\t";
+			}
+			cout << endl;
+		}
+#endif
+
+		if(i & 0x1) //odd, negative
+		{
+			sum = sum - A[i] * matdet(m, nx-1, ny-1, ok);
+		}
+		else  //even, positive
+		{
+			sum = sum + A[i] * matdet(m, nx-1, ny-1, ok);
+		}
+	}
+	delete [] m;
+
+	return sum;
+}
+
 template <typename T>
 static void mm(
 	const T* A, const int ra, const int ca,
@@ -922,6 +1060,69 @@ static void mm(
 	}
 }
 		
+
+
+template <typename T>
+static bool mattrans(const T* src, const int nx, const int ny, T* dest)
+{
+	if((src == dest) && (nx != ny))
+		return false;
+
+	if(src == dest)
+	{
+		for(int i=0; i<nx; i++)
+		{
+			for(int j=0; j<i; j++)
+			{
+				if(i != j)
+				{
+
+					const T t = dest[i + nx*j];
+					dest[i + nx*j] = dest[j + nx*i];
+					dest[j + nx*i] = t;
+				}
+			}
+		}
+	}
+	else
+	{
+		for(int i=0; i<nx; i++)
+		{
+			for(int j=0; j<ny; j++)
+			{
+				dest[j + i*ny] = src[i + j*nx];
+			}
+		}
+	}
+	return true;
+}
+
+template <typename T>
+static int l_mattrans(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, A, 1);
+	
+	Array<T>* B = 0;
+	if(luaT_is< Array<T> >(L, 2))
+		B = luaT_to< Array<T> >(L, 2);
+	if(B)
+	{
+		if(B->ny != A->ny && B->nx != A->nx)
+		{
+			return luaL_error(L, "Destination array size mismatch");
+		}
+	}
+	else
+	{
+		B = new Array<T>(A->ny, A->nx);
+	}
+	
+
+	mattrans(A->data(), A->nx, A->ny, B->data());
+
+	luaT_push< Array<T> >(L, B);
+	return 1;
+}
 
 
 
@@ -962,6 +1163,34 @@ static int l_matmul(lua_State* L)
 
 
 
+template <typename T>
+static int lT_matdet(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, A, 1);
+	
+	if(A->nx != A->ny)
+		return luaL_error(L, "Matrix is not square");
+	
+	bool ok;
+	
+	T res = matdet<T>(A->data(), A->nx, A->ny, ok);
+	
+	luaT<T>::push(L, res);
+    return luaT<T>::elements();
+}
+
+static int l_matdet(lua_State* L)
+{
+	if(luaT_is<dArray>(L, 1))
+		return lT_matdet<double>(L);
+	if(luaT_is<fArray>(L, 1))
+		return lT_matdet<float>(L);
+	if(luaT_is<iArray>(L, 1))
+		return lT_matdet<int>(L);
+	return luaL_error(L, "Array.matDet is only implemented for single and double precision and integer arrays");
+}
+
+
 
 
 
@@ -979,7 +1208,7 @@ static int l_matmul(lua_State* L)
  #define ARRAY_API 
 #endif
 
-
+#if 0
 static int l_array_help(lua_State* L)
 {
 	lua_CFunction func = lua_tocfunction(L, 1);
@@ -1001,8 +1230,27 @@ static int l_array_help(lua_State* L)
 		return 3;
 	}
 	
+	lua_CFunction f02 = l_matdet;
+	if(func == f02)
+	{
+		lua_pushstring(L, "Treat array like a matrix and compute the determinant");
+		lua_pushstring(L, "1 Array: Input matrix");
+		lua_pushstring(L, "1 Value: The determinant.");
+		return 3;
+	}
+	
 	return 0;
 }
+#endif
+
+static int l_getmetatable(lua_State* L)
+{
+	if(!lua_isstring(L, 1))
+		return luaL_error(L, "First argument must be a metatable name");
+	luaL_getmetatable(L, lua_tostring(L, 1));
+	return 1;
+}
+
 
 extern "C"
 {
@@ -1016,8 +1264,9 @@ ARRAY_API int lib_version(lua_State* L);
 ARRAY_API const char* lib_name(lua_State* L);
 ARRAY_API int lib_main(lua_State* L);
 }
-#include "info.h"
 
+#include "info.h"
+#include "array_luafuncs.h"
 ARRAY_API int lib_register(lua_State* L)
 {
 	dArray foo1;
@@ -1035,16 +1284,31 @@ ARRAY_API int lib_register(lua_State* L)
 #ifdef SINGLE_ARRAY
 	luaT_register<fcArray>(L);
 #endif
-	
+#if 0
 	lua_getglobal(L, "Array");
 	lua_pushstring(L, "matMul");
 	lua_pushcfunction(L, l_matmul);
+	lua_settable(L, -3);
+
+	lua_getglobal(L, "Array");
+	lua_pushstring(L, "matDet");
+	lua_pushcfunction(L, l_matdet);
 	lua_settable(L, -3);
 	
 	lua_pushstring(L, "help");
 	lua_pushcfunction(L, l_array_help);
 	lua_settable(L, -3);
 	lua_pop(L, 1);
+#endif
+
+	lua_pushcfunction(L, l_getmetatable);
+	lua_setglobal(L, "maglua_getmetatable");
+	if(luaL_dostring(L, __array_luafuncs()))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		return luaL_error(L, lua_tostring(L, -1));
+	}
+
 
 	return 0;
 }
