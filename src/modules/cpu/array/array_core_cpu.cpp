@@ -457,12 +457,6 @@ static int Array_help(lua_State* L)
 		return 3;
 	}
 
-	if(!lua_iscfunction(L, 1))
-	{
-		return luaL_error(L, "help expects zero arguments or 1 function.");
-	}
-
-
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
 	lua_CFunction f01 = l_sameSize<T>; //THIS IS BULLSHIT! Doing this so that icc 11 can compile cleanly. 
