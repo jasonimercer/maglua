@@ -296,6 +296,16 @@ public:
 		return true;
 	}
 	
+	// s1,s2 are inclusive
+	void copyRegionFromTo(int* s1, int* s2, Array<T>* dest, int* d1, int* d2)
+	{
+		//arrayCopyRegionFromTo(ddata(), nx, ny, nz, s1, s2, dest->ddata(), dest->nx, dest->ny, dest->nz, d1, d2);
+		// using CPU version for now
+		arrayCopyRegionFromTo(data(), nx, ny, nz, s1, s2, dest->data(), dest->nx, dest->ny, dest->nz, d1, d2);
+		dest->new_host = true;
+		dest->new_device = false;
+	}
+	
 	int xyz2idx(const int x, const int y, const int z) const
 	{
 		return x + y*nx + z*nx*ny;
@@ -441,10 +451,10 @@ public:
 		return luaT<T>::push(L, data()[c[0]]);
 	}
 	
-	void setAll(const T& v){arraySetAll(ddata(), v, nxyz);}
-	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(ddata(), v, nxyz);}
-	void scaleAll_o(const T& v, const int offset, const int n) {sync_hd(); arrayScaleAll_o(ddata(), offset, v, n);}
-	void addValue(const T& v) {sync_hd(); arrayAddAll(ddata(), v, nxyz);}
+	void setAll(const T& v){arraySetAll(ddata(), v, nxyz); new_device = true;}
+	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(ddata(), v, nxyz); new_device = true;}
+	void scaleAll_o(const T& v, const int offset, const int n) {sync_hd(); arrayScaleAll_o(ddata(), offset, v, n); new_device = true;}
+	void addValue(const T& v) {sync_hd(); arrayAddAll(ddata(), v, nxyz); new_device = true;}
 	
 	
 	static bool doublePrep(Array<T>* dest, const Array<T>* src)
@@ -477,8 +487,10 @@ public:
 	{
 		if(!Array<T>::triplePrep(dest, src1, src2)) return false;
 		arrayScaleAdd(dest->ddata(), s1, src1->ddata(), s2, src2->ddata(), dest->nxyz);
+		dest->new_device = true;
 		return true;
 	}
+	
 
 	static bool norm(Array<T>* dest, Array<T>* src)
 	{
@@ -534,8 +546,8 @@ public:
 	void copyFrom(Array<T>* other)
 	{
 		memcpy_d2d(ddata(), other->ddata(), sizeof(T)*nxyz);
-		other->new_device = true;
-		other->new_host = false;
+		new_device = true;
+		new_host = false;
 	}
 	
 	void zero()

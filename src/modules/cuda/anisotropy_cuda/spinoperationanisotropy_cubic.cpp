@@ -64,6 +64,31 @@ void AnisotropyCubic::init()
 	d_nx[0] = 0;
 }
 
+bool AnisotropyCubic::make_uncompressed()
+{
+	delete_compressed();
+
+	if(new_host || !d_nx)
+	{
+		delete_uncompressed();
+		
+		for(int i=0; i<3; i++)
+		{
+			malloc_device(&(d_nx[i]), sizeof(double)*nxyz);
+			malloc_device(&(d_ny[i]), sizeof(double)*nxyz);
+			malloc_device(&(d_nz[i]), sizeof(double)*nxyz);
+			malloc_device(&(d_k[i]),  sizeof(double)*nxyz);
+
+			memcpy_h2d(&(d_nx[i]), &(h_nx[i]), sizeof(double)*nxyz);
+			memcpy_h2d(&(d_ny[i]), &(h_ny[i]), sizeof(double)*nxyz);
+			memcpy_h2d(&(d_nz[i]), &(h_nz[i]), sizeof(double)*nxyz);
+			memcpy_h2d(&(d_k[i]),  &(h_k[i]),  sizeof(double)*nxyz);
+		}
+	}
+	new_host = false;
+	compressed = false;
+	return true;
+}
 void AnisotropyCubic::deinit()
 {
 	if(ops)

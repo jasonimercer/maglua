@@ -9,7 +9,9 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperationanisotropy.o spinoperationanisotropy.cuo spinoperationanisotropy_cubic.o
+OBJECTS=spinoperationanisotropy.o spinoperationanisotropy.cuo \
+	spinoperationanisotropy_cubic.o spinoperationanisotropy_cubic.cuo \
+	spinoperationanisotropy_uniaxial.o spinoperationanisotropy_uniaxial.cuo
 LIBNAME=AnisotropyCuda
 CATEGORY=cuda
 

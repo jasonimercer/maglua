@@ -30,6 +30,7 @@ public:
 	static int elements() {return 0;}
 	static int push(lua_State* L, const T& v){return elements();}
 	static T to(lua_State* L, int idx){return 0;}
+	static int is(lua_State* L, int idx){return 0;}
 	static	void encode(const T& v, buffer* b){}
 	static	T decode(buffer* b){return 0;}
 	static	T zero() {return 0;}
@@ -44,6 +45,7 @@ public:
 	static int elements() {return 1;}
 	static int push(lua_State* L, const double& v){lua_pushnumber(L, v);return elements();}
 	static double to(lua_State* L, int idx){return lua_tonumber(L, idx);}
+	static int is(lua_State* L, int idx){return lua_isnumber(L, idx);}
 	static	void encode(const double& v, buffer* b){	encodeDouble(v, b);	}
 	static	double decode(buffer* b){return decodeDouble(b);}
 	static	double zero() {return 0;}
@@ -58,6 +60,7 @@ public:
 	static int elements() {return 1;}
 	static int push(lua_State* L, const float& v){lua_pushnumber(L, v);return elements();}
 	static float to(lua_State* L, int idx){return (float)lua_tonumber(L, idx);}
+	static int is(lua_State* L, int idx){return lua_isnumber(L, idx);}
 	static	void encode(const float& v, buffer* b){	encodeDouble(v, b);	}
 	static	float decode(buffer* b){return (float)decodeDouble(b);}
 	static	float zero() {return 0;}
@@ -72,6 +75,7 @@ public:
 	static int elements() {return 1;}
 	static int push(lua_State* L, const int& v){lua_pushnumber(L, v);return elements();}
 	static int to(lua_State* L, int idx){return lua_tointeger(L, idx);}
+	static int is(lua_State* L, int idx){return lua_isnumber(L, idx);}
 	static	void encode(const int& v, buffer* b){	encodeInteger(v, b);	}
 	static	int decode(buffer* b){return decodeInteger(b);}
 	static	int zero() {return 0;}
@@ -86,6 +90,7 @@ public:
 	static int elements() {return 2;}
 	static int push(lua_State* L, const cuDoubleComplex& v){lua_pushnumber(L, v.x);lua_pushnumber(L, v.y);return 2;}
 	static cuDoubleComplex to(lua_State* L, int idx){double a = lua_tonumber(L, idx); double b = lua_tonumber(L, idx+1); return make_cuDoubleComplex(a,b);}
+	static int is(lua_State* L, int idx){return lua_isnumber(L, idx) && lua_isnumber(L, idx+1);}
 	static	void encode(const cuDoubleComplex& v, buffer* b){	encodeDouble(v.x, b);encodeDouble(v.y, b);}
 	static	cuDoubleComplex decode(buffer* b){return make_cuDoubleComplex(decodeDouble(b), decodeDouble(b));}
 	static	cuDoubleComplex zero() {return make_cuDoubleComplex(0,0);}
@@ -99,6 +104,7 @@ public:
 	static int elements() {return 2;}
 	static int push(lua_State* L, const cuFloatComplex& v){lua_pushnumber(L, v.x);lua_pushnumber(L, v.y);return 2;}
 	static cuFloatComplex to(lua_State* L, int idx){float a = lua_tonumber(L, idx); float b = lua_tonumber(L, idx+1); return make_cuFloatComplex(a,b);}
+	static int is(lua_State* L, int idx){return lua_isnumber(L, idx) && lua_isnumber(L, idx+1);}
 	static	void encode(const cuFloatComplex& v, buffer* b){	encodeDouble(v.x, b);encodeDouble(v.y, b);}
 	static	cuFloatComplex decode(buffer* b){return make_cuFloatComplex(decodeDouble(b), decodeDouble(b));}
 	static	cuFloatComplex zero() {return make_cuFloatComplex(0,0);}

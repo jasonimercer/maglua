@@ -19,11 +19,13 @@ for i=1,n do
 	end
 end
 
-B = A:matInvert()
-
 printMat("A", A)
 
+
+B = A:matInv()
 printMat("B", B)
+
+
 
 printMat("C", A:matMul(B))
 

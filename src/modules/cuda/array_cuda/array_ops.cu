@@ -1297,3 +1297,102 @@ bool arrayAreAllSameValue(floatComplex* d_data, const int n, floatComplex& v)
 {
 	return arrayAreAllSameValue_<floatComplex>(d_data, n, v);
 }
+
+
+
+
+
+
+
+#if 0
+
+template<typename T>
+__global__ void arrayCopyRegionFromTo__(
+	T* src, 
+	int snx, int sny, /*int snz,*/
+	int sbx, int sby, int sbz, //src begin xyz
+	
+	T* dest, 
+	int dnx, int dny, /*int dnz,*/
+	int dbx, int dby, int dbz, //dest begin xyz
+	
+	int Dim1, int Dim2, int Dim3)
+{
+	const int px = blockDim.x * blockIdx.x + threadIdx.x;
+	const int py = blockDim.y * blockIdx.y + threadIdx.y;
+	const int pz = blockDim.z * blockIdx.z + threadIdx.z;
+
+	if(px > Dim1) return;
+	if(py > Dim2) return;
+	if(pz > Dim3) return;
+	
+	dest[(px + dbx) + (py + dby) * dnx + (pz + dbz) * dnx*dny] =
+	 src[(px + sbx) + (py + sby) * snx + (pz + sbz) * snx*sny];
+	
+}
+
+
+template<typename T>
+void arrayCopyRegionFromTo_(T* src, int snx, int sny, int snz, int* s1, int* s2, T* dest, int dnx, int dny, int dnz, int* d1, int* d2)
+{
+	const int Dim1 = s2[0] - s1[0];
+	const int Dim2 = s2[1] - s1[1];
+	const int Dim3 = s2[2] - s1[2];
+	
+	const int nbx = (Dim1 + 1 + 7) / 8;
+	const int nby = (Dim2 + 1 + 7) / 8;
+	const int nbz = (Dim3 + 1 + 7) / 8;
+	
+	dim3 gd(nbx,nby,nbz);
+	dim3 bd(8,8,8);
+
+	printf("***** %i %i %i\n", nbx, nby, nbz);
+	
+	arrayCopyRegionFromTo__<<<gd, bd>>>(
+			src, snx, sny,
+			s1[0], s1[1], s1[2],
+			dest, dnx, dny,
+			d1[0], d1[1], d1[2],
+			Dim1, Dim2, Dim3 );
+
+	KCHECK;
+}
+
+#endif
+template<typename T>
+void arrayCopyRegionFromTo_(T* src, int sx, int sy, int sz, int* s1, int* s2, T* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	int dim1 = s2[0] - s1[0];
+	int dim2 = s2[1] - s1[1];
+	int dim3 = s2[2] - s1[2];
+	
+	for(int k=0; k<=dim3; k++)
+		for(int j=0; j<=dim2; j++)
+			for(int i=0; i<=dim1; i++)
+			{
+				dest[(i + d1[0]) + (j + d1[1]) * dx + (k + d1[2]) * dx*dy] = src[(i + s1[0]) + (j + s1[1]) * sx + (k + s1[2]) * sx*sy];
+			}
+}
+
+
+
+void arrayCopyRegionFromTo(double* src, int sx, int sy, int sz, int* s1, int* s2, double* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<double>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}
+void arrayCopyRegionFromTo( float* src, int sx, int sy, int sz, int* s1, int* s2,  float* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<float>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}
+void arrayCopyRegionFromTo(   int* src, int sx, int sy, int sz, int* s1, int* s2,    int* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<int>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}
+void arrayCopyRegionFromTo(doubleComplex* src, int sx, int sy, int sz, int* s1, int* s2, doubleComplex* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<doubleComplex>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}
+void arrayCopyRegionFromTo( floatComplex* src, int sx, int sy, int sz, int* s1, int* s2,  floatComplex* dest, int dx, int dy, int dz, int* d1, int* d2)
+{
+	arrayCopyRegionFromTo_<floatComplex>(src, sx,sy,sz, s1,s2,dest,dx,dy,dz, d1, d2);
+}

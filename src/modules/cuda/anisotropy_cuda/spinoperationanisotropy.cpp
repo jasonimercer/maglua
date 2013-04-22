@@ -822,9 +822,13 @@ ANISOTROPYCUDA_API const char* lib_name(lua_State* L);
 ANISOTROPYCUDA_API int lib_main(lua_State* L);
 }
 
+#include "spinoperationanisotropy_uniaxial.h"
+#include "spinoperationanisotropy_cubic.h"
 ANISOTROPYCUDA_API int lib_register(lua_State* L)
 {
 	luaT_register<Anisotropy>(L);
+	luaT_register<AnisotropyUniaxial>(L);
+	luaT_register<AnisotropyCubic>(L);
 	return 0;
 }
 

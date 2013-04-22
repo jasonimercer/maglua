@@ -96,9 +96,7 @@ static int l_copy(lua_State* L)
 	LUA_PREAMBLE(Array<T>, a, 1);
 	
 	Array<T>* b = new Array<T>(a->nx, a->ny, a->nz);
-	
-	memcpy(b->data(), a->data(), sizeof(T) * a->nxyz);
-	
+	b->copyFrom(a);
 	luaT_push< Array<T> >(L, b);
 	
 	return 1;
@@ -301,29 +299,6 @@ static void get_region(lua_State* L, int idx, int* r6)
 		lua_pop(L, 1); //pop table
 	}
 	
-}
-
-template<typename T>
-static int l_setregion(lua_State* L)
-{
-	LUA_PREAMBLE(Array<T>, a, 1);
-
-// 	int r1[3] = {0,0,0}
-// 	int r2[3] = {0,0,0}
-	
-// 	get_ints_from_table(L, 2, 3, r1, -1);
-// 	get_ints_from_table(L, 3, 3, r2, -1);
-	
-	if(lua_isnumber(L, 4))
-	{
-		
-	}
-	else
-	{
-		
-	}
-	
-	return 0;
 }
 
 static int same_shape(int* r1, int* r2)

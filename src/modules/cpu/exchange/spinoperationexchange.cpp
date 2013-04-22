@@ -111,6 +111,10 @@ Exchange::~Exchange()
 	deinit();
 }
 
+// This has a big change. As of April 21, 2013 the exchange 
+// works with sigma, not M. This means that the site is now normalized.
+// This change is required to ease cases when the site magnitude changes
+// over time (LLB)
 bool Exchange::apply(SpinSystem* ss)
 {
 	int slot = markSlotUsed(ss);
@@ -122,6 +126,7 @@ bool Exchange::apply(SpinSystem* ss)
 	dArray& sx = (*ss->x);
 	dArray& sy = (*ss->y);
 	dArray& sz = (*ss->z);
+	dArray& mm = (*ss->ms);
 
 	#pragma omp parallel for shared(hx,sx)
 	for(int i=0; i<num; i++)
@@ -130,7 +135,8 @@ bool Exchange::apply(SpinSystem* ss)
 		const int f    = pathways[i].fromsite;
 		const double s = pathways[i].strength;
 		
-		hx[t] += sx[f] * s * global_scale;
+		if(mm[f])
+			hx[t] += sx[f] * s * global_scale / mm[f];
 	}
 	#pragma omp parallel for shared(hy,sy)
 	for(int i=0; i<num; i++)
@@ -139,7 +145,8 @@ bool Exchange::apply(SpinSystem* ss)
 		const int f    = pathways[i].fromsite;
 		const double s = pathways[i].strength;
 		
-		hy[t] += sy[f] * s * global_scale;
+		if(mm[f])
+			hy[t] += sy[f] * s * global_scale / mm[f];
 	}
 	#pragma omp parallel for shared(hz,sz)
 	for(int i=0; i<num; i++)
@@ -148,7 +155,8 @@ bool Exchange::apply(SpinSystem* ss)
 		const int f    = pathways[i].fromsite;
 		const double s = pathways[i].strength;
 		
-		hz[t] += sz[f] * s * global_scale;
+		if(mm[f])
+			hz[t] += sz[f] * s * global_scale / mm[f];
 	}
 	return true;
 }

@@ -19,4 +19,5 @@ BASEDIR=../../..
 EXTRA_PKG=fftw3f
 # CC_EXTRAOPS=-fopenmp
 # EXTRA_CFLAGS=-lgomp -lrt
+EXTRA_CLEAN=array_luafuncs.cpp array_luafuncs.h
 include $(BASEDIR)/makefile.common.cpu

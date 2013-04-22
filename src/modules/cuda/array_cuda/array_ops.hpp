@@ -141,6 +141,13 @@ ARRAY_CUDA_API void arrayScaleMultAdd_o(int* dest, const int od, int scale, cons
 ARRAY_CUDA_API void arrayScaleMultAdd_o(doubleComplex* dest, const int od, doubleComplex scale, const doubleComplex* src1, const int o1, const doubleComplex* src2, const int o2, const doubleComplex* src3, const int o3, const int nxy);
 ARRAY_CUDA_API void arrayScaleMultAdd_o(floatComplex* dest, const int od, floatComplex scale, const floatComplex* src1, const floatComplex* src2, const int o2, const floatComplex* src3, const int o3, const int nxy);
 
+ARRAY_CUDA_API void arrayCopyRegionFromTo(double* src, int sx, int sy, int sz, int*s1,int*s2,double* dest, int dx, int dy, int dz, int* d1, int* d2);
+ARRAY_CUDA_API void arrayCopyRegionFromTo( float* src, int sx, int sy, int sz, int*s1,int*s2, float* dest, int dx, int dy, int dz, int* d1, int* d2);
+ARRAY_CUDA_API void arrayCopyRegionFromTo(   int* src, int sx, int sy, int sz, int*s1,int*s2,   int* dest, int dx, int dy, int dz, int* d1, int* d2);
+ARRAY_CUDA_API void arrayCopyRegionFromTo(doubleComplex* src, int sx, int sy, int sz, int*s1,int*s2,doubleComplex* dest, int dx, int dy, int dz, int* d1, int* d2);
+ARRAY_CUDA_API void arrayCopyRegionFromTo( floatComplex* src, int sx, int sy, int sz, int*s1,int*s2, floatComplex* dest, int dx, int dy, int dz, int* d1, int* d2);
+
+
 bool arrayAreAllSameValue(double* d_data, const int n, double& v);
 bool arrayAreAllSameValue(float* d_data, const int n, float& v);
 bool arrayAreAllSameValue(int* d_data, const int n, int& v);

@@ -4,6 +4,7 @@
 -- this file is encoded into a C string
 
 -- OS specific file locations/cmds
+-- for now OS is only Linux
 local module_path_dir
 local module_path_file
 local module_short_dir
@@ -31,7 +32,7 @@ local setup_module_path = nil
 local print_help = false
 local print_module_path_file = nil
 local write_documentation = nil
-
+local cmd_line_max_memory = nil
 local do_error_trim = false
 
 -- trim info about bootstrap from error messages
@@ -103,6 +104,21 @@ for k,v in pairs(arg) do
 		end
 	end
 	
+	if v == "--maxMemory" then
+		local mem_err = "--maxMemory requires a value and unit. Example: --maxMemory 1024MB or --maxMemory 1.3GB"
+		local units = {B=1024^0, KB=1024^2, MB=1024^2, GB=1024^3, TB=1024^4}
+		arg[k+1] = arg[k+1] or ""
+		local a,b,c,d = string.find(arg[k+1], "^%s*(%d+)(%a*)%s*$")
+		if d then
+			d = string.upper(d)
+			d = units[d] or error(mem_err)
+			cmd_line_max_memory = tonumber(c) * d
+		else
+			error(mem_err)
+		end
+	end
+	
+	
 	if (v == "-h" or v == "--help")  and sub_process == nil then
 		print_help = true
 	end
@@ -114,7 +130,7 @@ function reference()
 	return "Publications with results derived from MagLua must co-author the following:\n" ..
 			"   Jason I. Mercer, Department of Computer Science,\n   Memorial University of Newfoundland. jason.mercer@mun.ca"
 --	return "Use the following reference when citing this code:\n" ..
---		   [["MagLua, a Micromagnetics Programming Environment". Mercer, Jason I. (2012). Journal. Vol, pages]]
+--		   [["MagLua, a Micromagnetics Programming Environment". Mercer, Jason I. (2013). Journal. Vol, pages]]
 end
 
 local function make_version()
@@ -191,6 +207,12 @@ end
 
 -- You can also maintain different module directories using the "version()" function: "common-r" .. version()
 --  Be aware that if you run maglua --setup this_path again, this file will be overwritten by the default.
+
+-- You can set memory limits for each maglua process by defining one of the following values
+-- Less than 200MB may make initialization fail if many modules are required. If these values are not
+-- set then the system defaults are used. 
+-- maxMemoryMB = 512 -- limit system memory use to 512 MB
+-- maxMemoryGB = 6   -- limit system memory use to   6 GB
 ]])
 		f:close()
 		return false
@@ -236,6 +258,7 @@ help_args["--use_module_file <file>"] = "Use the given file to manage modules"
 help_args["--module_path <category>"] = "Print module directory for <category> module types"
 help_args["-v, --version"] =            "Print version"
 help_args["-h, --help"] =               "Show this help"
+help_args["--maxMemory value(B|KB|MB|GB)"]="Set the maximum amount of system memory that this process can allocate."
 help_args["--write_docs [file]"] =      "Write HTML documentation to given file or stdout"
 -- get the module path
 local mod_test = io.open(module_path_file, "r") --this file does not exist on a clean install
@@ -244,9 +267,40 @@ if mod_test then
    mod_test:close()
 end
 
+-- dealing with memory limits as defined in module_path_file or command line
+if cmd_line_max_memory then
+	local a = getrlimit(RLIMIT.AS)
+	a[1] = cmd_line_max_memory
+	setrlimit(RLIMIT.AS, a)
+else
+	local maxMemoryBytes = -1
+
+	if maxMemoryMB ~= nil then
+		maxMemoryBytes = maxMemoryMB * 1024 * 1024
+	end
+	if maxMemoryGB ~= nil then
+		maxMemoryBytes = maxMemoryGB * 1024 * 1024 * 1024
+	end
+	if maxMemoryBytes > 0 then
+		local a = getrlimit(RLIMIT.AS)
+		a[1] = maxMemoryBytes
+		setrlimit(RLIMIT.AS, a)
+	end
+end
+
+-- clear memory functions and data
+maxMemoryBytes = nil
+maxMemoryMB = nil
+maxMemoryGB = nil
+
+setrlimit = nil
+getrlimit = nil
+RLIMIT = nil
+
+
 
 if print_help then
-	print("MagLua-r" .. version()..  " by Jason Mercer (c) 2012\n")
+	print("MagLua-r" .. version()..  " by Jason Mercer (c) 2013\n")
 	print(
 [[ MagLua is a micromagnetics programming environment built
  on top of the Lua scripting language.
@@ -374,7 +428,7 @@ end
 
 if be_quiet == nil then
 	e("This evaluation version of MagLua is for academic, non-commercial use only")
-	e("MagLua-r" .. version() .. " by Jason Mercer (c) 2012\n")
+	e("MagLua-r" .. version() .. " by Jason Mercer (c) 2013\n")
 	e( reference() .. "\n")
 	e("Modules:")
 	local t = {}
