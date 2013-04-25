@@ -53,6 +53,7 @@ clean:
 	rm -f *.o
 	rm -f $(LIBNAME) $(EXTRA_CLEAN) $(OBJECTS)
 	rm -f bootstrap.h maglua.html
+	rm -f $(BIN)
 
 pack:			#dev version
 	./pack.sh	#dev version

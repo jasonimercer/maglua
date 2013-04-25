@@ -617,7 +617,7 @@ double DU(Cvctr H, Cvctr K, Cvctr M, double DN) // return the smallest energy de
 		Umax = -(K.dot(MAX[n])/MAX[n].mag)*(K.dot(MAX[n])/MAX[n].mag)/K.mag - H.dot(MAX[n])-(0.5)*DN*M2cos2_max;
 		if (Umax - Umin < DELTA_U) DELTA_U = Umax - Umin;
 	}
-	if (smin <= 1) DELTA_U = 1.0e20;
+// 	if (smin <= 1) DELTA_U = 1.0e20;
 	return DELTA_U;
 }
 
