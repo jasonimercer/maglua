@@ -7,6 +7,7 @@ local t = maglua_getmetatable(MODNAME) -- this is a special function available o
 
 local matrix_invert
 
+
 local function matrix_invert(A, B)
 	if A:nx() ~= A:ny() then
 		error("Cannot invert non-square matrix")
@@ -107,8 +108,199 @@ local function matrix_invert(A, B)
 	return B
 end
 
-t.matInv    = matrix_invert
 
+
+local function qr_decompose_step(A, Q)
+	local x = A:slice({{1,1}, {1,A:ny()}})
+	
+	local alpha = math.sqrt(x:dot(x))
+	
+	-- alpha gets the negative sign of x_k
+	if x:get({1,1}) > 0 then
+		alpha = -alpha
+	end
+	
+	local ek = x:copy()
+	ek:zero()
+	ek:set({1,1}, 1)
+	
+	local u = x:pairwiseScaleAdd(alpha, ek)
+	
+	local v = u:copy()
+	
+	v:scale( 1/(math.sqrt(u:dot(u))))
+	
+	if Q == nil then
+		Q = A:copy()
+	end
+
+	
+	local vvT = v:matMul( v:matTrans())
+	
+	Q:matMakeI()
+	Q:pairwiseScaleAdd(-2, vvT, Q)
+	
+	return Q
+end
+
+
+local function qr_decompose(_A, Q, R)
+	local A = _A:copy()
+	Q = Q or A:copy()
+	R = R or A:copy()
+	local T = A:copy()
+	
+	Q:matMakeI()
+	R:matMakeI()
+	
+	Qt = {}
+	
+	local n = A:nx()
+	local m = n-1
+	for k=1,m do
+		local sub = A:slice({{k,k}, {n,n}})
+		Qk = qr_decompose_step(sub)
+		
+		R:matMakeI()
+		Qk:slice({{1,1},{Qk:nx(),Qk:ny()}}, R, {{k,k}, {n,n}})
+		-- R now holds the filled out Qk
+
+		Qt[k] = R:copy()
+
+		R:matMul(A, T)
+		T:copy(A)
+	end
+
+	Q:matMakeI()
+	for k=1,m do
+		local qq = Qt[k]:matTrans()
+		Q:copy(T)
+		
+		T:matMul(qq, Q)
+	end
+	
+	Q:matTrans(T)
+	
+	T:matMul(_A, R)
+	
+	return Q, R
+end
+
+-- need to figure this out
+local function matEigenSystemFromSchur(A,U)
+	local xx = {{1,1}, {1,A:ny()}}
+	local ws = A:slice(xx)
+	local M = A:copy()
+	-- need to diagonalize A and update U
+	for c=A:nx(),2,-1 do
+		for r=1,c-1 do
+-- 			print(r,c)
+-- 			printMat("D", A)
+			local frac = A:get(c,r) / A:get(c,r+1)
+			M:matMakeI()
+			M:set(r+1,r, -frac)
+			
+			M:matMul(A):copy(A)
+			
+-- 			M:matInv():copy(M)
+			
+-- 			M:matMul(U):copy(U)
+			
+			M:matTrans():matMul(U:matTrans()):matTrans():copy(U)
+			
+-- 			print("frac", frac)
+-- 			for i=r+1,A:nx() do
+-- 			for i=1,A:nx() do
+-- 				print(i,"val = ", A:get(i,r), " delta = ", frac * A:get(i,r+1))
+-- 				A:set(i,r, A:get(i,r) - frac * A:get(i,r+1))
+-- 				U:set(i,r, U:get(i,r) - frac * U:get(i,r+1))
+-- 				U:set(r,i, U:get(r,i) - 1/frac * U:get(r+1,i))
+-- 			end
+		end
+	end
+		
+	for c=1,A:nx() do
+		local yy = {{c,1}, {c,A:ny()}} 
+		U:slice(yy, ws, xx)
+		ws:scale(1/( ws:dot(ws)^(1/2) ))
+		ws:slice(xx, U, yy)
+	end
+	
+	return A,U
+end
+
+-- return a diagonal matrix with eigen values
+-- and a full matrix with columns on eigen vectors
+local function matEigenValues(_A, tol)
+	local A = _A:copy()
+	local tol = tol or 1e-10
+	
+	local Q, R = nil, nil
+	
+	local T = A:copy()
+	T:matMakeI()
+	
+	local lastSum = 1
+	local count_down = 5
+	for i=1,10000 do
+		Q,R = qr_decompose(A, Q, R)
+		
+		local b = T:matMul(Q)
+		b:copy(T)
+		
+		R:matMul(Q, A)
+		
+		local thisSum = R:sum()
+		
+		local foo = (lastSum^2 - thisSum^2)^(2)
+
+		if foo < tol then
+-- 			print(i)
+			return A,T
+		else
+-- 			print(foo, tol)
+		end
+
+-- 		printMat("A", A)
+		A:matLower(R)
+-- 		printMat("R", R)
+-- 		print(R:dot(R), tol)
+-- 		print( R:dot(R), tol)
+		if R:dot(R) < tol then -- schur
+-- 			printMat("R", R)
+-- 			printMat("A", A)
+-- 			printMat("T", T)
+-- 			return matEigenSystemFromSchur(A,T)
+		
+			A:matUpper(R)
+			A:pairwiseScaleAdd(-1, R, A)
+		
+			return A, nil
+-- 			return matEigenSystemFromSchur(A,T)
+		end
+		
+		lastSum = thisSum
+		
+	end
+	-- failed to converge
+	return nil,nil
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+t.matInv    = matrix_invert
+t.matQR     = qr_decompose
+t.matEigen  = matEigenValues
 
 local help = MODTAB.help
 
@@ -118,6 +310,18 @@ MODTAB.help = function(x)
 			"Get an element of the interaction tensor",
 			"4 Integers, 1 String: destination layer (base 1), source layer (base 1), x and y offset, tensor name: XX, XY, XZ, etc",
 			"1 Number: Tensor element"
+	end
+		if x == qr_decompose then
+		return
+			"Compute QR decomposition on a square matrix",
+			"2 optional Arrays: destination for QR decomposition",
+			"2 Arrays: QT decomposition"
+	end
+		if x == matEigenValues then
+		return
+			"Compute Eigen Values and perhaps Eigen Vectors",
+			"1 optional number: Tolerance (default 1e-10)",
+			"1 Array, 1 Array or nil: The diagonal of the 1st array contains the Eigen values, if the eigen array does not reduce to the Schur form then the second array has Eigen vectors in it's columns. In a future version Eigen vectors will be computed for Schur reduced matrices."
 	end
 	if x == nil then
 		return help()

@@ -85,17 +85,30 @@ static int l_set(lua_State* L)
 	
 	return a->lua_set(L, 2);
 }
+
 template<typename T>
 static int l_copy(lua_State* L)
 {
 	LUA_PREAMBLE(Array<T>, a, 1);
 	
-	Array<T>* b = new Array<T>(a->nx, a->ny, a->nz);
+	Array<T>* b = 0;
+	if(luaT_is< Array<T> >(L, 2))
+	{
+		b = luaT_to< Array<T> >(L, 2);
+		if(!b->sameSize(a))
+		{
+			return luaL_error(L, "Destination array size mismatch");
+		}
+	}
+	else
+		b = new Array<T>(a->nx, a->ny, a->nz);
+	
 	b->copyFrom(a);
 	luaT_push< Array<T> >(L, b);
 	
 	return 1;
 }
+
 template<typename T>
 static int l_addat(lua_State* L)
 {
@@ -498,7 +511,7 @@ int Array<T>::help(lua_State* L)
 	if(func == &(l_copy<T>))
 	{
 		lua_pushstring(L, "Create a copy of an array");
-		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Optional Array: Destination array, if it is not provided a new array will be created.");
 		lua_pushstring(L, "1 Array: A copy of the array");
 		return 3;
 	}

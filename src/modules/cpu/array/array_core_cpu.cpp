@@ -1,13 +1,14 @@
 #include "array_core_cpu.h"
 #include "array.h"
 
+#include <iostream>
+using namespace std;
 
 template<typename T>
 static int l_mattrans(lua_State* L);
-
 static int l_matdet(lua_State* L);
-
 static int l_matmul(lua_State* L);
+static int l_matmakei(lua_State* L);
 
 template<typename T>
 static int l_sameSize(lua_State* L)
@@ -95,7 +96,18 @@ static int l_copy(lua_State* L)
 {
 	LUA_PREAMBLE(Array<T>, a, 1);
 	
-	Array<T>* b = new Array<T>(a->nx, a->ny, a->nz);
+	Array<T>* b = 0;
+	if(luaT_is< Array<T> >(L, 2))
+	{
+		b = luaT_to< Array<T> >(L, 2);
+		if(!b->sameSize(a))
+		{
+			return luaL_error(L, "Destination array size mismatch");
+		}
+	}
+	else
+		b = new Array<T>(a->nx, a->ny, a->nz);
+	
 	b->copyFrom(a);
 	luaT_push< Array<T> >(L, b);
 	
@@ -251,6 +263,71 @@ static int l_scale(lua_State* L)
 	T t = luaT<T>::to(L, 2);
 	a->scaleAll(t);
 	return 0;
+}
+
+
+template<typename T, int type>
+static int lT_mat_tri(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	Array<T>* b = 0;
+	bool diag = false;
+	for(int i=2; i<=lua_gettop(L); i++)
+	{
+		if(luaT_is< Array<T> >(L, i))
+			b = luaT_to< Array<T> >(L, i);
+		if(lua_isboolean(L, i))
+			diag |= lua_toboolean(L, i);
+	}
+
+	if(!b)
+	{
+		b = new Array<T>(a->nx, a->ny, a->nz);
+	}
+	b->copyFrom(a);
+	
+	if(type > 0) //upper, clear strictly lower
+	{
+		for(int y=1; y<b->ny; y++)
+			for(int x=0; x<y && x<b->nx; x++)
+				b->set(x,y,0, luaT<T>::zero());
+	}
+	if(type < 0) //lower, clear strictly upper
+	{
+		for(int y=0; y<b->ny; y++)
+			for(int x=y+1; x<b->nx; x++)
+			{
+				b->set(x,y,0, luaT<T>::zero());
+			}
+	}
+	
+	if(!diag) //clear the diagonal
+	{
+		for(int i=0; (i<b->nx) && (i<b->ny); i++)
+			b->set(i,i,0, luaT<T>::zero());
+	}
+	luaT_push< Array<T> >(L, b);
+	return 1;
+}
+
+static int l_matupper(lua_State* L)
+{
+	if(luaT_is<dArray>(L, 1)) return lT_mat_tri<double, 1>(L);
+	if(luaT_is<fArray>(L, 1)) return lT_mat_tri<float,  1>(L);
+	if(luaT_is<iArray>(L, 1)) return lT_mat_tri<int,    1>(L);
+	if(luaT_is<dcArray>(L, 1)) return lT_mat_tri<doubleComplex, 1>(L);
+	if(luaT_is<fcArray>(L, 1)) return lT_mat_tri<floatComplex, 1>(L);
+	return luaL_error(L, "unknown data type");
+}
+
+static int l_matlower(lua_State* L)
+{
+	if(luaT_is<dArray>(L, 1)) return lT_mat_tri<double, -1>(L);
+	if(luaT_is<fArray>(L, 1)) return lT_mat_tri<float,  -1>(L);
+	if(luaT_is<iArray>(L, 1)) return lT_mat_tri<int,    -1>(L);
+	if(luaT_is<dcArray>(L, 1)) return lT_mat_tri<doubleComplex, -1>(L);
+	if(luaT_is<fcArray>(L, 1)) return lT_mat_tri<floatComplex, -1>(L);
+	return luaL_error(L, "unknown data type");
 }
 
 static int sort_region(int* r6)
@@ -412,6 +489,9 @@ static const luaL_Reg* get_base_methods()
 		{"matTrans",     l_mattrans<T>},
 		{"matDet",       l_matdet},
 		{"matMul",       l_matmul},
+		{"matMakeI",     l_matmakei},
+		{"matUpper",     l_matupper},
+		{"matLower",     l_matlower},
 		
 		{NULL, NULL}
 	};
@@ -536,7 +616,7 @@ static int Array_help(lua_State* L)
 	if(func == f10c)
 	{
 		lua_pushstring(L, "Create a copy of an array");
-		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Optional Array: Destination array, if it is not provided a new array will be created.");
 		lua_pushstring(L, "1 Array: A copy of the array");
 		return 3;
 	}
@@ -625,7 +705,30 @@ static int Array_help(lua_State* L)
 		lua_pushstring(L, "1 Array: The product of the multiplication.");
 		return 3;
 	}
-
+	
+	
+	lua_CFunction f21 = l_matmakei;
+	if(func == f21)
+	{
+		lua_pushstring(L, "Make the calling array the Identity matrix of dimensions equal to the array (z=1 only)");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Array: The same array as the calling array. Useful for chaining.");
+		return 3;
+	}
+	
+	if(func == &l_matupper)
+	{
+		lua_pushstring(L, "Using the provided or new array, copy in the upper triangular part of the matrix.");
+		lua_pushstring(L, "1 Optional Array, 1 Optional boolean: If an array is provided the result will be put in it, otherwise a new array will be made. By default the diagonal is not copied into the result unless the boolean value is true.");
+		lua_pushstring(L, "1 Array: The upper triangluar matrix.");
+	}
+		
+	if(func == &l_matlower)
+	{
+		lua_pushstring(L, "Using the provided or new array, copy in the lower triangular part of the matrix.");
+		lua_pushstring(L, "1 Optional Array, 1 Optional boolean: If an array is provided the result will be put in it, otherwise a new array will be made. By default the diagonal is not copied into the result unless the boolean value is true.");
+		lua_pushstring(L, "1 Array: The lower triangluar matrix.");
+	}
 	return LuaBaseObject::help(L);
 }
 
@@ -1085,7 +1188,6 @@ static int l_mattrans(lua_State* L)
 	{
 		B = new Array<T>(A->ny, A->nx);
 	}
-	
 
 	mattrans(A->data(), A->nx, A->ny, B->data());
 
@@ -1126,6 +1228,36 @@ static int l_matmul(lua_State* L)
 	if(luaT_is<fArray>(L, 1))
 		return lT_matmul<float>(L);
 	return luaL_error(L, "Array.matMul is only implemented for single and double precision arrays");
+}
+
+
+
+template <typename T>
+static int lT_matmakei(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, A, 1);
+
+	A->zero();
+	int m = A->nx;
+	if(A->ny < m)
+		m = A->ny;
+	
+	T* d = A->data();
+	
+	for(int i=0; i<m; i++)
+	{
+		d[i*A->nx + i] = luaT<T>::one();
+	}
+	luaT_push<Array<T> >(L, A);
+	return 1;	
+}
+static int l_matmakei(lua_State* L)
+{
+	if(luaT_is<dArray>(L, 1))
+		return lT_matmakei<double>(L);
+	if(luaT_is<fArray>(L, 1))
+		return lT_matmakei<float>(L);
+	return luaL_error(L, "Array.matMakeI is only implemented for single and double precision arrays");
 }
 
 

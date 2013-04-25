@@ -57,6 +57,8 @@ public:
 	double maxX();
 	double minX();
 	
+	InterpolatingFunction* inverted();
+	
 private:
 	class _node
 	{

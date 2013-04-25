@@ -128,6 +128,20 @@ void InterpolatingFunction::addData(const double in, const double out)
 	compiled = false;
 }
 
+InterpolatingFunction* InterpolatingFunction::inverted()
+{
+	InterpolatingFunction* i = new InterpolatingFunction;
+	i->L = L;
+	vector <pair<double,double> >::iterator it;
+	for(it=rawdata.begin(); it != rawdata.end(); ++it)
+	{
+		i->addData( (*it).second, (*it).first );
+	}
+
+	return i;
+}
+
+
 static bool _rawsort(const pair<double,double>& d1, const pair<double,double>& d2)
 {
 	return d1.first < d2.first;
@@ -319,6 +333,14 @@ int l_maxx(lua_State* L)
 	return 1;
 }
 
+int l_inverted(lua_State* L)
+{
+	LUA_PREAMBLE(InterpolatingFunction, in, 1);
+
+	luaT_push<InterpolatingFunction>(L, in->inverted());
+	return 1;	
+}
+
 #if 0
 static int l_mt(lua_State* L)
 {
@@ -337,16 +359,6 @@ int InterpolatingFunction::help(lua_State* L)
 		lua_pushstring(L, "1 Optional Table of Tables: A table of pairs can be passed into the .new function. Each pair will be effectively passed to the addData function."); //input, empty
 		lua_pushstring(L, ""); //output, empty
 		return 3;
-	}
-	
-	if(lua_istable(L, 1))
-	{
-		return 0;
-	}
-	
-	if(!lua_iscfunction(L, 1))
-	{
-		return luaL_error(L, "help expect zero arguments or 1 function");
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
@@ -383,6 +395,13 @@ int InterpolatingFunction::help(lua_State* L)
 		return 3;
 	}	
 	
+	if(func == l_inverted)
+	{
+		lua_pushstring(L, "Return a new 1D linear interpolating function based on the calling interpolator with the data and values interchanged. The calling interpolator should be monotonic.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 1D Interpolator: Inverted interpolator");
+		return 3;
+	}
 	
 	return LuaBaseObject::help(L);
 }
@@ -397,6 +416,7 @@ const luaL_Reg* InterpolatingFunction::luaMethods()
 	{
 		{"addData",      l_adddata},
 		{"value",        l_value},
+		{"inverted",     l_inverted},
 		{"maxX", l_maxx},
 		{"minX", l_minx},
 		{"__call",        l_value},
