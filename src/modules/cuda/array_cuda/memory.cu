@@ -97,22 +97,26 @@ static size_t memLeft()
 #define CHECKCALL(expression)  CHECKCALL_FL(expression, __FILE__, __LINE__)
 #define CHECKCALLe(lval,expression)  CHECKCALL_FLe(lval,expression, __FILE__, __LINE__)
 
+// #define LOGFILE__
+
 cudaError_t malloc_device_(void** d_v, size_t n, const char* file, unsigned int line)
 {
+#ifdef LOGFILE__
     if(!logfile)
     {
 		logfile = fopen("malloc.log", "w");
     }
-
+#endif
     cudaError_t err;
 // 	printf("malloc_device %i bytes\n", n);
 // 	fprintf(logfile, "malloc_device [%10lu/%10lu] (%s:%i) %8li %p\n", memTotal()-memLeft(), memTotal(), file, line, n, *d_v);
 
 	
 	CHECKCALL_FLe(err,cudaMalloc(d_v, n), file, line);
+#ifdef LOGFILE__
 	fprintf(logfile, "malloc_device (%s:%i) %8li %p\n", file, line, n, *d_v);
 	fflush(logfile);
-
+#endif
 	
 
 	//TODO here we check for fail and compress if needed
@@ -127,16 +131,20 @@ void free_device_(void* d_v, const char* file, unsigned int line)
 
 cudaError_t malloc_host_(void** h_v, size_t n, const char* file, unsigned int line)
 {
+#ifdef LOGFILE__
 	if(!logfile)
     {
 		logfile = fopen("malloc.log", "w");
     }
-    
+#endif
+
     cudaError_t err;
     CHECKCALL_FLe(err,cudaMallocHost(h_v, n),file,line);
 
+#ifdef LOGFILE__
 	fprintf(logfile, "malloc_host (%s:%i) %8li %p\n", file, line, n, *h_v);
 	fflush(logfile);
+#endif
 	return err; //to mirror malloc_device
 }
 
@@ -169,25 +177,27 @@ void memcpy_d2d_(void* d_dest, void* d_src, size_t n, const char* file, const un
 
 void memcpy_d2h_(void* h_dest, void* d_src, size_t n, const char* file, const unsigned int line)
 {
+#ifdef LOGFILE__
 	if(!logfile)
     {
 		logfile = fopen("malloc.log", "w");
     }
 	fprintf(logfile, "memcpy_d2h (%s:%i) %p <- %p (%li)\n", file, line, h_dest, d_src, n);
 	fflush(logfile);
-	
+#endif	
     CHECKCALL_FL(cudaMemcpy(h_dest, d_src, n, cudaMemcpyDeviceToHost),file,line);
 }
 
 void memcpy_h2d_(void* d_dest, void* h_src, size_t n, const char* file, const unsigned int line)
 {
+#ifdef LOGFILE__
 	if(!logfile)
     {
 		logfile = fopen("malloc.log", "w");
     }
 	fprintf(logfile, "memcpy_h2d (%s:%i) %p <- %p (%li)\n", file, line, d_dest, h_src, n);
 	fflush(logfile);
-
+#endif
 	
 	// 	printf("h2d: %p %p\n", d_dest, h_src);
     CHECKCALL_FL(cudaMemcpy(d_dest, h_src, n, cudaMemcpyHostToDevice),file,line);
