@@ -13,7 +13,7 @@
 		printf("(%s:%i) %s\n",  __FILE__, __LINE__-1, cudaGetErrorString(i));\
 }
 
-
+#if 0
 __global__ void do_exchange(
 	const double* d_sx, const double* d_sy, const double* d_sz,
 	const double* d_strength, const int* d_neighbour, const int max_neighbours,
@@ -107,15 +107,15 @@ void cuda_exchange_compressed(
 	KCHECK;
 }
 
-
+#endif
 
 
 
 // multiple spinsystem versions
 __global__ void do_exchange_N(
-	const double** d_sx_N, const double** d_sy_N, const double** d_sz_N,
+	const double** d_sx_N, const double** d_sy_N, const double** d_sz_N, const double** d_sm_N,
 	const double* d_strength, const int* d_neighbour, const int max_neighbours,
-	double** d_hx_N, double** d_hy_N, double** d_hz_N,
+	double** d_hx_N, double** d_hy_N, double** d_hz_N, const double global_scale,
 	const int nxyz, const int n
 	)
 {
@@ -128,6 +128,7 @@ __global__ void do_exchange_N(
 	const double* d_sx = d_sx_N[j];
 	const double* d_sy = d_sy_N[j];
 	const double* d_sz = d_sz_N[j];
+	const double* d_sm = d_sm_N[j];
 
 	double* d_hx = d_hx_N[j];
 	double* d_hy = d_hy_N[j];
@@ -142,18 +143,21 @@ __global__ void do_exchange_N(
 	{
 		const int p = i * max_neighbours + k;
 		const int k = d_neighbour[p];
-		const double strength = d_strength[p];
+		if(d_sm[k] > 0)
+		{
+			const double strength = d_strength[p] * global_scale / d_sm[k];
 
-		d_hx[i] += strength * d_sx[k];
-		d_hy[i] += strength * d_sy[k];
-		d_hz[i] += strength * d_sz[k];
+			d_hx[i] += strength * d_sx[k];
+			d_hy[i] += strength * d_sy[k];
+			d_hz[i] += strength * d_sz[k];
+		}
 	}
 }
 
 void cuda_exchange_N(
-	const double** d_sx, const double** d_sy, const double** d_sz,
+	const double** d_sx, const double** d_sy, const double** d_sz, const double** d_sm,
 	const double* d_strength, const int* d_neighbour, const int max_neighbours,
-	double** d_hx, double** d_hy, double** d_hz,
+	double** d_hx, double** d_hy, double** d_hz, const double global_scale,
 	const int nx, const int ny, const int nz,
 	const int n)
 {
@@ -168,9 +172,9 @@ void cuda_exchange_N(
 	dim3 bd(threadsX, threadsY);
 
 	do_exchange_N<<<gd, bd>>>(
-			d_sx, d_sy, d_sz,
+			d_sx, d_sy, d_sz, d_sm,
 			d_strength, d_neighbour, max_neighbours,
-			d_hx, d_hy, d_hz, 
+			d_hx, d_hy, d_hz, global_scale,
 			nxyz, n);
 
 	KCHECK;
@@ -182,9 +186,9 @@ void cuda_exchange_N(
 
 
 __global__ void do_exchange_compressed_N(
-	const double** d_sx_N, const double** d_sy_N, const double** d_sz_N,
+	const double** d_sx_N, const double** d_sy_N, const double** d_sz_N, const double** d_sm_N,
 	const ex_compressed_struct* d_LUT, const unsigned char* d_idx, const int max_neighbours,
-	double** d_hx_N, double** d_hy_N, double** d_hz_N,
+	double** d_hx_N, double** d_hy_N, double** d_hz_N, const double global_scale,
 	const int nxyz, const int n)
 {
 	const int i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -196,6 +200,7 @@ __global__ void do_exchange_compressed_N(
 	const double* d_sx = d_sx_N[j];
 	const double* d_sy = d_sy_N[j];
 	const double* d_sz = d_sz_N[j];
+	const double* d_sm = d_sm_N[j];
 
 	double* d_hx = d_hx_N[j];
 	double* d_hy = d_hy_N[j];
@@ -209,19 +214,22 @@ __global__ void do_exchange_compressed_N(
 	for(int k=0; k<max_neighbours; k++)
 	{
 		const int p = (i + e[k].offset) % nxyz;
-		const double strength = e[k].strength;
+		if(d_sm[p] > 0)
+		{
+			const double strength = e[k].strength * global_scale  / d_sm[p];
 
-		d_hx[i] += strength * d_sx[p];
-		d_hy[i] += strength * d_sy[p];
-		d_hz[i] += strength * d_sz[p];
+			d_hx[i] += strength * d_sx[p];
+			d_hy[i] += strength * d_sy[p];
+			d_hz[i] += strength * d_sz[p];
+		}
 	}
 }
 
 
 void cuda_exchange_compressed_N(
-	const double** d_sx, const double** d_sy, const double** d_sz,
+	const double** d_sx, const double** d_sy, const double** d_sz, const double** d_sm,
 	const ex_compressed_struct* d_LUT, const unsigned char* d_idx, const int max_neighbours,
-	double** d_hx, double** d_hy, double** d_hz, 
+	double** d_hx, double** d_hy, double** d_hz, const double global_scale,
 	const int nxyz, const int n)
 {
 	const int threadsX = 256;
@@ -234,9 +242,9 @@ void cuda_exchange_compressed_N(
 	dim3 bd(threadsX, threadsY);
 
 	do_exchange_compressed_N<<<gd, bd>>>(
-		d_sx, d_sy, d_sz,
+		d_sx, d_sy, d_sz, d_sm,
 		d_LUT, d_idx, max_neighbours,
-		d_hx, d_hy, d_hz, 
+		d_hx, d_hy, d_hz, global_scale,
 		nxyz, n);
 	KCHECK;
 }

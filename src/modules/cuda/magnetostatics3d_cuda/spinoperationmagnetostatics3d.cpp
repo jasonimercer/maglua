@@ -15,8 +15,8 @@
 #include "spinoperationmagnetostatics3d.h"
 
 
-Magnetostatics3D::Magnetostatics3D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
-	: LongRange3D("Magnetostatics3D", field_slot, nx, ny, nz, encode_tag)
+Magnetostatics3D::Magnetostatics3D(int nx, int ny, int nz, const int encode_tag)
+	: LongRange3D(nx, ny, nz, encode_tag)
 {
 }
 
@@ -50,6 +50,7 @@ int  Magnetostatics3D::decode(buffer* b)
 	{
 		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
+
 	return i;
 }
 

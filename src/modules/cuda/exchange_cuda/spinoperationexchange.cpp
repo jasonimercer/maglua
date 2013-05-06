@@ -34,6 +34,10 @@ Exchange::Exchange(int nx, int ny, int nz)
 	d_fromsite = 0;
 	maxFromSites = -1;
 
+	pbc[0] = 1;
+	pbc[1] = 1;
+	pbc[2] = 1;
+	
 	d_LUT = 0;
 	d_idx = 0;
 	compress_max_neighbours = 0;
@@ -567,25 +571,26 @@ bool Exchange::apply(SpinSystem** sss, int n)
     const double** d_sx_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_1", 's', 'x');
     const double** d_sy_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_2", 's', 'y');
     const double** d_sz_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_3", 's', 'z');
+    const double** d_sm_N = (const double**)getVectorOfVectors(sss, n, "SpinOperation::apply_4", 's', 'm');
 
-	      double** d_hx_N = getVectorOfVectors(sss, n, "SpinOperation::apply_4", 'h', 'x', &(slots[0]));
-	      double** d_hy_N = getVectorOfVectors(sss, n, "SpinOperation::apply_5", 'h', 'y', &(slots[0]));
-	      double** d_hz_N = getVectorOfVectors(sss, n, "SpinOperation::apply_6", 'h', 'z', &(slots[0]));
+	      double** d_hx_N = getVectorOfVectors(sss, n, "SpinOperation::apply_5", 'h', 'x', &(slots[0]));
+	      double** d_hy_N = getVectorOfVectors(sss, n, "SpinOperation::apply_6", 'h', 'y', &(slots[0]));
+	      double** d_hz_N = getVectorOfVectors(sss, n, "SpinOperation::apply_7", 'h', 'z', &(slots[0]));
 	
 	if(compressed)
 	{
 		cuda_exchange_compressed_N(
-			d_sx_N, d_sy_N, d_sz_N,
+			d_sx_N, d_sy_N, d_sz_N, d_sm_N,
 			d_LUT, d_idx, compress_max_neighbours,
-			d_hx_N, d_hy_N, d_hz_N,
+			d_hx_N, d_hy_N, d_hz_N, global_scale*0+1,
 			nxyz, n);
 	}
 	else
 	{
 		cuda_exchange_N(
-			d_sx_N, d_sy_N, d_sz_N,
+			d_sx_N, d_sy_N, d_sz_N, d_sm_N,
 			d_strength, d_fromsite, maxFromSites,
-			d_hx_N, d_hy_N, d_hz_N,
+			d_hx_N, d_hy_N, d_hz_N, global_scale*0+1,
 			nx, ny, nz, n);
 	}
 	

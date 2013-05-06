@@ -579,13 +579,12 @@ int SpinSystem::register_slot_name(const char* name)
 	
 	if(slot == -1) // then it needs to be registered
 	{
-		for(slot=0; slot<nslots && registered_slot_names[slot]; slot++)
-		{
-		};
+		// this empty for finds the next available slot
+		for(slot=0; slot<nslots && registered_slot_names[slot]; slot++)	{};
 		
 		ensureSlotExists(slot); //grow things if needed
-		
-		const char ll = strlen(name);
+		const int ll = strlen(name);
+
 		registered_slot_names[slot] = (char*)malloc(ll+1);
 		memcpy(registered_slot_names[slot], name, ll+1);
 	}

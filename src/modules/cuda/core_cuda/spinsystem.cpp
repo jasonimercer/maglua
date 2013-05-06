@@ -579,13 +579,12 @@ int SpinSystem::register_slot_name(const char* name)
 	
 	if(slot == -1) // then it needs to be registered
 	{
-		for(slot=0; slot<nslots && registered_slot_names[slot]; slot++)
-		{
-		};
+				// this empty for finds the next available slot
+		for(slot=0; slot<nslots && registered_slot_names[slot]; slot++)	{};
 		
 		ensureSlotExists(slot); //grow things if needed
-		
-		const char ll = strlen(name);
+		const int ll = strlen(name);
+
 		registered_slot_names[slot] = (char*)malloc(ll+1);
 		memcpy(registered_slot_names[slot], name, ll+1);
 	}
@@ -892,15 +891,15 @@ void SpinSystem::fft(int component)
 	switch(component)
 	{
 	case 0:	
-		arraySetRealPart(ws->data(), x->data(), x->nxyz);
+		arraySetRealPart(ws->ddata(), x->ddata(), x->nxyz);
 		ws->fft2DTo(qx); 
 		break;
 	case 1:	
-		arraySetRealPart(ws->data(), y->data(), y->nxyz);
+		arraySetRealPart(ws->ddata(), y->ddata(), y->nxyz);
 		ws->fft2DTo(qy); 
 		break;
 	case 2:	
-		arraySetRealPart(ws->data(), z->data(), z->nxyz);
+		arraySetRealPart(ws->ddata(), z->ddata(), z->nxyz);
 		ws->fft2DTo(qz); 
 		break;
 	}

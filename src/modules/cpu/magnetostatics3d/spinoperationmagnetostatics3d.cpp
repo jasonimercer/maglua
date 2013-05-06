@@ -34,6 +34,7 @@ void Magnetostatics3D::encode(buffer* b)
 int  Magnetostatics3D::decode(buffer* b)
 {
 	int i = LongRange3D::decode(b);
+	
 	char version = decodeChar(b);
 	if(version == 0)
 	{

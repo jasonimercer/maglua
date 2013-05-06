@@ -114,6 +114,7 @@ int  LongRange2D::decode(buffer* b)
 	{
 		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
+
 	return 0;
 }
 
@@ -238,10 +239,6 @@ void LongRange2D::init()
 	// apply 2 operators simultaneously (this is a safe assumption)
 	ws1 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_1"));
 	ws2 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_2"));
-	
-// 	ws1 = new dcArray(nx,ny,nz);
-// 	ws2 = new dcArray(nx,ny,nz);
-// 	ws3 = new dcArray(nx,ny,nz);
 }
 
 template <typename T>
@@ -313,7 +310,7 @@ LongRange2D::~LongRange2D()
 		luaL_unref(L, LUA_REGISTRYINDEX, longrange_ref);
 	if(function_ref != LUA_REFNIL)
 		luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
-
+	
 	unregisterWS();
 }
 
@@ -379,6 +376,7 @@ void LongRange2D::compile()
 
 		}
 	}
+	delete wsZ;
 }
 
 bool LongRange2D::apply(SpinSystem* ss)
@@ -404,7 +402,7 @@ bool LongRange2D::apply(SpinSystem* ss)
 	dArray* hx = ss->hx[slot];
 	dArray* hy = ss->hy[slot];
 	dArray* hz = ss->hz[slot];
-	
+
 	// HX
 	ws1->zero();
 	for(int d=0; d<nz; d++) //dest
@@ -420,7 +418,8 @@ bool LongRange2D::apply(SpinSystem* ss)
 	}
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hx->ddata(),  ws2->ddata(), nxyz);
-	
+
+	// HY
 	ws1->zero();
 	for(int d=0; d<nz; d++) //dest
 	{
@@ -435,7 +434,8 @@ bool LongRange2D::apply(SpinSystem* ss)
 	}
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hy->ddata(),  ws2->ddata(), nxyz);
-	
+
+	// HZ
 	ws1->zero();
 	for(int d=0; d<nz; d++) //dest
 	{
@@ -451,16 +451,16 @@ bool LongRange2D::apply(SpinSystem* ss)
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hz->ddata(),  ws2->ddata(), nxyz);
 
-
 	for(int i=0; i<nz; i++)
 	{
 		hx->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
 		hy->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
 		hz->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
 	}
-// 	hx->scaleAll(global_scale);
-// 	hy->scaleAll(global_scale);
-// 	hz->scaleAll(global_scale);
+
+	hx->new_device = true;
+	hy->new_device = true;
+	hz->new_device = true;
 
 	return true;
 }

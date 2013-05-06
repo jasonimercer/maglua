@@ -15,8 +15,8 @@
 #include "spinoperationmagnetostatics2d.h"
 
 
-Magnetostatics2D::Magnetostatics2D(const char* Name, const int field_slot, int nx, int ny, int nz, const int encode_tag)
-	: LongRange2D(Name, field_slot, nx, ny, nz, encode_tag)
+Magnetostatics2D::Magnetostatics2D(int nx, int ny, int nz, const int encode_tag)
+	: LongRange2D(nx, ny, nz, encode_tag)
 {
 }
 
@@ -45,6 +45,7 @@ int  Magnetostatics2D::decode(buffer* b)
 
 	return i;
 }
+
 // this is a base 0 function
 double Magnetostatics2D::getGrainSize(const int layer)
 {
