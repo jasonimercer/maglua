@@ -2,8 +2,8 @@
 
 CXX="g++";
 MPICC="mpicxx";
-NVCC="";
-CUDABASE="";
+NVCC="nvcc";
+CUDABASE="/opt/cuda";
 
 f_Write() {
 PORTLANDOPT=""
@@ -136,6 +136,13 @@ f_setnvcc()
 echo "Set NVCC"
 echo "Specify NVCC"
 read NVCC
+}
+
+f_setcudabase()
+{
+echo "Set CUDABASE"
+echo "Specify CUDABASE"
+read CUDABASE
 }
 
 

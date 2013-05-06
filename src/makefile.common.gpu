@@ -10,9 +10,9 @@
 #
 
 
-
+# CUDABASE now set in .config
 # cobalt.ucsd.edu
-CUDABASE=/cm/shared/apps/cuda50/toolkit/5.0.35/
+# CUDABASE=/cm/shared/apps/cuda50/toolkit/5.0.35/
 
 # vulcan.physics.mun.ca
 # CUDABASE=/opt/cuda

@@ -61,6 +61,9 @@ pack:			#dev version
 pack_cpu:			#dev version
 	./pack_cpu.sh	#dev version
 
+pack_cpu_gpu:			#dev version
+	./pack_cpu_gpu.sh	#dev version
+
 help: $(BIN)
 	./$(BIN) --write_docs maglua.html
 

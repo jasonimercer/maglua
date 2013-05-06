@@ -199,7 +199,7 @@ end
 ]].."--[[\n"..[[
 if arg[2] == "gpu" then
 	table.remove(arg, 2)
-	use_modules = {"common", "cuda", "cuda32", "extra"} 
+	use_modules = {"common", "cuda", "extra"} 
 else
 	use_modules = {"common", "cpu", "extra"} 
 end
