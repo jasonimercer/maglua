@@ -36,7 +36,7 @@ int lua_loadfile(lua_State* L)
 	string truename;
 	
 	string reg_error;
-	
+
 	  lua_func lib_register = import_function_e<  lua_func>(fullpath, "lib_register", reg_error);
 	  lua_func lib_version  = import_function  <  lua_func>(fullpath, "lib_version");
   	c_lua_func lib_name     = import_function  <c_lua_func>(fullpath, "lib_name");

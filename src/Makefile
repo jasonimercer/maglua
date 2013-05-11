@@ -65,7 +65,10 @@ pack_cpu_gpu:			#dev version
 	./pack_cpu_gpu.sh	#dev version
 
 help: $(BIN)
-	./$(BIN) --write_docs maglua.html
+	./$(BIN) --write_docs maglua.html devstats 'http://cmms01.ace-net.ca/~jmercer/maglua_devstats/' tips 'http://cmms01.ace-net.ca/~jmercer/MagLuaTT/'
+
+help_install: help              #dev version
+	scp maglua.html cmms01.ace-net.ca:~/public_html #dev version
 
 distclean: clean
 	make -C modules/cuda distclean #cuda version

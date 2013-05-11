@@ -24,4 +24,5 @@ ps = 1e-12 * s
 ns = 1000 * ps
 kB = 1.3806488e-16 * erg/Kelvin
 
-gamma = 17.608597e6 / (s * Gauss)
+gamma     = 17.608597e6 / (s * Gauss)
+gamma_cgs = 17.608597e6 / (s * Gauss)

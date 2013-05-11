@@ -1,14 +1,27 @@
 #include "array_core_cpu.h"
+#include "array_core_matrix_cpu.h"
 #include "array.h"
+
+template<typename T> int Array_help_matrix(lua_State* L){return 0;}  
+template<>int Array_help_matrix<int>(lua_State* L){return Array_help_matrix_int(L);}
+template<>int Array_help_matrix<float>(lua_State* L){return Array_help_matrix_float(L);}
+template<>int Array_help_matrix<double>(lua_State* L){return Array_help_matrix_double(L);}
+template<>int Array_help_matrix<floatComplex>(lua_State* L){return Array_help_matrix_floatComplex(L);}
+template<>int Array_help_matrix<doubleComplex>(lua_State* L){return Array_help_matrix_doubleComplex(L);}
+
+
+template<typename T> const luaL_Reg* get_base_methods_matrix() {return 0;}
+template<> const luaL_Reg* get_base_methods_matrix<int>() {return get_base_methods_matrix_int();}
+template<> const luaL_Reg* get_base_methods_matrix<float>() {return get_base_methods_matrix_float();}
+template<> const luaL_Reg* get_base_methods_matrix<double>() {return get_base_methods_matrix_double();}
+template<> const luaL_Reg* get_base_methods_matrix<floatComplex>() {return get_base_methods_matrix_floatComplex();}
+template<> const luaL_Reg* get_base_methods_matrix<doubleComplex>() {return get_base_methods_matrix_doubleComplex();}
+
+
+
 
 #include <iostream>
 using namespace std;
-
-template<typename T>
-static int l_mattrans(lua_State* L);
-static int l_matdet(lua_State* L);
-static int l_matmul(lua_State* L);
-static int l_matmakei(lua_State* L);
 
 template<typename T>
 static int l_sameSize(lua_State* L)
@@ -266,69 +279,6 @@ static int l_scale(lua_State* L)
 }
 
 
-template<typename T, int type>
-static int lT_mat_tri(lua_State* L)
-{
-	LUA_PREAMBLE(Array<T>, a, 1);
-	Array<T>* b = 0;
-	bool diag = false;
-	for(int i=2; i<=lua_gettop(L); i++)
-	{
-		if(luaT_is< Array<T> >(L, i))
-			b = luaT_to< Array<T> >(L, i);
-		if(lua_isboolean(L, i))
-			diag |= lua_toboolean(L, i);
-	}
-
-	if(!b)
-	{
-		b = new Array<T>(a->nx, a->ny, a->nz);
-	}
-	b->copyFrom(a);
-	
-	if(type > 0) //upper, clear strictly lower
-	{
-		for(int y=1; y<b->ny; y++)
-			for(int x=0; x<y && x<b->nx; x++)
-				b->set(x,y,0, luaT<T>::zero());
-	}
-	if(type < 0) //lower, clear strictly upper
-	{
-		for(int y=0; y<b->ny; y++)
-			for(int x=y+1; x<b->nx; x++)
-			{
-				b->set(x,y,0, luaT<T>::zero());
-			}
-	}
-	
-	if(!diag) //clear the diagonal
-	{
-		for(int i=0; (i<b->nx) && (i<b->ny); i++)
-			b->set(i,i,0, luaT<T>::zero());
-	}
-	luaT_push< Array<T> >(L, b);
-	return 1;
-}
-
-static int l_matupper(lua_State* L)
-{
-	if(luaT_is<dArray>(L, 1)) return lT_mat_tri<double, 1>(L);
-	if(luaT_is<fArray>(L, 1)) return lT_mat_tri<float,  1>(L);
-	if(luaT_is<iArray>(L, 1)) return lT_mat_tri<int,    1>(L);
-	if(luaT_is<dcArray>(L, 1)) return lT_mat_tri<doubleComplex, 1>(L);
-	if(luaT_is<fcArray>(L, 1)) return lT_mat_tri<floatComplex, 1>(L);
-	return luaL_error(L, "unknown data type");
-}
-
-static int l_matlower(lua_State* L)
-{
-	if(luaT_is<dArray>(L, 1)) return lT_mat_tri<double, -1>(L);
-	if(luaT_is<fArray>(L, 1)) return lT_mat_tri<float,  -1>(L);
-	if(luaT_is<iArray>(L, 1)) return lT_mat_tri<int,    -1>(L);
-	if(luaT_is<dcArray>(L, 1)) return lT_mat_tri<doubleComplex, -1>(L);
-	if(luaT_is<fcArray>(L, 1)) return lT_mat_tri<floatComplex, -1>(L);
-	return luaL_error(L, "unknown data type");
-}
 
 static int sort_region(int* r6)
 {
@@ -486,12 +436,12 @@ static const luaL_Reg* get_base_methods()
 		
 		{"slice",    l_manip_region<T>},
 
-		{"matTrans",     l_mattrans<T>},
-		{"matDet",       l_matdet},
-		{"matMul",       l_matmul},
-		{"matMakeI",     l_matmakei},
-		{"matUpper",     l_matupper},
-		{"matLower",     l_matlower},
+// 		{"matTrans",     l_mattrans<T>},
+// 		{"matDet",       l_matdet},
+// 		{"matMul",       l_matmul},
+// 		{"matMakeI",     l_matmakei},
+// 		{"matUpper",     l_matupper},
+// 		{"matLower",     l_matlower},
 		
 		{NULL, NULL}
 	};
@@ -499,6 +449,234 @@ static const luaL_Reg* get_base_methods()
 	m[127].name = (char*)1;
 	return m;
 }
+
+
+template<typename T>
+static int l_fft_setup(lua_State* L, Array<T>** a, Array<T>** b)
+{
+	if(!luaT_is<Array<T> >(L, 1))
+	{
+		luaL_error(L, "Array expected");
+		return 1;
+	}
+	*a = luaT_to<Array<T> >(L, 1);
+	
+	*b = 0;
+	if(luaT_is<Array<T> >(L, 2))
+		*b = luaT_to<Array<T> >(L, 2);
+	
+	if(*b == 0)
+		*b = new Array<T>((*a)->nx, (*a)->ny, (*a)->nz );
+	return 0;
+}
+
+
+template<typename T>
+static int l_fft1D(lua_State *L)
+{
+	Array<T>* a;
+	Array<T>* b;
+	if(l_fft_setup(L, &a, &b)) return 0;
+	a->fft1DTo(b, (T*)0);
+	luaT_push<Array<T> >(L, b);
+	return 1;
+}
+template<typename T>
+static int l_fft2D(lua_State *L)
+{
+	Array<T>* a;
+	Array<T>* b;
+	if(l_fft_setup(L, &a, &b)) return 0;
+	a->fft2DTo(b, (T*)0);
+	luaT_push<Array<T> >(L, b);
+	return 1;
+}
+template<typename T>
+static int l_fft3D(lua_State *L)
+{
+	Array<T>* a;
+	Array<T>* b;
+	if(l_fft_setup(L, &a, &b)) return 0;
+	a->fft3DTo(b, (T*)0);
+	luaT_push<Array<T> >(L, b);
+	return 1;
+}
+
+
+template<typename T>
+static int l_ifft1D(lua_State *L)
+{
+	Array<T>* a;
+	Array<T>* b;
+	if(l_fft_setup(L, &a, &b)) return 0;
+	a->ifft1DTo(b, (T*)0);
+	luaT_push<Array<T> >(L, b);
+	return 1;
+}
+template<typename T>
+static int l_ifft2D(lua_State *L)
+{
+	Array<T>* a;
+	Array<T>* b;
+	if(l_fft_setup(L, &a, &b)) return 0;
+	a->ifft2DTo(b, (T*)0);
+	luaT_push<Array<T> >(L, b);
+	return 1;
+}
+template<typename T>
+static int l_ifft3D(lua_State *L)
+{
+	Array<T>* a;
+	Array<T>* b;
+	if(l_fft_setup(L, &a, &b)) return 0;
+	a->ifft3DTo(b, (T*)0);
+	luaT_push<Array<T> >(L, b);
+	return 1;
+}
+
+template<typename F, typename C>
+static int l_tocomplex_(lua_State* L)
+{
+	LUA_PREAMBLE(Array<F>, src, 1);
+
+	Array<C>* b;
+	if(luaT_is<Array<C> >(L, 2))
+		b = luaT_to<Array<C> >(L, 2);
+	else
+		b = new Array<C>(src->nx, src->ny, src->nz);
+	
+	b->zero(); 
+	arraySetRealPart(b->ddata(), src->ddata(), src->nx*src->ny*src->nz);
+	luaT_push< Array<C> >(L, b);
+	return 1;
+}
+
+template<typename T>
+int l_tocomplex(lua_State* L)
+{
+	return luaL_error(L, "Not implemented");
+}
+template<>
+int l_tocomplex<float>(lua_State* L)
+{
+	return l_tocomplex_<float, floatComplex>(L);
+}
+template<>
+int l_tocomplex<double>(lua_State* L)
+{
+	return l_tocomplex_<double, doubleComplex>(L);
+}
+
+
+template<typename T>
+int Array_help_fp(lua_State* L)
+{
+	lua_CFunction func = lua_tocfunction(L, 1);
+
+	if(func == &(l_tocomplex<T>))
+	{
+		lua_pushstring(L, "Store array data in the real component of a complex array");
+		lua_pushstring(L, "1 Optional Array of same complex type: Destination array, a new array will be created if not supplied");
+		lua_pushstring(L, "1 Complex Array: Source array augmented to complex");
+		return 3;
+	}
+	return 0;
+}
+
+template<typename T>
+int Array_help_fft_complex(lua_State* L)
+{
+	lua_CFunction func = lua_tocfunction(L, 1);
+		
+	if(func == &(l_fft1D<T>))
+	{
+		lua_pushstring(L, "1D Fourier Transform an array along the X direction");
+		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if not supplied");
+		lua_pushstring(L, "1 Array: The result of the transform");
+		return 3;
+	}	
+	if(func == &(l_fft2D<T>))
+	{
+		lua_pushstring(L, "2D Fourier Transform an array along the X and Y directions");
+		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if not supplied");
+		lua_pushstring(L, "1 Array: The result of the transform");
+		return 3;
+	}	
+	if(func == &(l_fft3D<T>))
+	{
+		lua_pushstring(L, "3D Fourier Transform an array along the X, Y and Z directions");
+		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if not supplied");
+		lua_pushstring(L, "1 Array: The result of the transform");
+		return 3;
+	}	
+		
+	if(func == &(l_ifft1D<T>))
+	{
+		lua_pushstring(L, "1D Inverse Fourier Transform an array along the X direction");
+		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if none is supplied");
+		lua_pushstring(L, "1 Array: The result of the transform");
+		return 3;
+	}	
+	if(func == &(l_ifft2D<T>))
+	{
+		lua_pushstring(L, "2D Inverse Fourier Transform an array along the X and Y directions");
+		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if none is supplied");
+		lua_pushstring(L, "1 Array: The result of the transform");
+		return 3;
+	}	
+	if(func == &(l_ifft3D<T>))
+	{
+		lua_pushstring(L, "3D Inverse Fourier Transform an array along the X, Y and Z directions");
+		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if none is supplied");
+		lua_pushstring(L, "1 Array: The result of the transform");
+		return 3;
+	}	
+	return 0;
+}
+
+template<typename T> //specializations for types
+int Array_help_specialization(lua_State* L)
+{
+	return 0;
+}
+
+//special cases for complex datatypes 
+template <>
+int Array_help_specialization<doubleComplex>(lua_State* L)
+{
+	int r = 0;
+	r = Array_help_fft_complex<doubleComplex>(L); if(r) return r;
+	r = Array_help_matrix<doubleComplex>(L); if(r) return r;
+	return 0;
+
+}
+template <>
+int Array_help_specialization<floatComplex>(lua_State* L)
+{
+	int r = 0;
+	r = Array_help_fft_complex<floatComplex>(L); if(r) return r;
+	r = Array_help_matrix<floatComplex>(L); if(r) return r;
+	
+	return 0;
+}
+//special cases for floating point datatypes 
+template <>
+int Array_help_specialization<double>(lua_State* L)
+{
+	int r = 0;
+	r = Array_help_fp<double>(L); if(r) return r;
+	r = Array_help_matrix<double>(L); if(r) return r;
+	return 0;
+}
+template <>
+int Array_help_specialization<float>(lua_State* L)
+{
+	int r = 0;
+	r = Array_help_fp<float>(L); if(r) return r;
+	r = Array_help_matrix<float>(L); if(r) return r;
+	return 0;
+}
+
 
 
 template<typename T>
@@ -678,62 +856,15 @@ static int Array_help(lua_State* L)
 		return 3;
 	}
 
-	lua_CFunction f18 = l_mattrans<T>;
-	if(func == f18)
-	{
-		lua_pushstring(L, "Transpose the z=1 section of the array");
-		lua_pushstring(L, "1 Optional Array: Destination array which will contain the transpose, may be the calling array. Must be of the appropriate dimensions.");
-		lua_pushstring(L, "1 Array: Transpose of array. If the optional array is given it will be the same array otherwaise a new array will be created.");
-		return 3;
-	}
 
-	
-	lua_CFunction f19 = l_matdet;
-	if(func == f19)
-	{
-		lua_pushstring(L, "Treat array like a matrix and compute the determinant of the z=1 slice.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Value: The determinant.");
-		return 3;
-	}
-	
-	lua_CFunction f20 = l_matmul;
-	if(func == f20)
-	{
-		lua_pushstring(L, "Treat arrays like matrices and do Matrix Multiplication on the z=1 layer");
-		lua_pushstring(L, "1 Array, 1 Optional Array: The given array will be multiply the calling Array, their dimensions must match to allow legal matrix multiplication. If a 2nd Array is supplied the product will be stored in it, otherise a new Array will be created.");
-		lua_pushstring(L, "1 Array: The product of the multiplication.");
-		return 3;
-	}
-	
-	
-	lua_CFunction f21 = l_matmakei;
-	if(func == f21)
-	{
-		lua_pushstring(L, "Make the calling array the Identity matrix of dimensions equal to the array (z=1 only)");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Array: The same array as the calling array. Useful for chaining.");
-		return 3;
-	}
-	
-	if(func == &l_matupper)
-	{
-		lua_pushstring(L, "Using the provided or new array, copy in the upper triangular part of the matrix.");
-		lua_pushstring(L, "1 Optional Array, 1 Optional boolean: If an array is provided the result will be put in it, otherwise a new array will be made. By default the diagonal is not copied into the result unless the boolean value is true.");
-		lua_pushstring(L, "1 Array: The upper triangluar matrix.");
-	}
-		
-	if(func == &l_matlower)
-	{
-		lua_pushstring(L, "Using the provided or new array, copy in the lower triangular part of the matrix.");
-		lua_pushstring(L, "1 Optional Array, 1 Optional boolean: If an array is provided the result will be put in it, otherwise a new array will be made. By default the diagonal is not copied into the result unless the boolean value is true.");
-		lua_pushstring(L, "1 Array: The lower triangluar matrix.");
-	}
+	int r = Array_help_specialization<T>(L);
+	if(r) return r;
+
 	return LuaBaseObject::help(L);
 }
 
 
-
+// These are called from a macro in the header
 int array_help_specialization_int(lua_State* L)
 {
 	return Array_help<int>(L);
@@ -756,64 +887,25 @@ int array_help_specialization_doubleComplex(lua_State* L)
 }
 
 
-
-
-
 template<typename T>
-static int l_fft1D(lua_State *L)
+static const luaL_Reg* get_real_methods()
 {
-	LUA_PREAMBLE( Array<T>, a, 1);
-	LUA_PREAMBLE( Array<T>, b, 2);
-	a->fft1DTo(b, (T*)0);
-	return 0;
-}
-template<typename T>
-static int l_fft2D(lua_State *L)
-{
-	LUA_PREAMBLE( Array<T>, a, 1);
-	LUA_PREAMBLE( Array<T>, b, 2);
-	a->fft2DTo(b, (T*)0);
-	return 0;
-}
-template<typename T>
-static int l_fft3D(lua_State *L)
-{
-	LUA_PREAMBLE( Array<T>, a, 1);
-	LUA_PREAMBLE( Array<T>, b, 2);
-	a->fft3DTo(b, (T*)0);
-	return 0;
+	static luaL_Reg m[128] = {_NULLPAIR128};
+	if(m[127].name)	return m;
+	static const luaL_Reg _m[] =
+	{
+		{"toComplex",   l_tocomplex<T>},
+		{NULL, NULL}
+	};
+	merge_luaL_Reg(m, _m);
+	m[127].name = (char*)1;
+	return m;
 }
 
 
 
 template<typename T>
-static int l_ifft1D(lua_State *L)
-{
-	LUA_PREAMBLE( Array<T>, a, 1);
-	LUA_PREAMBLE( Array<T>, b, 2);
-	a->ifft1DTo(b, (T*)0);
-	return 0;
-}
-template<typename T>
-static int l_ifft2D(lua_State *L)
-{
-	LUA_PREAMBLE( Array<T>, a, 1);
-	LUA_PREAMBLE( Array<T>, b, 2);
-	a->ifft2DTo(b, (T*)0);
-	return 0;
-}
-template<typename T>
-static int l_ifft3D(lua_State *L)
-{
-	LUA_PREAMBLE( Array<T>, a, 1);
-	LUA_PREAMBLE( Array<T>, b, 2);
-	a->ifft3DTo(b, (T*)0);
-	return 0;
-}
-
-
-template<typename T>
-static const luaL_Reg* get_fft_methods()
+static const luaL_Reg* get_complex_methods()
 {
 	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)	return m;
@@ -877,7 +969,7 @@ static int l_init( Array<T>* a, lua_State* L)
 
 
 template <typename T>
-const luaL_Reg* Array_luaMethods()
+luaL_Reg* Array_luaMethods()
 {
 	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)	return m;
@@ -886,30 +978,56 @@ const luaL_Reg* Array_luaMethods()
 	return m;
 }
 
+//special cases for floating point datatypes
+template <>
+luaL_Reg* Array_luaMethods<double>()
+{
+	static luaL_Reg m[128] = {_NULLPAIR128};
+	if(m[127].name)	return m;
+	merge_luaL_Reg(m, get_base_methods<double>());
+	merge_luaL_Reg(m, get_real_methods<double>());
+ 	merge_luaL_Reg(m, get_base_methods_matrix<double>());	
+	m[127].name = (char*)1;
+	return m;
+}
+
+template <>
+luaL_Reg* Array_luaMethods<float>()
+{
+	static luaL_Reg m[128] = {_NULLPAIR128};
+	if(m[127].name)	return m;
+	merge_luaL_Reg(m, get_base_methods<float>());
+ 	merge_luaL_Reg(m, get_real_methods<float>());
+ 	merge_luaL_Reg(m, get_base_methods_matrix<float>());	
+	m[127].name = (char*)1;
+	return m;
+}
+
+
 //special cases for complex datatypes (fft):
 template <>
-const luaL_Reg* Array_luaMethods<doubleComplex>()
+luaL_Reg* Array_luaMethods<doubleComplex>()
 {
 	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)	return m;
 	merge_luaL_Reg(m, get_base_methods<doubleComplex>());
-	merge_luaL_Reg(m, get_fft_methods<doubleComplex>());
+	merge_luaL_Reg(m, get_complex_methods<doubleComplex>());
 	m[127].name = (char*)1;
 	return m;
 }
 
 template <>
-const luaL_Reg* Array_luaMethods<floatComplex>()
+luaL_Reg* Array_luaMethods<floatComplex>()
 {
 	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)	return m;
 	merge_luaL_Reg(m, get_base_methods<floatComplex>());
-	merge_luaL_Reg(m, get_fft_methods<floatComplex>());
+	merge_luaL_Reg(m, get_complex_methods<floatComplex>());
 	m[127].name = (char*)1;
 	return m;
 }
 
-
+// these are called from the .h file
 const luaL_Reg* array_luamethods_specialization_int()
 {
   return Array_luaMethods<int>();
@@ -931,8 +1049,6 @@ const luaL_Reg* array_luamethods_specialization_floatComplex()
 {
   return Array_luaMethods<floatComplex>();
 }
-
-
 
 int array_luainit_specialization_int(Array<int>* that, lua_State* L)
 {
@@ -1013,284 +1129,6 @@ ARRAY_API iArray* getWSiArray(int nx, int ny, int nz, long level)
 
 
 
-template <typename T>
-static void matminor(const T* A, const int nx, const int ny, int i, int j, T* dest)
-{
-	for(int y=0; (y<j) && (y<ny); y++)
-	{
-		for(int x=0; (x<i) && (x<nx); x++)
-		{
-			dest[x + (y*(nx-1))] = A[x+nx*y];
-		}
-		for(int x=i+1; x<nx; x++)
-		{
-			// printf("A[%i,%i] -> m[%i,%i]\n", x-1,y,x,y);
-			dest[(x-1) + (y*(nx-1))] = A[x+nx*y];
-		}
-	}
-
-	for(int y=j+1; y<ny; y++)
-	{
-		for(int x=0; x<i && x<nx; x++)
-		{
-			// printf("A[%i,%i] -> m[%i,%i]\n", x,y-1,x,y);
-			dest[x + ((y-1)*(nx-1))] = A[x+nx*y];
-		}
-		for(int x=i+1; x<nx; x++)
-		{
-			// printf("A[%i,%i] -> m[%i,%i]\n", x-1,y-1,x,y);
-			dest[(x-1) + ((y-1)*(nx-1))] = A[x+nx*y];
-		}
-	}
-}
-
-
-template <typename T>
-static T matdet(const T* A, const int nx, const int ny, bool& ok)
-{
-	ok = true;
-	if(nx != ny)
-	{
-		ok = false;
-		return A[0];
-	}
-
-	if(nx == 0)
-	{
-		return 0;
-	}
-
-	if(nx == 1)
-	{
-		return A[0];
-	}
-
-	if(nx == 2)
-	{
-		return A[0]*A[3] - A[1]*A[2];
-	}
-
-	T* m = new T[(nx-1)*(ny-1)];
-	T sum = 0;
-	for(int i=0; i<nx; i++)
-	{
-#if 0
-		cout << "making minor " << i << ", 0 for matrix:" << endl;
-		for(int a=0; a<nx; a++)
-		{
-			for(int b=0; b<nx; b++)
-			{
-				cout << A[b*nx + a] << "\t";
-			}
-			cout << endl;
-		}
-#endif
-		matminor(A, nx, ny, i, 0, m);
-#if 0
-		cout << "minor:" << endl;
-		for(int a=0; a<nx-1; a++)
-		{
-			for(int b=0; b<nx-1; b++)
-			{
-				cout << m[b*(nx-1) + a] << "\t";
-			}
-			cout << endl;
-		}
-#endif
-
-		if(i & 0x1) //odd, negative
-		{
-			sum = sum - A[i] * matdet(m, nx-1, ny-1, ok);
-		}
-		else  //even, positive
-		{
-			sum = sum + A[i] * matdet(m, nx-1, ny-1, ok);
-		}
-	}
-	delete [] m;
-
-	return sum;
-}
-
-template <typename T>
-static void mm(
-	const T* A, const int ra, const int ca,
-	const T* B, const int rb, const int cb,
-	      T* C, const int rc, const int cc)
-{
-	for(int r=0; r<ra; r++)
-	{
-		for(int c=0; c<cb; c++)
-		{
-			T sum = 0;
-			for(int k=0; k<ca; k++)
-			{
-				sum += A[r*ca + k] * B[k*cb + c];
-			}
-			C[r*cc + c] = sum;
-		}
-	}
-}
-		
-
-
-template <typename T>
-static bool mattrans(const T* src, const int nx, const int ny, T* dest)
-{
-	if((src == dest) && (nx != ny))
-		return false;
-
-	if(src == dest)
-	{
-		for(int i=0; i<nx; i++)
-		{
-			for(int j=0; j<i; j++)
-			{
-				if(i != j)
-				{
-
-					const T t = dest[i + nx*j];
-					dest[i + nx*j] = dest[j + nx*i];
-					dest[j + nx*i] = t;
-				}
-			}
-		}
-	}
-	else
-	{
-		for(int i=0; i<nx; i++)
-		{
-			for(int j=0; j<ny; j++)
-			{
-				dest[j + i*ny] = src[i + j*nx];
-			}
-		}
-	}
-	return true;
-}
-
-template <typename T>
-static int l_mattrans(lua_State* L)
-{
-	LUA_PREAMBLE(Array<T>, A, 1);
-	
-	Array<T>* B = 0;
-	if(luaT_is< Array<T> >(L, 2))
-		B = luaT_to< Array<T> >(L, 2);
-	if(B)
-	{
-		if(B->ny != A->ny && B->nx != A->nx)
-		{
-			return luaL_error(L, "Destination array size mismatch");
-		}
-	}
-	else
-	{
-		B = new Array<T>(A->ny, A->nx);
-	}
-
-	mattrans(A->data(), A->nx, A->ny, B->data());
-
-	luaT_push< Array<T> >(L, B);
-	return 1;
-}
-
-
-
-template <typename T>
-static int lT_matmul(lua_State* L)
-{
-	LUA_PREAMBLE(Array<T>, A, 1);
-	LUA_PREAMBLE(Array<T>, B, 2);
-	
-	if(A->nx != B->ny)
-		return luaL_error(L, "Column count of A (nx) does not match row count of B (ny)");
-	
-	Array<T>* C = 0;
-	if(luaT_is<Array<T> >(L, 3))
-		C = luaT_to< Array<T> >(L, 3);
-	else
-		C = new Array<T>(B->nx, A->ny);
-	
-	if(C->nx != B->nx || C->ny != A->ny)
-		return luaL_error(L, "Size mismatch for destination matrix");
-	
-	mm<T>(A->data(), A->ny, A->nx, B->data(), B->ny, B->nx, C->data(), C->ny, C->nx);
-	
-	luaT_push< Array<T> >(L, C);
-	return 1;
-}
-
-static int l_matmul(lua_State* L)
-{
-	if(luaT_is<dArray>(L, 1))
-		return lT_matmul<double>(L);
-	if(luaT_is<fArray>(L, 1))
-		return lT_matmul<float>(L);
-	return luaL_error(L, "Array.matMul is only implemented for single and double precision arrays");
-}
-
-
-
-template <typename T>
-static int lT_matmakei(lua_State* L)
-{
-	LUA_PREAMBLE(Array<T>, A, 1);
-
-	A->zero();
-	int m = A->nx;
-	if(A->ny < m)
-		m = A->ny;
-	
-	T* d = A->data();
-	
-	for(int i=0; i<m; i++)
-	{
-		d[i*A->nx + i] = luaT<T>::one();
-	}
-	luaT_push<Array<T> >(L, A);
-	return 1;	
-}
-static int l_matmakei(lua_State* L)
-{
-	if(luaT_is<dArray>(L, 1))
-		return lT_matmakei<double>(L);
-	if(luaT_is<fArray>(L, 1))
-		return lT_matmakei<float>(L);
-	return luaL_error(L, "Array.matMakeI is only implemented for single and double precision arrays");
-}
-
-
-
-
-
-template <typename T>
-static int lT_matdet(lua_State* L)
-{
-	LUA_PREAMBLE(Array<T>, A, 1);
-	
-	if(A->nx != A->ny)
-		return luaL_error(L, "Matrix is not square");
-	
-	bool ok;
-	
-	T res = matdet<T>(A->data(), A->nx, A->ny, ok);
-	
-	luaT<T>::push(L, res);
-    return luaT<T>::elements();
-}
-
-static int l_matdet(lua_State* L)
-{
-	if(luaT_is<dArray>(L, 1))
-		return lT_matdet<double>(L);
-	if(luaT_is<fArray>(L, 1))
-		return lT_matdet<float>(L);
-	if(luaT_is<iArray>(L, 1))
-		return lT_matdet<int>(L);
-	return luaL_error(L, "Array.matDet is only implemented for single and double precision and integer arrays");
-}
-
 
 
 
@@ -1309,40 +1147,6 @@ static int l_matdet(lua_State* L)
  #define ARRAY_API 
 #endif
 
-#if 0
-static int l_array_help(lua_State* L)
-{
-	lua_CFunction func = lua_tocfunction(L, 1);
-	
-	if(lua_gettop(L) == 0)
-	{
-		lua_pushstring(L, "Array Scope. The Array objects for the foundations for data storage in MagLua.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, ""); //output, empty
-		return 3;
-	}
-	
-	lua_CFunction f01 = l_matmul;
-	if(func == f01)
-	{
-		lua_pushstring(L, "Treat arrays like matrices and do Matrix Multiplication on the z=1 layer");
-		lua_pushstring(L, "2 Arrays, 1 Optional Array: The first two arrays will be multiplied together, their dimensions must match to allow legal matrix multiplication. If a 3rd Array is supplied the product will be stored in it, otherise a new Array will be created.");
-		lua_pushstring(L, "1 Array: The product of the multiplication.");
-		return 3;
-	}
-	
-	lua_CFunction f02 = l_matdet;
-	if(func == f02)
-	{
-		lua_pushstring(L, "Treat array like a matrix and compute the determinant");
-		lua_pushstring(L, "1 Array: Input matrix");
-		lua_pushstring(L, "1 Value: The determinant.");
-		return 3;
-	}
-	
-	return 0;
-}
-#endif
 
 static int l_getmetatable(lua_State* L)
 {
@@ -1370,7 +1174,7 @@ ARRAY_API int lib_main(lua_State* L);
 #include "array_luafuncs.h"
 ARRAY_API int lib_register(lua_State* L)
 {
-	dArray foo1;
+// 	dArray foo1;
 
 #ifdef DOUBLE_ARRAY
 	luaT_register< Array<double> >(L);
@@ -1385,22 +1189,7 @@ ARRAY_API int lib_register(lua_State* L)
 #ifdef SINGLE_ARRAY
 	luaT_register<fcArray>(L);
 #endif
-#if 0
-	lua_getglobal(L, "Array");
-	lua_pushstring(L, "matMul");
-	lua_pushcfunction(L, l_matmul);
-	lua_settable(L, -3);
 
-	lua_getglobal(L, "Array");
-	lua_pushstring(L, "matDet");
-	lua_pushcfunction(L, l_matdet);
-	lua_settable(L, -3);
-	
-	lua_pushstring(L, "help");
-	lua_pushcfunction(L, l_array_help);
-	lua_settable(L, -3);
-	lua_pop(L, 1);
-#endif
 
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
@@ -1428,4 +1217,10 @@ ARRAY_API const char* lib_name(lua_State* L)
 #endif
 }
 
+
+ARRAY_API int lib_main(lua_State* L)
+{
+	return 0;
+
+}
 

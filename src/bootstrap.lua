@@ -79,7 +79,7 @@ for k,v in pairs(arg) do
 	end
 	
 	if v == "--write_docs" and sub_process == nil then
-		write_documentation = arg[k+1] or true
+		write_documentation = k --arg[k+1] or true
 	end
 
 -- 	Moving this test to after dofile so that -q can be included removed by module_path_file
@@ -403,22 +403,27 @@ end
 
 if write_documentation ~= nil then
 	local f = nil
-	if write_documentation == true then
+	if arg[write_documentation] == nil then
 		f = io.stdout
 		write_documentation = "stdout"
 	else
-		f = io.open(write_documentation, "w")
+		f = io.open(arg[write_documentation+1], "w")
 		if f == nil then
-			error("Failed to open `" .. write_documentation .. "' for writing")
+			error("Failed to open `" .. arg[write_documentation+1] .. "' for writing")
 		end
 	end
 	
 	dofile("maglua://Help.lua")
 
-	write_help(f)
+	local optional_doc_data = {}
+	for i=write_documentation+2, table.maxn(arg), 2 do
+		optional_doc_data[arg[i]] = arg[i+1]
+	end
+	
+	write_help(f, optional_doc_data)
 	
 	if f ~= io.stdout then
-		print("Documentation written to `" .. write_documentation .. "'")
+		print("Documentation written to `" .. arg[write_documentation+1] .. "'")
 		f:close()
 	end
 	

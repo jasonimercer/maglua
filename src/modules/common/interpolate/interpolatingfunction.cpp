@@ -147,25 +147,63 @@ static bool _rawsort(const pair<double,double>& d1, const pair<double,double>& d
 	return d1.first < d2.first;
 }
 
+static bool removeSameX(vector <pair<double,double> >& rawdata)
+{
+	vector <pair<double,double> >::iterator it1;
+	vector <pair<double,double> >::iterator it2;
+	
+	if(rawdata.size() <= 1)
+		return false; //done
+		
+	it1 = rawdata.begin();
+	it2 = rawdata.begin();
+	it2++;
+	
+	for(;it2 != rawdata.end(); it1++, it2++)
+	{
+		if( (*it1).first == (*it2).first) 
+		{
+			rawdata.erase(it2);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
 void InterpolatingFunction::compile()
 {
 	sort(rawdata.begin(), rawdata.end(), _rawsort);
 
+	while(removeSameX(rawdata));
+	
 	if(root)
 		delete root;
 
-	deque <_node*> dq1;
-	deque <_node*> dq2;
+	if(rawdata.size() == 0)
+	{
+		compiled = true;
+		root = new _node(0,0,0,0);
+		return;
+	}
+	if(rawdata.size() == 1)
+	{
+		compiled = true;
+		root = new _node(rawdata[0].first,rawdata[0].second,
+						 rawdata[0].first,rawdata[0].second);
+		return;
+	}
+	
+	deque <_node*> q1;
+	deque <_node*> q2;
 
 	for(unsigned int i=0; i<rawdata.size()-1; i++)
 	{
-		dq1.push_front(new _node(
+		q1.push_front(new _node(
 				rawdata[i  ].first,rawdata[i  ].second,
 				rawdata[i+1].first,rawdata[i+1].second));
 	}
-
-	deque <_node*>& q1 = dq1;
-	deque <_node*>& q2 = dq2;
 
 	while(q1.size() > 1)
 	{
@@ -229,7 +267,18 @@ bool InterpolatingFunction::getValue(double in, double* out)
 // 	}
 
 	_node* t = root;
-
+	
+	if(in <= t->x[0])
+	{
+		*out = t->y[0];
+		return true;
+	}
+	if(in >= t->x[1])
+	{
+		*out = t->y[1];
+		return true;
+	}
+	
 	while(t->c[0])
 	{
 		if(in < t->cut)

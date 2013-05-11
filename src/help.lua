@@ -14,9 +14,10 @@ function(f)
 end
 
 
-function write_help(file_handle)
+function write_help(file_handle, optional_links)
 	local f = file_handle or io.stdout
-
+	optional_links = optional_links or {}
+	
 	local function nq(x) --nq = noquotes
 		return string.gsub(x, "\"", "")
 	end
@@ -69,19 +70,34 @@ function write_help(file_handle)
 		return table.concat(s, " ")
 	end
 
+	function write_optional_links()
+		local data = {}
+
+		if optional_links["devstats"] then
+			table.insert(data, 
+					string.format("<p>Development statistics can be found at the StatSVN <A HREF=\"%s\">page</A>.", optional_links["devstats"]))
+		end
+		
+		if optional_links["tips"] then
+			table.insert(data, 
+					string.format("<p>Examples of specific MagLua functions and objects can be found at the MagLua Tips and Tricks <A HREF=\"%s\">page</A>.", optional_links["tips"]))
+		end
+		
+		return table.concat(data, " ")
+	end
+	
 	f:write([[
 	<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 	<html>
 	<head>
 	<style media="screen,print" type="text/css">
-	
 	body {
 		color: #000000 ;
 		background-color: #FFFFFF ;
 		font-family: sans-serif ;
 		text-align: justify ;
-		margin-right: 20px ;
-		margin-left: 20px ;
+		margin-right: 40px ;
+		margin-left: 40px ;
 	}
 
 	pre {
@@ -104,7 +120,7 @@ function write_help(file_handle)
 		padding-top: 0.4em ;
 		padding-bottom: 0.4em ;
 		padding-left: 20px ;
-		margin-left: -20px ;
+		margin: 20px -20px 10px -20px;
 		background-color:  #20435c;
 	}
 
@@ -148,6 +164,8 @@ function write_help(file_handle)
 		height: 1px ;
 		color: #a0a0a0 ;
 		background-color: #a0a0a0 ;
+		margin: 20px -20px 10px -20px;
+		padding: 3px 0 3px 10px;
 	}
 	dt 
 	{
@@ -164,13 +182,22 @@ function write_help(file_handle)
 	<META HTTP-EQUIV="content-type" CONTENT="text/html; charset=iso-8859-1">
 	</head>
 	<body>
+	<table width=\"100%\"><tr><td> <!-- for rendering to pdf -->
 	]])
 
 	f:write(lp([[
 <H1>MagLua</H1>
 <p>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations with the Lua scripting language.	<p>MagLua is composed of 2 conceptual parts following the Data Oriented Design paradigm
-<ul><li>Data - Spin vectors and fields, these are held in a *SpinSystem*.<li>Transformations - Objects which modify data. Some calculate fields based on spins or external influences such as *Anisotropy*, *Dipole* and *Thermal*, others update the spin vectors such as *LLG.Cartesian*.	</ul>	<p>The <a href="#Index">Index</a> has links to all objects, methods and functions provided by MagLua.</p><p>The following is a list of the objects and functions which may be combined to create a simulation.]]))
+<ul><li>Data - Spin vectors and fields, these are held in a *SpinSystem*.<li>Transformations - Objects which modify data. Some calculate fields based on spins or external influences such as *Anisotropy*, *Dipole* and *Thermal*, others update the spin vectors such as *LLG.Cartesian*.	</ul>	<p>The <a href="#Index">Index</a> has links to all objects, methods and functions provided by MagLua.</p>]]))
 
+
+-- 	print(lp(write_optional_links()))
+
+	f:write(lp(write_optional_links()))
+
+	f:write("\n" .. lp([[<p>The following is a list of the objects and functions which may be combined to create a simulation.]] .. "\n"))
+	
+	
 	-- table for the index
 	local index = {}	
 
@@ -355,9 +382,9 @@ function write_help(file_handle)
 			f:write("<tr><td width=15%>" .. c .. ":<td>" .. d .. "\n")
 		end
 	end
-	f:write("</table>\n<hr>")
+	f:write("</table>\n<br><hr>")
 
-	f:write("</body>\n</html>\n")
+	f:write("</table><!-- for rendering to pdf--></body>\n</html>\n")
 end
 	
 	

@@ -87,6 +87,9 @@ public:
 	
 	void setSize(int x, int y, int z, T* use_this_memory=0)
 	{
+		if(x <= 0) x = 1;
+		if(y <= 0) y = 1;
+		if(z <= 0) z = 1;
 		if(x != nx || y != ny || z != nz)
 		{
 			if( fft_plan_1D) free_FFT_PLAN( fft_plan_1D);
