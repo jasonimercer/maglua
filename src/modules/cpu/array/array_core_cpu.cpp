@@ -1,5 +1,6 @@
 #include "array_core_cpu.h"
 #include "array_core_matrix_cpu.h"
+#include "array_core_matrix_cpu_lapack.h"
 #include "array.h"
 
 template<typename T> int Array_help_matrix(lua_State* L){return 0;}  
@@ -534,6 +535,62 @@ static int l_ifft3D(lua_State *L)
 	return 1;
 }
 
+
+template<typename C, typename R, int q>
+int l_toreal__(lua_State* L)
+{
+	Array<C>* a = luaT_to< Array<C> >(L, 1);
+	Array<R>* b = 0;
+
+	if(luaT_is< Array<R> >(L, 2))
+		b = luaT_to< Array<R> >(L, 2);
+	else
+		b = new Array<R>(a->nx, a->ny, a->nz);
+
+	int nxyz = a->nx * a->ny * a->nz;
+
+	R* r = b->ddata();
+	C* c = a->ddata();
+
+	if(q == 0) // real
+	{
+		for(int i=0; i<nxyz; i++)
+			r[i] = c[i].real();
+	}
+	
+	if(q == 1) // imag
+	{
+		for(int i=0; i<nxyz; i++)
+			r[i] = c[i].imag();
+	}
+	
+	if(q == 2) // norm
+	{
+		for(int i=0; i<nxyz; i++)
+			r[i] = c[i].real()*c[i].real() + c[i].imag()*c[i].imag();
+	}
+	
+	luaT_push<Array<R> >(L, b);
+	return 1;
+}
+
+template<typename T, int q>
+int l_toreal_(lua_State* L) {	return luaL_error(L, "not implemented"); }
+template<> int l_toreal_<doubleComplex, 0>(lua_State* L) {return l_toreal__<doubleComplex, double, 0>(L); }
+template<> int l_toreal_<doubleComplex, 1>(lua_State* L) {return l_toreal__<doubleComplex, double, 1>(L); }
+template<> int l_toreal_<doubleComplex, 2>(lua_State* L) {return l_toreal__<doubleComplex, double, 2>(L); }
+template<> int l_toreal_< floatComplex, 0>(lua_State* L) {return l_toreal__< floatComplex,  float, 0>(L); }
+template<> int l_toreal_< floatComplex, 1>(lua_State* L) {return l_toreal__< floatComplex,  float, 1>(L); }
+template<> int l_toreal_< floatComplex, 2>(lua_State* L) {return l_toreal__< floatComplex,  float, 2>(L); }
+
+
+template<typename T, int q>
+static int l_toreal(lua_State* L)
+{
+	return l_toreal_<T,q>(L);
+}
+
+
 template<typename F, typename C>
 static int l_tocomplex_(lua_State* L)
 {
@@ -631,6 +688,29 @@ int Array_help_fft_complex(lua_State* L)
 		lua_pushstring(L, "1 Array: The result of the transform");
 		return 3;
 	}	
+
+	if(func == &(l_toreal<T,0>))
+	{
+		lua_pushstring(L, "Copy real component of data to a real array");
+		lua_pushstring(L, "1 Optional Array of same real type: Destination array, a new array will be created if none is supplied");
+		lua_pushstring(L, "1 Array: The data");
+		return 3;
+	}	
+	if(func == &(l_toreal<T,1>))
+	{
+		lua_pushstring(L, "Copy imaginary component of data to a real array");
+		lua_pushstring(L, "1 Optional Array of same real type: Destination array, a new array will be created if none is supplied");
+		lua_pushstring(L, "1 Array: The data");
+		return 3;
+	}	
+	if(func == &(l_toreal<T,2>))
+	{
+		lua_pushstring(L, "Copy norm of data to a real array");
+		lua_pushstring(L, "1 Optional Array of same real type: Destination array, a new array will be created if none is supplied");
+		lua_pushstring(L, "1 Array: The data");
+		return 3;
+	}	
+
 	return 0;
 }
 
@@ -856,6 +936,8 @@ static int Array_help(lua_State* L)
 		return 3;
 	}
 
+	int r1 = l_mat_help(L);
+	if(r1) return r1;
 
 	int r = Array_help_specialization<T>(L);
 	if(r) return r;
@@ -918,6 +1000,11 @@ static const luaL_Reg* get_complex_methods()
 		{"ifft1D",  l_ifft1D<T>},
 		{"ifft2D",  l_ifft2D<T>},
 		{"ifft3D",  l_ifft3D<T>},
+
+		{"toRealR", l_toreal<T,0>},
+		{"toRealI", l_toreal<T,1>},
+		{"toRealN", l_toreal<T,2>},
+
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -1171,7 +1258,6 @@ ARRAY_API int lib_main(lua_State* L);
 }
 
 #include "info.h"
-#include "array_luafuncs.h"
 ARRAY_API int lib_register(lua_State* L)
 {
 // 	dArray foo1;
@@ -1189,16 +1275,6 @@ ARRAY_API int lib_register(lua_State* L)
 #ifdef SINGLE_ARRAY
 	luaT_register<fcArray>(L);
 #endif
-
-
-	lua_pushcfunction(L, l_getmetatable);
-	lua_setglobal(L, "maglua_getmetatable");
-	if(luaL_dostring(L, __array_luafuncs()))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
-
 
 	return 0;
 }

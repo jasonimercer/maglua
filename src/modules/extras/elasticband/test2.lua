@@ -31,7 +31,8 @@ for k=1,ss:nz() do
 	end
 end
 
-zee:set({0,0,-4.0})
+zee:set({0.5, 0.1,-4.0}) -- canted field to break symmetry
+zee:set({0, 0,-4.0}) -- canted field to break symmetry
 
 
 
@@ -53,35 +54,11 @@ end
 function writeEnergyPath(filename)
 	f = io.open(filename, "w")
 	local ee = eb:pathEnergy()
-	for i=1,table.maxn(ee) do
-		f:write(i .. "\t" .. ee[i] .. "\n")
+	for i,value in ipairs(ee) do
+		f:write(i .. "\t" .. value .. "\n")
 	end
 	f:close()
 end
-
-function writePathComponents(filename)
-	f = io.open(filename, "w")
-	
-	local np = eb:numberOfPathPoints()
-	local ns = eb:numberOfSites()
-
-	for p=1,np do
-		local line = {}
-		table.insert(line, p)
-		for s=1,ns do
-			local x, y, z = eb:spin(p, s)
-			table.insert(line, x)
-			table.insert(line, y)
-			table.insert(line, z)
-		end
-		line = table.concat(line, "\t")
--- 		print(line)
-		f:write(line .. "\n")
-	end
-	
-	f:close()
-end
-
 
 
 -- these are the sites involved in the
@@ -91,8 +68,7 @@ sites = {{2,2,1}, {2,2,2}}
 upup     = {{0,0, 1}, {0,0, 1/2}}
 updown   = {{0,0, 1}, {0,0,-1/2}}
 downdown = {{0,0,-1}, {0,0,-1/2}}
-initial_path = {upup, downdown}
--- initial_path = {upup, updown, downdown}
+initial_path = {upup, updown, downdown}
 
 np = 64
 
@@ -102,29 +78,79 @@ eb:setInitialPath(initial_path)
 eb:setEnergyFunction(energy)
 eb:setNumberOfPathPoints(np)
 eb:setSpinSystem(ss)
-eb:setGradientMaxMotion(0.25)
 
 
 -- initialize is not needed here, we're just doing it so we can get
 -- the initial energy path to compare.
 eb:initialize()
-
-writePathComponents("InitialComponents.dat")
 writeEnergyPath("InitialEnergyPath.dat")
 
-eb:compute(50)
+eb:compute(50) -- this is the EB calculation
 
-writePathComponents("FinalComponents.dat")
+
 writeEnergyPath("FinalEnergyPath.dat")	
-	
--- the following will render the states
-if false then
-ss3 = ss:copy()
-	for i=1,np do
-		local fn = string.format("ss%04d.pov", i)
-		eb:writePathPointTo(i,ss3)
-		POVRay(fn, ss3,  {scale=0.5})
-		os.execute("povray -D -W640 -H480 " .. fn .. "")
-	end
+
+mins, maxs, all = eb:maximalPoints()
+energies = eb:pathEnergy()
+
+print("Energy Maximals after EB")
+print("Mins:\nindex\tpath_idx\tenergy")
+for k,pidx in pairs(mins) do
+	print(k,pidx,energies[pidx])
 end
 
+print("Maxs:\nindex\tpath_idx\tenergy")
+for k,pidx in pairs(maxs) do
+	print(k,pidx,energies[pidx])
+end
+
+print("\nRelaxing minimum points into center of local basin")
+for k,pidx in pairs(mins) do
+	local stepSize, epsilon, numSteps = 0.01, 1e-3, 10
+	local eInit, eFinal, eChange
+	repeat
+		eInit, eFinal, eChange = eb:relaxSinglePoint(pidx, stepSize, epsilon, 10)
+	until eChange < 1e-14
+end
+
+energies = eb:pathEnergy()
+print("New Mins:")
+print("index\tpath_idx\tenergy")
+for k,pidx in pairs(mins) do
+	print(k,pidx,energies[pidx])
+end
+
+
+
+function printMat(name, M)
+	local info = {string.format("% 3s", name), string.format("(%dx%d)", M:ny(), M:nx())}
+	for r=1,M:ny() do
+		local t = {info[r] or ""}
+		for c=1,M:nx() do
+			table.insert(t, string.format("% 06.6f", M:get(c,r)))
+		end
+		print(table.concat(t, "\t"))
+	end
+	print()
+end
+
+function curvature(idx)
+	D = eb:hessianAtPoint(idx, 0.001)
+	print("Hessian at point " .. idx)
+	printMat("D", D)
+
+	vals, vecs = D:matEigen()
+
+	print("Eigen Values at point " .. idx)
+	printMat("evals", vals)
+
+	print("Eigen Vectors at point " .. idx .. " (rows)")
+	printMat("evecs", vecs)
+	
+	print()
+end
+
+print("Curvature Data for maximal points")
+for k,pidx in pairs(all) do
+	curvature(pidx)
+end

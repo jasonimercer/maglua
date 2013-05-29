@@ -7,6 +7,9 @@ local mt = maglua_getmetatable(MODNAME) -- this is a special function available 
 local help = MODTAB.help -- setting up fallback to C++ help defs
 
 local function get_eb_data(eb)
+	if eb == nil then
+		return {}
+	end
 	if eb:getInternalData() == nil then
 		eb:setInternalData({})
 	end
@@ -41,10 +44,11 @@ local function pathEnergy(eb)
 	end
 
 	local function get_site_ss(x,y,z)
-		local sx,sy,sz,m = ss:spin(x,y,z)
-		return sx,sy,sz,m
+		local sx,sy,sz = ss:spin(x,y,z)
+		return sx,sy,sz
 	end
-	local function set_site_ss(x,y,z,sx,sy,sz,m)
+	local function set_site_ss(x,y,z,sx,sy,sz)
+		local _,_,_,m = ss:spin({x,y,z})
 		ss:setSpin({x,y,z}, {sx,sy,sz},m)
 	end
 	local function get_energy_ss()
@@ -55,12 +59,14 @@ local function pathEnergy(eb)
 	return eb:getPathEnergy()
 end
 
-
 local function initialize(eb, noise)
 	local d = get_eb_data(eb)
 	noise = noise or 0.05
 	local np = d.np or 20
 
+	eb:resampleStateXYZPath(np/8+2, noise)
+	eb:resampleStateXYZPath(np/4+2, noise)
+	eb:resampleStateXYZPath(np/2+2, noise)
 	eb:resampleStateXYZPath(np, noise)
 	
 	d.isInitialized = true
@@ -81,16 +87,15 @@ local function compute(eb, n)
 	end
 	
 	local function get_site_ss(x,y,z)
-		local sx,sy,sz,m = ss:spin(x,y,z)
-		return sx,sy,sz,m
+		local sx,sy,sz = ss:spin(x,y,z)
+		return sx,sy,sz
 	end
-	local function set_site_ss(x,y,z,  sx,sy,sz,m)
+	local function set_site_ss(x,y,z,  sx,sy,sz)
+		local ox,oy,oz,m = ss:spin({x,y,z})
+-- 		print(string.format("changing site {%g %g %g} from {%g %g %g} to {%g %g %g}", x,y,z, ox,oy,oz, sx,sy,sz))
 		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
 	end
-	local function get_site_ss2(x,y,z)
-		local sx,sy,sz,m = ss2:spin(x,y,z)
-		return sx,sy,sz,m
-	end
+
 	local function get_energy_ss()
 		local e = energy_function(ss)
 		return e
@@ -100,32 +105,19 @@ local function compute(eb, n)
 		initialize(eb)
 	end
 
+	local movement = 0
 	n = n or 50
-	local dt = Interpolate.new({{1,0.1}, {n-1, 0.01}})
-	local pp = Interpolate.new({{1,20}, {n-1, np}})
+	local dt = eb:gradientMaxMotion()
 	for i=1,n do
 		eb:calculateEnergyGradients(get_site_ss, set_site_ss, get_energy_ss, 1e-5)
 		eb:makeForcePerpendicularToPath()
 		eb:makeForcePerpendicularToSpins()
-		eb:applyForces(dt(i))
-		
--- 		for j=1,100 do
--- 			eb:calculateSpringForces(dt(i)*0.1)
--- 			eb:makeForceParallelToPath()
--- 			eb:applyForces(dt(i))
--- 		end
-		
--- 		print("resample", dt(i)*100)
--- 		eb:resampleStateXYZPath(pp(i), dt(i)*10)
-		if i < n/2 then
-			eb:resampleStateXYZPath(pp(i), dt(i))
-		else
-			eb:resampleStateXYZPath(pp(i))
-		end
+		movement = eb:applyForces(dt)
+		eb:resampleStateXYZPath(np)
 	end
+	
+	return movement / np
 end
-
-
 
 local function setSpinSystem(eb, ss)
 	local d = get_eb_data(eb)
@@ -146,6 +138,21 @@ local function setNumberOfPathPoints(eb, n)
 	end
 	d.np = n
 end
+
+local function setGradientMaxMotion(eb, dt)
+	local d = get_eb_data(eb)
+	if type(dt) ~= "number" then
+		error("setGradientMaxMotion requires a number", 2)
+	end
+	d.gdt = dt
+end
+
+
+local function gradientMaxMotion(eb)
+	local d = get_eb_data(eb)
+	return d.gdt or 0.1
+end
+
 
 local function setEnergyFunction(eb, func)
 	local d = get_eb_data(eb)
@@ -206,7 +213,7 @@ end
 
 local function getEnergyFunction(eb)
 	local d = get_eb_data(eb)
-	return (d.energy_function or function() end)
+	return (d.energy_function or function() return 0 end)
 end
 
 local function getNumberOfPathPoints(eb)
@@ -218,14 +225,79 @@ local function getNumberSites(eb)
 	return table.maxn(eb:sites())
 end
 
--- mt.setInitialState = setInitialState
--- mt.setFinalState = setFinalState
+
+local function relaxSinglePoint(eb, pointNum, stepSize, epsilon, numSteps)
+	local d = get_eb_data(eb)
+	local ss = getSpinSystem(eb)
+	local energy_function = getEnergyFunction(eb)
+
+	local function get_site_ss(x,y,z)
+		local sx,sy,sz = ss:spin(x,y,z)
+		return sx,sy,sz
+	end
+	local function set_site_ss(x,y,z,  sx,sy,sz)
+		local _,_,_,m = ss:spin({x,y,z})
+		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+	end
+
+	local function get_energy_ss()
+		local e = energy_function(ss)
+		return e
+	end
+	-- these or X are for default values
+	return eb:_relaxSinglePoint(pointNum or 0, get_site_ss, set_site_ss, get_energy_ss, stepSize or 0.1, numSteps or 1, epsilon or 1e-3)
+end
+
+local function computePointSecondDerivative(eb, pointNum, h, destArray)
+	local d = get_eb_data(eb)
+	local ss = getSpinSystem(eb)
+	local energy_function = getEnergyFunction(eb)
+	
+	local function get_site_ss(x,y,z)
+		local sx,sy,sz = ss:spin(x,y,z)
+		return sx,sy,sz
+	end
+	local function set_site_ss(x,y,z,  sx,sy,sz)
+		local _,_,_,m = ss:spin({x,y,z})
+		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+	end
+
+	local function get_energy_ss()
+		local e = energy_function(ss)
+		return e
+	end
+	
+	if h <= 0 then
+		error("Numerical derivative step size (h) must be positive")
+	end
+	
+	
+	local c = eb:siteCount()
+	
+	if destArray then
+		if destArray:nx() ~= c*3 or destArray:ny() ~= c*3 then
+			error("Destination array size mismatch. Expected " .. c*3 .. "x" .. c*3)
+		end
+	else
+		destArray = Array.Double.new(c*3, c*3)
+	end
+
+	local t = eb:_computePointSecondDerivative(pointNum, h, get_site_ss, set_site_ss, get_energy_ss)
+
+	for x=0,c*3-1 do
+		for y=0,c*3-1 do
+			destArray:set(x+1, y+1, t[x+y*(c*3)+1])
+		end
+	end
+			
+	return destArray
+end
+
+
 mt.setEnergyFunction = setEnergyFunction
 mt.setSites = setSites
 mt.setNumberOfPathPoints = setNumberOfPathPoints
 
--- mt.initialState = getInitialState
--- mt.finalState = getFinalState
 mt.energyFunction = getEnergyFunction
 mt.numberOfPathPoints = getNumberOfPathPoints
 mt.numberOfSites = getNumberSites
@@ -239,6 +311,16 @@ mt.initialize = initialize
 mt.setInitialPath = setInitialPath
 
 mt.setSpinSystem = setSpinSystem
+
+mt.relaxSinglePoint = relaxSinglePoint
+
+mt.hessianAtPoint = computePointSecondDerivative
+
+
+mt.setGradientMaxMotion = setGradientMaxMotion
+mt.gradientMaxMotion = gradientMaxMotion
+
+
 
 MODTAB.help =
 function(x)
@@ -256,27 +338,15 @@ function(x)
 	if x == initialize then
 		return 
 			"Expand the endpoints into a coherent rotation over the number of path points specified with setNumberOfPathPoints.",
-			"1 Optional Number: The magnitude of the noise introduced in the first subdivision of the path the path into 3 points, default 0.05",
+			"1 Optional Number: The magnitude of the noise introduced in the first subdivision of the path into 3 points, default 0.05",
 			""
 	end
 	if x == compute then
 		return
 			"Run several relaxation steps of the elastic band method",
 			"1 Optional Integer: Number of steps, default 50",
-			""
+			"1 Number: Absolute amount of path movement in the final step divided by the number of points."
 	end
--- 	if x == setInitialState then
--- 		return
--- 			"Set the initial state for the elastic band path",
--- 			"1 *SpinSystem*: initial state",
--- 			""
--- 	end
--- 	if x == setFinalState then
--- 		return
--- 			"Set the final state for the elastic band path",
--- 			"1 *SpinSystem*: final state",
--- 			""
--- 	end
 	if x == setEnergyFunction then
 		return
 			"Set the function used to determine system energy for the calculation.",
@@ -303,24 +373,12 @@ function(x)
 			"1 Table of Tables of site orientations: Must be at least 2 elements long to define the start and end points. Example:\n<pre>upup     = {{0,0,1},{0,0,1}}\ndowndown = {{0,0,-1},{0,0,-1}}\n eb:setInitialPath({upup,downdown})\n</pre>",
 			""
 	end
--- 	if x == getFinalState then
--- 		return
--- 			"Get the final state for the elastic band path",
--- 			"",
--- 			"1 *SpinSystem*: final state"
--- 	end
 	if x == getEnergyFunction then
 		return
 			"Get the function used to determine system energy for the calculation.",
 			"",
 			"1 Function: energy calculation function, expected to be passed a *SpinSystem*."
 	end
--- 	if x == getSites then
--- 		return
--- 			"Get the sites that are allowed to move to transition from the initial configuration to the final configuration.",
--- 			"",
--- 			"1 Table of 1,2 or 3 Component Tables: mobile sites."
--- 	end
 	if x == getNumberOfPathPoints then
 		return
 			"Get the number of path points used to approximate a line (defualt 20).",
@@ -333,6 +391,38 @@ function(x)
 			"",
 			"1 Integer: Number of sites."
 	end
+	
+	if x == relaxSinglePoint then
+		return 	"Allow a single point to move along the local energy gradient either down to a minimum or up to a maximum",
+				"1 Integer, 2 Numbers, 1 Integer: Point to relax, step size (positive for down, negative for up), epsilon used to calculate energy gradients, number of iterations.",
+				"3 Numbers: Initial Energy, New energy and absolute energy change"
+	end
+	
+	if x == computePointSecondDerivative then
+		return "Compute the 2nd order partial derivative at a given point along the path.",
+				"1 Integer, 1 Number, 1 Optional Array: Point to calculate 2nd derivative about, step size used in numerical differentiation, optional destination array. If no array is provided one will be created",
+				"1 Array: Derivatives"
+	end
+		
+	
+	if x == setGradientMaxMotion then
+		return "Set the max avrg motion relative to moment strength used in the elastic band method when applying the gradient \"force\" to the path",
+				"1 Number: the max step, default value = " .. gradientMaxMotion(),
+				""
+	end
+
+	if x == gradientMaxMotion then
+		return "Get the max avrg motion relative to moment strength used in the elastic band method when applying the gradient \"force\" to the path",
+				"",
+				"1 Number: the max step, default value = " .. gradientMaxMotion()
+	end
+	
+	if x == pathEnergy then
+		return "Get all energies along the path",
+				"",
+				"1 Table: energies along the path"
+	end
+	
 	-- calling fallback
 	if x == nil then
 		return help()

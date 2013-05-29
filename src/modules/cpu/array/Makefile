@@ -9,7 +9,10 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=array_luafuncs.lo array.o memory.o array_ops.o fourier.o  array_core_cpu.o array_core_matrix_cpu.o
+OBJECTS=array.o memory.o array_ops.o fourier.o  \
+	array_core_matrix_cpu_lapack.o \
+	array_core_cpu.o array_core_matrix_cpu.o
+	
 LIBNAME=Array
 CATEGORY=cpu
 
@@ -18,6 +21,7 @@ DEPEND=luabaseobject
 BASEDIR=../../..
 EXTRA_PKG=fftw3f
 # CC_EXTRAOPS=-fopenmp
-# EXTRA_CFLAGS=-lgomp -lrt
+
+EXTRA_CFLAGS=-lgfortran -lblas  -llapack
 EXTRA_CLEAN=array_luafuncs.cpp array_luafuncs.h
 include $(BASEDIR)/makefile.common.cpu

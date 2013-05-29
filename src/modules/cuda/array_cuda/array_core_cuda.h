@@ -119,7 +119,7 @@ private:
 				return false;
 		}
 		//sync_hd(); dest->sync_hd(); //sync in ddata()
-		execute_FFT_PLAN(*plan, dest->ddata(), ddata(), ws);
+		execute_FFT_PLAN(*plan, dest->ddata(true), ddata(true), ws);
 		dest->new_device = true;
 		return true;
 	}
@@ -227,6 +227,7 @@ public:
 	
 	bool areAllSameValue(T& v)
 	{
+		ddata(true);
 		sync_hd();
 		return arrayAreAllSameValue(d_data, nxyz, v);
 	}
@@ -299,6 +300,7 @@ public:
 	// s1,s2 are inclusive
 	void copyRegionFromTo(int* s1, int* s2, Array<T>* dest, int* d1, int* d2)
 	{
+		dest->ddata(true);
 		//arrayCopyRegionFromTo(ddata(), nx, ny, nz, s1, s2, dest->ddata(), dest->nx, dest->ny, dest->nz, d1, d2);
 		// using CPU version for now
 		arrayCopyRegionFromTo(data(), nx, ny, nz, s1, s2, dest->data(), dest->nx, dest->ny, dest->nz, d1, d2);

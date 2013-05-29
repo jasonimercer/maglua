@@ -359,7 +359,6 @@ static int l_manip_region(lua_State* L)
 	
 	src->copyRegionFromTo(region[0], region[0]+3, dest,  region[1], region[1]+3);
 	
-	
 	return 1;
 }
 

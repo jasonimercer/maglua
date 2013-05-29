@@ -1,4 +1,5 @@
 #include "array_core_matrix_cpu.h"
+#include "array_core_matrix_cpu_lapack.h"
 
 template <typename T>
 static void matminor(const T* A, const int nx, const int ny, int i, int j, T* dest)
@@ -99,26 +100,6 @@ static T matdet(const T* A, const int nx, const int ny, bool& ok)
 	return sum;
 }
 
-template <typename T>
-static void mm(
-	const T* A, const int ra, const int ca,
-	const T* B, const int rb, const int cb,
-	      T* C, const int rc, const int cc)
-{
-	for(int r=0; r<ra; r++)
-	{
-		for(int c=0; c<cb; c++)
-		{
-			T sum = 0;
-			for(int k=0; k<ca; k++)
-			{
-				sum += A[r*ca + k] * B[k*cb + c];
-			}
-			C[r*cc + c] = sum;
-		}
-	}
-}
-		
 
 template <typename T>
 bool mattrans(const T* src, const int* AB, const int* dims_in, T* dest, const int* dims_out)
@@ -291,6 +272,30 @@ static int l_mattrans(lua_State* L)
 
 
 
+
+#if 0
+template <typename T>
+static void mm(
+	const T* A, const int ra, const int ca,
+	const T* B, const int rb, const int cb,
+	      T* C, const int rc, const int cc)
+{
+	for(int r=0; r<ra; r++)
+	{
+		for(int c=0; c<cb; c++)
+		{
+			T sum = 0;
+			for(int k=0; k<ca; k++)
+			{
+				sum += A[r*ca + k] * B[k*cb + c];
+			}
+			C[r*cc + c] = sum;
+		}
+	}
+}
+#endif
+		
+#if 0
 template <typename T>
 static int lT_matmul(lua_State* L)
 {
@@ -298,7 +303,7 @@ static int lT_matmul(lua_State* L)
 	LUA_PREAMBLE(Array<T>, B, 2);
 	
 	if(A->nx != B->ny)
-		return luaL_error(L, "Column count of A (nx) does not match row count of B (ny)");
+		return luaL_error(L, "Column count of A (%d) does not match row count of B (%d)", A->nx, B->ny);
 	
 	Array<T>* C = 0;
 	if(luaT_is<Array<T> >(L, 3))
@@ -323,7 +328,7 @@ static int l_matmul(lua_State* L)
 		return lT_matmul<float>(L);
 	return luaL_error(L, "Array.matMul is only implemented for single and double precision arrays");
 }
-
+#endif
 
 
 template <typename T>
@@ -456,6 +461,7 @@ static int l_matlower(lua_State* L)
 
 
 
+
 template<typename T>
 static const luaL_Reg* get_base_methods_matrix_()
 {
@@ -465,10 +471,13 @@ static const luaL_Reg* get_base_methods_matrix_()
 	{
 		{"matTrans",     l_mattrans<T>},
 		{"matDet",       l_matdet},
-		{"matMul",       l_matmul},
 		{"matMakeI",     l_matmakei},
 		{"matUpper",     l_matupper},
 		{"matLower",     l_matlower},
+		
+		{"matMul",       l_matmul},     // BLAS DGEMM
+		{"matEigen",     l_mateigen},   // LAPACK
+		{"matInv",       l_matinverse}, // LAPACK
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -525,14 +534,14 @@ static int Array_help_matrix_(lua_State* L)
 		return 3;
 	}
 	
-	lua_CFunction f20 = l_matmul;
-	if(func == f20)
-	{
-		lua_pushstring(L, "Treat arrays like matrices and do Matrix Multiplication on the z=1 layer");
-		lua_pushstring(L, "1 Array, 1 Optional Array: The given array will be multiply the calling Array, their dimensions must match to allow legal matrix multiplication. If a 2nd Array is supplied the product will be stored in it, otherise a new Array will be created.");
-		lua_pushstring(L, "1 Array: The product of the multiplication.");
-		return 3;
-	}
+// 	lua_CFunction f20 = l_matmul;
+// 	if(func == f20)
+// 	{
+// 		lua_pushstring(L, "Treat arrays like matrices and do Matrix Multiplication on the z=1 layer");
+// 		lua_pushstring(L, "1 Array, 1 Optional Array: The given array will be multiply the calling Array, their dimensions must match to allow legal matrix multiplication. If a 2nd Array is supplied the product will be stored in it, otherise a new Array will be created.");
+// 		lua_pushstring(L, "1 Array: The product of the multiplication.");
+// 		return 3;
+// 	}
 	
 	
 	lua_CFunction f21 = l_matmakei;
