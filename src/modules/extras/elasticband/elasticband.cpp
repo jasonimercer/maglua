@@ -1530,15 +1530,6 @@ int ElasticBand::help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_maxpoints)
-	{
-		lua_pushstring(L, "Get the path points that represent local minimums and maximums along the energy path.");
-		lua_pushstring(L, "");
-		lua_pushstring(L, "3 Tables: List of path points representing minimums, list of path points representing maximums and combined, sorted list.");
-		return 3;
-	}
-
-	
 	return LuaBaseObject::help(L);
 }
 
@@ -1573,7 +1564,7 @@ const luaL_Reg* ElasticBand::luaMethods()
 		{"_addStateXYZ", l_addstatexyz},
 		{"_relaxSinglePoint", l_relaxSinglePoint_}, //internal method
 		{"_computePointSecondDerivative", l_computepoint2deriv},
-		{"maximalPoints", l_maxpoints},
+		{"_maximalPoints", l_maxpoints},
 
 		{NULL, NULL}
 	};

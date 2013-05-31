@@ -293,6 +293,30 @@ local function computePointSecondDerivative(eb, pointNum, h, destArray)
 	return destArray
 end
 
+local function maximalPoints(eb)
+	pathEnergy(eb) -- calculate energies
+	return eb:_maximalPoints()
+end
+
+local function energyBarrier(eb)
+	local mins, maxs, all = eb:maximalPoints()
+	
+	local ee = eb:pathEnergy()
+	
+	local start_e = ee[1]
+	
+	local max_e = start_e
+	
+	for k,p in pairs(maxs) do
+		if ee[p] > max_e then
+			max_e = ee[p]
+		end
+	end
+	
+	return max_e - start_e
+end
+
+
 
 mt.setEnergyFunction = setEnergyFunction
 mt.setSites = setSites
@@ -320,6 +344,9 @@ mt.hessianAtPoint = computePointSecondDerivative
 mt.setGradientMaxMotion = setGradientMaxMotion
 mt.gradientMaxMotion = gradientMaxMotion
 
+mt.energyBarrier = energyBarrier
+
+mt.maximalPoints = maximalPoints
 
 
 MODTAB.help =
@@ -328,6 +355,16 @@ function(x)
 		return "Set the SpinSystem that will be used to do energy and orientation calculations. The any changes made to this SpinSystem will be undone before control is returned to the calling environment.",
 				"1 *SpinSystem*: SpinSystem to be used in calculations",
 				""
+	end
+	if x == maximalPoints then
+		return "Get the path points that represent local minimums and maximums along the energy path.",
+				"",
+				"3 Tables: List of path points representing minimums, list of path points representing maximums and combined, sorted list."
+	end
+	if x == energyBarrier then
+		return "Calculate the difference in energy between the initial point and the maximum energy",
+				"",
+				"1 Number: The energy barrier"
 	end
 	if x == writePathPointTo then
 		return 
