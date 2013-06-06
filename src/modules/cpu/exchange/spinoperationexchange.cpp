@@ -461,8 +461,8 @@ static int l_setpbc(lua_State* L)
 {
 	LUA_PREAMBLE(Exchange, ex, 1);
 	ex->pbc[0] = lua_toboolean(L, 2);
-	ex->pbc[1] = lua_toboolean(L, 2);
-	ex->pbc[2] = lua_toboolean(L, 2);
+	ex->pbc[1] = lua_toboolean(L, 3);
+	ex->pbc[2] = lua_toboolean(L, 4);
 	return 0;
 }
 
