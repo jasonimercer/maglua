@@ -106,21 +106,23 @@ end
 
 
 -- many of the next several functions are for automatically saving and loading tensor data
-local function write_tensor(f, array, name, z)
+local function write_tensor(f, array, name)
 	local nx, ny = array:nx(), array:ny()
-	f:write(name .. "[" .. z .. "] = [[\n")
-	for y=1,ny do
-		local t = {}
-		for x=1,nx do
-			local v = array:get(x,y,z)
-			if v == 0 then
-				table.insert(t, "0")
-			else
-				table.insert(t, string.format("% 16.15E", v))
-			end
-		end
-		f:write(table.concat(t, ", ") .. "\n")
-	end
+	f:write(name .. " = [[") -- \ n
+	f:write(checkpointToString(array))
+	
+-- 	for y=1,ny do
+-- 		local t = {}
+-- 		for x=1,nx do
+-- 			local v = array:get(x,y,z)
+-- 			if v == 0 then
+-- 				table.insert(t, "0")
+-- 			else
+-- 				table.insert(t, string.format("% 16.15E", v))
+-- 			end
+-- 		end
+-- 		f:write(table.concat(t, ", ") .. "\n")
+-- 	end
 	f:write("]]\n")	
 end
 
@@ -166,8 +168,6 @@ local function get_new_filename(mag)
 	return basename .. "." .. next .. ".lua"
 end
 
-
-
 local function mag3d_save(mag, filename)
 	local f = io.open(filename, "w")
 	if f == nil then
@@ -201,17 +201,18 @@ local internal = {}
 	f:write("internal.truncationY = " .. internal.truncationY .. "\n")
 	f:write("internal.truncationZ = " .. internal.truncationZ .. "\n")
 	f:write("\n")
-	f:write("-- interaction tensors. Format is AB[Z Slice]\n")
 	tnames = {"XX", "XY", "XZ", "YX", "YY", "YZ", "ZX", "ZY", "ZZ"}
 	
-	for k,ab in pairs(tnames) do
-		f:write("local " .. ab .. " = {}\n")
-	end
+	f:write("local " .. table.concat(tnames, ", ") .. "\n")
+	
+-- 	for k,ab in pairs(tnames) do
+-- 		f:write("local " .. ab .. "\n")
+-- 	end
 	f:write("\n")
 	for k,ab in pairs(tnames) do
-		for z=1,mag:nz() do
-			write_tensor(f, mag:tensorArray(ab), ab, z)
-		end
+-- 		for z=1,mag:nz() do
+			write_tensor(f, mag:tensorArray(ab), ab)
+-- 		end
 	end
 	
 	
@@ -224,50 +225,50 @@ local internal = {}
 -- 	end end end
 	
 	-- add logic to data file to interpret datafile
-	f:write([[
-local function tokenizeNumbers(line)
-	local t = {}
-	for w in string.gmatch(line, "[^,]+") do
-		table.insert(t, tonumber(w))
-	end
-	return t
-end
-
-local function tokenizeLines(lines)
-	-- strip empty lines
-	lines = string.gsub(lines, "^%s*\n*", "")
-	lines = string.gsub(lines, "\n\n+", "\n")
-	
-	local t = {}
-	for w in string.gmatch(lines, "(.-)\n" ) do
-		table.insert(t, tokenizeNumbers(w))
-	end
-	
-	return t
-end
-
-local function parseMatrix(M)
-	if M == 0 then
-		-- returns a 2D table that always returns zero
-		local tz, ttz = {}, {}
-		setmetatable(tz,  {__index = function() return  0 end})
-		setmetatable(ttz, {__index = function() return tz end})
-		return ttz
-	end
-	
-	return tokenizeLines(M)
-end
-
-local function parse()
-	for i=1,nz do
-			]])
-			for k,v in pairs(tnames) do
-				f:write( v .. "[i] = parseMatrix(" .. v .. "[i])\n")
-			end
-f:write([[
-	end
-end
-]])
+-- 	f:write([[
+-- local function tokenizeNumbers(line)
+-- 	local t = {}
+-- 	for w in string.gmatch(line, "[^,]+") do
+-- 		table.insert(t, tonumber(w))
+-- 	end
+-- 	return t
+-- end
+-- 
+-- local function tokenizeLines(lines)
+-- 	-- strip empty lines
+-- 	lines = string.gsub(lines, "^%s*\n*", "")
+-- 	lines = string.gsub(lines, "\n\n+", "\n")
+-- 	
+-- 	local t = {}
+-- 	for w in string.gmatch(lines, "(.-)\n" ) do
+-- 		table.insert(t, tokenizeNumbers(w))
+-- 	end
+-- 	
+-- 	return t
+-- end
+-- 
+-- local function parseMatrix(M)
+-- 	if M == 0 then
+-- 		-- returns a 2D table that always returns zero
+-- 		local tz, ttz = {}, {}
+-- 		setmetatable(tz,  {__index = function() return  0 end})
+-- 		setmetatable(ttz, {__index = function() return tz end})
+-- 		return ttz
+-- 	end
+-- 	
+-- 	return tokenizeLines(M)
+-- end
+-- 
+-- local function parse()
+-- 	for i=1,nz do
+-- 			]])
+-- 			for k,v in pairs(tnames) do
+-- 				f:write( v .. "[i] = parseMatrix(" .. v .. "[i])\n")
+-- 			end
+-- f:write([[
+-- 	end
+-- end
+-- ]])
 	-- this function makes the given mag3d object look like this one
 	f:write(
 string.format([[
@@ -337,25 +338,14 @@ return sameInternals, function(mag)
 	mag:setInternalData(internal)
 	mag:setNewDataRequired(false) --since we are setting it
 
-	parse()
-	
-	for z=1,nz do]] .. "\n")
+	]] .. "\n")
 		
 	for k,v in pairs(tnames) do
-		f:write("local t" .. v .. " = mag:tensorArray(\"" .. v .. "\")\n")
+		f:write("	mag:setTensorArray(\"" .. v .. "\", checkpointFromString(" .. v .. "))\n")
+		f:write("	collectgarbage()\n")
 	end
 
 	f:write([[
-		for y=1,ny do
-			for x=1,nx do]] .. "\n")
-	
-	for k,v in pairs(tnames) do
-		f:write("					t" .. v .. ":set(x,y,z," .. v .. "[z][y][x])\n")
-	end
-	f:write([[
-			end
-		end
-	end
 	mag:setCompileRequired(true) --need to Fourier Transform Tensors
 end
 ]])

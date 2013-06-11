@@ -10,8 +10,9 @@
 #
 
 OBJECTS=array.o memory.o array_ops.o fourier.o  \
-	array_core_matrix_cpu_lapack.o \
-	array_core_cpu.o array_core_matrix_cpu.o
+	array_core_cpu.o array_core_matrix_cpu.o \
+  	array_core_matrix_cpu_lapack.o
+
 	
 LIBNAME=Array
 CATEGORY=cpu
@@ -19,8 +20,9 @@ CATEGORY=cpu
 #DEPEND is parsed to make the vs2010 project
 DEPEND=luabaseobject
 BASEDIR=../../..
-EXTRA_PKG=fftw3f
-# CC_EXTRAOPS=-fopenmp
+EXTRA_PKG=fftw3f lapacke lapack blas
+CC_EXTRAOPS=-D_LAPACK -D_MATRIX
+# CC_EXTRAOPS=-D_MATRIX
 
 EXTRA_CFLAGS=-lgfortran -lblas  -llapack
 EXTRA_CLEAN=array_luafuncs.cpp array_luafuncs.h

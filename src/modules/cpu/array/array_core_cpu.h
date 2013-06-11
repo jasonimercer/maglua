@@ -542,11 +542,11 @@ template class Array<int>;
 
 
 
-template class Array<doubleComplex>;
-template class Array<double>;
-template class Array<floatComplex>;
-template class Array<float>;
-template class Array<int>;
+// template class Array<doubleComplex>;
+// template class Array<double>;
+// template class Array<floatComplex>;
+// template class Array<float>;
+// template class Array<int>;
 
 #if 0
 #define inst_funcs(name)		      \

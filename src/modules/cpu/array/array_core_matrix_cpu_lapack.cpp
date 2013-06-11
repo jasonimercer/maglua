@@ -2,6 +2,8 @@
 #include "array.h"
 #include <stdlib.h>
 
+#include "lapacke.h"
+
 
 template <typename T>
 void __transpose(T* dest, T* src, int nx, int ny)
@@ -39,16 +41,16 @@ void __transpose_square(T* dest, T* src, int n)
 extern "C"
 {
 	// eigenvalues/eigenvectors
-	int dgeev_(char *jobvl, char *jobvr, int *n, double *a, 
-			int *lda, double *wr, double *wi, double *vl, 
-			int *ldvl, double *vr, int *ldvr, double *work, 
-			int *lwork, int *info);
+// 	int dgeev_(char *jobvl, char *jobvr, int *n, double *a, 
+// 			int *lda, double *wr, double *wi, double *vl, 
+// 			int *ldvl, double *vr, int *ldvr, double *work, 
+// 			int *lwork, int *info);
 
     // LU decomoposition of a general matrix
-    void dgetrf_(int* M, int *N, double* A, int* lda, int* IPIV, int* INFO);
+//     void dgetrf_(int* M, int *N, double* A, int* lda, int* IPIV, int* INFO);
 
     // generate inverse of a matrix given its LU decomposition
-    void dgetri_(int* N, double* A, int* lda, int* IPIV, double* WORK, int* lwork, int* INFO);
+//     void dgetri_(int* N, double* A, int* lda, int* IPIV, double* WORK, int* lwork, int* INFO);
 	
 	
 	// mat mul
@@ -120,7 +122,13 @@ static int l_mateigen_d(lua_State* L)
 	
 	double* imag_part = (double*)malloc(sizeof(double)*N);
 	
-	dgeev_(&JOBVL, &JOBVR, &N, AT, 
+// 	void LAPACK_dgeev( char* jobvl, char* jobvr, lapack_int* n, double* a,
+//                    lapack_int* lda, double* wr, double* wi, double* vl,
+//                    lapack_int* ldvl, double* vr, lapack_int* ldvr, double* work,
+//                    lapack_int* lwork, lapack_int *info );
+
+
+	LAPACK_dgeev(&JOBVL, &JOBVR, &N, AT, 
 				&LDA, eigenvalues, imag_part, 
 				VL, &LDVL, 
 				eigenvectors, &LDVR,
@@ -192,8 +200,20 @@ static int l_matinverse_d(lua_State* L)
     double *WORK = new double[LWORK];
     int INFO;
 
-    dgetrf_(&N,&N,AT,&N,IPIV,&INFO);
-    dgetri_(&N,AT,&N,IPIV,WORK,&LWORK,&INFO);
+//     dgetrf_(&N,&N,AT,&N,IPIV,&INFO);
+	
+	LAPACKE_dgetrf(LAPACK_COL_MAJOR, N, N, AT, N, IPIV);
+//                            double* a, lapack_int lda, lapack_int* ipiv );
+	
+	
+// 	LAPACKE_dgetri(LAPACK_COL_MAJOR, N, AT, N, IPIV);
+//                            lapack_int lda, const lapack_int* ipiv );
+	
+	LAPACKE_dgetri_work(LAPACK_COL_MAJOR, N, AT,
+                                N, IPIV,
+                                WORK, LWORK);
+	
+//     dgetri_(&N,AT,&N,IPIV,WORK,&LWORK,&INFO);
 
 	__transpose_square<double>(B->data(), AT, N);
 	
@@ -257,6 +277,9 @@ static int l_matmul_d(lua_State* L)
 
 	int res = dgemm_(&transa, &transb, &m, &n, &k, &alpha, A->data(), &LDA, B->data(), &LDB, &beta, C->data(), &LDC);
 			   
+	
+	
+	
 	__transpose<double>(C->data(), C->data(), C->nx, C->ny);
 	
 	luaT_push<Array< double> >(L, C);
@@ -317,7 +340,7 @@ int l_matmul(lua_State* L)
 
 
 
-int l_mat_help(lua_State* L)
+int l_mat_lapack_help(lua_State* L)
 {
 	lua_CFunction func = lua_tocfunction(L, 1);
 	

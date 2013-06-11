@@ -3,7 +3,9 @@
 #include "array_core_matrix_cpu_lapack.h"
 #include "array.h"
 
-template<typename T> int Array_help_matrix(lua_State* L){return 0;}  
+
+#ifdef ARRAY_CORE_MATRIX_CPU
+template<typename T> inline int Array_help_matrix(lua_State* L){return 0;}  
 template<>int Array_help_matrix<int>(lua_State* L){return Array_help_matrix_int(L);}
 template<>int Array_help_matrix<float>(lua_State* L){return Array_help_matrix_float(L);}
 template<>int Array_help_matrix<double>(lua_State* L){return Array_help_matrix_double(L);}
@@ -17,7 +19,7 @@ template<> const luaL_Reg* get_base_methods_matrix<float>() {return get_base_met
 template<> const luaL_Reg* get_base_methods_matrix<double>() {return get_base_methods_matrix_double();}
 template<> const luaL_Reg* get_base_methods_matrix<floatComplex>() {return get_base_methods_matrix_floatComplex();}
 template<> const luaL_Reg* get_base_methods_matrix<doubleComplex>() {return get_base_methods_matrix_doubleComplex();}
-
+#endif
 
 
 
@@ -437,13 +439,6 @@ static const luaL_Reg* get_base_methods()
 		
 		{"slice",    l_manip_region<T>},
 
-// 		{"matTrans",     l_mattrans<T>},
-// 		{"matDet",       l_matdet},
-// 		{"matMul",       l_matmul},
-// 		{"matMakeI",     l_matmakei},
-// 		{"matUpper",     l_matupper},
-// 		{"matLower",     l_matlower},
-		
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -726,7 +721,9 @@ int Array_help_specialization<doubleComplex>(lua_State* L)
 {
 	int r = 0;
 	r = Array_help_fft_complex<doubleComplex>(L); if(r) return r;
+#ifdef ARRAY_CORE_MATRIX_CPU
 	r = Array_help_matrix<doubleComplex>(L); if(r) return r;
+#endif
 	return 0;
 
 }
@@ -735,8 +732,9 @@ int Array_help_specialization<floatComplex>(lua_State* L)
 {
 	int r = 0;
 	r = Array_help_fft_complex<floatComplex>(L); if(r) return r;
+#ifdef ARRAY_CORE_MATRIX_CPU
 	r = Array_help_matrix<floatComplex>(L); if(r) return r;
-	
+#endif	
 	return 0;
 }
 //special cases for floating point datatypes 
@@ -745,7 +743,9 @@ int Array_help_specialization<double>(lua_State* L)
 {
 	int r = 0;
 	r = Array_help_fp<double>(L); if(r) return r;
+#ifdef ARRAY_CORE_MATRIX_CPU
 	r = Array_help_matrix<double>(L); if(r) return r;
+#endif
 	return 0;
 }
 template <>
@@ -753,7 +753,9 @@ int Array_help_specialization<float>(lua_State* L)
 {
 	int r = 0;
 	r = Array_help_fp<float>(L); if(r) return r;
+#ifdef ARRAY_CORE_MATRIX_CPU
 	r = Array_help_matrix<float>(L); if(r) return r;
+#endif
 	return 0;
 }
 
@@ -936,9 +938,13 @@ static int Array_help(lua_State* L)
 		return 3;
 	}
 
-	int r1 = l_mat_help(L);
-	if(r1) return r1;
 
+	int r1;
+#ifdef ARRAY_CORE_MATRIX_CPU_LAPACK
+	r1 = l_mat_lapack_help(L);
+	if(r1) return r1;
+#endif
+	
 	int r = Array_help_specialization<T>(L);
 	if(r) return r;
 
@@ -1058,11 +1064,12 @@ static int l_init( Array<T>* a, lua_State* L)
 template <typename T>
 luaL_Reg* Array_luaMethods()
 {
-	static luaL_Reg m[128] = {_NULLPAIR128};
-	if(m[127].name)	return m;
-	merge_luaL_Reg(m, get_base_methods<T>());
-	m[127].name = (char*)1;
-	return m;
+	static luaL_Reg mm[128] = {_NULLPAIR128};
+	if(mm[127].name)	return mm;
+	
+	merge_luaL_Reg(mm, get_base_methods<T>());
+	mm[127].name = (char*)1;
+	return mm;
 }
 
 //special cases for floating point datatypes
@@ -1073,7 +1080,9 @@ luaL_Reg* Array_luaMethods<double>()
 	if(m[127].name)	return m;
 	merge_luaL_Reg(m, get_base_methods<double>());
 	merge_luaL_Reg(m, get_real_methods<double>());
- 	merge_luaL_Reg(m, get_base_methods_matrix<double>());	
+#ifdef ARRAY_CORE_MATRIX_CPU
+	merge_luaL_Reg(m, get_base_methods_matrix<double>());	
+#endif
 	m[127].name = (char*)1;
 	return m;
 }
@@ -1084,8 +1093,10 @@ luaL_Reg* Array_luaMethods<float>()
 	static luaL_Reg m[128] = {_NULLPAIR128};
 	if(m[127].name)	return m;
 	merge_luaL_Reg(m, get_base_methods<float>());
- 	merge_luaL_Reg(m, get_real_methods<float>());
- 	merge_luaL_Reg(m, get_base_methods_matrix<float>());	
+	merge_luaL_Reg(m, get_real_methods<float>());
+#ifdef ARRAY_CORE_MATRIX_CPU
+	merge_luaL_Reg(m, get_base_methods_matrix<float>());	
+#endif
 	m[127].name = (char*)1;
 	return m;
 }
@@ -1260,7 +1271,7 @@ ARRAY_API int lib_main(lua_State* L);
 #include "info.h"
 ARRAY_API int lib_register(lua_State* L)
 {
-// 	dArray foo1;
+//  	dArray foo1;
 
 #ifdef DOUBLE_ARRAY
 	luaT_register< Array<double> >(L);

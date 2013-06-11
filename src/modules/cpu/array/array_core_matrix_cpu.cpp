@@ -460,8 +460,6 @@ static int l_matlower(lua_State* L)
 }
 
 
-
-
 template<typename T>
 static const luaL_Reg* get_base_methods_matrix_()
 {
@@ -475,9 +473,12 @@ static const luaL_Reg* get_base_methods_matrix_()
 		{"matUpper",     l_matupper},
 		{"matLower",     l_matlower},
 		
+		
+#ifdef ARRAY_CORE_MATRIX_CPU_LAPACK
 		{"matMul",       l_matmul},     // BLAS DGEMM
 		{"matEigen",     l_mateigen},   // LAPACK
 		{"matInv",       l_matinverse}, // LAPACK
+#endif
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
