@@ -282,6 +282,113 @@ static int l_scale(lua_State* L)
 }
 
 
+template<typename T>
+static int l_totable(lua_State* L)
+{
+	return luaL_error(L, "not implemented for complex datatypes");
+}
+
+
+template<typename T>
+static int l_totable_(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	int d = 3;
+	int r = 0; //num returns
+	if(lua_isnumber(L, 2))
+	{
+		d = lua_tonumber(L, 2);
+		if(d < 0) d = 0;
+		if(d > 3) d = 3;
+	}
+	
+	if(d == 3)
+	{
+		lua_newtable(L);
+		for(int z=0; z<a->nz; z++)
+		{
+			lua_pushinteger(L, z+1);
+			lua_newtable(L);
+			for(int y=0; y<a->ny; y++)
+			{
+				lua_pushinteger(L, y+1);
+				lua_newtable(L);
+				for(int x=0; x<a->nx; x++)
+				{
+					lua_pushinteger(L, x+1);
+					const int idx = a->xyz2idx(x,y,z);
+					luaT<T>::push(L, a->data()[idx]);
+					lua_settable(L, -3);
+				}
+				lua_settable(L, -3);
+			}
+			lua_settable(L, -3);
+		}
+		return 1;
+	}
+	
+	if(d == 2)
+	{
+		for(int z=0; z<a->nz; z++)
+		{
+			lua_newtable(L);
+			for(int y=0; y<a->ny; y++)
+			{
+				lua_pushinteger(L, y+1);
+				lua_newtable(L);
+				for(int x=0; x<a->nx; x++)
+				{
+					lua_pushinteger(L, x+1);
+					const int idx = a->xyz2idx(x,y,z);
+					luaT<T>::push(L, a->data()[idx]);
+					lua_settable(L, -3);
+				}
+				lua_settable(L, -3);
+			}
+		}
+		return a->nz;
+	}
+	if(d == 1)
+	{
+		for(int z=0; z<a->nz; z++)
+		{
+			for(int y=0; y<a->ny; y++)
+			{
+				lua_newtable(L);
+				for(int x=0; x<a->nx; x++)
+				{
+					lua_pushinteger(L, x+1);
+					const int idx = a->xyz2idx(x,y,z);
+					luaT<T>::push(L, a->data()[idx]);
+					lua_settable(L, -3);
+				}
+			}
+		}
+		return a->nz*a->ny;
+	}
+	
+	//if(d == 0)
+	{
+		for(int z=0; z<a->nz; z++)
+		{
+			for(int y=0; y<a->ny; y++)
+			{
+				for(int x=0; x<a->nx; x++)
+				{
+					const int idx = a->xyz2idx(x,y,z);
+					luaT<T>::push(L, a->data()[idx]);
+				}
+			}
+		}
+		return a->nz*a->ny*a->nx;
+	}	
+}
+
+template<> int l_totable<float>(lua_State* L) {return l_totable_<float>(L);}
+template<> int l_totable<int>(lua_State* L)   {return l_totable_<int>(L);}
+template<> int l_totable<double>(lua_State* L){return l_totable_<double>(L);}
+
+
 
 static int sort_region(int* r6)
 {
@@ -436,6 +543,7 @@ static const luaL_Reg* get_base_methods()
 		{"mean",    l_mean<T>},
 		{"sum",     l_sum<T>},
 		{"scale",   l_scale<T>},
+		{"toTable", l_totable<T>},
 		
 		{"slice",    l_manip_region<T>},
 
@@ -926,6 +1034,14 @@ static int Array_help(lua_State* L)
 		lua_pushstring(L, "Scale all values in the array by the given value");
 		lua_pushstring(L, "1 Value: The scaling factor.");
 		lua_pushstring(L, "");
+		return 3;
+	}
+	lua_CFunction f16b = l_totable<T>;
+	if(func == f16b)
+	{
+		lua_pushstring(L, "Convert the array into a Lua table");
+		lua_pushstring(L, "1 Optional Integer: Number of dimensions. By default it will be a 3D table, this may not be the desired dimensionality. If fewer dimensions are requested than the dimensionality of the array then multiple return values will be given.");
+		lua_pushstring(L, "1 or more Tables or 1 or more Numbers: If the dimensionality requested is 0 then numbers will be returned otherwise tables will be returned.");
 		return 3;
 	}
 
