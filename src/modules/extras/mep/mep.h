@@ -24,6 +24,9 @@
 // Based on
 // Journal of Magnetism and Magnetic Materials 250 (2002) L12–L19
 // and discussions with JvE.
+// 
+// The "elastic" part has been removed and replaced with a resampling method
+// this makes this code more similar to the "string" methods
 
 class _MEP_API MEP : public LuaBaseObject
 {
@@ -48,6 +51,8 @@ public:
 	vector<double> force_vector;
 	vector<double> energies;
 	
+
+	double beta; //step size
 	bool energy_ok;
 	
 	void addSite(int x, int y, int z);
@@ -63,6 +68,8 @@ public:
 
 	int calculateEnergyGradients(lua_State* L, int get_index, int set_index, int energy_index);
 
+	void internal_copy_to(MEP* dest);
+
 	int relaxSinglePoint(lua_State* L);
 // 	int relaxSaddlePoint(lua_State* L);
 
@@ -70,7 +77,7 @@ public:
 	void projForcePerpPath(lua_State* L, int get_index, int set_index, int energy_index); //project force onto subspace perpendicular to path direction
 	void projForcePath(lua_State* L, int get_index, int set_index, int energy_index); //project force onto vector parallel to the path direction
 	
-	int applyForces(lua_State* L, double dt);
+	int applyForces(lua_State* L);
 	
 	void randomize(const double magnitude);
 	
@@ -97,10 +104,12 @@ public:
 	void saveConfiguration(lua_State* L, int get_index, vector<double>& buffer);
 	void loadConfiguration(lua_State* L, int set_index, vector<double>& buffer);
 
+	double absoluteDifference(MEP* other, int point, double& max_diff);
+
 	int maxpoints(lua_State* L);
 	
-	void computePointSecondDerivative(lua_State* L, int p, double h, int set_index, int get_index, int energy_index, double* derivsAB);
-	double computePointSecondDerivativeAB(lua_State* L, int p, double h, int set_index, int get_index, int energy_index, int c1, int c2);
+	void computePointSecondDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, double* derivsAB);
+	double computePointSecondDerivativeAB(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1, int c2);
 private:
 	void make_path_size(const int n);
 

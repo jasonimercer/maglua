@@ -18,7 +18,6 @@ double myrandf()
 	return (double)(myrand()) / 32767.0;
 }
 
-
 static double dot(const double* a, const double* b, int n = 3)
 {
 	double s = 0;
@@ -27,22 +26,39 @@ static double dot(const double* a, const double* b, int n = 3)
 	return s;
 }
 
-static void normalizeTo(double* dest, const double* src, const double length=1.0)
+static void normalizeTo(double* dest, const double* src, const double length=1.0, const int n=3)
 {
-	double len = dot(src, src);
+	double len = dot(src, src, n);
 	if(len == 0)
 	{
 		dest[0] = length;
-		dest[1] = 0;
-		dest[2] = 0;
+		for(int i=1; i<n; i++)
+			dest[i] = 0;
 	}
 	else
 	{
 		const double iln = length/sqrt(len);
-		dest[0] = iln * src[0];
-		dest[1] = iln * src[1];
-		dest[2] = iln * src[2];
+		for(int i=0; i<n; i++)
+			dest[i] = iln * src[i];
 	}
+}
+
+static void project(double* dest, const double* a, const double* b, int n=3)
+{
+	double ab = dot(a,b,n);
+	double bb = dot(b,b,n);
+	
+	if(bb == 0)
+		normalizeTo(dest, b, 0, n);
+	else
+		normalizeTo(dest, b, ab/bb, n);
+}
+
+static void reject(double* dest, const double* a, const double* b, int n=3)
+{
+	project(dest, a, b, n);
+	for(int i=0; i<n; i++)
+		dest[i] = a[i] - dest[i];
 }
 
 
@@ -53,8 +69,13 @@ static double angleBetween(const double* a, const double* b)
 	if(n == 0)
 		return 0;
 
-	const double ct = dot(a,b) / n;
-	return acos(ct);
+	double ct = dot(a,b) / n;
+	if(ct < -1)
+		ct = -1;
+	if(ct > 1)
+		ct = 1;
+	const double acos_ct = acos(ct);
+	return acos_ct;
 }
 
 static void cross(const double* a, const double* b, double* c)
@@ -106,6 +127,7 @@ MEP::MEP()
 {
 	ref_data = LUA_REFNIL;
 	energy_ok = false;
+	beta = 0.1;
 }
 
 
@@ -185,13 +207,74 @@ int  MEP::decode(buffer* b) // decode from data stream
 	return 0;
 }
 
+void MEP::internal_copy_to(MEP* dest)
+{
+	dest->state_xyz_path.clear();
+	for(int i=0; i<state_xyz_path.size(); i++)
+	{
+		dest->state_xyz_path.push_back(state_xyz_path[i]);
+	}
+
+	//dest->state_xyz_path = state_xyz_path;
+	dest->sites = sites;
+	dest->path_tangent = path_tangent;
+	dest->force_vector = force_vector;
+	dest->energies = energies;
+	dest->energy_ok = false;
+	dest->beta = beta;
+}
+
+double MEP::absoluteDifference(MEP* other, int point, double& max_diff)
+{
+	if(state_xyz_path.size() != other->state_xyz_path.size())
+	{
+		return -1;
+	}
+
+	double d = 0;
+	max_diff = 0;
+
+	double n1[3];
+	double n2[3];
+	double v[3];
+
+	int min = 0;
+	int max = state_xyz_path.size();
+
+	if(point >= 0)
+	{
+		min =  point    * numberOfSites() * 3;
+		max = (point+1) * numberOfSites() * 3;
+	}
+
+	for(int i=min; i<max; i+=3)
+	{
+		normalizeTo(n1, &(state_xyz_path[i]));
+		normalizeTo(n2, &(other->state_xyz_path[i]));
+
+		v[0] = n1[0] - n2[0];
+		v[1] = n1[1] - n2[1];
+		v[2] = n1[2] - n2[2];
+
+		const double diff = sqrt(dot(v,v));
+
+		if(diff > max_diff)
+			max_diff = diff;
+		
+		d += diff;
+	}
+
+	return d;
+}
+
+
 
 void MEP::randomize(const double magnitude)
 {
 	double* v = &state_xyz_path[0];
 
 	const int num_sites = numberOfSites();
-
+	double nv[3];
 	// not touching start/end points
 	for(int i=num_sites*3; i<state_xyz_path.size() - num_sites*3; i+= 3)
 	{
@@ -201,19 +284,13 @@ void MEP::randomize(const double magnitude)
 		
 		const double m1 = sqrt(x*x + y*y + z*z);
 		
-		x += (myrandf() * magnitude);
-		y += (myrandf() * magnitude);
-		z += (myrandf() * magnitude);
+		normalizeTo(nv, &(v[i]));
 		
-		const double m2 = sqrt(x*x + y*y + z*z);
-
-		if(m2 > 0)
-		{
-			const double m = m1/m2;
-			v[i+0] = x * m;
-			v[i+1] = y * m;
-			v[i+2] = z * m;
-		}
+		nv[0] += (myrandf() * magnitude);
+		nv[1] += (myrandf() * magnitude);
+		nv[2] += (myrandf() * magnitude);
+		
+		normalizeTo(&(v[i]), nv, m1);
 	}
 }
 
@@ -319,6 +396,7 @@ void MEP::interpolatePoints(const int p1, const int p2, const int site, const do
 void MEP::interpolateHyperPoints(const int p1, const int p2, const double ratio, vector<double>& dest)
 {
 	int n = sites.size() / 3;
+	//printf("(%s:%i) %i\n", __FILE__, __LINE__, n);
 	for(int i=0; i<n; i++)
 	{
 		interpolatePoints(p1,p2,i,ratio,dest);
@@ -394,7 +472,6 @@ int MEP::resampleStateXYZPath(lua_State* L, int new_num_points)
 		new_state_xyz_path.push_back( state_xyz_path[last_set_idx + i] );
 	}
 	
-// 	printf("%i %i\n", state_xyz_path.size(), new_state_xyz_path.size());
 	
 	state_xyz_path.clear();
 	for(unsigned int i=0; i<new_state_xyz_path.size(); i++)
@@ -445,38 +522,14 @@ void MEP::addSite(int x, int y, int z)
 	}
 }
 
-int MEP::applyForces(lua_State* L, double dt)
+int MEP::applyForces(lua_State* L)
 {
 	if(force_vector.size() != state_xyz_path.size())
 		return luaL_error(L, "forces are not computed or size mismatch");
 	
-	double absMovement = 0;
-	
-	double max_m = 0;
-	double max_f = 0;
-	
 	const int num_sites = numberOfSites();
-	
-	for(int i=0; i<(force_vector.size()/3); i++)
-	{
-		const double* xyz = &(state_xyz_path[i*3+0]);
-		const double m = sqrt(dot(xyz, xyz));
-
-		if(m > max_m)
-			max_m = m;
-		
-		const double* fxyz = &(force_vector[i*3+0]);
-		const double f = sqrt(dot(fxyz, fxyz));
-
-		if(f > max_f)
-			max_f = f;
-	}
-	
-	// interpretting dt as max motion
-	double f_scale = 1.0;
-	
-	if(max_f > (max_m * dt))
-		f_scale = (max_m * dt) / max_f;
+	double absMovement = 0;
+	double maxMovement = 0;
 	
 	// end points are fixed
 	for(int i=num_sites; i<(force_vector.size()/3)-num_sites; i++)
@@ -485,27 +538,32 @@ int MEP::applyForces(lua_State* L, double dt)
 		double y = state_xyz_path[i*3+1];
 		double z = state_xyz_path[i*3+2];
 		
-		const double m = sqrt(x*x+y*y+z*z);
+		const double m1 = sqrt(x*x+y*y+z*z);
 		
-		const double dx = force_vector[i*3+0] * f_scale;
-		const double dy = force_vector[i*3+1] * f_scale;
-		const double dz = force_vector[i*3+2] * f_scale;
+		const double dx = force_vector[i*3+0];
+		const double dy = force_vector[i*3+1];
+		const double dz = force_vector[i*3+2];
 		
 		x += dx;
 		y += dy;
 		z += dz;
 		
-		const double dd = sqrt(dx*dx+dy*dy+dz*dz);
-// 		printf("dd: %g    dt m: %g\n", dd, dt*m);
-		absMovement += dd;
+		const double dd = sqrt(dx*dx + dy*dy + dz*dz);
+		const double normalized_movement = dd/m1;
+
+		absMovement += normalized_movement;
+		if(maxMovement < normalized_movement)
+			maxMovement = normalized_movement;
+
+// 		printf(">> %g %g  %g  %g\n", dd, m1, normalized_movement, maxMovement);
 
 		const double m2 = sqrt(x*x+y*y+z*z);
 
 		if(m2 > 0)
 		{
-			x *= m/m2;
-			y *= m/m2;
-			z *= m/m2;
+			x *= m1/m2;
+			y *= m1/m2;
+			z *= m1/m2;
 		}
 		
 		state_xyz_path[i*3+0] = x;
@@ -513,9 +571,10 @@ int MEP::applyForces(lua_State* L, double dt)
 		state_xyz_path[i*3+2] = z;
 	}
 	
-	lua_pushnumber(L, sqrt(absMovement));
+	lua_pushnumber(L, absMovement);
+	lua_pushnumber(L, maxMovement);
 	
-	return 1;
+	return 2;
 }
 	
 
@@ -883,25 +942,8 @@ static void arrayCopyWithElementChange(double* dest, double* src, int element, d
 	}
 }
 
-double MEP::problemScale()
-{
-	double n = 0;
-	double d = 0;
-	for(int i=0; i<state_xyz_path.size()/3; i++)
-	{
-		const double* x = & state_xyz_path[i*3];
-		const double m = sqrt(x[0]*x[0] + x[1]*x[1] + x[2]*x[2]);
-		d += sqrt(m);
-		n++;
-	}
-	
-	if(n == 0)
-		return 1.0;
-	return d/n;
-}
 
-
-double MEP::computePointSecondDerivativeAB(lua_State* L, int p, double __h, int set_index, int get_index, int energy_index, int c1, int c2)
+double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1, int c2)
 {
 	// back up old sites so we can restore after
 	vector<double> cfg;
@@ -909,9 +951,10 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, double __h, int 
 	const int num_sites = numberOfSites();
 	double* vxyz = &state_xyz_path[p*num_sites*3];
 
-	const double m1 = sqrt(vxyz[0]*vxyz[0] + vxyz[1]*vxyz[1] + vxyz[2]*vxyz[2]);
-	const double h = 1e-6*m1;
+	const double m1 = sqrt(dot(vxyz,vxyz));
+	const double h = 1e-4*m1;
 	
+// 	printf("(%s:%i) h=%e\n", __FILE__, __LINE__, h);
 	
 	double* state = new double[num_sites * 3];
 	
@@ -938,8 +981,10 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, double __h, int 
 	setAllSpins(L, set_index, state);
 	const double e4 = getEnergy(L, energy_index);
 
+	const double d1 = (e1-e2) / (2.0*h);
+	const double d2 = (e3-e4) / (2.0*h);
 	
-	const double result = ((e1-e2) - (e3-e4)) / (4.0 * h*h);
+	const double result = (d1-d2) / (2.0*h);
 
 	delete [] state;
 	
@@ -950,7 +995,7 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, double __h, int 
 
 
 // partial derivs
-void MEP::computePointSecondDerivative(lua_State* L, int p, double h, int set_index, int get_index, int energy_index, double* derivsAB)
+void MEP::computePointSecondDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, double* derivsAB)
 {
 	const int num_sites = numberOfSites();
 	int deriv_pos = 0;
@@ -958,7 +1003,7 @@ void MEP::computePointSecondDerivative(lua_State* L, int p, double h, int set_in
 	{
 		for(int c2=0; c2<num_sites*3; c2++)
 		{
-			derivsAB[deriv_pos] = computePointSecondDerivativeAB(L, p, h, set_index, get_index, energy_index, c1, c2);
+			derivsAB[deriv_pos] = computePointSecondDerivativeAB(L, p, set_index, get_index, energy_index, c1, c2);
 			deriv_pos++;
 		}
 	}
@@ -972,29 +1017,27 @@ void MEP::computePointSecondDerivative(lua_State* L, int p, double h, int set_in
 // at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
 // at 4, function set_site_ss1(x,y,z, sx,sy,sz) 
 // at 5, function get_energy_ss1()
-// at 6, step size (positive to relax down, negative to relax up)
-// at 7, number of steps
-// at 8, optional direction to negate as a table
+// at 6, number of steps
+// at 7, optional direction to negate as a table
 // returns energy and energy change due to relax
 int MEP::relaxSinglePoint(lua_State* L)
 {
+	const int num_sites = numberOfSites();
+	const int path_length = numberOfPoints();
+
+	const int p = lua_tointeger(L, 2) - 1;
+	if(p < 0 || p >= path_length)
+		return luaL_error(L, "Point index out of bounds");
+
 	const int get_index = 3;
 	const int set_index = 4;
 	const int energy_index = 5;
 
-	const int num_sites = numberOfSites();
-	const int path_length = numberOfPoints();
-
-	int p = lua_tointeger(L, 2) - 1;
-	if(p < 0 || p >= path_length)
-		return luaL_error(L, "Point index out of bounds");
 	
 	if(!lua_isfunction(L, 3) || !lua_isfunction(L, 4) || !lua_isfunction(L, 5))
 		return luaL_error(L, "3 functions expected - perhaps you should call the wrapper method :relaxSinglePoint");
 	
-	double dh = lua_tonumber(L, 6);
-	
-	int num_steps = lua_tointeger(L, 7);
+	int num_steps = lua_tointeger(L, 6);
 	if(num_steps <= 0)
 		return luaL_error(L, "Non-positive number of steps does not make sense.");
 	
@@ -1011,19 +1054,22 @@ int MEP::relaxSinglePoint(lua_State* L)
 	double initial_energy = getEnergy(L, energy_index);
 	
 	double* neg_dir = 0;
-	if(lua_istable(L, 8))
+	if(lua_istable(L, 7))
 	{
 		neg_dir = new double[3 * num_sites];
 		for(int i=0; i<3 * num_sites; i++)
 		{
 			lua_pushinteger(L, i+1);
-			lua_gettable(L, 8);
+			lua_gettable(L, 7);
 			neg_dir[i] = lua_tonumber(L, -1);
 			lua_pop(L, 1);
 		}
 	}
-	
+
 	double* grad = new double[3 * num_sites];
+	double maxMovement = 0;
+	double absMovement = 0;
+		
 	// here's the loop over num_steps
 	for(int i=0; i<num_steps; i++)
 	{
@@ -1032,46 +1078,46 @@ int MEP::relaxSinglePoint(lua_State* L)
 		for(int s=0; s<num_sites; s++)
 		{
 			computePointGradAtSite(L, p, s, set_index, energy_index, &grad[s*3]);
-			
-// 			printf("g=%e,%e,%e\n", grad[s*3], grad[s*3+2], grad[s*3+2]);
-
 		}
 
 		if(neg_dir)
 		{
 			const double n2 = dot(neg_dir, neg_dir, 3*num_sites);
-			
 			const double proj = dot(neg_dir, grad, 3*num_sites);
 			
 			if(n2 != 0)
 			{
-				for(int j=0; j<3 * num_sites; j++)
+				for(int j=0; j<3*num_sites; j++)
 				{
 					neg_dir[j] *= proj/n2;
-					
-					grad[j] -= 2*neg_dir[j];
+					grad[j] -= 2.0*neg_dir[j];
 				}
 			}
 
 		}
 		
+		double vv[3];
+		double nv[3];
+		double delta[3];
+		double pdelta[3];
 		for(int s=0; s<num_sites*3; s+=3)
 		{
-			const double m1 = sqrt(vxyz[s+0]*vxyz[s+0] + vxyz[s+1]*vxyz[s+1] + vxyz[s+2]*vxyz[s+2]);
-			
-			vxyz[s+0] += grad[s+0] * dh;
-			vxyz[s+1] += grad[s+1] * dh;
-			vxyz[s+2] += grad[s+2] * dh;
-			
-			const double m2 = sqrt(vxyz[s+0]*vxyz[s+0] + vxyz[s+1]*vxyz[s+1] + vxyz[s+2]*vxyz[s+2]);
+			const double m1 = sqrt(dot(&vxyz[s],&vxyz[s],3));
 
-			if(m2 > 0)
+			for(int j=0; j<3; j++)
 			{
-				const double m = m1/m2;
-				vxyz[s+0] *= m;
-				vxyz[s+1] *= m;
-				vxyz[s+2] *= m;
+				delta[j] = grad[s+j] * beta;
+				vv[j] = vxyz[s+j] + delta[j];
 			}
+
+			normalizeTo(&vxyz[s+0], vv, m1);
+
+			const double dd = sqrt(dot(delta, delta));
+			const double normalized_movement = dd/m1;
+
+			absMovement += normalized_movement;
+			if(maxMovement < normalized_movement)
+				maxMovement = normalized_movement;
 		}
 	}
 	delete [] grad;
@@ -1082,36 +1128,39 @@ int MEP::relaxSinglePoint(lua_State* L)
 	// write updated cfg
  	setAllSpins(L, set_index, vxyz);
 	
-	double final_energy = getEnergy(L, energy_index);
-
-	if(energies.size() < path_length)
-	{
-		energies.clear();
-		for(int p=0; p<path_length; p++)
-		{
-			double e = 0;
-			for(int s=0; s<num_sites; s++)
-			{
-				setSiteSpin(L, set_index, &sites[s*3], &state_xyz_path[p * sites.size() + s*3]);
-			}
-
-			energies.push_back(getEnergy(L, energy_index));
-		}	
-	}
-	else
-	{
-		energies[p] = final_energy;
-	}
+// 	double final_energy = getEnergy(L, energy_index);
+// 
+// 	if(energies.size() < path_length)
+// 	{
+// 		energies.clear();
+// 		for(int p=0; p<path_length; p++)
+// 		{
+// 			double e = 0;
+// 			for(int s=0; s<num_sites; s++)
+// 			{
+// 				setSiteSpin(L, set_index, &sites[s*3], &state_xyz_path[p * sites.size() + s*3]);
+// 			}
+// 
+// 			energies.push_back(getEnergy(L, energy_index));
+// 		}	
+// 	}
+// 	else
+// 	{
+// 		energies[p] = final_energy;
+// 	}
 	
 	// need to restore saved configuration to SpinSystem
 	loadConfiguration(L, set_index, cfg);
 
-	lua_pushnumber(L, initial_energy);
-	lua_pushnumber(L, final_energy);
-	lua_pushnumber(L, fabs(initial_energy - final_energy));
+// 	lua_pushnumber(L, initial_energy);
+// 	lua_pushnumber(L, final_energy);
+// 	lua_pushnumber(L, fabs(initial_energy - final_energy));
+	
+	lua_pushnumber(L, absMovement);
+	lua_pushnumber(L, maxMovement);
 	
 	energy_ok = false;
-	return 3;
+	return 2;
 }
 
 int MEP::numberOfPoints()
@@ -1162,9 +1211,13 @@ void MEP::computePointGradAtSite(lua_State* L, int p, int s, int set_index, int 
 		}
 	}
 		
+// 	printf("(%s:%i) %e %e\n", __FILE__, __LINE__, vxyz[0], grad3[0]);
+		
 	grad3[0] = (g[1] - g[0]) / (2.0 * epsilon);
 	grad3[1] = (g[3] - g[2]) / (2.0 * epsilon);
 	grad3[2] = (g[5] - g[4]) / (2.0 * epsilon);
+	
+// 	printf("%e %e %e --> %e %e %e\n", vxyz[0], vxyz[1], vxyz[2], grad3[0], grad3[1], grad3[2]);
 }
 
 void MEP::writePathPoint(lua_State* L, int set_index, double* vxyz)
@@ -1276,9 +1329,9 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
 			double grad3[3];
 			computePointGradAtSite(L, p, s, set_index, energy_index, grad3);
 
-			force_vector[p*num_sites*3 + s*3 + 0] = grad3[0];
-			force_vector[p*num_sites*3 + s*3 + 1] = grad3[1];
-			force_vector[p*num_sites*3 + s*3 + 2] = grad3[2];
+			force_vector[p*num_sites*3 + s*3 + 0] = beta * grad3[0];
+			force_vector[p*num_sites*3 + s*3 + 1] = beta * grad3[1];
+			force_vector[p*num_sites*3 + s*3 + 2] = beta * grad3[2];
 			
 // 			printf("F = %e,%e,%e\n", grad3[0], grad3[1], grad3[2]);
 		}
@@ -1294,20 +1347,8 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
 static int l_applyforces(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
-
-	double dt = 0.1;
-	if(lua_isnumber(L, 2))
-	{
-		dt = lua_tonumber(L, 2);
-	}
-	
-	return mep->applyForces(L, dt);	
+	return mep->applyForces(L);	
 }
-
-
-
-
-
 
 
 static int l_setdata(lua_State* L)
@@ -1502,13 +1543,6 @@ static int l_calculateEnergies(lua_State* L)
 	return mep->calculateEnergies(L, get_index, set_index, energy_index);
 }
 
-static int l_problemscale(lua_State* L)
-{
-	LUA_PREAMBLE(MEP, mep, 1);
-	lua_pushnumber(L, mep->problemScale());
-	return 1;
-}
-
 static int l_getpathenergy(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
@@ -1550,8 +1584,7 @@ static int l_getgradient(lua_State* L)
 // at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
 // at 4, function set_site_ss1(x,y,z, sx,sy,sz) 
 // at 5, function get_energy_ss1()
-// at 6, step size (positive to relax down, negative to relax up)
-// at 7, number of steps
+// at 6, number of steps
 // this is the internal version
 static int l_relaxSinglePoint_(lua_State* L)
 {
@@ -1566,31 +1599,14 @@ static int l_relaxSinglePoint_(lua_State* L)
 // at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
 // at 4, function set_site_ss1(x,y,z, sx,sy,sz) 
 // at 5, function get_energy_ss1()
-// at 6, step size (positive to relax down, negative to relax up)
-// at 7, number of steps
-// this is the internal version
-// static int l_relaxSaddlePoint_(lua_State* L)
-// {
-// 	LUA_PREAMBLE(MEP, mep, 1);
-// 
-// 	return mep->relaxSaddlePoint(L);
-// }
-
-
-// expected on the stack at function call
-// at 1, mep
-// at 2, point number
-// at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
-// at 4, function set_site_ss1(x,y,z, sx,sy,sz) 
-// at 5, function get_energy_ss1()
 // this is the internal version
 static int l_computepoint2deriv(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
 
-	const int get_index = 4;
-	const int set_index = 5;
-	const int energy_index = 6;
+	const int get_index = 3;
+	const int set_index = 4;
+	const int energy_index = 5;
 	
 	int num_sites = mep->numberOfSites();
 	
@@ -1601,9 +1617,7 @@ static int l_computepoint2deriv(lua_State* L)
 
 	double* derivsAB = new double[num_sites * num_sites * 9];
 	
-	double h = lua_tonumber(L, 3);
-
-	mep->computePointSecondDerivative(L, p, h, set_index, get_index, energy_index, derivsAB);
+	mep->computePointSecondDerivative(L, p, set_index, get_index, energy_index, derivsAB);
 	
 	lua_newtable(L);
 	for(int i=0; i<num_sites * num_sites * 9; i++)
@@ -1663,7 +1677,28 @@ static int l_randomize_(lua_State* L)
 	return 0;
 }
 
+static int l_setbeta(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+	mep->beta = lua_tonumber(L, 2);
+	return 0;
+}
 
+static int l_getbeta(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+	lua_pushnumber(L, mep->beta);
+	return 1;
+}
+
+static int l_internal_copyto(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, src, 1);
+    LUA_PREAMBLE(MEP, dest, 2);
+
+	src->internal_copy_to(dest);
+	return 0;
+}
 
 static int l_maxpoints(lua_State* L)
 {
@@ -1671,11 +1706,43 @@ static int l_maxpoints(lua_State* L)
 	return mep->maxpoints(L);	
 }
 
+static int l_absoluteDifference(lua_State* L)
+{
+	LUA_PREAMBLE(MEP, mep1, 1);
+	LUA_PREAMBLE(MEP, mep2, 2);
+
+	int point = -1;
+	if(lua_isnumber(L, 3))
+	{
+		point = lua_tointeger(L, 3) - 1; // c->lua base change
+	}
+
+	double max_diff;
+	const double d = mep1->absoluteDifference(mep2, point, max_diff);
+
+	if(d == -1)
+		return luaL_error(L, "internal state size mismatch");
+
+	lua_pushnumber(L, d);
+	lua_pushnumber(L, max_diff);
+	return 2;
+}
+
+static int l_debug(lua_State* L)
+{
+	LUA_PREAMBLE(MEP, mep, 1);
+
+	lua_pushinteger(L, mep->state_xyz_path.size());
+	return 1;
+}
+
+
+
 int MEP::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "Calculate a minimum energy pathway between two states using an Elastic Band method.");
+		lua_pushstring(L, "Calculates a minimum energy pathway between two states.");
 		//lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size");
 		lua_pushstring(L, "");
 		lua_pushstring(L, ""); //output, empty
@@ -1727,16 +1794,33 @@ int MEP::help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_problemscale)
+	if(func == l_absoluteDifference)
 	{
-		lua_pushstring(L, "Get the average magnitude of the moments involved in the calculation");
+		lua_pushstring(L, "Get the absolute difference between the calling MEP and the passed MEP. Difference between two moments m1 and m2 is defined as the norm of the vector D where D = normalized(m1) - normalized(m2).");
+		lua_pushstring(L, "1 MEP: MEP to compare against.");
+		lua_pushstring(L, "2 Numbers: Total of all differences and the maximum single difference.");
+		return 3;
+	}
+
+	if(func == l_setbeta)
+	{
+		lua_pushstring(L, "Set the internal scaling factor that converts between energy gradient and displacement. This value gets adapted automatically. If a close value for Beta is knows at the start of the calculation it will save a few iterations if it is set explicitly.");
+		lua_pushstring(L, "1 Number: Beta");
 		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Number: Scale of the problem.");
+		return 3;
+	}
+	if(func == l_getbeta)
+	{
+		lua_pushstring(L, "Get the internal scaling factor that converts between energy gradient and displacement. This value gets adapted automatically.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Number: Beta");
 		return 3;
 	}
 	
 	return LuaBaseObject::help(L);
 }
+
+
 
 
 
@@ -1765,14 +1849,17 @@ const luaL_Reg* MEP::luaMethods()
 		{"gradient", l_getgradient},
 		{"spin", l_getsite},
 		{"applyForces", l_applyforces},
-		{"problemScale", l_problemscale},
 		{"_addStateXYZ", l_addstatexyz},
 		{"_relaxSinglePoint", l_relaxSinglePoint_}, //internal method
 // 		{"_relaxSaddlePoint", l_relaxSaddlePoint_}, //internal method
 		{"_hessianAtPoint", l_computepoint2deriv},
 		{"_maximalPoints", l_maxpoints},
 		{"_randomize", l_randomize_},
-
+		{"internalCopyTo", l_internal_copyto},
+		{"absoluteDifference", l_absoluteDifference},
+		{"setBeta", l_setbeta},
+		{"beta", l_getbeta},
+		{"_debug", l_debug},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

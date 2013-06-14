@@ -16,6 +16,44 @@ local function get_mep_data(mep)
 	return mep:getInternalData()
 end
 
+local function getStepMod(tol, err, maxMotion)
+	if maxMotion then
+		if maxMotion > 0.1 then
+			return 0.5, false
+		end
+	end
+	if err == 0 then
+		return 2, true
+	end
+
+	if err<tol then
+		local x = 0.9*(tol / err)^(0.5)
+-- 		print(x)
+		return x, err<tol
+	end
+	
+	return 0.95 * (tol / err)^(0.9), err<tol
+end
+
+local function getSpinSystem(mep)
+	local d = get_mep_data(mep)
+	return d.ss
+end
+
+local function getTolerance(mep)
+	local d = get_mep_data(mep)
+	return d.tol or 1e-4
+end
+local function setTolerance(mep, tol)
+	local d = get_mep_data(mep)
+	d.tol = tol
+end
+
+local function getEnergyFunction(mep)
+	local d = get_mep_data(mep)
+	return (d.energy_function or function() return 0 end)
+end
+
 -- write a state to a spinsystem
 local function writePathPointTo(mep, path_point, ssNew)
 	local d = get_mep_data(mep)
@@ -60,7 +98,26 @@ local function pathEnergy(mep)
 end
 
 local function randomize(mep, magnitude)
-	mep:_randomize(magnitude * mep:problemScale())
+	mep:_randomize(magnitude)
+end
+
+local function copy_to_children(mep)
+	local d = get_mep_data(mep)
+	if not mep:isChild() then
+		mep:internalCopyTo(d.big_step)
+		mep:internalCopyTo(d.small_step)
+
+		for _,c in pairs({d.big_step, d.small_step}) do
+			local id ={}
+			for k,v in pairs(d) do
+				id[k] = v
+			end
+			c:setChild(true)
+			id.big_step = nil
+			id.small_step = nil
+			c:setInternalData(id)
+		end
+	end
 end
 
 local function initialize(mep, _np)
@@ -68,17 +125,43 @@ local function initialize(mep, _np)
 	local np = _np or (d.np or 20)
 	mep:resampleStateXYZPath(np)
 	
-	if _np == nil then
-		d.isInitialized = true
+	if not mep:isChild() then
+		if d.big_step == nil then
+			d.big_step = MEP.new()
+			d.small_step = MEP.new()
+
+			d.big_step:setChild(true)
+			d.small_step:setChild(true)
+		end
 	end
+	d.isInitialized = true
+end
+
+local function single_compute_step(mep, get_site_ss, set_site_ss, get_energy_ss, np)
+	local d = get_mep_data(mep)
+
+	if d.isInitialized == nil then
+		initialize(mep)
+	end
+
+	local movement = 0
+	local maxmovement = 0
+	mep:calculateEnergyGradients(get_site_ss, set_site_ss, get_energy_ss)
+	mep:makeForcePerpendicularToPath(get_site_ss, set_site_ss, get_energy_ss)
+	mep:makeForcePerpendicularToSpins(get_site_ss, set_site_ss, get_energy_ss)
+	movement, maxmovement = mep:applyForces()
+	mep:resampleStateXYZPath(np)
+
+	return movement,maxmovement
 end
 
 local function compute(mep, n)
 	local d = get_mep_data(mep)
-	local ss = d.ss
-	local energy_function = d.energy_function
+	local ss = getSpinSystem(mep)
 	local np = d.np or 20
-
+	local energy_function = d.energy_function
+	local tol = getTolerance(mep)
+	
 	if ss == nil then
 		error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
 	end
@@ -93,10 +176,8 @@ local function compute(mep, n)
 	end
 	local function set_site_ss(x,y,z,  sx,sy,sz)
 		local ox,oy,oz,m = ss:spin({x,y,z})
--- 		print(string.format("changing site {%g %g %g} from {%g %g %g} to {%g %g %g}", x,y,z, ox,oy,oz, sx,sy,sz))
 		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
 	end
-
 	local function get_energy_ss()
 		local e = energy_function(ss)
 		return e
@@ -106,19 +187,33 @@ local function compute(mep, n)
 		initialize(mep)
 	end
 
-	local movement = 0
+	local successful_steps = 0
 	n = n or 50
-	local ps =  mep:problemScale()
-	local dt = mep:gradientMaxMotion()
-	for i=1,n do
-		mep:calculateEnergyGradients(get_site_ss, set_site_ss, get_energy_ss)
-		mep:makeForcePerpendicularToPath(get_site_ss, set_site_ss, get_energy_ss)
-		mep:makeForcePerpendicularToSpins(get_site_ss, set_site_ss, get_energy_ss)
-		movement = mep:applyForces()
-		mep:resampleStateXYZPath(np)
+	while successful_steps < n do
+		local current_beta = mep:beta()
+
+		copy_to_children(mep)
+
+		d.big_step:setBeta(current_beta)
+		local _, maxMovement = single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss, np)
+
+		d.small_step:setBeta(current_beta/2)
+		
+		single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
+		single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
+
+
+		local aDiff, maxDiff = d.big_step:absoluteDifference(d.small_step)
+		local aDiffAvrg = aDiff / np
+		
+		local step_mod, good_step = getStepMod(tol, maxDiff)
+		
+		if good_step then
+			d.small_step:internalCopyTo(mep)
+			successful_steps = successful_steps + 1
+		end
+		mep:setBeta(step_mod * current_beta)
 	end
-	
-	return movement / np
 end
 
 local function setSpinSystem(mep, ss)
@@ -209,15 +304,6 @@ local function setInitialPath(mep, pp)
 -- 	print("PP=", table.maxn(pp))
 end
 
-local function getSpinSystem(mep)
-	local d = get_mep_data(mep)
-	return d.ss
-end
-
-local function getEnergyFunction(mep)
-	local d = get_mep_data(mep)
-	return (d.energy_function or function() return 0 end)
-end
 
 local function getNumberOfPathPoints(mep)
 	local d = get_mep_data(mep)
@@ -228,9 +314,23 @@ local function getNumberSites(mep)
 	return table.maxn(mep:sites())
 end
 
-
-local function relaxSinglePoint(mep, pointNum, stepSize, numSteps)
+local function isChild(mep)
 	local d = get_mep_data(mep)
+	return (d.child or false)
+end
+
+local function setChild(mep, flag)
+	local d = get_mep_data(mep)
+	d.child = flag
+end
+
+
+local function relaxSinglePoint(mep, pointNum, numSteps)
+	local d = get_mep_data(mep)
+	if d.isInitialized == nil then
+		initialize(mep)
+	end
+	local tol = getTolerance(mep)
 	local ss = getSpinSystem(mep)
 	local energy_function = getEnergyFunction(mep)
 
@@ -248,21 +348,45 @@ local function relaxSinglePoint(mep, pointNum, stepSize, numSteps)
 		return e
 	end
 
-	local ps =  mep:problemScale()
-	stepSize = stepSize * ps^2
+	local n = numSteps or 50
+	local completed_steps = 0
+	while completed_steps < n do
+		local current_beta = mep:beta()
 
-	-- these or X are for default values
-	mep:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, stepSize, numSteps)
+		copy_to_children(mep)
+
+		d.big_step:setBeta(current_beta)
+		d.big_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 1)
+		
+		d.small_step:setBeta(current_beta/2)
+		local _, m1 = d.small_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 2)
+		
+		local aDiff, maxDiff = d.big_step:absoluteDifference(d.small_step, pointNum)
+		local aDiffAvrg = aDiff / np
+			
+		local step_mod, good_step = getStepMod(tol, maxDiff, m1)
+		
+		if good_step then
+			d.small_step:internalCopyTo(mep)
+			completed_steps = completed_steps + 1
+		end
+		mep:setBeta(step_mod * current_beta)
+		
+	end
 end
 
 
 
 -- compute hessian, get eigenvector of negative curvature
 -- negate that direction in the gradient and step
-local function relaxSaddlePoint(mep, pointNum, stepSize, numSteps)
+local function relaxSaddlePoint(mep, pointNum, numSteps)
 	local d = get_mep_data(mep)
+-- 	if d.isInitialized == nil then
+-- 		initialize(mep)
+-- 	end
 	local ss = getSpinSystem(mep)
 	local energy_function = getEnergyFunction(mep)
+	local tol = getTolerance(mep)
 
 	local function get_site_ss(x,y,z)
 		local sx,sy,sz = ss:spin(x,y,z)
@@ -278,25 +402,65 @@ local function relaxSaddlePoint(mep, pointNum, stepSize, numSteps)
 		return e
 	end
 	
-	local ps =  mep:problemScale()
-	stepSize = stepSize * ps^2
-	
-	for i=1,numSteps do
-		local D = mep:hessianAtPoint(pointNum, 1e-8*ps)
+	numSteps = numSteps or 50
+	local completed_steps = 0
+	while completed_steps < numSteps do
+		local current_beta = mep:beta()
+		local D = mep:hessianAtPoint(pointNum)
 		local vals, vecs = D:matEigen()
 		
 		local minv, mini = vals:min()
 		
+		local scaled_vec = {}
+		for i=1,vecs:nx() do
+			local ee = vecs:slice({{1,i}, {vecs:nx(),i}})
+			ee:scale(vals:get(i))
+			table.insert(scaled_vec, ee)
+		end
+		
+		for i=2,vecs:nx() do
+			scaled_vec[1]:pairwiseScaleAdd(1, scaled_vec[i], scaled_vec[1])
+		end
+		
+		local down_dir = scaled_vec[1] --vecs:slice({{1,mini}, {vecs:nx(),mini}}):toTable(1)
+		
+		down_dir:scale(-1/ (down_dir:dot(down_dir)^(1/2)))
+		
+		down_dir = down_dir:toTable(1)
+
+		
 		local down_dir = vecs:slice({{1,mini}, {vecs:nx(),mini}}):toTable(1)
+
 		
--- 		print(table.concat(down_dir, ", "))
+		copy_to_children(mep)
+
+		d.big_step:setBeta(current_beta)
+		d.big_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 1, down_dir)
+
+
+		d.small_step:setBeta(current_beta/2)
+		local _, maxMovement = d.small_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 2, down_dir)
+
+		local _, maxDiff = d.big_step:absoluteDifference(d.small_step, pointNum)
 		
-		mep:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, stepSize, 1, down_dir)
+		local step_mod, good_step = getStepMod(tol, maxDiff, maxMovement)
+		
+		if good_step then
+			d.small_step:internalCopyTo(mep)
+			completed_steps = completed_steps + 1
+		end
+		mep:setBeta(step_mod * current_beta)
+-- 		completed_steps = completed_steps + 1
+
+-- 		print(mep:beta(), good_step)
+		
+		
+-- 		mep:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, stepSize, 1, down_dir)
 	end
 end
 
 
-local function hessianAtPoint(mep, pointNum, h, destArray)
+local function hessianAtPoint(mep, pointNum, destArray)
 	local d = get_mep_data(mep)
 	local ss = getSpinSystem(mep)
 	local energy_function = getEnergyFunction(mep)
@@ -309,16 +473,11 @@ local function hessianAtPoint(mep, pointNum, h, destArray)
 		local _,_,_,m = ss:spin({x,y,z})
 		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
 	end
-
 	local function get_energy_ss()
 		local e = energy_function(ss)
 		return e
 	end
-	
-	if h <= 0 then
-		error("Numerical derivative step size (h) must be positive")
-	end
-	
+
 	
 	local c = mep:siteCount()
 	
@@ -330,7 +489,7 @@ local function hessianAtPoint(mep, pointNum, h, destArray)
 		destArray = Array.Double.new(c*3, c*3)
 	end
 
-	local t = mep:_hessianAtPoint(pointNum, h, get_site_ss, set_site_ss, get_energy_ss)
+	local t = mep:_hessianAtPoint(pointNum, get_site_ss, set_site_ss, get_energy_ss)
 
 	for x=0,c*3-1 do
 		for y=0,c*3-1 do
@@ -465,6 +624,8 @@ mt.relaxSaddlePoint = relaxSaddlePoint
 
 mt.hessianAtPoint = hessianAtPoint
 
+mt.isChild = isChild
+mt.setChild = setChild
 
 mt.setGradientMaxMotion = setGradientMaxMotion
 mt.gradientMaxMotion = gradientMaxMotion
@@ -474,6 +635,9 @@ mt.energyBarrier = energyBarrier
 mt.maximalPoints = maximalPoints
 
 mt.splitAtPoint = splitAtPoint
+
+mt.tolerance = getTolerance
+mt.setTolerance = setTolerance
 
 MODTAB.help =
 function(x)
@@ -568,15 +732,15 @@ function(x)
 	
 	if x == relaxSinglePoint then
 		return 	"Allow a single point to move along the local energy gradient either down to a minimum or up to a maximum",
-				"1 Integer, 1 Number, 1 Integer: Point to relax, step size (positive for down, negative for up), number of iterations.",
-				"3 Numbers: Initial Energy, New energy and absolute energy change"
+				"1 Integer, 1 Number, 1 Integer: Point to relax,, number of iterations.",
+				""
 	end
 
 		
 	if x == relaxSaddlePoint then
 		return 	"Allow a single point to move along the local energy gradient either down to a minimum or up to a maximum. A single gradient coordinate will be inverted based on the 2nd derivative to converge to a saddle point.",
-				"1 Integer, 1 Number, 1 Integer: Point to relax, step size (positive for down, negative for up), number of iterations.",
-				"3 Numbers: Initial Energy, New energy and absolute energy change"
+				"1 Integer, 1 Integer: Point to relax, number of iterations.",
+				""
 	end
 
 	if x == hessianAtPoint then
@@ -584,24 +748,23 @@ function(x)
 				"1 Integer, 1 Number, 1 Optional Array: Point to calculate 2nd derivative about, step size used in numerical differentiation (will be scaled by problemScale()), optional destination array. If no array is provided one will be created",
 				"1 Array: Derivatives"
 	end
-		
-	
-	if x == setGradientMaxMotion then
-		return "Set the max avrg motion relative to moment strength used in the Minimum Energy Pathway method when applying the gradient \"force\" to the path",
-				"1 Number: the max step, default value = " .. gradientMaxMotion(),
-				""
-	end
-
-	if x == gradientMaxMotion then
-		return "Get the max avrg motion relative to moment strength used in the Minimum Energy Pathway method when applying the gradient \"force\" to the path",
-				"",
-				"1 Number: the max step, default value = " .. gradientMaxMotion()
-	end
 	
 	if x == pathEnergy then
 		return "Get all energies along the path",
 				"",
 				"1 Table: energies along the path"
+	end
+	
+	if x == getTolerance then
+		return "Get the tolerance used in the adaptive algorithm",
+				"",
+				"1 Number: Tolerance"
+	end
+	
+	if x == setTolerance then
+		return "Set the tolerance used in the adaptive algorithm",
+				"1 Number: Tolerance. Usually something on the order of 0.1 should be OK.",
+				""
 	end
 	
 	-- calling fallback

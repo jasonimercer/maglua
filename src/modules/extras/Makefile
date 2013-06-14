@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-DIRS=math_vectors sqlite3 os_extensions elasticband
+DIRS=math_vectors sqlite3 os_extensions mep
 
 all:
 	@for d in $(DIRS); do (make -C $$d); done
