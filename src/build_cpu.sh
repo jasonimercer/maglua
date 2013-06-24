@@ -102,6 +102,7 @@ cd build
 cmake .. -DLAPACKE=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=$DEPDIR
 make -j4
 make install
+cd ../..
 fi
 
 
