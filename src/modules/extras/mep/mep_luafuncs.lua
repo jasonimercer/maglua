@@ -362,7 +362,7 @@ local function relaxSinglePoint(mep, pointNum, numSteps)
 		local _, m1 = d.small_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 2)
 		
 		local aDiff, maxDiff = d.big_step:absoluteDifference(d.small_step, pointNum)
-		local aDiffAvrg = aDiff / np
+-- 		local aDiffAvrg = aDiff / np
 			
 		local step_mod, good_step = getStepMod(tol, maxDiff, m1)
 		

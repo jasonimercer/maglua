@@ -27,10 +27,12 @@ zee = AppliedField.new(ss)
 ani = Anisotropy.new(ss)
 ex = Exchange.new(ss)
  
-  Ms  =   500 *  emu/cc
-  I   =   0.2 * erg/cm/cm
-field = {7500*Oe, 0*Oe, -1000*Oe}
-    K =  {1.5e6 * erg/cc, 3.0e6*erg/cc}
+Ms =   500 *  emu/cc
+ I =   0.2 * erg/cm/cm
+ K = {1.5e6 * erg/cc, 3.0e6*erg/cc} --different K values for each layer
+
+ 
+ H = {7500*Oe, 0*Oe, -1000*Oe} -- applied field
 
 a = 6*nm
 cell = a^3
@@ -50,7 +52,7 @@ for p,m in ss:eachSite() do
 	ex:add({i,j,k+1}, p, Hex_z)
 end
 
-zee:set(field)
+zee:set(H)
 
 function energy(ss)
 	  ss:resetFields()
