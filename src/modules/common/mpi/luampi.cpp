@@ -1030,6 +1030,16 @@ int l_mpi_bcast(lua_State* L)
 }
 
 
+// this nonsense looks dumb but it gets around some compiler problems
+static bool FC1(lua_CFunction lhs, lua_CFunction rhs)
+{
+	return lhs == rhs;
+}
+// function compare
+#define if_FC1(lhs, rhs) if(FC1(lhs,rhs))
+#define if_FC2(lhs, rhs1, rhs2) if(FC1(lhs,rhs1) && FC1(lhs,rhs2))
+
+
 static int l_mpi_help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -1047,28 +1057,28 @@ static int l_mpi_help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
-	if(func == l_mpi_get_processor_name)
+	if_FC1(func, l_mpi_get_processor_name)
 	{
 		lua_pushstring(L, "Returns the name of the processor as known by MPI.");
 		lua_pushstring(L, ""); 
 		lua_pushstring(L, "1 String: Name");
 		return 3;
-	}	
-	if(func == &(l_mpi_get_size<0>) || func == &(l_mpi_get_size<1>))
+	}
+	if_FC2(func, l_mpi_get_size<0>, l_mpi_get_size<1>)
 	{
 		lua_pushstring(L, "Return the total number of proccesses in the global workgroup");
 		lua_pushstring(L, ""); 
 		lua_pushstring(L, "1 Number: Number of processes");
 		return 3;
 	}	
-	if(func == &l_mpi_get_rank<0> || func == &l_mpi_get_rank<1>)
+	if_FC2(func, l_mpi_get_rank<0>, l_mpi_get_rank<1>)
 	{
 		lua_pushstring(L, "The rank of the calling process as a base 1 value. Note: The C and Fortran bindings for MPI use base 0 for ranks, this is automatically translated to base 1 in MagLua for esthetics and language consistency.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Number: Rank");
 		return 3;
 	}	
-	if(func == &l_mpi_send<0> || func == &l_mpi_send<1>)
+	if_FC2(func, l_mpi_send<0>, l_mpi_send<1>)
 	{
 		lua_pushstring(L, "Send data to another process in the workgroup. Example:\n<pre>"
 "if mpi.get_rank() == 1 then\n"
@@ -1087,14 +1097,14 @@ static int l_mpi_help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}	
-	if(func == &l_mpi_recv<0> || func == &l_mpi_recv<1>)
+	if_FC2(func, l_mpi_recv<0>, l_mpi_recv<1>)
 	{
 		lua_pushstring(L, "Receive data from another process in the workgroup");
 		lua_pushstring(L, "1 Number: Index of remote process sending the data"); 
 		lua_pushstring(L, "...: zero or more pieces of data");
 		return 3;
 	}	
-	if(func == &l_mpi_isend<0> || func == &l_mpi_isend<1>)
+	if_FC2(func, l_mpi_isend<0>, l_mpi_isend<1>)
 	{
 		lua_pushstring(L, "Asynchronously send data to another process in the workgroups. Example:\n<pre>"
 "-- tags ensure that different asynchronous communications don't clash\n"
@@ -1120,14 +1130,14 @@ static int l_mpi_help(lua_State* L)
 		lua_pushstring(L, "1 *mpi.request*: This request is used to check to see if the communication is complete.");
 		return 3;
 	}
-	if(func == &l_mpi_irecv<0> || func == &l_mpi_irecv<1>)
+	if_FC2(func, l_mpi_irecv<0>, l_mpi_irecv<1>)
 	{
 		lua_pushstring(L, "Asynchronously receive data from another process in the workgroups.");
 		lua_pushstring(L, "2 Integers: Rank of remote process, tag to be matched on the sending side.");
 		lua_pushstring(L, "1 *mpi.request*: This request is used to check to see if the communication is complete. The data may be retrieved from this object.");
 		return 3;
 	}
-	if(func == &(l_mpi_barrier<0>) || func == &l_mpi_barrier<1>)
+	if_FC2(func, l_mpi_barrier<0>, l_mpi_barrier<1>)
 	{
 		lua_pushstring(L, "Syncronization barrier");
 		lua_pushstring(L, ""); 
@@ -1135,7 +1145,7 @@ static int l_mpi_help(lua_State* L)
 		return 3;
 	}
 
-	if(func == &l_mpi_gather<0> || func == &l_mpi_gather<1>)
+	if_FC2(func, l_mpi_gather<0>, l_mpi_gather<1>)
 	{
 		lua_pushstring(L, "Gather data to a given rank. The return at the rank will be a table with each data as the value for source keys.");
 		lua_pushstring(L, "1 Integer, 1 value: The value is what will be gathered, the Integer is the rank where the data will be gathered."); 
@@ -1143,7 +1153,7 @@ static int l_mpi_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == &l_mpi_bcast<0> || func == &l_mpi_bcast<1>)
+	if_FC2(func, l_mpi_bcast<0>, l_mpi_bcast<1>)
 	{
 		lua_pushstring(L, "Broadcast data to all members of the workgrroup from the given rank.");
 		lua_pushstring(L, "1 Integer, 1 value: The value is what will be broadcasted, the integer is the rank where the data will be from."); 
@@ -1151,14 +1161,14 @@ static int l_mpi_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == &l_cart_rank<0> || func == &l_cart_rank<1>)
+	if_FC2(func, l_cart_rank<0>, l_cart_rank<1>)
 	{
 		lua_pushstring(L, "Lookup rank in a cartesian workgroup based on coordinate.");
 		lua_pushstring(L, "1 Table of integers: Coordinate to lookup, values will be wrapped for periodic dimensions.");
 		lua_pushstring(L, "1 Integer: Rank of workgroup member at given coodinate.");
 		return 3;
 	}
-	if(func == &l_cart_coord<0> || func == &l_cart_coord<1>)
+	if_FC2(func, l_cart_coord<0>, l_cart_coord<1>)
 	{
 		lua_pushstring(L, "Lookup coordinate in cartesian workgroup based on rank.");
 		lua_pushstring(L, "1 Integer: Rank of workgroup member.");
@@ -1168,7 +1178,7 @@ static int l_mpi_help(lua_State* L)
 
 
 
-	if(func == &l_cart_create<0> || func == &l_cart_create<1>)
+	if_FC2(func, l_cart_create<0>, l_cart_create<1>)
 	{
 		lua_pushstring(L, "Create a cartesian workgroup, maximum 10 dimensions. 3D Example with periodic bounds in the 1st and 2nd dimension:\n"
 		"<pre>mpi_cart = mpi.cart_create({3,3,2}, {true,true,false})\n</pre>");
@@ -1177,7 +1187,7 @@ static int l_mpi_help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == &l_mpi_comm_split<0> || func == &l_mpi_comm_split<1>)
+	if_FC2(func, l_mpi_comm_split<0>, l_mpi_comm_split<1>)
 	{
 		lua_pushstring(L, "Split a workgroup into sub groups by common colours (integers).\nExample with mpirun -n 8:\n<pre>"
 			
@@ -1213,7 +1223,8 @@ static int l_mpi_help(lua_State* L)
 	}
 	
 		
-	if(func == &l_mpi_splitrange<0> || func == &l_mpi_splitrange<1>)
+//	if(func == &l_mpi_splitrange<0> || func == &l_mpi_splitrange<1>)
+	if_FC2(func, l_mpi_splitrange<0>, l_mpi_splitrange<1>)
 	{
 		lua_pushstring(L, "Make an iterator that iterates over different balanced sequential chunks of a range for each MPI process. Example use:\n"
 			"<pre>for i in mpi.range(1,10) do\n\tprint(mpi.get_rank(), i)\nend\n</pre>");

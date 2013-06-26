@@ -77,10 +77,15 @@ f_orcinus()
 }
 f_placentia()
 {
-	CXX="pgcpp";
-	MPICC="/usr/local/openmpi.pgi-1.4.4/bin/mpicxx";
+#	CXX="pgcpp";
+#	MPICC="/usr/local/openmpi.pgi-1.4.4/bin/mpicxx";
+	CXX="g++";
+	MPICC="mpicxx";
 	f_PrintCurrent;
 	f_Write;
+	echo "Please run the following, you may want to add these to your startup file:"
+	echo "module purge"
+	echo "module load gcc/4.8.0 openmpi/gcc/1.4.4 cmake pkg-config"
 	exit;
 }
 f_torngat()

@@ -743,26 +743,39 @@ int Array_help_fp(lua_State* L)
 	return 0;
 }
 
+// this nonsense looks dumb but it gets around some compiler problems
+static bool FC1(lua_CFunction lhs, lua_CFunction rhs)
+{
+	return lhs == rhs;
+}
+// function compare
+#define if_FC1(lhs, rhs) if(FC1(lhs,rhs))
+#define if_FC2(lhs, rhs1, rhs2) if(FC1(lhs,rhs1) && FC1(lhs,rhs2))
+
+
 template<typename T>
 int Array_help_fft_complex(lua_State* L)
 {
 	lua_CFunction func = lua_tocfunction(L, 1);
 		
-	if(func == &(l_fft1D<T>))
+// 	if(func == &(l_fft1D<T>))
+	if_FC1(func, l_fft1D<T>)
 	{
 		lua_pushstring(L, "1D Fourier Transform an array along the X direction");
 		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if not supplied");
 		lua_pushstring(L, "1 Array: The result of the transform");
 		return 3;
 	}	
-	if(func == &(l_fft2D<T>))
+// 	if(func == &(l_fft2D<T>))
+	if_FC1(func, l_fft2D<T>)
 	{
 		lua_pushstring(L, "2D Fourier Transform an array along the X and Y directions");
 		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if not supplied");
 		lua_pushstring(L, "1 Array: The result of the transform");
 		return 3;
 	}	
-	if(func == &(l_fft3D<T>))
+// 	if(func == &(l_fft3D<T>))
+	if_FC1(func, l_fft3D<T>)
 	{
 		lua_pushstring(L, "3D Fourier Transform an array along the X, Y and Z directions");
 		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if not supplied");
@@ -770,21 +783,24 @@ int Array_help_fft_complex(lua_State* L)
 		return 3;
 	}	
 		
-	if(func == &(l_ifft1D<T>))
+// 	if(func == &(l_ifft1D<T>))
+	if_FC1(func, l_ifft1D<T>)
 	{
 		lua_pushstring(L, "1D Inverse Fourier Transform an array along the X direction");
 		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if none is supplied");
 		lua_pushstring(L, "1 Array: The result of the transform");
 		return 3;
 	}	
-	if(func == &(l_ifft2D<T>))
+// 	if(func == &(l_ifft2D<T>))
+	if_FC1(func, l_ifft2D<T>)
 	{
 		lua_pushstring(L, "2D Inverse Fourier Transform an array along the X and Y directions");
 		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if none is supplied");
 		lua_pushstring(L, "1 Array: The result of the transform");
 		return 3;
 	}	
-	if(func == &(l_ifft3D<T>))
+// 	if(func == &(l_ifft3D<T>))
+	if_FC1(func, l_ifft3D<T>)
 	{
 		lua_pushstring(L, "3D Inverse Fourier Transform an array along the X, Y and Z directions");
 		lua_pushstring(L, "1 Optional Array of same type: Destination of transform, a new array will be created if none is supplied");
@@ -792,21 +808,24 @@ int Array_help_fft_complex(lua_State* L)
 		return 3;
 	}	
 
-	if(func == &(l_toreal<T,0>))
+// 	if(func == &(l_toreal<T,0>))
+	if_FC1(func, (l_toreal<T,0>))
 	{
 		lua_pushstring(L, "Copy real component of data to a real array");
 		lua_pushstring(L, "1 Optional Array of same real type: Destination array, a new array will be created if none is supplied");
 		lua_pushstring(L, "1 Array: The data");
 		return 3;
 	}	
-	if(func == &(l_toreal<T,1>))
+	if_FC1(func, (l_toreal<T,1>))
+// 	if(func == &(l_toreal<T,1>))
 	{
 		lua_pushstring(L, "Copy imaginary component of data to a real array");
 		lua_pushstring(L, "1 Optional Array of same real type: Destination array, a new array will be created if none is supplied");
 		lua_pushstring(L, "1 Array: The data");
 		return 3;
 	}	
-	if(func == &(l_toreal<T,2>))
+	if_FC1(func, (l_toreal<T,2>))
+// 	if(func == &(l_toreal<T,2>))
 	{
 		lua_pushstring(L, "Copy norm of data to a real array");
 		lua_pushstring(L, "1 Optional Array of same real type: Destination array, a new array will be created if none is supplied");
