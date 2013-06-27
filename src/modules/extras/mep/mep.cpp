@@ -66,6 +66,9 @@ static double angleBetween(const double* a, const double* b)
 {
 	const double n = sqrt(dot(a,a) * dot(b,b));
 	
+// 	printf("a: %g %g %g\n", a[0], a[1], a[2]);
+// 	printf("b: %g %g %g\n", b[0], b[1], b[2]);
+	
 	if(n == 0)
 		return 0;
 
@@ -75,6 +78,7 @@ static double angleBetween(const double* a, const double* b)
 	if(ct > 1)
 		ct = 1;
 	const double acos_ct = acos(ct);
+// 	printf("n: %g   ct: %g    acos_ct: %g\n", n, ct, acos_ct);
 	return acos_ct;
 }
 
@@ -148,6 +152,7 @@ void MEP::deinit()
 	ref_data = LUA_REFNIL;
 
 	state_xyz_path.clear();
+	image_site_mobility.clear();
 	sites.clear();
 }
 
@@ -155,6 +160,7 @@ void MEP::deinit()
 int MEP::luaInit(lua_State* L, int base)
 {
 	state_xyz_path.clear();
+	image_site_mobility.clear();
 	sites.clear();
 	
 	return LuaBaseObject::luaInit(L, base);
@@ -180,6 +186,12 @@ void MEP::encode(buffer* b) //encode to data stream
 		encodeDouble(state_xyz_path[i], b);
 	}
 	
+	encodeInteger(image_site_mobility.size(), b);
+	for(int i=0; i<image_site_mobility.size(); i++)
+	{
+		encodeDouble(image_site_mobility[i], b);
+	}
+	
 	encodeInteger(sites.size(), b);
 	for(int i=0; i<sites.size(); i++)
 	{
@@ -201,6 +213,11 @@ int  MEP::decode(buffer* b) // decode from data stream
 	n = decodeInteger(b);
 	for(int i=0; i<n; i++)
 	{
+		image_site_mobility.push_back(decodeDouble(b));
+	}
+	n = decodeInteger(b);
+	for(int i=0; i<n; i++)
+	{
 		sites.push_back(decodeInteger(b));
 	}
 	
@@ -213,6 +230,12 @@ void MEP::internal_copy_to(MEP* dest)
 	for(int i=0; i<state_xyz_path.size(); i++)
 	{
 		dest->state_xyz_path.push_back(state_xyz_path[i]);
+	}
+	
+	dest->image_site_mobility.clear();
+	for(int i=0; i<image_site_mobility.size(); i++)
+	{
+		dest->image_site_mobility.push_back(image_site_mobility[i]);
 	}
 
 	//dest->state_xyz_path = state_xyz_path;
@@ -228,6 +251,7 @@ double MEP::absoluteDifference(MEP* other, int point, double& max_diff)
 {
 	if(state_xyz_path.size() != other->state_xyz_path.size())
 	{
+// 		printf("s1.size() = %i, s2.size() = %i\n", state_xyz_path.size(), other->state_xyz_path.size());
 		return -1;
 	}
 
@@ -275,22 +299,30 @@ void MEP::randomize(const double magnitude)
 
 	const int num_sites = numberOfSites();
 	double nv[3];
-	// not touching start/end points
-	for(int i=num_sites*3; i<state_xyz_path.size() - num_sites*3; i+= 3)
+
+	const int ni = numberOfImages(); //images
+	const int ns = numberOfSites();
+	
+	for(int i=0; i<ni; i++)
 	{
-		double x = v[i+0];
-		double y = v[i+1];
-		double z = v[i+2];
-		
-		const double m1 = sqrt(x*x + y*y + z*z);
-		
-		normalizeTo(nv, &(v[i]));
-		
-		nv[0] += (myrandf() * magnitude);
-		nv[1] += (myrandf() * magnitude);
-		nv[2] += (myrandf() * magnitude);
-		
-		normalizeTo(&(v[i]), nv, m1);
+		for(int s=0; s<ns; s++)
+		{
+			const int k = (i*ns+s);
+			
+			double x = v[k*3+0];
+			double y = v[k*3+1];
+			double z = v[k*3+2];
+			
+			const double m1 = sqrt(x*x + y*y + z*z);
+			
+			normalizeTo(nv, &(v[k*3]));
+			
+			nv[0] += (myrandf() * magnitude * image_site_mobility[k]);
+			nv[1] += (myrandf() * magnitude * image_site_mobility[k]);
+			nv[2] += (myrandf() * magnitude * image_site_mobility[k]);
+			
+			normalizeTo(&(v[k*3]), nv, m1);
+		}
 	}
 }
 
@@ -305,6 +337,10 @@ double MEP::distanceBetweenPoints(int p1, int p2, int site)
 	
 	const double d = angleBetween(v1, v2);
 
+// 	printf("v1: %g %g %g\n", v1[0], v1[1], v1[2]);
+// 	printf("v2: %g %g %g\n", v2[0], v2[1], v2[2]);
+// 	printf("abp %i %i %g\n", p1, p2,  d);
+	
 	return d;
 }
 
@@ -314,12 +350,13 @@ double MEP::distanceBetweenHyperPoints(int p1, int p2)
 	int n = sites.size() / 3;
 	for(int i=0; i<n; i++)
 	{
-		d += distanceBetweenPoints(p1, p2, i);
+		const double dbp = distanceBetweenPoints(p1, p2, i);
+		d += dbp;
 	}
 	return d;
 }
 
-void MEP::interpolatePoints(const int p1, const int p2, const int site, const double ratio, vector<double>& dest)
+void MEP::interpolatePoints(const int p1, const int p2, const int site, const double _ratio, vector<double>& dest, const double rjitter)
 {
 	const int num_sites = sites.size() / 3;
 	const double* v1 = &state_xyz_path[p1 * num_sites * 3 + site * 3];
@@ -327,14 +364,27 @@ void MEP::interpolatePoints(const int p1, const int p2, const int site, const do
 	
 	double nv1[3];
 	double nv2[3];
+
+	double mobility = 1.0;
+	
+	const double m1 = getImageSiteMobility(p1, site);
+	const double m2 = getImageSiteMobility(p2, site);
+	
+	if(m1 < mobility)
+		mobility = m1;
+	if(m2 < mobility)
+		mobility = m2;
 	
 	normalizeTo(nv1, v1);
 	normalizeTo(nv2, v2);
 	
+// 	double rjitter = (myrandf() * jitter*2 - jitter) * mobility;
+
+	double ratio = _ratio * (1.0 + rjitter * mobility);
 	
 	double a = angleBetween(nv1, nv2);
 	
-	if(a == 0) //then same vector, no need to interpolate
+	if(a == 0 || ratio == 0) //then  no need to interpolate
 	{
 		dest.push_back(v1[0]);
 		dest.push_back(v1[1]);
@@ -393,13 +443,14 @@ void MEP::interpolatePoints(const int p1, const int p2, const int site, const do
 
 
 
-void MEP::interpolateHyperPoints(const int p1, const int p2, const double ratio, vector<double>& dest)
+void MEP::interpolateHyperPoints(const int p1, const int p2, const double ratio, vector<double>& dest, const double jitter)
 {
-	int n = sites.size() / 3;
+	int n = numberOfSites();
 	//printf("(%s:%i) %i\n", __FILE__, __LINE__, n);
 	for(int i=0; i<n; i++)
 	{
-		interpolatePoints(p1,p2,i,ratio,dest);
+		double rjitter = (myrandf() * jitter*2 - jitter);
+		interpolatePoints(p1,p2,i,ratio,dest, rjitter);
 	}
 }
 
@@ -411,24 +462,53 @@ static int get_interval(const vector<double>& v, double x, double& ratio)
 	for(unsigned int i=0; i<v.size(); i++)
 	{
 		const double y = v[i];
+// 		printf(">> %i %g %g\n", i,x,y);
 		if(x < y)
 		{
+// 			printf("y: %g\n");
 			ratio = x/y;
+// 			printf("ratio: %g\n", ratio);
 			return i;
 		}
 		x -= y;
 	}
-	return -1;
+	
+	// clip to end
+	ratio = 1;
+	return v.size()-1;
+	
+// 	return -1;
 }
 
-int MEP::resampleStateXYZPath(lua_State* L, int new_num_points)
+void MEP::printState()
+{
+	printf("State Path\n");
+	
+	for(int i=0; i<state_xyz_path.size(); i+=3)
+	{
+		const int k = i/3;
+		printf("%3i\t%g\t%g\t%g   m=%g\n", k, state_xyz_path[i+0], state_xyz_path[i+1],state_xyz_path[i+2], image_site_mobility[k]);
+	}
+}
+
+
+int MEP::resampleStateXYZPath(lua_State* L)
 {
 // 	printf("resample from %i\n", state_xyz_path.size());
 
-	if(new_num_points < 2)
+	int new_num_images = lua_tointeger(L, 2);
+	
+	double jitter = 0; //percent
+	if(lua_isnumber(L, 3))
+		jitter = lua_tonumber(L, 3);
+
+	if(new_num_images < 2)
 	{
-		return luaL_error(L, "attempting to resample path to less than 2 points");
+		return luaL_error(L, "attempting to resample path to less than 2 images");
 	}
+	
+// 	printf("pre-resample\n");
+// 	printState();
 	
 	vector<double> new_state_xyz_path;
 	const int num_points = numberOfSites();
@@ -436,41 +516,48 @@ int MEP::resampleStateXYZPath(lua_State* L, int new_num_points)
 
 	vector<double> d12;
 	
-	const int num_hyperpoints = numberOfPoints();
+	const int num_hyperpoints = numberOfImages();
 	
 	for(int i=0; i<num_hyperpoints-1; i++)
 	{
 		const double d = distanceBetweenHyperPoints(i,i+1);
+// 		printf("d %i %i = %g\n", i, i+1, d);
 		d12.push_back(d);
 		distance += d;
 	}
 	
-	// endpoints are fixed: path start
-	for(int i=0; i<sites.size(); i++)
-	{
-		new_state_xyz_path.push_back( state_xyz_path[i] );
-	}
+	// endpoints are fixed for resample path start
+// 	for(int i=0; i<sites.size(); i++)
+// 	{
+// 		new_state_xyz_path.push_back( state_xyz_path[i] );
+// 	}
 // 	printf("distance = %f\n", distance);
-	const double interval = distance / ((double)(new_num_points-1));
+	const double interval = distance / ((double)(new_num_images-1));
 	double ratio;
 	
-	for(int i=1; i<new_num_points-1; i++)
+	for(int i=0; i<new_num_images; i++)
 	{
 		int j = get_interval(d12, interval * i, ratio);
 		if(j != -1)
 		{
 // 			printf("range[ %i:%i]  ratio: %e\n", j, j+1, ratio); 
-			interpolateHyperPoints(j, j+1, ratio, new_state_xyz_path);
+			interpolateHyperPoints(j, j+1, ratio, new_state_xyz_path, jitter);
+		}
+		else
+		{
+			printf("failed to get interval\n");
+			printf("  total distance: %g\n", distance);
+			printf("  requested position: %g\n", interval * i);
 		}
 	}
 	
-	// endpoints are fixed: path end
-	const int last_set_idx = state_xyz_path.size() - sites.size();
-	for(int i=0; i<sites.size(); i++)
-	{
-		//printf("last: %f\n", state_xyz_path[last_set_idx + i]);
-		new_state_xyz_path.push_back( state_xyz_path[last_set_idx + i] );
-	}
+	// endpoints are fixed for resample path end
+// 	const int last_set_idx = state_xyz_path.size() - sites.size();
+// 	for(int i=0; i<sites.size(); i++)
+// 	{
+// 		//printf("last: %f\n", state_xyz_path[last_set_idx + i]);
+// 		new_state_xyz_path.push_back( state_xyz_path[last_set_idx + i] );
+// 	}
 	
 	
 	state_xyz_path.clear();
@@ -479,9 +566,48 @@ int MEP::resampleStateXYZPath(lua_State* L, int new_num_points)
 		state_xyz_path.push_back(new_state_xyz_path[i]);
 	}
 	
+	// now we need to update mobility factors. The only case we will cover
+	// is non-unitary endpoints.
+	vector<double> first_mobility;// = image_site_mobility[0];
+	vector<double> last_mobility;// = image_site_mobility[image_site_mobility.size()-1];
+	
+	const int ns = numberOfSites();
+// 	new_num_images
+	
+	for(int i=0; i<ns; i++)
+	{
+		first_mobility.push_back( image_site_mobility[i] );
+	}
+
+	for(int i=image_site_mobility.size()-ns; i<image_site_mobility.size(); i++)
+	{
+		last_mobility.push_back( image_site_mobility[i] ); 
+	}
+	
+	image_site_mobility.clear();
+	
+	for(int i=0; i<ns; i++)
+	{
+		image_site_mobility.push_back(first_mobility[i]);
+	}
+	
+	
+	for(int i=0; i<ns*(new_num_images-2); i++)
+	{
+		image_site_mobility.push_back(1.0);
+	}
+	
+	for(int i=0; i<ns; i++)
+	{
+		image_site_mobility.push_back(last_mobility[i]);
+	}
+	
 	energy_ok = false; //need to recalc energy
 
-// 	printf("resample to %i\n", state_xyz_path.size());
+// 	printf("post-resample\n");
+// 	printState();
+
+// 	printf("resample to %i new_images -- (%i)\n", new_num_images, state_xyz_path.size() / (numberOfSites() * 3));
 }
 
 void MEP::addSite(int x, int y, int z)
@@ -492,8 +618,8 @@ void MEP::addSite(int x, int y, int z)
 	energy_ok = false; //need to recalc energy
 }
 
- //project gradients onto vector perpendicular to spin direction
- void MEP::projForcePerpSpins(lua_State* L, int get_index, int set_index, int energy_index)
+//project gradients onto vector perpendicular to spin direction
+void MEP::projForcePerpSpins(lua_State* L, int get_index, int set_index, int energy_index)
 {
 	double proj[3];
 	for(int i=0; i<state_xyz_path.size() / 3; i++)
@@ -531,44 +657,55 @@ int MEP::applyForces(lua_State* L)
 	double absMovement = 0;
 	double maxMovement = 0;
 	
-	// end points are fixed
-	for(int i=num_sites; i<(force_vector.size()/3)-num_sites; i++)
+	const int ni = numberOfImages();
+	const int ns = numberOfSites();
+	
+	// end points are no longer fixed. 
+	//for(int i=num_sites; i<(force_vector.size()/3)-num_sites; i++)
+	for(int i=0; i<ni; i++)
 	{
-		double x = state_xyz_path[i*3+0];
-		double y = state_xyz_path[i*3+1];
-		double z = state_xyz_path[i*3+2];
-		
-		const double m1 = sqrt(x*x+y*y+z*z);
-		
-		const double dx = force_vector[i*3+0];
-		const double dy = force_vector[i*3+1];
-		const double dz = force_vector[i*3+2];
-		
-		x += dx;
-		y += dy;
-		z += dz;
-		
-		const double dd = sqrt(dx*dx + dy*dy + dz*dz);
-		const double normalized_movement = dd/m1;
-
-		absMovement += normalized_movement;
-		if(maxMovement < normalized_movement)
-			maxMovement = normalized_movement;
-
-// 		printf(">> %g %g  %g  %g\n", dd, m1, normalized_movement, maxMovement);
-
-		const double m2 = sqrt(x*x+y*y+z*z);
-
-		if(m2 > 0)
+		for(int s=0; s<ns; s++)
 		{
-			x *= m1/m2;
-			y *= m1/m2;
-			z *= m1/m2;
+			const int k = (i*ns+s);
+
+			double x = state_xyz_path[k*3+0];
+			double y = state_xyz_path[k*3+1];
+			double z = state_xyz_path[k*3+2];
+			
+			const double m1 = sqrt(x*x+y*y+z*z);
+			
+			const double dx = force_vector[k*3+0] * image_site_mobility[k];
+			const double dy = force_vector[k*3+1] * image_site_mobility[k];
+			const double dz = force_vector[k*3+2] * image_site_mobility[k];
+			
+			x += dx;
+			y += dy;
+			z += dz;
+			
+			const double dd = sqrt(dx*dx + dy*dy + dz*dz);
+			const double normalized_movement = dd/m1;
+
+			absMovement += normalized_movement;
+			if(maxMovement < normalized_movement)
+				maxMovement = normalized_movement;
+
+// 			printf("ssss: %i %i %g\n", image_site_mobility.size(), k, image_site_mobility[k]);
+// 			printf("i:%2i s:%2i  dxyz: %g %g %g     %g\n", i,s,dx,dy,dz, image_site_mobility[k]);
+// 			printf(">> %g %g  %g  %g\n", dd, m1, normalized_movement, maxMovement);
+
+			const double m2 = sqrt(x*x+y*y+z*z);
+
+			if(m2 > 0)
+			{
+				x *= m1/m2;
+				y *= m1/m2;
+				z *= m1/m2;
+			}
+			
+			state_xyz_path[k*3+0] = x;
+			state_xyz_path[k*3+1] = y;
+			state_xyz_path[k*3+2] = z;
 		}
-		
-		state_xyz_path[i*3+0] = x;
-		state_xyz_path[i*3+1] = y;
-		state_xyz_path[i*3+2] = z;
 	}
 	
 	lua_pushnumber(L, absMovement);
@@ -618,93 +755,6 @@ void MEP::computeTangent(const int p1, const int p2, const int dest)
 }
 
 
-/*
-void MEP::computeTangent(lua_State* L, int get_index, int set_index, int energy_index, const int _p)
-{
-	int p[3];
-	p[0] = _p-1;
-	p[1] = _p;
-	p[2] = _p+1;
-	
-	if(p[0] < 0)
-		p[0] = 0;
-	if(p[2] > numberOfPoints())
-		p[2] = numberOfPoints();
-	
-	calculateEnergies(L, get_index, set_index, energy_index);
-// 	
-	double e[3];
-	for(int i=0; i<3; i++)
-		e[i] = energies[p[i]];
-// 	
-	int p1 = p[0];
-	int p2 = p[2];
-// 	
-	if( (e[0] < e[1] && e[2] < e[1]) || (e[0] > e[1] && e[2] > e[1])) // if middle point is ^ or v
-	{
-		p1 = p[0];
-		p2 = p[2];
-	}
-	else
-	{
-		if(e[0] > e[1])
-		{
-			p1 = 0;
-			p2 = 1;
-		}
-		else
-		{
-			p1 = 1;
-			p2 = 2;
-		}
-	}
-	
-	const int s = sites.size();
-	const int dest = _p;
-	
-	double tan_len2 = 0;
-	// compute difference
- 	for(int i=0; i<s; i++)
-	{
-		const double t = state_xyz_path[i + p1*s] - state_xyz_path[i + p2*s];
-		path_tangent[i + dest*s] = t;
-		tan_len2 += t*t;
-	}
-	
-	if(tan_len2 > 0)
-	{
-		tan_len2 = 1.0 / sqrt(tan_len2);
-	}
-	
-	if(energies[p1] < energies[p2])
-		tan_len2 *= -1.0;
-	
- 	for(int i=0; i<s; i++)
-	{
-		path_tangent[i + dest*s] *= tan_len2;
-	}
-	
-
-// 	const int n = state_xyz_path.size();
-// 	for(int i=0; i<n/3; i++)
-// 	{
-// 		const double x = state_xyz_path[i*3 + 0];
-// 		const double y = state_xyz_path[i*3 + 1];
-// 		const double z = state_xyz_path[i*3 + 2];
-// 
-// 		double length = sqrt(x*x + y*y + z*z);
-// 
-// 		if(length != 0)
-// 		{
-// 			length = 1.0/length;
-// 			path_tangent[i*3 + 0] *= length;
-// 			path_tangent[i*3 + 1] *= length;
-// 			path_tangent[i*3 + 2] *= length;
-// 		}
-// 	}
-}*/
-
-
 void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int energy_index) //project gradients onto vector perpendicular to path direction
 {
 	path_tangent.clear();
@@ -722,7 +772,7 @@ void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int ener
 
 
 	const int ss = sites.size(); // point size
-	const int nn = numberOfPoints(); // number of points
+	const int nn = numberOfImages(); // number of points
 
 	double* proj = new double[ss];
 
@@ -770,7 +820,7 @@ void MEP::projForcePath(lua_State* L, int get_index, int set_index, int energy_i
 
 
 	const int ss = sites.size(); // point size
-	const int nn = numberOfPoints(); // number of points
+	const int nn = numberOfImages(); // number of points
 
 	double* proj = new double[ss];
 
@@ -849,6 +899,35 @@ void MEP::getSiteSpin(lua_State* L, int get_index, int* site3, vector<double>& v
 	v.push_back(m3[2]);
 }
 
+double MEP::getImageSiteMobility(const int image, const int site)
+{
+	int k = image * numberOfSites() + site;
+
+	if(k < 0 || k >= image_site_mobility.size())
+	{
+		printf("bad index in getImageSiteMobility\n");
+		return 0;
+	}
+	
+	return image_site_mobility[k];
+}
+
+
+void MEP::setImageSiteMobility(const int image, const int site, double mobility)
+{
+	int k = image * numberOfSites() + site;
+	if(k < 0)
+	{
+		printf("bad index in setImageSiteMobility\n");
+		return;
+	}
+	while(image_site_mobility.size() <= k)
+	{
+		image_site_mobility.push_back(1.0);
+	}
+	
+	image_site_mobility[k] = mobility;
+}
 
 void MEP::setSiteSpin(lua_State* L, int set_index, int* site3, double* m3)
 {
@@ -905,7 +984,7 @@ int MEP::calculateEnergies(lua_State* L, int get_index, int set_index, int energ
 		
 	energies.clear();
 	const int num_sites = numberOfSites();
-	const int path_length = numberOfPoints();
+	const int path_length = numberOfImages();
 
 	// back up old sites so we can restore after
 	vector<double> cfg;
@@ -1023,7 +1102,7 @@ void MEP::computePointSecondDerivative(lua_State* L, int p, int set_index, int g
 int MEP::relaxSinglePoint(lua_State* L)
 {
 	const int num_sites = numberOfSites();
-	const int path_length = numberOfPoints();
+	const int path_length = numberOfImages();
 
 	const int p = lua_tointeger(L, 2) - 1;
 	if(p < 0 || p >= path_length)
@@ -1163,7 +1242,7 @@ int MEP::relaxSinglePoint(lua_State* L)
 	return 2;
 }
 
-int MEP::numberOfPoints()
+int MEP::numberOfImages()
 {
 	return state_xyz_path.size() / sites.size();
 }
@@ -1244,7 +1323,7 @@ static int addToTable(lua_State* L, int tab_pos, int index, int value)
 
 int MEP::maxpoints(lua_State* L)
 {
-	const int path_length = numberOfPoints();
+	const int path_length = numberOfImages();
 	
 	lua_newtable(L); //mins
 	const int min_idx = lua_gettop(L);
@@ -1307,8 +1386,8 @@ int MEP::maxpoints(lua_State* L)
 
 int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, int energy_index)
 {
-	const int num_sites = numberOfSites();
-	const int path_length = numberOfPoints();
+	const int ns = numberOfSites();
+	const int ni = numberOfImages();
 	
 	force_vector.resize( state_xyz_path.size() ); //since we're doing random-ish access
 	
@@ -1317,23 +1396,28 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
 	saveConfiguration(L, get_index, cfg);
 	
 	// lets march along the path
-	for(int p=0; p<path_length; p++)
+	for(int i=0; i<ni; i++)
 	{
-		double* vxyz = &state_xyz_path[p*num_sites*3];
+		double* vxyz = &state_xyz_path[i*ns*3];
 		
 		// write path point as it currently stands
-		writePathPoint(L, set_index, &state_xyz_path[p*num_sites*3]);
+		writePathPoint(L, set_index, &state_xyz_path[i*ns*3]);
 
-		for(int s=0; s<num_sites; s++)
+		for(int s=0; s<ns; s++)
 		{
 			double grad3[3];
-			computePointGradAtSite(L, p, s, set_index, energy_index, grad3);
+			computePointGradAtSite(L, i, s, set_index, energy_index, grad3);
 
-			force_vector[p*num_sites*3 + s*3 + 0] = beta * grad3[0];
-			force_vector[p*num_sites*3 + s*3 + 1] = beta * grad3[1];
-			force_vector[p*num_sites*3 + s*3 + 2] = beta * grad3[2];
-			
-// 			printf("F = %e,%e,%e\n", grad3[0], grad3[1], grad3[2]);
+			force_vector[i*ns*3 + s*3 + 0] = beta * grad3[0];
+			force_vector[i*ns*3 + s*3 + 1] = beta * grad3[1];
+			force_vector[i*ns*3 + s*3 + 2] = beta * grad3[2];
+			/*
+			printf("i:%2i s:%2i  fv: %g %g %g\n", i,s,
+				   force_vector[i*ns*3 + s*3 + 0],
+					   force_vector[i*ns*3 + s*3 + 1],
+						   force_vector[i*ns*3 + s*3 + 2]);
+						   */
+			// 			printf("F = %e,%e,%e\n", grad3[0], grad3[1], grad3[2]);
 		}
 	}
 	
@@ -1431,6 +1515,20 @@ static int l_addstatexyz(lua_State* L)
 	mep->state_xyz_path.push_back(x);
 	mep->state_xyz_path.push_back(y);
 	mep->state_xyz_path.push_back(z);
+	
+	return 0;
+}
+
+static int l_setimagesitemobility(lua_State* L)
+{
+	LUA_PREAMBLE(MEP, mep, 1);
+	
+	const int i = lua_tointeger(L, 2)-1;
+	const int s = lua_tointeger(L, 3)-1;
+	const double m = lua_tonumber(L, 4);
+	
+	mep->setImageSiteMobility(i, s, m);
+	
 	return 0;
 }
 
@@ -1439,10 +1537,7 @@ static int l_resampleStateXYZPath(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
 
-	const int n = lua_tointeger(L, 2);
-	double noise = 0;
-	
-	return mep->resampleStateXYZPath(L, n);
+	return mep->resampleStateXYZPath(L);
 }
 
 static int l_projForcePerpSpins(lua_State* L)
@@ -1612,7 +1707,7 @@ static int l_computepoint2deriv(lua_State* L)
 	
 	int p = lua_tointeger(L, 2) - 1;
 	
-	if(p < 0 || p >= mep->numberOfPoints())
+	if(p < 0 || p >= mep->numberOfImages())
 		return luaL_error(L, "Invalid point number");
 
 	double* derivsAB = new double[num_sites * num_sites * 9];
@@ -1639,14 +1734,14 @@ static int l_getsite(lua_State* L)
 
 	if(p < 0 || s < 0)
 	{
-		return luaL_error(L, "Path Point or site is out of bounds. {Point,Site} = {%d,%d}. Upper Bound = {%d,%d}", p+1,s+1,mep->numberOfPoints(), mep->numberOfSites());
+		return luaL_error(L, "Path Point or site is out of bounds. {Point,Site} = {%d,%d}. Upper Bound = {%d,%d}", p+1,s+1,mep->numberOfImages(), mep->numberOfSites());
 	}
 
 	int idx = mep->sites.size() * p + s*3;
 
 	if(mep->state_xyz_path.size() < idx+2)
 	{
-		return luaL_error(L, "Path Point or site is out of bounds. {Point,Site} = {%d,%d}. Upper Bound = {%d,%d}", p+1,s+1,mep->numberOfPoints(), mep->numberOfSites());
+		return luaL_error(L, "Path Point or site is out of bounds. {Point,Site} = {%d,%d}. Upper Bound = {%d,%d}", p+1,s+1,mep->numberOfImages(), mep->numberOfSites());
 	}
 	
 	const double x = mep->state_xyz_path[idx+0];
@@ -1850,8 +1945,8 @@ const luaL_Reg* MEP::luaMethods()
 		{"spin", l_getsite},
 		{"applyForces", l_applyforces},
 		{"_addStateXYZ", l_addstatexyz},
+		{"_setImageSiteMobility", l_setimagesitemobility},
 		{"_relaxSinglePoint", l_relaxSinglePoint_}, //internal method
-// 		{"_relaxSaddlePoint", l_relaxSaddlePoint_}, //internal method
 		{"_hessianAtPoint", l_computepoint2deriv},
 		{"_maximalPoints", l_maxpoints},
 		{"_randomize", l_randomize_},

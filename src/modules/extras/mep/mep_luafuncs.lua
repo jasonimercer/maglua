@@ -35,6 +35,7 @@ local function getStepMod(tol, err, maxMotion)
 	return 0.95 * (tol / err)^(0.9), err<tol
 end
 
+
 local function getSpinSystem(mep)
 	local d = get_mep_data(mep)
 	return d.ss
@@ -64,7 +65,7 @@ local function writePathPointTo(mep, path_point, ssNew)
 	local sites = mep:sites()
 	for i=1,table.maxn(sites) do
 		local x,y,z = mep:spin(path_point, i)
-		print(table.concat(sites[i], ","))
+-- 		print(table.concat(sites[i], ","))
 		ssNew:setSpin(sites[i], {x,y,z})
 	end
 end
@@ -202,7 +203,11 @@ local function compute(mep, n)
 		single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
 		single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
 
-
+-- 		print("A", successful_steps)
+		
+-- 		print("d.big_step.size", d.big_step:numberOfSites(), d.big_step:numberOfPathPoints())
+-- 		print("d.small_step.size", d.small_step:numberOfSites(), d.small_step:numberOfPathPoints())
+		
 		local aDiff, maxDiff = d.big_step:absoluteDifference(d.small_step)
 		local aDiffAvrg = aDiff / np
 		
@@ -211,6 +216,7 @@ local function compute(mep, n)
 		if good_step then
 			d.small_step:internalCopyTo(mep)
 			successful_steps = successful_steps + 1
+			mep:resampleStateXYZPath(np)
 		end
 		mep:setBeta(step_mod * current_beta)
 	end
@@ -275,29 +281,37 @@ local function setSites(mep, tt)
 end
 
 local function setInitialPath(mep, pp)
+	local ss = getSpinSystem(mep) or error("SpinSystem must be set before :setInitialPath()")
+	
 	local msg = "setInitialPath requires a Table of Tables of site orientations"
 	local tableType = type({})
 	if type(pp) ~= tableType then
 		error(msg)
 	end
-	local numSites = nil
+	local numSites = mep:numberOfSites()
+	local sites = mep:sites()
+	
 	mep:clearPath()
 	for p=1,table.maxn(pp) do
+		local mobility = 1
+		if p == 1 or p == table.maxn(pp) then
+			mobility = 0 --fixed endpoints
+		end
+		
 		if type(pp[p]) ~= tableType then
 			error(msg)
 		end
-		numSites = numSites or table.maxn(pp[p])
-		if numSites ~= table.maxn(pp[p]) then
-			error("Site count mismatch at path point number " .. p)
-		end
 		
 		for s=1,numSites do
-			if type(pp[p][s]) ~= tableType then
-				error(msg)
+			local x, y, z = ss:spin( sites[s] )
+			if pp[p][s] == nil then --user doesn't care
+				mep:_setImageSiteMobility(p, s, 1)
+			else
+				x = pp[p][s][1] or x
+				y = pp[p][s][2] or y
+				z = pp[p][s][3] or z
+				mep:_setImageSiteMobility(p, s, mobility)
 			end
-			local x = pp[p][s][1] or 0
-			local y = pp[p][s][2] or 0
-			local z = pp[p][s][3] or 0
 			mep:_addStateXYZ(x,y,z)
 		end
 	end

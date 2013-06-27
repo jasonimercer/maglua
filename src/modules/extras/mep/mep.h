@@ -45,12 +45,17 @@ public:
 	int ref_data;
 
 	vector<double> state_xyz_path;
+	// move scales how much a point is allowed to move by. 
+	// often the end points have a move of 0 
+	vector<double> image_site_mobility; 
 	vector<int> sites; //x,y,z idx
 	
 	vector<double> path_tangent;
 	vector<double> force_vector;
 	vector<double> energies;
 	
+	void setImageSiteMobility(const int image, const int site, double mobility);
+	double getImageSiteMobility(const int image, const int site);
 
 	double beta; //step size
 	bool energy_ok;
@@ -63,8 +68,8 @@ public:
 	double distanceBetweenHyperPoints(int p1, int p2);
 	double distanceBetweenPoints(int p1, int p2, int site);
 	
-	void interpolatePoints(const int p1, const int p2, const int site, const double ratio, vector<double>& dest);
-	void interpolateHyperPoints(const int p1, const int p2, const double ratio, vector<double>& dest);
+	void interpolatePoints(const int p1, const int p2, const int site, const double ratio, vector<double>& dest, const double jitter);
+	void interpolateHyperPoints(const int p1, const int p2, const double ratio, vector<double>& dest, const double jitter);
 
 	int calculateEnergyGradients(lua_State* L, int get_index, int set_index, int energy_index);
 
@@ -85,9 +90,9 @@ public:
 	
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
-	int resampleStateXYZPath(lua_State* L, int new_num_points);
+	int resampleStateXYZPath(lua_State* L);
 	
-	int numberOfPoints();
+	int numberOfImages();
 	int numberOfSites();
 	
 	void setSiteSpin(lua_State* L, int set_index, int* site3, double* m3);
@@ -115,6 +120,8 @@ private:
 
 	void computePointGradAtSite(lua_State* L, int p, int s, int set_index, int energy_index, double* grad3);
 	void writePathPoint(lua_State* L, int set_index, double* vxyz);
+	
+	void printState();
 };
 
 #endif
