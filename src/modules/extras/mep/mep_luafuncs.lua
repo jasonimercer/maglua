@@ -198,27 +198,29 @@ local function compute(mep, n)
 		d.big_step:setBeta(current_beta)
 		local _, maxMovement = single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss, np)
 
-		d.small_step:setBeta(current_beta/2)
+		if tol > 0 then -- negative tolerance will mean no adaptive steps
+			d.small_step:setBeta(current_beta/2)
+			
+			single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
+			single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
 		
-		single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
-		single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
-
--- 		print("A", successful_steps)
 		
--- 		print("d.big_step.size", d.big_step:numberOfSites(), d.big_step:numberOfPathPoints())
--- 		print("d.small_step.size", d.small_step:numberOfSites(), d.small_step:numberOfPathPoints())
-		
-		local aDiff, maxDiff = d.big_step:absoluteDifference(d.small_step)
-		local aDiffAvrg = aDiff / np
-		
-		local step_mod, good_step = getStepMod(tol, maxDiff)
-		
-		if good_step then
-			d.small_step:internalCopyTo(mep)
+			local aDiff, maxDiff = d.big_step:absoluteDifference(d.small_step)
+			local aDiffAvrg = aDiff / np
+			
+			local step_mod, good_step = getStepMod(tol, maxDiff)
+			
+			if good_step then
+				d.small_step:internalCopyTo(mep)
+				successful_steps = successful_steps + 1
+				mep:resampleStateXYZPath(np)
+			end
+			mep:setBeta(step_mod * current_beta)
+		else -- negative or zero tolerance: no adaptive step
 			successful_steps = successful_steps + 1
+			d.big_step:internalCopyTo(mep)
 			mep:resampleStateXYZPath(np)
 		end
-		mep:setBeta(step_mod * current_beta)
 	end
 end
 
@@ -721,8 +723,8 @@ function(x)
 	
 	if x == setInitialPath then
 		return
-			"Set the initial path for the Minimum Energy Pathway calculation",
-			"1 Table of Tables of site orientations: Must be at least 2 elements long to define the start and end points. Example:\n<pre>upup     = {{0,0,1},{0,0,1}}\ndowndown = {{0,0,-1},{0,0,-1}}\n mep:setInitialPath({upup,downdown})\n</pre>",
+			"Set the initial path for the Minimum Energy Pathway calculation. Must be called after :setSpinSystem",
+			"1 Table of Tables of site orientations or nils: Must be at least 2 elements long to define the start and end points. Example:\n<pre>upupup     = {{0,0,1}, {0,0,1}, {0,0,1}}\ndowndowndc = {{0,0,-1},{0,0,-1},nil}\n mep:setInitialPath({upupup,downdowndc})\n</pre>Values of nil for orientations in the start or end points mean that the algorithm will not attempt to keep them stationary - they will be allowed to drift. Their initial value will be whatever they are in the SpinSystem at the time the method is called. These drifting endpoints are sometimes referred to as `don't care' sites.",
 			""
 	end
 	if x == getEnergyFunction then
@@ -759,7 +761,7 @@ function(x)
 
 	if x == hessianAtPoint then
 		return "Compute the 2nd order partial derivative at a given point along the path.",
-				"1 Integer, 1 Number, 1 Optional Array: Point to calculate 2nd derivative about, step size used in numerical differentiation (will be scaled by problemScale()), optional destination array. If no array is provided one will be created",
+				"1 Integer, 1 Optional Array: Point to calculate 2nd derivative about. If no array is provided one will be created",
 				"1 Array: Derivatives"
 	end
 	
@@ -777,7 +779,7 @@ function(x)
 	
 	if x == setTolerance then
 		return "Set the tolerance used in the adaptive algorithm",
-				"1 Number: Tolerance. Usually something on the order of 0.1 should be OK.",
+				"1 Number: Tolerance. Usually something on the order of 0.1 should be OK. If tolerance is less than or equal to zero then no adaptive steps will be attempted.",
 				""
 	end
 	

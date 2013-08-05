@@ -68,24 +68,28 @@ sites = {{2,2,1}, {2,2,2}}
 upup     = {{0,0, 1}, {0,0, 1/2}}
 updown   = {{0,0, 1}, {0,0,-1/2}}
 downdown = {{0,0,-1}, {0,0,-1/2}}
-initial_path = {upup, updown, downdown}
+-- initial_path = {upup, updown, downdown}
+initial_path = {upup, downdown}
 
 np = 64
 
 mep = MEP.new()
+mep:setSpinSystem(ss)
 mep:setSites(sites)
 mep:setInitialPath(initial_path)
 mep:setEnergyFunction(energy)
 mep:setNumberOfPathPoints(np)
-mep:setSpinSystem(ss)
+mep:setTolerance(1e-1)
 
+mep:setTolerance(-1) --testing fixed step size
+mep:setBeta(0.01)
 
 -- initialize is not needed here, we're just doing it so we can get
 -- the initial energy path to compare.
 mep:initialize()
 writeEnergyPath("InitialEnergyPath.dat")
 
-mep:compute(50) -- this is the EB calculation
+mep:compute(200) -- this is the EB calculation
 
 
 writeEnergyPath("FinalEnergyPath.dat")	
@@ -105,18 +109,24 @@ for k,pidx in pairs(maxs) do
 end
 
 print("\nRelaxing minimum points into center of local basin")
+mep:setTolerance(1e-2)
+
 for k,pidx in pairs(mins) do
-	local stepSize, epsilon, numSteps = 0.01, 1e-3, 10
-	local eInit, eFinal, eChange
-	repeat
-		eInit, eFinal, eChange = mep:relaxSinglePoint(pidx, stepSize, epsilon, 10)
-	until eChange < 1e-14
+	mep:relaxSinglePoint(pidx, 10)
+end
+for k,pidx in pairs(maxs) do
+	mep:relaxSaddlePoint(pidx, 10)
 end
 
 energies = mep:pathEnergy()
 print("New Mins:")
 print("index\tpath_idx\tenergy")
 for k,pidx in pairs(mins) do
+	print(k,pidx,energies[pidx])
+end
+print("New Maxs:")
+print("index\tpath_idx\tenergy")
+for k,pidx in pairs(maxs) do
 	print(k,pidx,energies[pidx])
 end
 
@@ -135,7 +145,7 @@ function printMat(name, M)
 end
 
 function curvature(idx)
-	D = mep:hessianAtPoint(idx, 0.001)
+	D = mep:hessianAtPoint(idx)
 	print("Hessian at point " .. idx)
 	printMat("D", D)
 
@@ -150,7 +160,9 @@ function curvature(idx)
 	print()
 end
 
-print("Curvature Data for maximal points")
-for k,pidx in pairs(all) do
-	curvature(pidx)
-end
+-- print("Curvature Data for maximal points")
+-- for k,pidx in pairs(all) do
+-- 	curvature(pidx)
+-- end
+
+
