@@ -30,6 +30,16 @@ SpinOperation::~SpinOperation()
 	unregisterWS();
 }
 
+const char* SpinOperation::getSlotName()
+{
+	return slotName.c_str();
+}
+
+void SpinOperation::setSlotName(const char* newName)
+{
+	slotName = string(newName);
+}
+
 int SpinOperation::luaInit(lua_State* L)
 {
 	LuaBaseObject::luaInit(L);
@@ -225,13 +235,6 @@ void SpinOperation::getSpinSystemsAtPosition(lua_State* L, int pos, vector<SpinS
 		lua_pop(L, 1);
 }
 
-
-const char* SpinOperation::getSlotName()
-{
-	return 0;
-}
-
-	
 int SpinOperation::markSlotUsed(SpinSystem* ss)
 {
 	int slot = ss->register_slot_name( getSlotName() );
@@ -506,6 +509,13 @@ static int l_getslotname(lua_State* L)
 	return 1;
 }
 
+static int l_setslotname(lua_State* L)
+{
+	LUA_PREAMBLE(SpinOperation,so,1);
+	so->setSlotName(lua_tostring(L, 2));
+	return 0;
+}
+
 		
 int SpinOperation::help(lua_State* L)
 {
@@ -530,6 +540,14 @@ int SpinOperation::help(lua_State* L)
 		lua_pushstring(L, "Get the slot name for this spin operator. When asking a *SpinSystem* for the field type use this name.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 String: Slot Name");
+		return 3;
+	}
+
+	if(func == l_setslotname)
+	{
+		lua_pushstring(L, "Set the slot name for this spin operator to a non-default value. Useful when, for example, differentiating between different contributions from the same field. Near vs far range dipole or X vs Y exchange.");
+		lua_pushstring(L, "1 String: Slot Name");
+		lua_pushstring(L, "");
 		return 3;
 	}
 
@@ -601,6 +619,7 @@ const luaL_Reg* SpinOperation::luaMethods()
 		{"setScale",     l_setscale},
 		{"scale",        l_getscale},
 		{"slotName",     l_getslotname},
+		{"setSlotName",     l_setslotname},
 		{"nx",        l_nx},
 		{"ny",        l_ny},
 		{"nz",        l_nz},

@@ -23,6 +23,7 @@
 Multipole::Multipole(int nx, int ny, int nz)
 	: SpinOperation(Multipole::typeName(), DIPOLE_SLOT, nx, ny, nz, hash32(Multipole::typeName()))
 {
+	setSlotName("Multipole");
 	x = 0; y = 0; z = 0; weight = 0;
 	oct = 0;
 	init();

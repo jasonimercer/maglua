@@ -18,6 +18,7 @@
 AppliedField_Heterogeneous::AppliedField_Heterogeneous(int nx, int ny, int nz)
 	: SpinOperation(nx, ny, nz, hash32(AppliedField_Heterogeneous::typeName()))
 {
+	setSlotName("Zeeman_Heterogeneous");
 	hx = 0;
 	hy = 0;
 	hz = 0;

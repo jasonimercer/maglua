@@ -18,17 +18,12 @@
 AnisotropyCubic::AnisotropyCubic(int nx, int ny, int nz)
 	: SpinOperation(nx, ny, nz, hash32(AnisotropyCubic::typeName()))
 {
+	setSlotName("CubicAnisotropy");
 	ops = 0;
 	//size = nx*ny*nz;
 	size = 0;
 	init();
 }
-
-const char* AnisotropyCubic::getSlotName()
-{
-	return "CubicAnisotropy";
-}
-
 
 int AnisotropyCubic::luaInit(lua_State* L)
 {

@@ -24,7 +24,7 @@
 Dipole::Dipole(int nx, int ny, int nz)
 	: LongRange(nx, ny, nz, hash32(Dipole::typeName()))
 {
-
+	setSlotName("Dipole");
 }
 
 int Dipole::luaInit(lua_State* L)

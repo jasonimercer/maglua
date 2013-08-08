@@ -40,8 +40,6 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 	
-	virtual const char* getSlotName();
-		
 	bool apply(SpinSystem* ss);
 	int addAnisotropy(int site, double* a1, double* a2, double* K3);
 

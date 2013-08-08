@@ -27,6 +27,7 @@
 LongRange2D::LongRange2D(int nx, int ny, int nz, const int encode_tag)
 	: SpinOperation(nx, ny, nz, encode_tag)
 {
+	setSlotName("LongRange2D");
 	registerWS();
     qXX = 0;
     XX = 0;

@@ -26,6 +26,7 @@
 LongRange::LongRange(int nx, int ny, int nz, const int encode_tag)
 	: SpinOperation(nx, ny, nz, encode_tag)
 {
+	setSlotName("LongRange");
     qXX = 0;
     XX = 0;
 	ws1 = 0;

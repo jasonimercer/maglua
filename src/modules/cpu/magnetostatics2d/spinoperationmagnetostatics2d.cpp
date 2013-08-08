@@ -18,6 +18,7 @@
 Magnetostatics2D::Magnetostatics2D(int nx, int ny, int nz, const int encode_tag)
 	: LongRange2D(nx, ny, nz, encode_tag)
 {
+	setSlotName("Magnetostatics2D");
 }
 
 Magnetostatics2D::~Magnetostatics2D()

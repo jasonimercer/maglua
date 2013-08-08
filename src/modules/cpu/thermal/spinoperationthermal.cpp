@@ -19,6 +19,7 @@
 Thermal::Thermal(int nx, int ny, int nz)
 	: SpinOperation(nx, ny, nz, hash32(Thermal::typeName()))
 {
+	setSlotName("Thermal");
 	scale = luaT_inc<dArray>(new dArray(nx,ny,nz));
 	scale->setAll(1.0);
 	temperature = 0;

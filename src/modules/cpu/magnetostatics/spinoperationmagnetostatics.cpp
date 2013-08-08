@@ -32,6 +32,7 @@
 Magnetostatic::Magnetostatic(int nx, int ny, int nz)
 	: LongRange(nx, ny, nz, hash32(Magnetostatic::typeName()))
 {
+	setSlotName("Magnetostatic");
 	crossover_tolerance = 0.00001;
 	
 	volumeDimensions[0] = 1;	

@@ -36,8 +36,6 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 
-	virtual const char* getSlotName();
-
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	
@@ -63,10 +61,14 @@ public:
 	
 	double global_scale;
 
+
+	const char* getSlotName();
+	void setSlotName(const char* newName);
+
 protected:
 	int markSlotUsed(SpinSystem* ss);
 	
-	std::string operationName;
+	std::string slotName;
 };
 
 EXPORT_API int lua_getNint(lua_State* L, int N, int* vec, int pos, int def);

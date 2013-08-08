@@ -20,6 +20,7 @@
 DisorderedDipole::DisorderedDipole(int nx, int ny, int nz)
 	: SpinOperation(nx, ny, nz, hash32(DisorderedDipole::typeName()))
 {
+	setSlotName("DisorderedDipole");
 	posx = 0;
 	posy = 0;
 	posz = 0;

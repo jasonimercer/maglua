@@ -29,8 +29,6 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 
-	virtual const char* getSlotName() {return "DisorderedDipole";}
-
 	bool apply(SpinSystem* ss);
 	double g;
 

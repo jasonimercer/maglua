@@ -18,17 +18,12 @@
 AnisotropyUniaxial::AnisotropyUniaxial(int nx, int ny, int nz)
 	: SpinOperation(nx, ny, nz, hash32(AnisotropyUniaxial::typeName()))
 {
+	setSlotName("UniaxialAnisotropy");
 	ops = 0;
 	//size = nx*ny*nz;
 	size = 0;
 	init();
 }
-
-const char* AnisotropyUniaxial::getSlotName()
-{
-	return "UniaxialAnisotropy";
-}
-
 
 
 int AnisotropyUniaxial::luaInit(lua_State* L)

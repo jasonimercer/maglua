@@ -18,6 +18,7 @@
 AppliedField::AppliedField(int nx, int ny, int nz)
 	: SpinOperation(nx, ny, nz, hash32(AppliedField::typeName()))
 {
+	setSlotName("Zeeman");
 	B[0] = 0;
 	B[1] = 0;
 	B[2] = 0;

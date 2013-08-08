@@ -32,6 +32,7 @@
 LongRange3D::LongRange3D(int nx, int ny, int nz, const int encode_tag)
 	: SpinOperation(nx, ny, nz, encode_tag)
 {
+	setSlotName("LongRange3D");
 	registerWS();
     qXX = 0;
     XX = 0;

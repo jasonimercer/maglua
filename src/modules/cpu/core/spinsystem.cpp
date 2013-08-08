@@ -2412,6 +2412,26 @@ static int l_invalidatefourierdata(lua_State* L)
 }
 
 
+static int l_slots(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	lua_newtable(L);
+	int j = 1;
+	for(int i=0; i<s->nslots; i++)
+	{
+		if(s->registered_slot_names[i])
+		{
+			lua_pushinteger(L, j);
+			lua_pushstring(L, s->registered_slot_names[i]);
+			lua_settable(L, -3);
+			j++;
+		}
+	}
+	s->invalidateFourierData();
+	return 1;
+}
+
+
 int SpinSystem::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -2952,6 +2972,13 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "1 Number: Value");
 		return 3;
 	}	
+	if(func == l_slots)
+	{
+		lua_pushstring(L, "Get a table of the slots registered with this SpinSystem.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Table: slots registered with this SpinSystem");
+		return 3;
+	}	
 
 	if(func == l_invalidatefourierdata)
 	{
@@ -3035,6 +3062,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"setFieldArrayY",  l_setfieldarrayy},
 		{"setFieldArrayZ",  l_setfieldarrayz},
 		
+		{"slots", l_slots},
 		{"slotUsed", l_getslotused},
 		{"setSlotUsed", l_setslotused},
 		{"ensureSlotExists", l_ensureslotexists},

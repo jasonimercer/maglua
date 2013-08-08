@@ -16,8 +16,9 @@
 #include <stdlib.h>
 
 Anisotropy::Anisotropy(int nx, int ny, int nz)
-	: SpinOperation(nx, ny, nz, hash32(Anisotropy::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(Anisotropy::typeName()))  
 {
+	setSlotName("Anisotropy");
 	ops = 0;
 	//size = nx*ny*nz;
 	size = 0;

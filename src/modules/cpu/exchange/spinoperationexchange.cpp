@@ -23,6 +23,7 @@
 Exchange::Exchange(int nx, int ny, int nz)
 	: SpinOperation(nx, ny, nz, hash32(Exchange::typeName()))
 {
+	setSlotName("Exchange");
 	size = 32;
 	num  = 0;
 	pathways = 0;

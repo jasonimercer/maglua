@@ -42,8 +42,6 @@ public:
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
-		
-	virtual const char* getSlotName() {return "Magnetostatics2D";}
 
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
