@@ -188,6 +188,7 @@ int AnisotropyCubic::addAnisotropy(int site, double* a1, double* a2, double* K3)
 		ops = (ani*)realloc(ops, sizeof(ani) * size);
 	}
 	
+	
 	//normalize vectors
 	if(dot(a1,a1) == 0 || dot(a2,a2) == 0)
 	{
@@ -232,6 +233,7 @@ int AnisotropyCubic::addAnisotropy(int site, double* a1, double* a2, double* K3)
 	
 	memcpy(ops[num].K, K3, sizeof(double)*3);
 	num++;
+	return 0;
 }
 
 void AnisotropyCubic::encode(buffer* b)
