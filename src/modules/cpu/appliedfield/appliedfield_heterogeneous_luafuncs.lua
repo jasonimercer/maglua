@@ -24,8 +24,8 @@ local function get(a, p)
 	end
 	
 	local x = a:fieldArrayX():get(p)
-	local y = a:fieldArrayX():get(p)
-	local z = a:fieldArrayX():get(p)
+	local y = a:fieldArrayY():get(p)
+	local z = a:fieldArrayZ():get(p)
 	
 	return {x,y,z}
 end
