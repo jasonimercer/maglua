@@ -18,5 +18,5 @@ DEPEND=core luabaseobject array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 
-EXTRA_CLEAN=appliedfield_luafuncs.cpp appliedfield_luafuncs.h
+EXTRA_CLEAN=appliedfield_luafuncs.cpp appliedfield_luafuncs.h appliedfield_heterogeneous_luafuncs.cpp appliedfield_heterogeneous_luafuncs.h
 
