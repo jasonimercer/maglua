@@ -378,16 +378,20 @@ local function relaxSinglePoint(mep, pointNum, numSteps)
 		local _, m1 = d.small_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 2)
 		
 		local aDiff, maxDiff = d.big_step:absoluteDifference(d.small_step, pointNum)
--- 		local aDiffAvrg = aDiff / np
 			
-		local step_mod, good_step = getStepMod(tol, maxDiff, m1)
+		if tol > 0 then
+			local step_mod, good_step = getStepMod(tol, maxDiff, m1)
 		
-		if good_step then
+			if good_step then
+				d.small_step:internalCopyTo(mep)
+				completed_steps = completed_steps + 1
+			end
+			mep:setBeta(step_mod * current_beta)
+		else
 			d.small_step:internalCopyTo(mep)
 			completed_steps = completed_steps + 1
+			mep:setBeta(current_beta)
 		end
-		mep:setBeta(step_mod * current_beta)
-		
 	end
 end
 
@@ -459,19 +463,20 @@ local function relaxSaddlePoint(mep, pointNum, numSteps)
 
 		local _, maxDiff = d.big_step:absoluteDifference(d.small_step, pointNum)
 		
-		local step_mod, good_step = getStepMod(tol, maxDiff, maxMovement)
-		
-		if good_step then
-			d.small_step:internalCopyTo(mep)
-			completed_steps = completed_steps + 1
-		end
-		mep:setBeta(step_mod * current_beta)
--- 		completed_steps = completed_steps + 1
 
--- 		print(mep:beta(), good_step)
+		if tol > 0 then
+			local step_mod, good_step = getStepMod(tol, maxDiff, maxMovement)
 		
-		
--- 		mep:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, stepSize, 1, down_dir)
+			if good_step then
+				d.small_step:internalCopyTo(mep)
+				completed_steps = completed_steps + 1
+			end
+			mep:setBeta(step_mod * current_beta)
+		else
+			completed_steps = completed_steps + 1
+			d.small_step:internalCopyTo(mep)
+			mep:setBeta(current_beta)
+		end
 	end
 end
 
