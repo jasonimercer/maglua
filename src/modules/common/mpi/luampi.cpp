@@ -789,7 +789,10 @@ template<int base>
 static int l_mpi_get_rank(lua_State* L)
 {
 	MPI_Comm comm = get_comm<base>(L);
-	lua_pushinteger(L, mpi_rank(comm)+1);
+	const int r = mpi_rank(comm);
+	if(r == MPI_UNDEFINED) // possible when asking about the rank when you're not part of the comm
+		return 0;
+	lua_pushinteger(L, r+1);
 	return 1;
 }
 
@@ -1037,7 +1040,7 @@ static bool FC1(lua_CFunction lhs, lua_CFunction rhs)
 }
 // function compare
 #define if_FC1(lhs, rhs) if(FC1(lhs,rhs))
-#define if_FC2(lhs, rhs1, rhs2) if(FC1(lhs,rhs1) && FC1(lhs,rhs2))
+#define if_FC2(lhs, rhs1, rhs2) if(FC1(lhs,rhs1) || FC1(lhs,rhs2))
 
 
 static int l_mpi_help(lua_State* L)

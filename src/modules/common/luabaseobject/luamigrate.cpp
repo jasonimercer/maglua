@@ -63,6 +63,7 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 			encodeBuffer(c, strlen(c)+1, b);
 		break;
 		case LUA_TTABLE:
+			// printf("exporting table\n");
 			tablesize = 0;
 
 			lua_pushnil( L );
@@ -81,6 +82,15 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 				_exportLuaVariable(L, -1, b);
 				lua_pop(L, 1);
 			}
+
+			if(	lua_getmetatable(L, index) == 0)
+			{
+				//printf("table does not have a metatable, pushing nil\n");
+				lua_pushnil(L);
+			}
+			//printf("exporting metatable\n");
+			_exportLuaVariable(L, lua_gettop(L), b);
+			lua_pop(L, 1);
 		break;
 		case LUA_TFUNCTION:
 		{
@@ -102,6 +112,27 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 				free(b2->buf);
 			}
 			delete b2;
+
+			// now it's time for upvalues
+			int num_upvalues = 0;
+			for(int q=1; q<60; q++) // assuming less than 60 upvalues
+			{
+				const char *lua_getupvalue (lua_State *L, int funcindex, int n);
+				if( lua_getupvalue(L, index, q))
+				{
+					num_upvalues++;
+					lua_pop(L, 1);
+				}
+			}
+
+			encodeInteger(num_upvalues, b);
+
+			for(int q=1; q<=num_upvalues; q++)
+			{
+				lua_getupvalue(L, index, q);
+				_exportLuaVariable(L, lua_gettop(L), b);
+			}
+	   		lua_pop(L,num_upvalues);
 		}
 		break;
 		case LUA_TUSERDATA:
@@ -173,6 +204,18 @@ int _importLuaVariable(lua_State* L, buffer* b)
 				_importLuaVariable(L, b);
 				lua_settable(L, -3);
 			}
+
+			_importLuaVariable(L, b); //import potential metatable
+			if(lua_isnil(L, -1))
+			{
+				// no metatable
+				lua_pop(L, 1);
+			}
+			else
+			{
+				lua_setmetatable(L, -2);
+			}
+
 		}
 		break;
 		case LUA_TFUNCTION:
@@ -180,6 +223,13 @@ int _importLuaVariable(lua_State* L, buffer* b)
 			int chunksize = decodeInteger(b);
 			luaL_loadbuffer(L, b->buf + b->pos, chunksize, "import_function");
 			b->pos += chunksize;
+			int func_pos = lua_gettop(L);
+			int num_upvalues = decodeInteger(b);
+			for(int q=1; q<=num_upvalues; q++)
+			{
+				_importLuaVariable(L, b);
+				lua_setupvalue(L, func_pos, q);
+			}
 		}
 		break;
 		case LUA_TUSERDATA:

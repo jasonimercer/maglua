@@ -238,7 +238,7 @@ internal.grainSize = {}
 	f:write("internal.truncationY = " .. internal.truncationY .. "\n")
 	f:write("internal.truncationZ = " .. internal.truncationZ .. "\n")
 	f:write("\n")
-	f:write("-- interaction tensors. Format is AB[desitination_layer][source_layer]\n")
+	f:write("-- interaction tensors. Format is AB[destination_layer][source_layer]\n")
 	tnames = {"XX", "XY", "XZ", "YX", "YY", "YZ", "ZX", "ZY", "ZZ"}
 	
 	local tt = {}

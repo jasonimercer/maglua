@@ -45,6 +45,13 @@ public:
 	int ref_data;
 
 	vector<double> state_xyz_path;
+	
+	vector<double> d12;  //this is the distance between hyperpoints
+	double d12_total;
+	bool good_distances; //dirty bit for good d12 vector
+	double calculateD12(); // calcs pairwise distances, returns total distance. Will cache good results
+	
+	
 	// move scales how much a point is allowed to move by. 
 	// often the end points have a move of 0 
 	vector<double> image_site_mobility; 
@@ -53,6 +60,11 @@ public:
 	vector<double> path_tangent;
 	vector<double> force_vector;
 	vector<double> energies;
+
+	// using to look for curvatature changes = 0 which may be important sites.
+	// hopefully we can resample at a finer resolution near these points
+	// to better make use of images along the path. 
+	int calculatePathEnergyNDeriv(lua_State* L, int get_index, int set_index, int energy_index, int n, vector<double>& nderiv);
 	
 	void setImageSiteMobility(const int image, const int site, double mobility);
 	double getImageSiteMobility(const int image, const int site);
@@ -91,6 +103,7 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	int resampleStateXYZPath(lua_State* L);
+// 	int resampleStateXYZPath(lua_State* L, vector<double>& points);
 	
 	int numberOfImages();
 	int numberOfSites();
@@ -120,6 +133,10 @@ private:
 
 	void computePointGradAtSite(lua_State* L, int p, int s, int set_index, int energy_index, double* grad3);
 	void writePathPoint(lua_State* L, int set_index, double* vxyz);
+	void listDerivN(vector<double>& dest, vector<double>& src);
+
+	double rightDeriv(vector<double>& src, int i);
+	double leftDeriv(vector<double>& src, int i);
 	
 	void printState();
 };

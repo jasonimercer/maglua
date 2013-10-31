@@ -86,9 +86,10 @@ local function pathEnergy(mep)
 		local sx,sy,sz = ss:spin(x,y,z)
 		return sx,sy,sz
 	end
-	local function set_site_ss(x,y,z,sx,sy,sz)
-		local _,_,_,m = ss:spin({x,y,z})
-		ss:setSpin({x,y,z}, {sx,sy,sz},m)
+	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+		local ox,oy,oz,m = ss:spin({x,y,z})
+		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
 	end
 	local function get_energy_ss()
 		return energy_function(ss)
@@ -153,15 +154,20 @@ local function single_compute_step(mep, get_site_ss, set_site_ss, get_energy_ss,
 	movement, maxmovement = mep:applyForces()
 	mep:resampleStateXYZPath(np)
 
+	local ee, pos, zc = mep:pathEnergyNDeriv(3)
+	table.insert(zc, 0)
+	table.insert(zc, 1)
+	mep:resampleStateXYZPath(zc, 0, np)
+	
 	return movement,maxmovement
 end
 
-local function compute(mep, n)
+local function compute(mep, n, tol)
 	local d = get_mep_data(mep)
 	local ss = getSpinSystem(mep)
 	local np = d.np or 20
 	local energy_function = d.energy_function
-	local tol = getTolerance(mep)
+	tol = tol or getTolerance(mep)
 	
 	if ss == nil then
 		error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
@@ -175,9 +181,10 @@ local function compute(mep, n)
 		local sx,sy,sz = ss:spin(x,y,z)
 		return sx,sy,sz
 	end
-	local function set_site_ss(x,y,z,  sx,sy,sz)
+	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
 		local ox,oy,oz,m = ss:spin({x,y,z})
 		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
 	end
 	local function get_energy_ss()
 		local e = energy_function(ss)
@@ -190,7 +197,9 @@ local function compute(mep, n)
 
 	local successful_steps = 0
 	n = n or 50
-	while successful_steps < n do
+	for i = 1,n do
+-- 	while successful_steps < n do
+-- 		print(successful_steps)
 		local current_beta = mep:beta()
 
 		copy_to_children(mep)
@@ -209,19 +218,27 @@ local function compute(mep, n)
 			local aDiffAvrg = aDiff / np
 			
 			local step_mod, good_step = getStepMod(tol, maxDiff)
-			
+-- 			print(maxDiff, tol)
 			if good_step then
 				d.small_step:internalCopyTo(mep)
 				successful_steps = successful_steps + 1
-				mep:resampleStateXYZPath(np)
 			end
 			mep:setBeta(step_mod * current_beta)
 		else -- negative or zero tolerance: no adaptive step
 			successful_steps = successful_steps + 1
 			d.big_step:internalCopyTo(mep)
-			mep:resampleStateXYZPath(np)
 		end
+		
+		mep:resampleStateXYZPath(np)
+
+-- 		local ee, pos, zc = mep:pathEnergyNDeriv(3)
+-- 		table.insert(zc, 0)
+-- 		table.insert(zc, 1)
+-- 		mep:resampleStateXYZPath(zc, 0, np)
+		
 	end
+	
+	return successful_steps
 end
 
 local function setSpinSystem(mep, ss)
@@ -244,19 +261,19 @@ local function setNumberOfPathPoints(mep, n)
 	d.np = n
 end
 
-local function setGradientMaxMotion(mep, dt)
-	local d = get_mep_data(mep)
-	if type(dt) ~= "number" then
-		error("setGradientMaxMotion requires a number", 2)
-	end
-	d.gdt = dt * mep:problemScale()
-end
-
-
-local function gradientMaxMotion(mep)
-	local d = get_mep_data(mep)
-	return (d.gdt / mep:problemScale()) or 0.1
-end
+-- local function setGradientMaxMotion(mep, dt)
+-- 	local d = get_mep_data(mep)
+-- 	if type(dt) ~= "number" then
+-- 		error("setGradientMaxMotion requires a number", 2)
+-- 	end
+-- 	d.gdt = dt * mep:problemScale()
+-- end
+-- 
+-- 
+-- local function gradientMaxMotion(mep)
+-- 	local d = get_mep_data(mep)
+-- 	return (d.gdt / mep:problemScale()) or 0.1
+-- end
 
 
 local function setEnergyFunction(mep, func)
@@ -340,13 +357,12 @@ local function setChild(mep, flag)
 	d.child = flag
 end
 
-
-local function relaxSinglePoint(mep, pointNum, numSteps)
+local function pathEnergyNDeriv(mep, n)
 	local d = get_mep_data(mep)
 	if d.isInitialized == nil then
 		initialize(mep)
 	end
-	local tol = getTolerance(mep)
+
 	local ss = getSpinSystem(mep)
 	local energy_function = getEnergyFunction(mep)
 
@@ -354,11 +370,39 @@ local function relaxSinglePoint(mep, pointNum, numSteps)
 		local sx,sy,sz = ss:spin(x,y,z)
 		return sx,sy,sz
 	end
-	local function set_site_ss(x,y,z,  sx,sy,sz)
-		local _,_,_,m = ss:spin({x,y,z})
+	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+		local ox,oy,oz,m = ss:spin({x,y,z})
 		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+	end
+	local function get_energy_ss()
+		local e = energy_function(ss)
+		return e
 	end
 
+	return mep:_pathEnergyNDeriv(n, get_site_ss, set_site_ss, get_energy_ss)
+end
+
+
+
+local function relaxSinglePoint(mep, pointNum, numSteps, nonDefaultTol)
+	local d = get_mep_data(mep)
+	if d.isInitialized == nil then
+		initialize(mep)
+	end
+	local tol = nonDefaultTol or getTolerance(mep)
+	local ss = getSpinSystem(mep)
+	local energy_function = getEnergyFunction(mep)
+
+	local function get_site_ss(x,y,z)
+		local sx,sy,sz = ss:spin(x,y,z)
+		return sx,sy,sz
+	end
+	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+		local ox,oy,oz,m = ss:spin({x,y,z})
+		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+	end
 	local function get_energy_ss()
 		local e = energy_function(ss)
 		return e
@@ -366,7 +410,8 @@ local function relaxSinglePoint(mep, pointNum, numSteps)
 
 	local n = numSteps or 50
 	local completed_steps = 0
-	while completed_steps < n do
+-- 	while completed_steps < n do
+	for i=1,n do
 		local current_beta = mep:beta()
 
 		copy_to_children(mep)
@@ -393,30 +438,31 @@ local function relaxSinglePoint(mep, pointNum, numSteps)
 			mep:setBeta(current_beta)
 		end
 	end
+	return completed_steps
 end
 
 
 
 -- compute hessian, get eigenvector of negative curvature
 -- negate that direction in the gradient and step
-local function relaxSaddlePoint(mep, pointNum, numSteps)
+local function relaxSaddlePoint(mep, pointNum, numSteps, nonDefaultTol)
 	local d = get_mep_data(mep)
 -- 	if d.isInitialized == nil then
 -- 		initialize(mep)
 -- 	end
 	local ss = getSpinSystem(mep)
 	local energy_function = getEnergyFunction(mep)
-	local tol = getTolerance(mep)
+	local tol = nonDefaultTol or getTolerance(mep)
 
 	local function get_site_ss(x,y,z)
 		local sx,sy,sz = ss:spin(x,y,z)
 		return sx,sy,sz
 	end
-	local function set_site_ss(x,y,z,  sx,sy,sz)
-		local _,_,_,m = ss:spin({x,y,z})
+	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+		local ox,oy,oz,m = ss:spin({x,y,z})
 		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
 	end
-
 	local function get_energy_ss()
 		local e = energy_function(ss)
 		return e
@@ -424,7 +470,8 @@ local function relaxSaddlePoint(mep, pointNum, numSteps)
 	
 	numSteps = numSteps or 50
 	local completed_steps = 0
-	while completed_steps < numSteps do
+-- 	while completed_steps < numSteps do
+	for i=1,numSteps do
 		local current_beta = mep:beta()
 		local D = mep:hessianAtPoint(pointNum)
 		local vals, vecs = D:matEigen()
@@ -478,6 +525,7 @@ local function relaxSaddlePoint(mep, pointNum, numSteps)
 			mep:setBeta(current_beta)
 		end
 	end
+	return completed_steps
 end
 
 
@@ -490,9 +538,10 @@ local function hessianAtPoint(mep, pointNum, destArray)
 		local sx,sy,sz = ss:spin(x,y,z)
 		return sx,sy,sz
 	end
-	local function set_site_ss(x,y,z,  sx,sy,sz)
-		local _,_,_,m = ss:spin({x,y,z})
+	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+		local ox,oy,oz,m = ss:spin({x,y,z})
 		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
 	end
 	local function get_energy_ss()
 		local e = energy_function(ss)
@@ -643,13 +692,16 @@ mt.setSpinSystem = setSpinSystem
 mt.relaxSinglePoint = relaxSinglePoint
 mt.relaxSaddlePoint = relaxSaddlePoint
 
+mt.pathEnergyNDeriv = pathEnergyNDeriv
+
+
 mt.hessianAtPoint = hessianAtPoint
 
 mt.isChild = isChild
 mt.setChild = setChild
 
-mt.setGradientMaxMotion = setGradientMaxMotion
-mt.gradientMaxMotion = gradientMaxMotion
+-- mt.setGradientMaxMotion = setGradientMaxMotion
+-- mt.gradientMaxMotion = gradientMaxMotion
 
 mt.energyBarrier = energyBarrier
 
@@ -697,8 +749,8 @@ function(x)
 	if x == compute then
 		return
 			"Run several relaxation steps of the Minimum Energy Pathway method",
-			"1 Optional Integer: Number of steps, default 50",
-			"1 Number: Absolute amount of path movement in the final step divided by the number of points."
+			"1 Optional Integer, 1 Optional Number: Number of steps, default 50. Tolerance different than tolerance specified.",
+			"1 Number: Number of successful steps taken, for tol > 0 this may be less than number of steps requested"
 	end
 	if x == setEnergyFunction then
 		return
@@ -753,17 +805,23 @@ function(x)
 	
 	if x == relaxSinglePoint then
 		return 	"Allow a single point to move along the local energy gradient either down to a minimum or up to a maximum",
-				"1 Integer, 1 Number, 1 Integer: Point to relax,, number of iterations.",
-				""
+				"1 Integer, 1 Number, 1 Number, 1 Integer: Point to relax, optional number of iterations, optional non-default tolerance",
+				"1 Integer: Number of successful steps taken"
 	end
-
 		
 	if x == relaxSaddlePoint then
 		return 	"Allow a single point to move along the local energy gradient either down to a minimum or up to a maximum. A single gradient coordinate will be inverted based on the 2nd derivative to converge to a saddle point.",
-				"1 Integer, 1 Integer: Point to relax, number of iterations.",
-				""
+				"1 Integer, 1 Number, 1 Number, 1 Integer: Point to relax, optional number of iterations, optional non-default tolerance",
+				"1 Integer: Number of successful steps taken"
 	end
-
+			
+	if x == pathEnergyNDeriv then
+		return 	"Calculate the Nth derivative of the path energy.",
+				"1 Integer: The derivative, 0 = energy, 1 = slope of energy, 2 = acceleration of energy, ...",
+				"3 Tables: The Nth derivatives of the energy, the normalized location along the path between 0 and 1, the list of zero crossings"
+	end
+	
+	
 	if x == hessianAtPoint then
 		return "Compute the 2nd order partial derivative at a given point along the path.",
 				"1 Integer, 1 Optional Array: Point to calculate 2nd derivative about. If no array is provided one will be created",

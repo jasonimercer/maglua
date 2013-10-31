@@ -33,7 +33,7 @@ function make_adapt_step_function(a1, a2, a3, a4, a5, a6)
 	local ss2 = ss:copy()
 	local ss3 = ss:copy()
 	local llg = llg_
-	local dynamics = dynamics_
+	local dynamics = dynamics_ or function() end
 	
 	local optional_temp = optional_thermal_operator
 	
@@ -57,12 +57,13 @@ function make_adapt_step_function(a1, a2, a3, a4, a5, a6)
 		s:copySpinsTo(ss3)
 		
 		
-		if dynamics then dynamics(ss2) end
+		dynamics(ss2)
 		step(ss2, true) -- ss2 = full step, true = no thermal contrib
 	
-		if dynamics then dynamics(ss3) end
+
+		dynamics(ss3)  -- 2 half steps
 		step(ss3, true)
-		if dynamics then dynamics(ss3) end
+		dynamics(ss3)
 		step(ss3, true)
 		
 		local are_same, ee = same(ss2,ss3)

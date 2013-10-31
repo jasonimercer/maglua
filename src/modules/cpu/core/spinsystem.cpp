@@ -2431,6 +2431,25 @@ static int l_slots(lua_State* L)
 	return 1;
 }
 
+static int l_idx2pos(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s, 1);
+	int idx = lua_tointeger(L, 2);
+
+	if(idx < 1 || idx > s->nxyz)
+		lua_pushnil(L);
+	else
+	{
+		int x, y, z;
+		s->idx2xyz(idx-1, x,y,z);
+		lua_newtable(L);
+		lua_pushinteger(L, 1); lua_pushinteger(L, x+1); lua_settable(L, -3);
+		lua_pushinteger(L, 2); lua_pushinteger(L, y+1); lua_settable(L, -3);
+		lua_pushinteger(L, 3); lua_pushinteger(L, z+1); lua_settable(L, -3);
+	}
+
+	return 1;
+}
 
 int SpinSystem::help(lua_State* L)
 {
@@ -2984,9 +3003,17 @@ int SpinSystem::help(lua_State* L)
 	{
 		lua_pushstring(L, "Invalidates the cache of the Fourier transform of the spin system. If the time changes or :setSpin "
 						  "is called then the cache is invalidated but there are cases, such as when the internal arrays are exported "
-						  "and modified, when the SpinSystem isn't aware of changes. This function help to deal with those extreme cases");
+						  "and modified, when the SpinSystem isn't aware of changes. This function will help to deal with those extreme cases.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_idx2pos)
+	{
+		lua_pushstring(L, "Convert an integer between 1 and xyz to a table representing a position in the SpinSystem.");
+		lua_pushstring(L, "1 Integer: Index of a site.");
+		lua_pushstring(L, "1 Table of 3 Integers: Position at the given index.");
 		return 3;
 	}
 
@@ -3076,6 +3103,8 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"setSiteGamma",      l_setsitegamma},
 		{"siteAlpha",         l_getsitealpha},
 		{"siteGamma",         l_getsitegamma},
+
+		{"indexToPosition",   l_idx2pos},
 		
 		{"registeredSlots", l_registeredSlots},
 		

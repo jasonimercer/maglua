@@ -47,6 +47,7 @@ cp -r modules/cpu/magnetostatics3d     $version/modules/cpu
 cp -r modules/cpu/thermal              $version/modules/cpu
 cp -r modules/cpu/ewald3d              $version/modules/cpu
 cp -r modules/cpu/wood                 $version/modules/cpu
+cp -r modules/cpu/kmc                  $version/modules/cpu
 
 cp    modules/extras/Makefile          $version/modules/extras
 cp -r modules/extras/pngwriter         $version/modules/extras
