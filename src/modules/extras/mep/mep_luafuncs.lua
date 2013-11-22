@@ -1,11 +1,15 @@
 -- MEP
-
 local MODNAME = "MEP"
 local MODTAB = _G[MODNAME]
-local mt = maglua_getmetatable(MODNAME) -- this is a special function available only at registration time
+local t = maglua_getmetatable(MODNAME) -- this is a special function available only at registration time
 
-local help = MODTAB.help -- setting up fallback to C++ help defs
+-- trying something new for style/readability. 
+-- Putting docs and code in a table which will later be used
+-- to build metatable and help system.
+local methods = {}
 
+
+-- internal support functions
 local function get_mep_data(mep)
 	if mep == nil then
 		return {}
@@ -17,91 +21,154 @@ local function get_mep_data(mep)
 end
 
 local function getStepMod(tol, err, maxMotion)
+	-- print("getStepMod(tol=" .. tol .. ",err=" .. err .. ")")
 	if maxMotion then
 		if maxMotion > 0.1 then
+			-- print("ret 0.5, false")
 			return 0.5, false
 		end
 	end
 	if err == 0 then
+		-- print("ret 2, true")
 		return 2, true
 	end
 
 	if err<tol then
 		local x = 0.9*(tol / err)^(0.5)
 -- 		print(x)
+		-- print(err, tol)
+		-- print("ret " .. x .. ", " .. tostring(err<tol))
 		return x, err<tol
 	end
 	
+	-- print("ret " .. 0.95 * (tol / err)^(0.9) .. ", " .. tostring(err<tol))
 	return 0.95 * (tol / err)^(0.9), err<tol
 end
 
 
-local function getSpinSystem(mep)
-	local d = get_mep_data(mep)
-	return d.ss
-end
+methods["spinSystem"] =
+{
+	"Get the *SpinSystem* used in the calculation",
+	"",
+	"1 SpinSystem",
+	function(mep)
+		local d = get_mep_data(mep)
+		return d.ss
+	end
+}
 
-local function getTolerance(mep)
-	local d = get_mep_data(mep)
-	return d.tol or 1e-4
-end
-local function setTolerance(mep, tol)
-	local d = get_mep_data(mep)
-	d.tol = tol
-end
+methods["tolerance"] =
+{
+	"Get the tolerance used in the adaptive algorithm",
+	"",
+	"1 Number: Tolerance",
+	function(mep)
+		local d = get_mep_data(mep)
+		return d.tol or 1e-4
+	end
+}
 
-local function getEnergyFunction(mep)
-	local d = get_mep_data(mep)
-	return (d.energy_function or function() return 0 end)
-end
+methods["setTolerance"] =
+{
+	"Set the tolerance used in the adaptive algorithm",
+	"1 Number: Tolerance. Usually something on the order of 0.1 should be OK. If tolerance is less than or equal to zero then no adaptive steps will be attempted.",
+	"",
+	function(mep, tol)
+		local d = get_mep_data(mep)
+		d.tol = tol
+	end
+}
+
+
+methods["energyFunction"] =
+{
+	"Get the function used to determine system energy for the calculation.",
+	"",
+	"1 Function: energy calculation function, expected to be passed a *SpinSystem*.",
+	function(mep)
+		local d = get_mep_data(mep)
+		return (d.energy_function or function() return 0 end)
+	end
+}
 
 -- write a state to a spinsystem
-local function writePathPointTo(mep, path_point, ssNew)
-	local d = get_mep_data(mep)
-	local ss = d.ss
-
-	ss:copySpinsTo(ssNew)
--- 	print("pp", path_point)
-	local sites = mep:sites()
-	for i=1,table.maxn(sites) do
-		local x,y,z = mep:spin(path_point, i)
--- 		print(table.concat(sites[i], ","))
-		ssNew:setSpin(sites[i], {x,y,z})
+methods["writePathPointTo"] =
+{
+	"Write path point to the given spin system",
+	"1 Integer, 1 *SpinSystem*: The integer ranges from 1 to the number of path points, the *SpinSystem* will have the sites involved in the Minimum Energy Pathwaycalculation changed to match those at the given path index.",
+	"",
+	function(mep, path_point, ssNew)
+		local d = get_mep_data(mep)
+		local ss = d.ss
+		
+		ss:copySpinsTo(ssNew)
+		-- 	print("pp", path_point)
+		local sites = mep:sites()
+		for i=1,table.maxn(sites) do
+			local x,y,z = mep:spin(path_point, i)
+			-- 		print(table.concat(sites[i], ","))
+			ssNew:setSpin(sites[i], {x,y,z})
+		end
 	end
-end
+}
 
-local function pathEnergy(mep)
-	local d = get_mep_data(mep)
-	local ss = d.ss
-	local energy_function = d.energy_function
+methods["energyAtPoint"] =
+{
+	"Get the energy at a point",
+	"1 Integer: Point number",
+	"1 Number: Energy at point.",
+	function(mep, p)
+		local path = mep:pathEnergy()
+		return path[p]
+	end
+}
 
-	if ss == nil then
-		error("Initial State required for pathEnergies")
+methods["pathEnergy"] =
+{
+	"Get all energies along the path",
+	"",
+	"1 Table: energies along the path",
+	function(mep)
+		local d = get_mep_data(mep)
+		local ss = d.ss
+		local energy_function = d.energy_function
+		
+		if ss == nil then
+			error("Initial State required for pathEnergies")
+		end
+		if energy_function == nil then
+			error("Energy Function required for pathEnergies")
+		end
+		
+		local function get_site_ss(x,y,z)
+			local sx,sy,sz = ss:spin(x,y,z)
+			return sx,sy,sz
+		end
+		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+			local ox,oy,oz,m = ss:spin({x,y,z})
+			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+		end
+		local function get_energy_ss()
+			return energy_function(ss)
+		end
+		
+		mep:calculateEnergies(get_site_ss, set_site_ss, get_energy_ss);
+		return mep:getPathEnergy()
 	end
-	if energy_function == nil then
-		error("Energy Function required for pathEnergies")
-	end
+}
 
-	local function get_site_ss(x,y,z)
-		local sx,sy,sz = ss:spin(x,y,z)
-		return sx,sy,sz
-	end
-	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-		local ox,oy,oz,m = ss:spin({x,y,z})
-		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-	end
-	local function get_energy_ss()
-		return energy_function(ss)
-	end
 
-	mep:calculateEnergies(get_site_ss, set_site_ss, get_energy_ss);
-	return mep:getPathEnergy()
-end
 
-local function randomize(mep, magnitude)
-	mep:_randomize(magnitude)
-end
+methods["randomize"] = 
+{
+	"Perturb all points (except endpoints) by a random value.",
+	"1 Number: Magnitude of perturbation.",
+	"",
+	function(mep, magnitude)
+		mep:_randomize(magnitude)
+	end
+}
 
 local function copy_to_children(mep)
 	local d = get_mep_data(mep)
@@ -122,144 +189,162 @@ local function copy_to_children(mep)
 	end
 end
 
-local function initialize(mep, _np)
-	local d = get_mep_data(mep)
-	local np = _np or (d.np or 20)
-	mep:resampleStateXYZPath(np)
-	
-	if not mep:isChild() then
-		if d.big_step == nil then
-			d.big_step = MEP.new()
-			d.small_step = MEP.new()
 
-			d.big_step:setChild(true)
-			d.small_step:setChild(true)
+methods["initialize"] = 
+{
+	"Expand the endpoints into a coherent rotation over the number of path points specified with setNumberOfPathPoints.",
+	"1 Optional integer: A non-default number of points to interpolate over.",
+	"",
+	function(mep, _np)
+		local d = get_mep_data(mep)
+		local np = _np or (d.np or 20)
+		mep:resampleStateXYZPath(np)
+		
+		if not mep:isChild() then
+			if d.big_step == nil then
+				d.big_step = MEP.new()
+				d.small_step = MEP.new()
+				
+				d.big_step:setChild(true)
+				d.small_step:setChild(true)
+			end
 		end
+		d.isInitialized = true
 	end
-	d.isInitialized = true
-end
+}
 
 local function single_compute_step(mep, get_site_ss, set_site_ss, get_energy_ss, np)
 	local d = get_mep_data(mep)
 
 	if d.isInitialized == nil then
-		initialize(mep)
+		mep:initialize()
 	end
 
-	local movement = 0
-	local maxmovement = 0
 	mep:calculateEnergyGradients(get_site_ss, set_site_ss, get_energy_ss)
 	mep:makeForcePerpendicularToPath(get_site_ss, set_site_ss, get_energy_ss)
 	mep:makeForcePerpendicularToSpins(get_site_ss, set_site_ss, get_energy_ss)
-	movement, maxmovement = mep:applyForces()
-	mep:resampleStateXYZPath(np)
-
-	local ee, pos, zc = mep:pathEnergyNDeriv(3)
-	table.insert(zc, 0)
-	table.insert(zc, 1)
-	mep:resampleStateXYZPath(zc, 0, np)
-	
-	return movement,maxmovement
+	mep:applyForces()
 end
 
-local function compute(mep, n, tol)
-	local d = get_mep_data(mep)
-	local ss = getSpinSystem(mep)
-	local np = d.np or 20
-	local energy_function = d.energy_function
-	tol = tol or getTolerance(mep)
-	
-	if ss == nil then
-		error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
-	end
-	
-	if energy_function == nil then
-		error("Energy function is nil. Set an energy function with :setEnergyFunction")
-	end
-	
-	local function get_site_ss(x,y,z)
-		local sx,sy,sz = ss:spin(x,y,z)
-		return sx,sy,sz
-	end
-	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-		local ox,oy,oz,m = ss:spin({x,y,z})
-		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-	end
-	local function get_energy_ss()
-		local e = energy_function(ss)
-		return e
-	end
-	
-	if d.isInitialized == nil then
-		initialize(mep)
-	end
 
-	local successful_steps = 0
-	n = n or 50
-	for i = 1,n do
--- 	while successful_steps < n do
--- 		print(successful_steps)
-		local current_beta = mep:beta()
-
-		copy_to_children(mep)
-
-		d.big_step:setBeta(current_beta)
-		local _, maxMovement = single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss, np)
-
-		if tol > 0 then -- negative tolerance will mean no adaptive steps
-			d.small_step:setBeta(current_beta/2)
-			
-			single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
-			single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
+methods["compute"] =
+{
+	"Run several relaxation steps of the Minimum Energy Pathway method",
+	"1 Optional Integer, 1 Optional Number: Number of steps, default 50. Tolerance different than tolerance specified.",
+	"1 Number: Number of successful steps taken, for tol > 0 this may be less than number of steps requested",
+	function(mep, n, tol)
+		local d = get_mep_data(mep)
+		local ss = mep:spinSystem()
+		local np = d.np or 20
+		local energy_function = d.energy_function
+		tol = tol or mep:tolerance()
 		
-		
-			local aDiff, maxDiff = d.big_step:absoluteDifference(d.small_step)
-			local aDiffAvrg = aDiff / np
-			
-			local step_mod, good_step = getStepMod(tol, maxDiff)
--- 			print(maxDiff, tol)
-			if good_step then
-				d.small_step:internalCopyTo(mep)
-				successful_steps = successful_steps + 1
-			end
-			mep:setBeta(step_mod * current_beta)
-		else -- negative or zero tolerance: no adaptive step
-			successful_steps = successful_steps + 1
-			d.big_step:internalCopyTo(mep)
+		if ss == nil then
+			error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
 		end
 		
-		mep:resampleStateXYZPath(np)
-
--- 		local ee, pos, zc = mep:pathEnergyNDeriv(3)
--- 		table.insert(zc, 0)
--- 		table.insert(zc, 1)
--- 		mep:resampleStateXYZPath(zc, 0, np)
+		if energy_function == nil then
+			error("Energy function is nil. Set an energy function with :setEnergyFunction")
+		end
 		
+		local function get_site_ss(x,y,z)
+			local sx,sy,sz = ss:spin(x,y,z)
+			return sx,sy,sz
+		end
+		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+			local ox,oy,oz,m = ss:spin({x,y,z})
+			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+		end
+		local function get_energy_ss()
+			local e = energy_function(ss)
+			return e
+		end
+		
+		if d.isInitialized == nil then
+			mep:initialize()
+		end
+		
+		local successful_steps = 0
+		n = n or 50
+		for i = 1,n do
+			-- 	while successful_steps < n do
+			-- 		print(successful_steps)
+			local current_beta = mep:beta()
+			
+			copy_to_children(mep)
+			
+			d.big_step:setBeta(current_beta)
+			single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss, np)
+			
+			if tol > 0 then -- negative tolerance will mean no adaptive steps
+				d.small_step:setBeta(current_beta/2)
+				
+				single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
+				single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
+				
+				
+				local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
+				local aDiffAvrg = aDiff / np
+				
+				-- print("beta = ", current_beta, "max_idx", max_idx)
+				local step_mod, good_step = getStepMod(tol, maxDiff)
+				-- 			print(maxDiff, tol)
+				if good_step then
+					d.small_step:internalCopyTo(mep)
+					mep:resampleStateXYZPath(np)
+					successful_steps = successful_steps + 1
+				end
+				mep:setBeta(step_mod * current_beta)
+			else -- negative or zero tolerance: no adaptive step
+				successful_steps = successful_steps + 1
+				d.big_step:internalCopyTo(mep)
+			end
+			
+			mep:resampleStateXYZPath(np)
+			
+			-- 		local ee, pos, zc = mep:pathEnergyNDeriv(3)
+			-- 		table.insert(zc, 0)
+			-- 		table.insert(zc, 1)
+			-- 		mep:resampleStateXYZPath(zc, 0, np)
+			
+		end
+		
+		return successful_steps
 	end
-	
-	return successful_steps
-end
+}
 
-local function setSpinSystem(mep, ss)
-	local d = get_mep_data(mep)
-	if getmetatable(ss) ~= SpinSystem.metatable() then
-		error("setSpinSystem requires a SpinSystem", 2)
+methods["setSpinSystem"] =
+{
+	"Set the SpinSystem that will be used to do energy and orientation calculations. The any changes made to this SpinSystem will be undone before control is returned to the calling environment.",
+	"1 *SpinSystem*: SpinSystem to be used in calculations",
+	"",
+	function(mep, ss)
+		local d = get_mep_data(mep)
+		if getmetatable(ss) ~= SpinSystem.metatable() then
+			error("setSpinSystem requires a SpinSystem", 2)
+		end
+		d.ss = ss
 	end
-	d.ss = ss
-end
+}
 
 
-local function setNumberOfPathPoints(mep, n)
-	local d = get_mep_data(mep)
-	if type(n) ~= "number" then
-		error("setNumberOfPathPoints requires a number", 2)
+methods["setNumberOfPathPoints"] =
+{
+	"Set the number of path points used to approximate a line (defualt 20).",
+	"1 Number: Number of path points",
+	"",
+	function(mep, n)
+		local d = get_mep_data(mep)
+		if type(n) ~= "number" then
+			error("setNumberOfPathPoints requires a number", 2)
+		end
+		if n < 2 then
+			error("Number of points must be 2 or greater.")
+		end
+		d.np = n
 	end
-	if n < 2 then
-		error("Number of points must be 2 or greater.")
-	end
-	d.np = n
-end
+}
 
 -- local function setGradientMaxMotion(mep, dt)
 -- 	local d = get_mep_data(mep)
@@ -276,96 +361,169 @@ end
 -- end
 
 
-local function setEnergyFunction(mep, func)
-	local d = get_mep_data(mep)
-	if type(func) ~= "function" then
-		error("setEnergyFunction requires a function", 2)
-	end
-	d.energy_function = func
-end
 
-local function setSites(mep, tt)
-	if type(tt) ~= "table" then
-		error("setSites requires a table of 1,2 or 3 Component Tables representing sites.") 
+methods["setEnergyFunction"] =
+{
+	"Set the function used to determine system energy for the calculation.",
+	"1 Function: energy calculation function, expected to be passed a *SpinSystem*.",
+	"",
+	function(mep, func)
+		local d = get_mep_data(mep)
+		if type(func) ~= "function" then
+			error("setEnergyFunction requires a function", 2)
+		end
+		d.energy_function = func
 	end
-	
-	if tt[1] and type(tt[1]) ~= "table" then
-		error("setSites requires a table of 1,2 or 3 Component Tables representing sites.") 
-	end
-	
-	mep:clearSites()
-	for k,v in pairs(tt) do
-		mep:_addSite(v[1], v[2], v[3])
-	end
-end
+}
 
-local function setInitialPath(mep, pp)
-	local ss = getSpinSystem(mep) or error("SpinSystem must be set before :setInitialPath()")
-	
-	local msg = "setInitialPath requires a Table of Tables of site orientations"
-	local tableType = type({})
-	if type(pp) ~= tableType then
-		error(msg)
-	end
-	local numSites = mep:numberOfSites()
-	local sites = mep:sites()
-	
-	mep:clearPath()
-	for p=1,table.maxn(pp) do
-		local mobility = 1
-		if p == 1 or p == table.maxn(pp) then
-			mobility = 0 --fixed endpoints
+
+methods["setSites"] = 
+{
+	"Set the sites that are allowed to move to transition from the initial configuration to the final configuration.",
+	"1 Table of 1,2 or 3 Component Tables: mobile sites.",
+	"",
+	function(mep, tt)
+		if type(tt) ~= "table" then
+			error("setSites requires a table of 1,2 or 3 Component Tables representing sites.") 
 		end
 		
-		if type(pp[p]) ~= tableType then
+		if tt[1] and type(tt[1]) ~= "table" then
+			error("setSites requires a table of 1,2 or 3 Component Tables representing sites.") 
+		end
+		
+		mep:clearSites()
+		for k,v in pairs(tt) do
+			mep:_addSite(v[1], v[2], v[3])
+		end
+	end
+}
+
+methods["setInitialPath"] =
+{
+	"Set the initial path for the Minimum Energy Pathway calculation. Must be called after :setSpinSystem",
+	"1 Table of Tables of site orientations or nils: Must be at least 2 elements long to define the start and end points. Example:\n<pre>upupup     = {{0,0,1}, {0,0,1}, {0,0,1}}\ndowndowndc = {{0,0,-1},{0,0,-1},nil}\n mep:setInitialPath({upupup,downdowndc})\n</pre>Values of nil for orientations in the start or end points mean that the algorithm will not attempt to keep them stationary - they will be allowed to drift. Their initial value will be whatever they are in the SpinSystem at the time the method is called. These drifting endpoints are sometimes referred to as `don't care' sites.",
+	"",
+	function(mep, pp)
+		local ss = mep:spinSystem() or error("SpinSystem must be set before :setInitialPath()")
+		
+		local msg = "setInitialPath requires a Table of Tables of site orientations"
+		local tableType = type({})
+		if type(pp) ~= tableType then
 			error(msg)
 		end
+		local numSites = mep:numberOfSites()
+		local sites = mep:sites()
 		
-		for s=1,numSites do
-			local x, y, z = ss:spin( sites[s] )
-			if pp[p][s] == nil then --user doesn't care
-				mep:_setImageSiteMobility(p, s, 1)
-			else
-				x = pp[p][s][1] or x
-				y = pp[p][s][2] or y
-				z = pp[p][s][3] or z
-				mep:_setImageSiteMobility(p, s, mobility)
+		mep:clearPath()
+		for p=1,table.maxn(pp) do
+			local mobility = 1
+			if p == 1 or p == table.maxn(pp) then
+				mobility = 0 --fixed endpoints
 			end
-			mep:_addStateXYZ(x,y,z)
+			
+			if type(pp[p]) ~= tableType then
+				error(msg)
+			end
+			
+			for s=1,numSites do
+				local x, y, z = ss:spin( sites[s] )
+				if pp[p][s] == nil then --user doesn't care
+					mep:_setImageSiteMobility(p, s, 1)
+				else
+					x = pp[p][s][1] or x
+					y = pp[p][s][2] or y
+					z = pp[p][s][3] or z
+					mep:_setImageSiteMobility(p, s, mobility)
+				end
+				mep:_addStateXYZ(x,y,z)
+			end
 		end
+		-- 	print("PP=", table.maxn(pp))
 	end
--- 	print("PP=", table.maxn(pp))
-end
+}
 
 
-local function getNumberOfPathPoints(mep)
-	local d = get_mep_data(mep)
-	return (d.np or 20)
-end
 
-local function getNumberSites(mep)
-	return table.maxn(mep:sites())
-end
+methods["numberOfPathPoints"] =
+{
+	"Get the number of path points used to approximate a line (defualt 20).",
+	"",
+	"1 Integer: Number of path points",
+	function(mep)
+		local d = get_mep_data(mep)
+		return (d.np or 20)
+	end
+}
 
-local function isChild(mep)
-	local d = get_mep_data(mep)
-	return (d.child or false)
-end
+methods["numberOfSites"] = 
+{
+	"Get the number of sites used in calculation.",
+	"",
+	"1 Integer: Number of sites.",
+	function(mep)
+		return table.maxn(mep:sites())
+	end
+}
 
-local function setChild(mep, flag)
-	local d = get_mep_data(mep)
-	d.child = flag
-end
+methods["isChild"] =
+{
+	nil,nil,nil,
+	function(mep)
+		local d = get_mep_data(mep)
+		return (d.child or false)
+	end
+}
 
-local function pathEnergyNDeriv(mep, n)
+methods["setChild"] = 
+{
+	nil,nil,nil,
+	function(mep, flag)
+		local d = get_mep_data(mep)
+		d.child = flag
+	end
+}
+
+methods["pathEnergyNDeriv"] = 
+{
+	"Calculate the Nth derivative of the path energy.",
+	"1 Integer: The derivative, 0 = energy, 1 = slope of energy, 2 = acceleration of energy, ...",
+	"3 Tables: The Nth derivatives of the energy, the normalized location along the path between 0 and 1, the list of zero crossings",
+	function(mep, n)
+		local d = get_mep_data(mep)
+		if d.isInitialized == nil then
+			mep:initialize()
+		end
+		
+		local ss = mep:spinSystem()
+		local energy_function = mep:energyFunction()
+		
+		local function get_site_ss(x,y,z)
+			local sx,sy,sz = ss:spin(x,y,z)
+			return sx,sy,sz
+		end
+		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+			local ox,oy,oz,m = ss:spin({x,y,z})
+			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+		end
+		local function get_energy_ss()
+			local e = energy_function(ss)
+			return e
+		end
+		
+		return mep:_pathEnergyNDeriv(n, get_site_ss, set_site_ss, get_energy_ss)
+	end
+}
+
+local function relaxPoint(mep, pointNum, steps, goal)
 	local d = get_mep_data(mep)
 	if d.isInitialized == nil then
-		initialize(mep)
+		mep:initialize()
 	end
-
-	local ss = getSpinSystem(mep)
-	local energy_function = getEnergyFunction(mep)
-
+	local ss = mep:spinSystem()
+	local energy_function = mep:energyFunction()
+	local tol = nonDefaultTol or mep:tolerance()
+		
 	local function get_site_ss(x,y,z)
 		local sx,sy,sz = ss:spin(x,y,z)
 		return sx,sy,sz
@@ -380,219 +538,195 @@ local function pathEnergyNDeriv(mep, n)
 		return e
 	end
 
-	return mep:_pathEnergyNDeriv(n, get_site_ss, set_site_ss, get_energy_ss)
+	steps = steps or 50
+
+	local dx,dy,dz, final_grad = mep:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 0.1, 0.1, 0.1, steps, goal)
+	return final_grad
 end
 
-
-
-local function relaxSinglePoint(mep, pointNum, numSteps, nonDefaultTol)
-	local d = get_mep_data(mep)
-	if d.isInitialized == nil then
-		initialize(mep)
+methods["relaxSinglePoint"] =
+{
+	"Move point to minimize energy gradient. This will find local maxs, mins or saddle points.",
+	"1 Integer, 1 Optional Integer, 1 Optional Number: Point to relax, optional number of iterations (default 50), optional goal gradient magnitude for early completion.",
+	"1 Number: Gradient magnitude at final iteration.",
+	function(mep, pointNum, numSteps, goal) --, nonDefaultTol)
+		relaxPoint(mep, pointNum, numSteps, goal)
 	end
-	local tol = nonDefaultTol or getTolerance(mep)
-	local ss = getSpinSystem(mep)
-	local energy_function = getEnergyFunction(mep)
+}
 
-	local function get_site_ss(x,y,z)
-		local sx,sy,sz = ss:spin(x,y,z)
-		return sx,sy,sz
-	end
-	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-		local ox,oy,oz,m = ss:spin({x,y,z})
-		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-	end
-	local function get_energy_ss()
-		local e = energy_function(ss)
-		return e
-	end
 
-	local n = numSteps or 50
-	local completed_steps = 0
--- 	while completed_steps < n do
-	for i=1,n do
-		local current_beta = mep:beta()
+methods["relaxSaddlePoint"] = 
+{
+	"Obsolete. This function calls relaxSinglePoint.",
+	"",
+	"",
+	function(mep, pointNum, numSteps, nonDefaultTol)
+		relaxPoint(mep, pointNum, numSteps)
+	end	
+}
 
-		copy_to_children(mep)
-
-		d.big_step:setBeta(current_beta)
-		d.big_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 1)
+methods["gradientAtPoint"] =
+{
+	"Compute the gradient at a given point.",
+	"1 Integer, 1 Optional Array: Point to calculate gradient about. If no array is provided one will be created",
+	"1 Array: Gradient",
+	function(mep, pointNum, destArray)
+		local d = get_mep_data(mep)
+		local ss = mep:spinSystem()
+		local energy_function = mep:energyFunction()
 		
-		d.small_step:setBeta(current_beta/2)
-		local _, m1 = d.small_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 2)
+		local function get_site_ss(x,y,z)
+			local sx,sy,sz = ss:spin(x,y,z)
+			return sx,sy,sz
+		end
+		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+			local ox,oy,oz,m = ss:spin({x,y,z})
+			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+		end
+		local function get_energy_ss()
+			local e = energy_function(ss)
+			return e
+		end
 		
-		local aDiff, maxDiff = d.big_step:absoluteDifference(d.small_step, pointNum)
-			
-		if tol > 0 then
-			local step_mod, good_step = getStepMod(tol, maxDiff, m1)
+		local c = mep:siteCount()
 		
-			if good_step then
-				d.small_step:internalCopyTo(mep)
-				completed_steps = completed_steps + 1
+		if destArray then
+			if destArray:nx() ~= c*3 or destArray:ny() ~= 1 then
+				error("Destination array size mismatch. Expected " .. c*3 .. "x" .. 1)
 			end
-			mep:setBeta(step_mod * current_beta)
 		else
-			d.small_step:internalCopyTo(mep)
-			completed_steps = completed_steps + 1
-			mep:setBeta(current_beta)
-		end
-	end
-	return completed_steps
-end
-
-
-
--- compute hessian, get eigenvector of negative curvature
--- negate that direction in the gradient and step
-local function relaxSaddlePoint(mep, pointNum, numSteps, nonDefaultTol)
-	local d = get_mep_data(mep)
--- 	if d.isInitialized == nil then
--- 		initialize(mep)
--- 	end
-	local ss = getSpinSystem(mep)
-	local energy_function = getEnergyFunction(mep)
-	local tol = nonDefaultTol or getTolerance(mep)
-
-	local function get_site_ss(x,y,z)
-		local sx,sy,sz = ss:spin(x,y,z)
-		return sx,sy,sz
-	end
-	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-		local ox,oy,oz,m = ss:spin({x,y,z})
-		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-	end
-	local function get_energy_ss()
-		local e = energy_function(ss)
-		return e
-	end
-	
-	numSteps = numSteps or 50
-	local completed_steps = 0
--- 	while completed_steps < numSteps do
-	for i=1,numSteps do
-		local current_beta = mep:beta()
-		local D = mep:hessianAtPoint(pointNum)
-		local vals, vecs = D:matEigen()
-		
-		local minv, mini = vals:min()
-		
-		local scaled_vec = {}
-		for i=1,vecs:nx() do
-			local ee = vecs:slice({{1,i}, {vecs:nx(),i}})
-			ee:scale(vals:get(i))
-			table.insert(scaled_vec, ee)
+			destArray = Array.Double.new(c*3, 1)
 		end
 		
-		for i=2,vecs:nx() do
-			scaled_vec[1]:pairwiseScaleAdd(1, scaled_vec[i], scaled_vec[1])
+		local t = mep:_gradAtPoint(pointNum, get_site_ss, set_site_ss, get_energy_ss)
+		
+		for x=1,c*3 do
+			destArray:set(x, 1, t[x])
 		end
 		
-		local down_dir = scaled_vec[1] --vecs:slice({{1,mini}, {vecs:nx(),mini}}):toTable(1)
+		return destArray
+	end
+}
+
+methods["hessianAtPoint"] = {
+	"Compute the 2nd order partial derivative at a given point along the path.",
+	"1 Integer, 1 Optional Array: Point to calculate 2nd derivative about. If no array is provided one will be created",
+	"1 Array: Derivatives",
+	function(mep, pointNum, destArray)
+		local d = get_mep_data(mep)
+		local ss = mep:spinSystem()
+		local energy_function = mep:energyFunction()
 		
-		down_dir:scale(-1/ (down_dir:dot(down_dir)^(1/2)))
+		local function get_site_ss(x,y,z)
+			local sx,sy,sz = ss:spin(x,y,z)
+			return sx,sy,sz
+		end
+		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+			local ox,oy,oz,m = ss:spin({x,y,z})
+			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+		end
+		local function get_energy_ss()
+			local e = energy_function(ss)
+			return e
+		end
 		
-		down_dir = down_dir:toTable(1)
-
+		local c = mep:siteCount()
 		
-		local down_dir = vecs:slice({{1,mini}, {vecs:nx(),mini}}):toTable(1)
-
-		
-		copy_to_children(mep)
-
-		d.big_step:setBeta(current_beta)
-		d.big_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 1, down_dir)
-
-
-		d.small_step:setBeta(current_beta/2)
-		local _, maxMovement = d.small_step:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 2, down_dir)
-
-		local _, maxDiff = d.big_step:absoluteDifference(d.small_step, pointNum)
-		
-
-		if tol > 0 then
-			local step_mod, good_step = getStepMod(tol, maxDiff, maxMovement)
-		
-			if good_step then
-				d.small_step:internalCopyTo(mep)
-				completed_steps = completed_steps + 1
+		if destArray then
+			if destArray:nx() ~= c*3 or destArray:ny() ~= c*3 then
+				error("Destination array size mismatch. Expected " .. c*3 .. "x" .. c*3)
 			end
-			mep:setBeta(step_mod * current_beta)
 		else
-			completed_steps = completed_steps + 1
-			d.small_step:internalCopyTo(mep)
-			mep:setBeta(current_beta)
+			destArray = Array.Double.new(c*3, c*3)
 		end
+		
+		local t = mep:_hessianAtPoint(pointNum, get_site_ss, set_site_ss, get_energy_ss)
+		
+		for x=0,c*3-1 do
+			for y=0,c*3-1 do
+				destArray:set(x+1, y+1, t[x+y*(c*3)+1])
+			end
+		end		
+		return destArray
 	end
-	return completed_steps
-end
+}
 
-
-local function hessianAtPoint(mep, pointNum, destArray)
-	local d = get_mep_data(mep)
-	local ss = getSpinSystem(mep)
-	local energy_function = getEnergyFunction(mep)
-	
-	local function get_site_ss(x,y,z)
-		local sx,sy,sz = ss:spin(x,y,z)
-		return sx,sy,sz
-	end
-	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-		local ox,oy,oz,m = ss:spin({x,y,z})
-		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-	end
-	local function get_energy_ss()
-		local e = energy_function(ss)
-		return e
-	end
-
-	
-	local c = mep:siteCount()
-	
-	if destArray then
-		if destArray:nx() ~= c*3 or destArray:ny() ~= c*3 then
-			error("Destination array size mismatch. Expected " .. c*3 .. "x" .. c*3)
+methods["coordinateComponentNames"] = 
+{
+	"Get the short and long names for each coordinate component given a coordinate type",
+	[[1 Optional String: "Cartesian", "Canonical" or "Spherical". If no string is provided then the current coordinate system is assumed.]],
+	"2 Tables of Strings: Short and long forms",
+	function(mep, s)
+		s = s or mep:coordinateSystem()
+		local data = {}
+		data["cartesian"] = {{"x", "y", "z"}, {"X Axis", "Y Axis", "Z Axis"}}
+		data["spherical"] = {{"r", "p", "t"}, {"Radial", "Azimuthal", "Polar"}}
+		data["canonical"] = {{"r", "ph", "p"},{"Radial", "Azimuthal", "cos(Polar)"}}
+		if s == nil then
+			error("method requires a coordinate system name")
 		end
-	else
-		destArray = Array.Double.new(c*3, c*3)
-	end
-
-	local t = mep:_hessianAtPoint(pointNum, get_site_ss, set_site_ss, get_energy_ss)
-
-	for x=0,c*3-1 do
-		for y=0,c*3-1 do
-			destArray:set(x+1, y+1, t[x+y*(c*3)+1])
+		if data[string.lower(s)] == nil then
+			error("method requires a validcoordinate system name")
 		end
+		local t = data[string.lower(s)]
+		return t[1], t[2]
 	end
-			
-	return destArray
-end
+	
+}
 
-local function maximalPoints(mep)
-	pathEnergy(mep) -- calculate energies
-	return mep:_maximalPoints()
-end
+methods["maximalPoints"] = 
+{
+	"Obsolete: calls criticalPoints",
+	"",
+	"",
+	function(mep)
+		mep:pathEnergy() -- calculate energies
+		return mep:_maximalPoints()
+	end
+}
 
-local function energyBarrier(mep)
-	local mins, maxs, all = mep:maximalPoints()
+methods["criticalPoints"] = 
+{
+	"Get the path points that represent local minimums and maximums along the energy path.",
+	"",
+	"3 Tables: List of path points representing minimums, list of path points representing maximums and combined, sorted list.",
+	function(mep)
+		mep:pathEnergy() -- calculate energies
+		return mep:_maximalPoints()
+	end
+}
+
+
+
+
+methods["energyBarrier"] =
+{
+	"Calculate the difference in energy between the initial point and the maximum energy",
+	"",
+	"1 Number: The energy barrier",
+	function(mep)
+		local mins, maxs, all = mep:maximalPoints()
 	
-	local ee = mep:pathEnergy()
+		local ee = mep:pathEnergy()
 	
-	local start_e = ee[1]
+		local start_e = ee[1]
+		
+		local max_e = start_e
 	
-	local max_e = start_e
-	
-	for k,p in pairs(maxs) do
-		if ee[p] > max_e then
-			max_e = ee[p]
+		for k,p in pairs(maxs) do
+			if ee[p] > max_e then
+				max_e = ee[p]
+			end
 		end
-	end
 	
-	return max_e - start_e
-end
+		return max_e - start_e
+	end
+}
 
+
+-- internal support function
 local function sub_mep(mep, p1, p2)
 	if p2 < p1 then
 		return nil
@@ -626,229 +760,76 @@ local function sub_mep(mep, p1, p2)
 end
 
 
-local function splitAtPoint(mep, ...)
-	local arg = {...}
-	local ret_style
-	
-	if type(arg[1]) == "table" then
-		ret_style = "t"
-		local t = {}
-		for k,v in pairs(arg[1]) do
-			t[k] = v
-		end
-		arg = t
-	else
-		ret_style = "l"
-	end
-	
-	table.sort(arg)
-	table.insert(arg, mep:numberOfPathPoints())
-	table.insert(arg, 1, 1)
-
-	local meps = {}
-	
-	for i=1,table.maxn(arg)-1 do
-		table.insert(meps, sub_mep(mep, arg[i], arg[i+1]))
-	end
-	
-	if ret_style == "t" then
-		return meps
-	end
-	
-	local function variadic_return(t)
-		local first = t[1]
-		table.remove(t, 1)
+methods["splitAtPoint"] =
+{
+	"Split the path at the given point(s).",
+	"N Integers or a Table of Integers: The location(s) of the split(s). Split points at the ends will be ignored.",
+	"N+1 Minimum Energy Pathway Objects or a table of Minimum Energy Pathway Objects: If a table was given as input then a table will be given as output. If 1 or more integers was given as input then 2 or more objects will be returned. Example: <pre>a,b,c = mep:splitAtPoint(12, 17)\n</pre> or <pre> meps = mep:splitAtPoint({12, 17})\n</pre>",
+	function(mep, ...)
+		local arg = {...}
+		local ret_style
 		
-		if table.maxn(t) == 0 then
-			return first
+		if type(arg[1]) == "table" then
+			ret_style = "t"
+			local t = {}
+			for k,v in pairs(arg[1]) do
+				t[k] = v
+			end
+			arg = t
+		else
+			ret_style = "l"
 		end
-		return first, variadic_return(t)
-	end
-	
-	variadic_return(meps)
-end
-
-
-
-mt.setEnergyFunction = setEnergyFunction
-mt.setSites = setSites
-mt.setNumberOfPathPoints = setNumberOfPathPoints
-
-mt.energyFunction = getEnergyFunction
-mt.numberOfPathPoints = getNumberOfPathPoints
-mt.numberOfSites = getNumberSites
-
-mt.compute = compute
-mt.pathEnergy = pathEnergy
-mt.randomize = randomize
-
-mt.writePathPointTo = writePathPointTo
-mt.initialize = initialize
-
-mt.setInitialPath = setInitialPath
-
-mt.setSpinSystem = setSpinSystem
-
-mt.relaxSinglePoint = relaxSinglePoint
-mt.relaxSaddlePoint = relaxSaddlePoint
-
-mt.pathEnergyNDeriv = pathEnergyNDeriv
-
-
-mt.hessianAtPoint = hessianAtPoint
-
-mt.isChild = isChild
-mt.setChild = setChild
-
--- mt.setGradientMaxMotion = setGradientMaxMotion
--- mt.gradientMaxMotion = gradientMaxMotion
-
-mt.energyBarrier = energyBarrier
-
-mt.maximalPoints = maximalPoints
-
-mt.splitAtPoint = splitAtPoint
-
-mt.tolerance = getTolerance
-mt.setTolerance = setTolerance
-
-MODTAB.help =
-function(x)
-	if x == setSpinSystem then
-		return "Set the SpinSystem that will be used to do energy and orientation calculations. The any changes made to this SpinSystem will be undone before control is returned to the calling environment.",
-				"1 *SpinSystem*: SpinSystem to be used in calculations",
-				""
-	end
-	if x == splitAtPoint then
-		return "Split the path at the given point(s).",
-				"N Integers or a Table of Integers: The location(s) of the split(s). Split points at the ends will be ignored.",
-				"N+1 Minimum Energy Pathway Objects or a table of Minimum Energy Pathway Objects: If a table was given as input then a table will be given as output. If 1 or more integers was given as input then 2 or more objects will be returned. Example: <pre>a,b,c = mep:splitAtPoint(12, 17)\n</pre> or <pre> meps = mep:splitAtPoint({12, 17})\n</pre>"
-	end
-	if x == maximalPoints then
-		return "Get the path points that represent local minimums and maximums along the energy path.",
-				"",
-				"3 Tables: List of path points representing minimums, list of path points representing maximums and combined, sorted list."
-	end
-	if x == energyBarrier then
-		return "Calculate the difference in energy between the initial point and the maximum energy",
-				"",
-				"1 Number: The energy barrier"
-	end
-	if x == writePathPointTo then
-		return 
-			"Write path point to the given spin system",
-			"1 Integer, 1 *SpinSystem*: The integer ranges from 1 to the number of path points, the *SpinSystem* will have the sites involved in the Minimum Energy Pathwaycalculation changed to match those at the given path index.",
-			""
-	end
-	if x == initialize then
-		return 
-			"Expand the endpoints into a coherent rotation over the number of path points specified with setNumberOfPathPoints.",
-			"1 Optional integer: A non-default number of points to interpolate over.",
-			""
-	end
-	if x == compute then
-		return
-			"Run several relaxation steps of the Minimum Energy Pathway method",
-			"1 Optional Integer, 1 Optional Number: Number of steps, default 50. Tolerance different than tolerance specified.",
-			"1 Number: Number of successful steps taken, for tol > 0 this may be less than number of steps requested"
-	end
-	if x == setEnergyFunction then
-		return
-			"Set the function used to determine system energy for the calculation.",
-			"1 Function: energy calculation function, expected to be passed a *SpinSystem*.",
-			""
-	end
-	if x == setSites then
-		return
-			"Set the sites that are allowed to move to transition from the initial configuration to the final configuration.",
-			"1 Table of 1,2 or 3 Component Tables: mobile sites.",
-			""
-	end
-	if x == setNumberOfPathPoints then
-		return
-			"Set the number of path points used to approximate a line (defualt 20).",
-			"1 Number: Number of path points",
-			""
-	end
-	if x == randomize then
-		return
-			"Perturb all points (except endpoints) by a random value.",
-			"1 Number: Magnitude of perturbation. This value will be scaled by the problemScale().",
-			""
-	end
-	
-	
-	if x == setInitialPath then
-		return
-			"Set the initial path for the Minimum Energy Pathway calculation. Must be called after :setSpinSystem",
-			"1 Table of Tables of site orientations or nils: Must be at least 2 elements long to define the start and end points. Example:\n<pre>upupup     = {{0,0,1}, {0,0,1}, {0,0,1}}\ndowndowndc = {{0,0,-1},{0,0,-1},nil}\n mep:setInitialPath({upupup,downdowndc})\n</pre>Values of nil for orientations in the start or end points mean that the algorithm will not attempt to keep them stationary - they will be allowed to drift. Their initial value will be whatever they are in the SpinSystem at the time the method is called. These drifting endpoints are sometimes referred to as `don't care' sites.",
-			""
-	end
-	if x == getEnergyFunction then
-		return
-			"Get the function used to determine system energy for the calculation.",
-			"",
-			"1 Function: energy calculation function, expected to be passed a *SpinSystem*."
-	end
-	if x == getNumberOfPathPoints then
-		return
-			"Get the number of path points used to approximate a line (defualt 20).",
-			"",
-			"1 Integer: Number of path points"
-	end
-	if x == getNumberSites then
-		return
-			"Get the number of sites used in calculation.",
-			"",
-			"1 Integer: Number of sites."
-	end
-	
-	if x == relaxSinglePoint then
-		return 	"Allow a single point to move along the local energy gradient either down to a minimum or up to a maximum",
-				"1 Integer, 1 Number, 1 Number, 1 Integer: Point to relax, optional number of iterations, optional non-default tolerance",
-				"1 Integer: Number of successful steps taken"
-	end
 		
-	if x == relaxSaddlePoint then
-		return 	"Allow a single point to move along the local energy gradient either down to a minimum or up to a maximum. A single gradient coordinate will be inverted based on the 2nd derivative to converge to a saddle point.",
-				"1 Integer, 1 Number, 1 Number, 1 Integer: Point to relax, optional number of iterations, optional non-default tolerance",
-				"1 Integer: Number of successful steps taken"
-	end
+		table.sort(arg)
+		table.insert(arg, mep:numberOfPathPoints())
+		table.insert(arg, 1, 1)
+		
+		local meps = {}
+		
+		for i=1,table.maxn(arg)-1 do
+			table.insert(meps, sub_mep(mep, arg[i], arg[i+1]))
+		end
+		
+		if ret_style == "t" then
+			return meps
+		end
+		
+		local function variadic_return(t)
+			local first = t[1]
+			table.remove(t, 1)
 			
-	if x == pathEnergyNDeriv then
-		return 	"Calculate the Nth derivative of the path energy.",
-				"1 Integer: The derivative, 0 = energy, 1 = slope of energy, 2 = acceleration of energy, ...",
-				"3 Tables: The Nth derivatives of the energy, the normalized location along the path between 0 and 1, the list of zero crossings"
+			if table.maxn(t) == 0 then
+				return first
+			end
+			return first, variadic_return(t)
+		end
+		
+		variadic_return(meps)
 	end
-	
-	
-	if x == hessianAtPoint then
-		return "Compute the 2nd order partial derivative at a given point along the path.",
-				"1 Integer, 1 Optional Array: Point to calculate 2nd derivative about. If no array is provided one will be created",
-				"1 Array: Derivatives"
-	end
-	
-	if x == pathEnergy then
-		return "Get all energies along the path",
-				"",
-				"1 Table: energies along the path"
-	end
-	
-	if x == getTolerance then
-		return "Get the tolerance used in the adaptive algorithm",
-				"",
-				"1 Number: Tolerance"
-	end
-	
-	if x == setTolerance then
-		return "Set the tolerance used in the adaptive algorithm",
-				"1 Number: Tolerance. Usually something on the order of 0.1 should be OK. If tolerance is less than or equal to zero then no adaptive steps will be attempted.",
-				""
-	end
-	
-	-- calling fallback
-	if x == nil then
-		return help()
-	end
-	return help(x)
+}
+
+
+-- inject above into existing metatable for MEP operator
+for k,v in pairs(methods) do
+    t[k] = v[4]
 end
+
+-- backup old help function for fallback
+local help = MODTAB.help
+
+-- create new help function for methods above
+MODTAB.help = function(x)
+    for k,v in pairs(methods) do
+        if x == v[4] then
+            return v[1], v[2], v[3]
+        end
+    end
+
+    -- fallback to old help if a case is not handled
+    if x == nil then
+        return help()
+    end
+    return help(x)
+end
+
+

@@ -39,6 +39,32 @@ public:
 	virtual int luaInit(lua_State* L, int base=1);
 	static int help(lua_State* L);
 
+
+	// Cartesian = x,y,z.
+	// Spherical = r,phi,theta:  physics convention. (radial, azimuthal, polar) r in R, phi in [0:2pi), theta in [0:pi]
+	// Canonical = r,phi,p:      r in R, phi in [0:2pi), p in [-1:1] = cos(theta)
+
+	enum CoordinateSystem
+	{
+		Cartesian = 0,
+		Spherical = 1,
+		Canonical = 2
+	};
+	CoordinateSystem currentSystem;
+
+	const char* nameOfCoordinateSystem(CoordinateSystem s);
+	int l_getCoordinateSystems(lua_State* L); // all available
+	int l_setCoordinateSystem(lua_State* L, int idx); 
+	int l_getCoordinateSystem(lua_State* L); // current cs
+
+	void convertCoordinateSystem(
+		CoordinateSystem src_cs, CoordinateSystem dest_cs, 
+		const double* src, double* dest) const;
+
+	double angleBetween(const double* v1, const double* v2, CoordinateSystem cs);
+    double vectorLength(const double* v1, CoordinateSystem cs);
+	double arcLength(const double* v1, const double* v2, CoordinateSystem cs);
+
 	void init();
 	void deinit();
 
@@ -68,6 +94,8 @@ public:
 	
 	void setImageSiteMobility(const int image, const int site, double mobility);
 	double getImageSiteMobility(const int image, const int site);
+
+	double epsilon; // differentiation scale factor
 
 	double beta; //step size
 	bool energy_ok;
@@ -122,12 +150,19 @@ public:
 	void saveConfiguration(lua_State* L, int get_index, vector<double>& buffer);
 	void loadConfiguration(lua_State* L, int set_index, vector<double>& buffer);
 
-	double absoluteDifference(MEP* other, int point, double& max_diff);
+	double absoluteDifference(MEP* other, int point, double& max_diff, int& max_idx);
 
 	int maxpoints(lua_State* L);
 	
 	void computePointSecondDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, double* derivsAB);
 	double computePointSecondDerivativeAB(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1, int c2);
+
+	void computePointFirstDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, double* d);
+	double computePointFirstDerivativeC(lua_State* L, int p, int set_index, int get_index, int energy_index, int coord);
+
+	void computeVecFirstDerivative(lua_State* L, double* vec, int set_index, int get_index, int energy_index, double* d);
+	double computeVecFirstDerivativeC(lua_State* L, double* vec, int set_index, int get_index, int energy_index, int coord);
+
 private:
 	void make_path_size(const int n);
 
