@@ -546,7 +546,6 @@ local function relaxPoint(mep, pointNum, steps, goal)
 		if min_mag_grad < goal then
 			return min_mag_grad
 		end
-		--print(min_mag_grad)
 	end
 
 	-- print(string.format("%8e %8e %d", min_mag_grad, h, good_steps))

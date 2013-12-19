@@ -2429,6 +2429,7 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 		grad_grad[qq] = (x_plus_h - base_grad) / ( h);
 	}
 
+#if 1
 	for(int q=0; q<num_sites; q++)
 	{
 		double sf[3];
@@ -2437,19 +2438,20 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 		grad_grad[q*3+1] *= sf[1];
 		grad_grad[q*3+2] *= sf[2];
 	}
+#endif
 
 	if(lua_isnumber(L, 6))
 		h = lua_tonumber(L, 6);
 
-	if(h < 1e-200)
-		h = 1e-200;
+	if(h < 1e-10)
+		h = 1e-10;
 
 	double goal = 0;
 	if(lua_isnumber(L, 7))
 	   goal = lua_tonumber(L, 7);
 
 	// gradient (of gradient magnitude) direction
-	//_normalizeTo(grad_grad, grad_grad, MEP::Cartesian, 1.0, num_sites*3);
+	_normalizeTo(grad_grad, grad_grad, MEP::Cartesian, 1.0, num_sites*3);
 
 
 	// printf("(%s:%i) %g\n", __FILE__, __LINE__, sqrt(min2));
@@ -2463,8 +2465,10 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	int max_steps = 50;
 	int good_steps = 0;
 	double min2 = base_grad * base_grad;
+	const double start_min2 = min2;
+
 	const double len_gg = sqrt(dot(grad_grad, grad_grad, num_sites*3));
-	// printf(">>>>>>>>\n");
+	// printf(">>>>>>>>  h=%e  min2 > g2  (%e, %e)\n", h, min2, goal*goal);
 	while(h > (epsilon * 1e-200) && max_steps && min2 > goal*goal)
 		//while(max_steps)
 	{
@@ -2493,6 +2497,7 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 			h = h * step_up;
 			good_steps++;
 			//printf("+ %e\n", h);
+			// printf("good step: %e -> %e      h = %e\n", min2, min2_2, h);
 		}
 		else
 		{
@@ -2502,15 +2507,21 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 			for(int i=0; i<consecutive_fails; i++)
 				h = h * step_down;
 			//printf("- %e\n", h);
+			// printf(" bad step: %e -> %e      h = %e\n", min2, min2_2, h);
 		}
 		max_steps--;
 	}
 
-	if(h < 1e-20 && min2 < goal*goal) // then stalling
+#if 1
+	if(min2 > goal*goal)
+		if(start_min2 > 0)
+			if(min2/start_min2 > 0.9999999 ) // then stalling
 	{
+		// printf("STALLING\n");
 		int good_steps = relaxSinglePoint_expensiveDecent(L, get_index, set_index, energy_index, vxyz, 1e-10, 10);
 	}
-	
+#endif
+
 	// write updated cfg
  	// setAllSpins(L, set_index, vxyz);
 
@@ -2552,6 +2563,9 @@ int MEP::slidePoint(lua_State* L)
 	const int set_index = 3;
 	const int energy_index = 4;
 
+	const double step_up = 1.1;
+	const double step_down = 0.9;
+
 	const int p = lua_tointeger(L, 5) - 1;
 	if(p < 0 || p >= path_length)
 		return luaL_error(L, "Point index out of bounds");
@@ -2563,69 +2577,114 @@ int MEP::slidePoint(lua_State* L)
 		direction =  1;
 
 	int num_steps = lua_tointeger(L, 7);
-	double step_size = lua_tonumber(L, 8);
+	double h = lua_tonumber(L, 8);
 
-	double tol = 1e-6;
-	if(lua_isnumber(L, 9))
-		tol = lua_tonumber(L, 9);
+	if(h == 0)
+		h = 1e-10;
 
-	if(step_size == 0)
-		step_size = epsilon;
-
+	// back up old sites so we can restore after
+	vector<double> cfg;
+	saveConfiguration(L, get_index, cfg);
 
 	const int n = num_sites*3;
-	double* vxyz = &state_xyz_path[p*n];
+	double* vec = &state_xyz_path[p*n];
 
-	
 	double* slope = new double[n];
+	double* state = new double[n];
 
-	double* s1 = new double[n];
-	double* s2 = new double[n];
+	double* mags = new double[num_sites];
+	for(int i=0; i<num_sites; i++)
+	{
+		mags[i] = _magnitude(currentSystem, &(vec[i*3]));
+	}
+
 	
 	// write path point as it currently stands (at this point)
-	setAllSpins(L, set_index, vxyz);
+	setAllSpins(L, set_index, vec);
+	double last_energy = getEnergy(L, energy_index);
+	int consecutive_fails = 0;
+	int consecutive_successes = 0;
+
 
 	for(int i=0; i<num_steps; i++)
 	{
-		computeVecFirstDerivative(L, vxyz, set_index, get_index, energy_index, slope);
+		computeVecFirstDerivative(L, vec, set_index, get_index, energy_index, slope);
+
+		for(int q=0; q<num_sites; q++)
+		{
+			double sf[3];
+			_scaleFactors(currentSystem, &vec[q*3], sf);
+			slope[q*3+0] *= sf[0];
+			slope[q*3+1] *= sf[1];
+			slope[q*3+2] *= sf[2];
+		}
+
+		// gradient  direction
+		_normalizeTo(slope, slope, MEP::Cartesian, 1.0, n);
 
 		for(int j=0; j<n; j++)
 		{
-			s1[j] = vxyz[j] + step_size * slope[j] * direction;;
-			s2[j] = vxyz[j] + step_size * slope[j] * 0.5 * direction;;
+			state[j] = vec[j] + h * slope[j] * direction;
 		}
 
-		computeVecFirstDerivative(L, s2, set_index, get_index, energy_index, slope);
+		rescale_vectors(currentSystem, state, mags, num_sites);
+		setAllSpins(L, set_index, state);
+		double current_energy = getEnergy(L, energy_index);
 
-		for(int j=0; j<n; j++)
-		{
-			s2[j] += step_size * slope[j] * 0.5 * direction;;
-		}
+		// printf("%g %e %e    %e\n", direction, current_energy, last_energy, h);
 
-		bool eq = true;
-		for(int i=0; i<num_sites && eq; i++)
+		if(direction < 0)
 		{
-			if(_angleBetween(&s1[i*3], &s2[i*3], currentSystem, currentSystem) > tol)
-				eq = false;
-		}
-
-		if(eq)
-		{
-			memcpy(vxyz, s2, n*sizeof(double));
-			step_size *= 1.5;
+			if(current_energy < last_energy)
+			{
+				// printf("(%s:%i)\n", __FILE__, __LINE__);
+				consecutive_successes++;
+				consecutive_fails = 0;
+				for(int j=0; j<consecutive_successes; j++)
+					h *= step_up;
+				memcpy(vec, state, sizeof(double)*n);
+				last_energy = current_energy;
+			}
+			else
+			{
+				// printf("(%s:%i)\n", __FILE__, __LINE__);
+				consecutive_successes=0;
+				consecutive_fails++;
+				for(int j=0; j<consecutive_fails; j++)
+					h *= step_down;
+			}
 		}
 		else
 		{
-			step_size *= 0.5;
+			if(current_energy > last_energy)
+			{
+				// printf("(%s:%i)\n", __FILE__, __LINE__);
+				consecutive_successes++;
+				consecutive_fails = 0;
+				for(int j=0; j<consecutive_successes; j++)
+					h *= step_up;
+				memcpy(vec, state, sizeof(double)*n);
+				last_energy = current_energy;
+			}
+			else
+			{
+				// printf("(%s:%i)\n", __FILE__, __LINE__);
+				consecutive_successes=0;
+				consecutive_fails++;
+				for(int j=0; j<consecutive_fails; j++)
+					h *= step_down;
+			}
 		}
+
 	}
 
+	loadConfiguration(L, set_index, cfg);	
 	energy_ok = false;
 	delete [] slope;
-	delete [] s1;
-	delete [] s2;
+	delete [] mags;
+	delete [] state;
 
-	lua_pushnumber(L, step_size);
+	lua_pushnumber(L, last_energy);
 	return 1;
 }
 
