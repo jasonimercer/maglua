@@ -105,9 +105,9 @@ methods["writePathPointTo"] =
 		-- 	print("pp", path_point)
 		local sites = mep:sites()
 		for i=1,table.maxn(sites) do
-			local x,y,z = mep:spin(path_point, i)
+			local x,y,z,m = mep:spin(path_point, i)
 			-- 		print(table.concat(sites[i], ","))
-			ssNew:setSpin(sites[i], {x,y,z})
+			ssNew:setSpin(sites[i], {x,y,z}, m)
 		end
 	end
 }
@@ -516,8 +516,8 @@ methods["pathEnergyNDeriv"] =
 }
 
 local function relaxPoint(mep, pointNum, steps, goal)
-	local d = get_mep_data(mep)
-	if d.isInitialized == nil then
+	local mep_data = get_mep_data(mep)
+	if mep_data.isInitialized == nil then
 		mep:initialize()
 	end
 	local ss = mep:spinSystem()
@@ -538,22 +538,106 @@ local function relaxPoint(mep, pointNum, steps, goal)
 		return e
 	end
 
-	steps = steps or 50
+	steps = steps or 10
+	goal = goal or 0
+	local h, good_steps = nil
+	for i=1,steps do
+		min_mag_grad, h, good_steps = mep:_relaxSinglePoint_sd(pointNum, get_site_ss, set_site_ss, get_energy_ss, h, goal)
+		if min_mag_grad < goal then
+			return min_mag_grad
+		end
+		--print(min_mag_grad)
+	end
 
-	local dx,dy,dz, final_grad = mep:_relaxSinglePoint(pointNum, get_site_ss, set_site_ss, get_energy_ss, 0.1, 0.1, 0.1, steps, goal)
-	return final_grad
+	-- print(string.format("%8e %8e %d", min_mag_grad, h, good_steps))
+	return min_mag_grad
 end
 
 methods["relaxSinglePoint"] =
 {
 	"Move point to minimize energy gradient. This will find local maxs, mins or saddle points.",
-	"1 Integer, 1 Optional Integer, 1 Optional Number: Point to relax, optional number of iterations (default 50), optional goal gradient magnitude for early completion.",
-	"1 Number: Gradient magnitude at final iteration.",
-	function(mep, pointNum, numSteps, goal) --, nonDefaultTol)
-		relaxPoint(mep, pointNum, numSteps, goal)
+	"1 Integer, 1 Optional Integer, 1 Optional Number, 1 Optional Number: Point to relax, optional number of iterations (default 50), optional goal gradient magnitude for early completion, stall value: quit if steps are smaller than this value.",
+	"2 Numbers: Gradient magnitude at final iteration, number of steps taken",
+	function(mep, pointNum, numSteps, goal)
+		return relaxPoint(mep, pointNum, numSteps, goal)
 	end
 }
 
+
+
+methods["slidePoint"] =
+{
+	"Move point along energy gradient",
+	"1 Integer, 1 Optional Integer, 1 Optional Number: Point to relax, direction (+1 for increase energy, -1 for decrease energy). optional number of iterations (default 50), optional step size (default epsilon) this step size will be adapted.",
+	"1 Number: Final step size.",
+	function(mep, pointNum, direction, numSteps, stepSize) --, nonDefaultTol)
+		local d = get_mep_data(mep)
+		if d.isInitialized == nil then
+			mep:initialize()
+		end
+		local ss = mep:spinSystem()
+		local energy_function = mep:energyFunction()
+		
+		local function get_site_ss(x,y,z)
+			local sx,sy,sz = ss:spin(x,y,z)
+			return sx,sy,sz
+		end
+		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+			local ox,oy,oz,m = ss:spin({x,y,z})
+			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+		end
+		local function get_energy_ss()
+			local e = energy_function(ss)
+			return e
+		end
+		
+		local numSteps = numSteps or 50
+
+		if pointNum == nil then
+			error("Require point number")
+		end
+
+		if direction == nil then
+			direction = -1
+		end
+
+		return mep:_slidePoint(get_site_ss, set_site_ss, get_energy_ss, pointNum, direction, numSteps, stepSize)
+	end
+}
+
+
+
+methods["classifyPoint"] =
+{
+	"Determine if a point is a local maximum, minimum or neither",
+	"1 Integer, 1 optional Number: Point index, optional step size",
+	"1 String: \"Maximum\", \"Minimum\" or \"\"",
+	function(mep, pointNum, h)
+		local d = get_mep_data(mep)
+		if d.isInitialized == nil then
+			mep:initialize()
+		end
+		local ss = mep:spinSystem()
+		local energy_function = mep:energyFunction()
+		
+		local function get_site_ss(x,y,z)
+			local sx,sy,sz = ss:spin(x,y,z)
+			return sx,sy,sz
+		end
+		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+			local ox,oy,oz,m = ss:spin({x,y,z})
+			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+		end
+		local function get_energy_ss()
+			local e = energy_function(ss)
+			return e
+		end
+		
+		return mep:_classifyPoint(get_site_ss, set_site_ss, get_energy_ss, pointNum, h)
+	end
+}
 
 methods["relaxSaddlePoint"] = 
 {
@@ -563,6 +647,18 @@ methods["relaxSaddlePoint"] =
 	function(mep, pointNum, numSteps, nonDefaultTol)
 		relaxPoint(mep, pointNum, numSteps)
 	end	
+}
+
+methods["flatAtPoint"] =
+{
+	"Determine if a point is flat. This is done by comparing the magnitude of the gradient to a small number which may be included (default 1e-8).",
+	"1 Integer, 1 Optional Number: Point to calculate gradient about, number to compare the magnitude to to determine flattness.",
+	"1 Boolean: True if flat, False otherwise.",
+	function(mep, pointNum, small_number)
+		small_number = small_numer or 1e-8
+		local grad = mep:gradientAtPoint(pointNum)
+		return (grad:dot(grad))^(1/2) < small_number
+	end
 }
 
 methods["gradientAtPoint"] =
@@ -807,6 +903,53 @@ methods["splitAtPoint"] =
 		variadic_return(meps)
 	end
 }
+
+
+methods["merge"] =
+{
+	"Combine multiple MEPs into a single MEP.",
+	"N MEPs or a Table of MEPs: MEPs to merge. It is assumed that final point and initial point in consecutive MEPs coincide.",
+	"",
+	function(mep, ...)
+		local arg = {...}
+		local ret_style
+		
+		if type(arg[1]) == "table" then
+			ret_style = "t"
+			local t = {}
+			for k,v in pairs(arg[1]) do
+				t[k] = v
+			end
+			arg = t
+		else
+			ret_style = "l"
+		end
+
+		local function point(mep, p)
+			local t = {}
+			local s = mep:numberOfSites()
+			for i=1,s do
+				local x,y,z = mep:spin(p, i) 
+				t[i] = {x,y,z}
+			end
+			return t
+		end
+		
+		local initial_path = {}
+		table.insert(initial_path, point(arg[1], 1))
+		for k,v in pairs(arg) do
+			for i=2,v:numberOfPathPoints() do
+				table.insert(initial_path, point(v, i))
+			end
+		end
+
+		mep:setNumberOfPathPoints(table.maxn(initial_path))
+		mep:setInitialPath(initial_path)
+		mep:initialize()
+
+	end
+}
+
 
 
 -- inject above into existing metatable for MEP operator

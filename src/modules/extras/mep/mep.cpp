@@ -4,6 +4,9 @@
 #include "luamigrate.h"
 #include <math.h>
 
+#include <algorithm>
+#include <numeric>
+
 #include "ddd.h"
 
 static const double seven_directions[7][3] = {
@@ -461,6 +464,7 @@ MEP::MEP()
 	energy_ok = false;
 	good_distances = false;
 	beta = 0.1;
+	relax_direction_fail_max = 4;
 	epsilon = 1e-3;
 	currentSystem = Cartesian;
 }
@@ -531,6 +535,7 @@ void MEP::encode(buffer* b) //encode to data stream
 
 	encodeDouble(beta, b);
 	encodeDouble(epsilon, b);
+	encodeInteger(relax_direction_fail_max, b);
 }
 
 int  MEP::decode(buffer* b) // decode from data stream
@@ -557,7 +562,8 @@ int  MEP::decode(buffer* b) // decode from data stream
 
 	beta = decodeDouble(b);
 	epsilon = decodeDouble(b);
-	
+	relax_direction_fail_max = decodeInteger(b);
+
 	return 0;
 }
 
@@ -1023,7 +1029,6 @@ int MEP::resampleStateXYZPath(lua_State* L)
 		std::sort(points.begin(), points.end());
 	}
 	
-	
 	const double max_point = points[ points.size() - 1];
 	double distance = calculateD12(); //total distance
 	vector<double> new_state_xyz_path;
@@ -1046,9 +1051,16 @@ int MEP::resampleStateXYZPath(lua_State* L)
 		}
 		else
 		{
+			int nos = numberOfSites();
+			for(int k=0; k<nos*3; k++)
+			{
+				new_state_xyz_path.push_back(0);
+			}
+			/*
 			printf("failed to get interval\n");
 			printf("  total distance: %g\n", distance);
 			printf("  requested position: %g\n", points[i]);
+			*/
 		}
 	}
 	
@@ -1068,7 +1080,10 @@ int MEP::resampleStateXYZPath(lua_State* L)
 	
 	for(int i=0; i<ns; i++)
 	{
-		first_mobility.push_back( image_site_mobility[i] );
+		double d = 0;
+		if(i < image_site_mobility.size())
+			d = image_site_mobility[i];
+		first_mobility.push_back( d );
 	}
 
 	for(int i=image_site_mobility.size()-ns; i<image_site_mobility.size(); i++)
@@ -1083,7 +1098,6 @@ int MEP::resampleStateXYZPath(lua_State* L)
 		image_site_mobility.push_back(first_mobility[i]);
 	}
 	
-	
 	for(int i=0; i<ns*(new_num_images-2); i++)
 	{
 		image_site_mobility.push_back(1.0);
@@ -1091,7 +1105,10 @@ int MEP::resampleStateXYZPath(lua_State* L)
 	
 	for(int i=0; i<ns; i++)
 	{
-		image_site_mobility.push_back(last_mobility[i]);
+		double d = 0;
+		if(i < image_site_mobility.size())
+			d = image_site_mobility[i];
+		image_site_mobility.push_back(d);
 	}
 	
 	energy_ok = false; //need to recalc energy
@@ -1784,15 +1801,30 @@ static void arrayCopyWithElementChange(double* dest, double* src, int element, d
 	}
 }
 
-static void arrayCopyWithElementsChange(double* dest, double* src, int* directions, double c1, double c2, double c3, int n)
+static void arrayCopyWithElementsChange(double* dest, double* src, int* directions, const double _dd, double* scale, int n)
+{
+	for(int i=0; i<n; i++)
+	{
+		const double dd = _dd * scale[i];
+		const double* d = seven_directions[ directions[ i ] ];
+		
+		dest[i*3 + 0] = src[i*3 + 0] + d[0] * dd;
+		dest[i*3 + 1] = src[i*3 + 1] + d[1] * dd;
+		dest[i*3 + 2] = src[i*3 + 2] + d[2] * dd;
+	}
+
+}
+
+
+static void arrayCopyWithElementsChange(double* dest, double* src, int* directions, double* scale, int n)
 {
 	for(int i=0; i<n; i++)
 	{
 		const double* d = seven_directions[ directions[ i ] ];
 		
-		dest[i*3 + 0] = src[i*3 + 0] + d[0] * c1;
-		dest[i*3 + 1] = src[i*3 + 1] + d[1] * c2;
-		dest[i*3 + 2] = src[i*3 + 2] + d[2] * c3;
+		dest[i*3 + 0] = src[i*3 + 0] + d[0] * scale[i*3 + 0];
+		dest[i*3 + 1] = src[i*3 + 1] + d[1] * scale[i*3 + 1];
+		dest[i*3 + 2] = src[i*3 + 2] + d[2] * scale[i*3 + 2];
 	}
 
 }
@@ -1993,6 +2025,9 @@ double MEP::computePointFirstDerivativeC(lua_State* L, int p, int set_index, int
 	return computeVecFirstDerivativeC(L, vec, set_index, get_index, energy_index, c1);
 }
 
+
+
+#if 0
 // converts an index to a value in an arbitrary base
 // returns 1 on overflow or undeflow
 static int _idx_2_number(int idx, int base, int* num, int max_digets)
@@ -2010,6 +2045,24 @@ static int _idx_2_number(int idx, int base, int* num, int max_digets)
 	return idx;
 }
 	
+
+static double vsum(vector<double>& v)
+{
+	double s = 0;
+	for(unsigned int i=0; i<v.size(); i++)
+		s += v[i];
+	return s;
+}
+
+static void grad_check(double goal2, double min_grad2, int& num_steps, int& end_reason)
+{
+	if((goal2 > 0 && min_grad2 < goal2) || min_grad2 == 0) // then goal reached
+	{
+		num_steps = 0;
+		end_reason = 1;
+	}
+}
+
 // relax individual point. This is used to refine a maximal point
 // expected on the stack:
 // at 1, mep
@@ -2017,16 +2070,20 @@ static int _idx_2_number(int idx, int base, int* num, int max_digets)
 // at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
 // at 4, function set_site_ss1(x,y,z, sx,sy,sz)  return something_changed
 // at 5, function get_energy_ss1()
-// at 6, step size coord 1
-// at 7, step size coord 2
-// at 8, step size coord 3
-// at 9, num steps
-// at 10, goal
+// at 6, step size
+// at 7, num steps
+// at 8, goal
 // returns new step size coord 1, 2, 3 
 int MEP::relaxSinglePoint(lua_State* L)
 {
+	const double step_up = 1.1;
+	const double step_down = 0.5;
+
 	const int num_sites = numberOfSites();
 	const int path_length = numberOfImages();
+
+	const char* end_reason[4] = {"finished number of steps", "reached goal", "", ""};
+	int end_reason_i = 0;
 
 	const int p = lua_tointeger(L, 2) - 1;
 	if(p < 0 || p >= path_length)
@@ -2039,25 +2096,21 @@ int MEP::relaxSinglePoint(lua_State* L)
 	if(!lua_isfunction(L, 3) || !lua_isfunction(L, 4) || !lua_isfunction(L, 5))
 		return luaL_error(L, "3 functions expected - perhaps you should call the wrapper method :relaxSinglePoint");
 	
-	if(!lua_isnumber(L, 6) || !lua_isnumber(L, 7) || !lua_isnumber(L, 8))
-		return luaL_error(L, "3 numers expected for last 3 parameters");
+	if(!lua_isnumber(L, 6))
+		return luaL_error(L, "Number expected at for parameter 5");
 
-	double dc1 = lua_tonumber(L, 6); // not used in spherical/canonical
-	double dc2 = lua_tonumber(L, 7);
-	double dc3 = lua_tonumber(L, 8);
+	double step_size = lua_tonumber(L, 6);
 
 	int num_steps = 1;
-	if(lua_isnumber(L, 9))
-		num_steps = lua_tointeger(L, 9);
+	if(lua_isnumber(L, 7))
+		num_steps = lua_tointeger(L, 7);
 
 	double goal2 = -1;
-	
-	if(lua_isnumber(L, 10))
+	if(lua_isnumber(L, 8))
 	{
-		goal2 = lua_tonumber(L, 10);
+		goal2 = lua_tonumber(L, 8);
 		goal2 *= goal2;
 	}
-	
 
 	// need to save current configuration
 	vector<double> cfg;
@@ -2066,6 +2119,7 @@ int MEP::relaxSinglePoint(lua_State* L)
 	double* vxyz = &state_xyz_path[p*num_sites*3];
 	double* neighbour = new double[num_sites*3];
 	
+
 	// write path point as it currently stands
 	setAllSpins(L, set_index, vxyz);
 
@@ -2081,30 +2135,71 @@ int MEP::relaxSinglePoint(lua_State* L)
 	// find most relaxing direction
 	const int maxd = pow(num_sites, base); // this many directions to consider
 	double min_grad2 = 0;
+	int steps_taken = 0;
+	int direction_changes = 0;
 
+	double* global_best_partials = new double[num_sites];
+	double* previous_best_partials = new double[num_sites];
+	double* current_partials = new double[num_sites];
+
+	for(int i=0; i<num_sites; i++)
+	{
+		global_best_partials[i] = 1;
+		previous_best_partials[i] = 1;
+		current_partials[i] = 1;
+	}
+	
 	while(num_steps > 0)
 	{
 		_D(FL, "num_steps", num_steps);
 		int consecutive_fails = 0;
 		int min_idx = 0;
 		min_grad2 = 0;
+		direction_changes++;
 		
+		memcpy(previous_best_partials, global_best_partials, sizeof(double) * num_sites);
+		for(int i=0; i<num_sites; i++)
+			previous_best_partials[i] = 1.0;
+
 		// find most relaxing direction
 		for(int i=0; i<maxd; i++)
 		{
 			if(_idx_2_number(i, base, direction, num_sites))
 				break;
 			
-			arrayCopyWithElementsChange(neighbour, vxyz, direction, dc1,dc2,dc3, num_sites);
-			computeVecFirstDerivative(L, neighbour, set_index, get_index, energy_index, grad);
-			
-			double g2 = dot(grad, grad, num_sites*3);
-			
-			if(i == 0 || g2 < min_grad2)
+			for(int j=0; j<num_sites+1; j++) // +1 for "no change"
 			{
-				min_idx = i;
-				min_grad2 = g2;
-				_D(FL, "mg2", g2);
+				memcpy(current_partials, previous_best_partials, sizeof(double) * num_sites);
+				bool first = true;
+				bool making_progress = true;
+				double last_g2 = 0;
+				int pp = 5;
+				while( (first || making_progress) && pp > 0)
+				{
+					pp--;
+					if(j < num_sites)
+					{
+						current_partials[j] *= 1.5;
+					}
+					
+					arrayCopyWithElementsChange(neighbour, vxyz, direction, step_size, current_partials, num_sites);
+					computeVecFirstDerivative(L, neighbour, set_index, get_index, energy_index, grad);
+				
+					double g2 = dot(grad, grad, num_sites*3);
+					
+					if(i == 0 || g2 < min_grad2)
+					{
+						min_idx = i;
+						min_grad2 = g2;
+						_D(FL, "mg2", g2);
+						memcpy(global_best_partials, current_partials, sizeof(double) * num_sites);
+					}
+
+					// local effort
+					making_progress = (g2 < last_g2) || (first);
+					first = false;
+					last_g2 = g2;
+				}
 			}
 		}
 		
@@ -2112,77 +2207,71 @@ int MEP::relaxSinglePoint(lua_State* L)
 		{
 			_idx_2_number(min_idx, base, direction, num_sites);
 			// this was calculated above, it's a good step
-			arrayCopyWithElementsChange(vxyz, vxyz, direction, dc1,dc2,dc3, num_sites); 
-
-			if(goal2 > 0 && min_grad2 < goal2)
-			{
-				//printf("early out at %i\n", num_steps);
-				num_steps = 0;
-			}
-				
+			arrayCopyWithElementsChange(vxyz, vxyz, direction, step_size, global_best_partials, num_sites); 
 
 			_D(FL, "dir idx  ", min_idx);
 			_D(FL, "direction", direction, num_sites);
-			
+			#if 1
+			for(int qq=0; qq<num_sites; qq++)
+			{
+				_D(FL, "decode dir",  seven_directions[ direction[qq] ], 3);
+			}
+            #endif
 			_D(FL, "good step", min_grad2);
+			_D(FL, "search_mags", &(direction_search_magnitudes[0]), num_sites*3);
 
-			while(num_steps > 0 && consecutive_fails < 4)
+			grad_check(goal2, min_grad2, num_steps, end_reason_i);
+
+			while(num_steps > 0 && consecutive_fails < relax_direction_fail_max)
 			{ 
 				_D(FL, "num_steps", num_steps);
 
 				// keep trying to move in the direction
-				arrayCopyWithElementsChange(neighbour, vxyz, direction, dc1,dc2,dc3, num_sites);
+				arrayCopyWithElementsChange(neighbour, vxyz, direction, step_size, global_best_partials, num_sites);
 				computeVecFirstDerivative(L, neighbour, set_index, get_index, energy_index, grad);
 			
 				double g2 = dot(grad, grad, num_sites*3);
 
 				if(g2 < min_grad2)
 				{
-					// accept step, plan to make a larger one next, could have memcpy'd below. 
-					arrayCopyWithElementsChange(vxyz, vxyz, direction, dc1,dc2,dc3, num_sites); // make the move
-					dc1 *= 1.5;
-					dc2 *= 1.5;
-					dc3 *= 1.5;
+					arrayCopyWithElementsChange(vxyz, vxyz, direction, step_size, global_best_partials, num_sites); // make the move
+					// extend scale in the direction
+					step_size *= step_up;
+
 					consecutive_fails = 0;
 					min_grad2 = g2;
 					_D(FL, "good step", g2);
-
-					if(goal2 > 0 && min_grad2 < goal2)
-					{
-						//printf("early out at %i\n", num_steps);
-						num_steps = 0;
-					}
+					_D(FL, "search_mags", &(direction_search_magnitudes[0]), num_sites*3);
+					
 				}
 				else
 				{
-					dc1 *= 0.5;
-					dc2 *= 0.5;
-					dc3 *= 0.5;
+					// reduce scale in the direction
+					//if(step_size > 1e-80)
+						step_size *= step_down;
+
 					consecutive_fails++;
 					_D(FL, "bad step", consecutive_fails);
 				}
-				_D(FL, "dc", dc1);
 				num_steps--;
+				steps_taken++;
+				grad_check(goal2, min_grad2, num_steps, end_reason_i);
 			}
 		}
 		else
 		{
 			// no luck on direction, retrying with smaller steps
 			_D(FL, "no luck");
-			dc1 *= 0.5;
-			dc2 *= 0.5;
-			dc3 *= 0.5;
-		}
+			//if(step_size > 1e-80)
+				step_size *= step_down;
 
-		if((goal2 > 0 && min_grad2 < goal2) || min_grad2 == 0)
-		{
-			//printf("early out at %i\n", num_steps);
-			num_steps = 0;
 		}
 
 		num_steps--;
+		steps_taken++;
+		grad_check(goal2, min_grad2, num_steps, end_reason_i);
 	}
-
+	steps_taken--;
 	
 	//	_D(FL, "vxyz2", vxyz, num_sites*3);
 	
@@ -2192,18 +2281,355 @@ int MEP::relaxSinglePoint(lua_State* L)
 	delete [] neighbour;
 	delete [] direction;
 	delete [] grad;
+
+	delete [] previous_best_partials;
+	delete [] global_best_partials;
+	delete [] current_partials;
+
 	
 	// need to restore saved configuration to SpinSystem
 	loadConfiguration(L, set_index, cfg);
 
-	lua_pushnumber(L, dc1);
-	lua_pushnumber(L, dc2);
-	lua_pushnumber(L, dc3);
-
 	lua_pushnumber(L, sqrt(min_grad2));
+	lua_pushinteger(L, steps_taken);
+	lua_pushinteger(L, direction_changes);
 
-	return 4;
+	lua_pushnumber(L, step_size);
+
+	lua_pushstring(L, end_reason[end_reason_i]);
+
+	return 5;
 }
+#endif
+
+
+int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_index, int energy_index, double* vxyz, double h, int steps)
+{
+	int good_steps = 0;
+	const int num_sites = numberOfSites();
+
+	double* grad   = new double[num_sites*3];
+	double* vxyz2  = new double[num_sites*3];
+
+	vector<double> mags;
+	for(int i=0; i<num_sites; i++)
+	{
+		mags.push_back( _magnitude(&vxyz[i*3], currentSystem));
+	}
+
+
+	computeVecFirstDerivative(L, vxyz, set_index, get_index, energy_index, grad);
+	double current_grad = sqrt(dot(grad, grad, num_sites*3));
+
+	// printf("Start grad: %20e\n", current_grad);
+
+	for(int i=0; i<steps; i++)
+	{
+		for(int qq=0; qq<num_sites*3; qq++)
+		{
+			memcpy(vxyz2, vxyz, sizeof(double)*num_sites*3);
+			
+			vxyz2[qq] = vxyz[qq] + h;
+
+			for(int j=0; i<num_sites; i++)
+			{
+				_normalizeTo(&vxyz2[j*3+0], &vxyz2[j*3+0], currentSystem, mags[j]);
+			}
+
+
+			computeVecFirstDerivative(L, vxyz2, set_index, get_index, energy_index, grad);
+			const double new_grad = sqrt(dot(grad, grad, num_sites*3));
+			
+			//printf("%20e <= %20e? %i\n", new_grad, current_grad,new_grad <= current_grad);
+			if(new_grad <= current_grad)
+			{
+				//printf("$$$ %20e\n", new_grad);
+				memcpy(vxyz, vxyz2, sizeof(double)*num_sites*3);
+				current_grad = new_grad;
+				good_steps++;
+			}
+		}
+	}
+
+	// printf("  end grad: %20e\n", current_grad);
+
+	delete [] grad;
+	delete [] vxyz2;
+	energy_ok = false;
+	return good_steps;
+}
+
+
+// relax individual point. This is used to refine a maximal point
+// expected on the stack:
+// at 1, mep
+// at 2, point number
+// at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
+// at 4, function set_site_ss1(x,y,z, sx,sy,sz)  return something_changed
+// at 5, function get_energy_ss1()
+// at 6, optional start h
+// returns min (mag of grad)
+int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
+{
+	int consecutive_fails = 0;
+	int consecutive_successes = 0;
+
+
+	const double step_up = 2.0;
+	const double step_down = 0.1;
+
+	const int num_sites = numberOfSites();
+	const int path_length = numberOfImages();
+
+	const char* end_reason[4] = {"finished number of steps", "reached goal", "", ""};
+	int end_reason_i = 0;
+
+	const int p = lua_tointeger(L, 2) - 1;
+	if(p < 0 || p >= path_length)
+		return luaL_error(L, "Point index out of bounds");
+
+	const int get_index = 3;
+	const int set_index = 4;
+	const int energy_index = 5;
+
+	if(!lua_isfunction(L, 3) || !lua_isfunction(L, 4) || !lua_isfunction(L, 5))
+		return luaL_error(L, "3 functions expected - perhaps you should call the wrapper method :relaxSinglePoint");
+	
+	// need to save current configuration
+	vector<double> cfg;
+	saveConfiguration(L, get_index, cfg);
+
+	double* vxyz = &state_xyz_path[p*num_sites*3];
+	// write path point as it currently stands
+	setAllSpins(L, set_index, vxyz);
+
+	double* grad   = new double[num_sites*3];
+	double* vxyz2  = new double[num_sites*3];
+
+	double* grad_grad = new double[num_sites*3];
+	double h = epsilon;
+
+	computeVecFirstDerivative(L, vxyz, set_index, get_index, energy_index, grad);
+	const double base_grad = sqrt(dot(grad, grad, num_sites*3));
+
+	for(int qq=0; qq<num_sites*3; qq++)
+	{
+		memcpy(vxyz2, vxyz, sizeof(double)*num_sites*3);
+
+		vxyz2[qq] = vxyz[qq] + h;
+		computeVecFirstDerivative(L, vxyz2, set_index, get_index, energy_index, grad);
+		double x_plus_h = sqrt(dot(grad, grad, num_sites*3));
+
+		/*
+		vxyz2[qq] = vxyz[qq] - h;
+		computeVecFirstDerivative(L, vxyz2, set_index, get_index, energy_index, grad);
+		double x_minus_h = sqrt(dot(grad, grad, num_sites*3));
+		grad_grad[qq] = (x_plus_h - x_minus_h) / (2 * h);
+		*/
+		grad_grad[qq] = (x_plus_h - base_grad) / ( h);
+	}
+
+	for(int q=0; q<num_sites; q++)
+	{
+		double sf[3];
+		_scaleFactors(currentSystem, &vxyz[q*3], sf);
+		grad_grad[q*3+0] *= sf[0];
+		grad_grad[q*3+1] *= sf[1];
+		grad_grad[q*3+2] *= sf[2];
+	}
+
+	if(lua_isnumber(L, 6))
+		h = lua_tonumber(L, 6);
+
+	if(h < 1e-200)
+		h = 1e-200;
+
+	double goal = 0;
+	if(lua_isnumber(L, 7))
+	   goal = lua_tonumber(L, 7);
+
+	// gradient (of gradient magnitude) direction
+	//_normalizeTo(grad_grad, grad_grad, MEP::Cartesian, 1.0, num_sites*3);
+
+
+	// printf("(%s:%i) %g\n", __FILE__, __LINE__, sqrt(min2));
+
+	vector<double> mags;
+	for(int i=0; i<num_sites; i++)
+	{
+		mags.push_back( _magnitude(&vxyz[i*3], currentSystem));
+	}
+  
+	int max_steps = 50;
+	int good_steps = 0;
+	double min2 = base_grad * base_grad;
+	const double len_gg = sqrt(dot(grad_grad, grad_grad, num_sites*3));
+	// printf(">>>>>>>>\n");
+	while(h > (epsilon * 1e-200) && max_steps && min2 > goal*goal)
+		//while(max_steps)
+	{
+		for(int i=0; i<num_sites; i++)
+		{
+			vxyz2[i*3+0] = vxyz[i*3+0] - grad_grad[i*3+0] * h;
+			vxyz2[i*3+1] = vxyz[i*3+1] - grad_grad[i*3+1] * h;
+			vxyz2[i*3+2] = vxyz[i*3+2] - grad_grad[i*3+2] * h;
+			_normalizeTo(&vxyz2[i*3+0], &vxyz2[i*3+0], currentSystem, mags[i]);
+		}
+
+		computeVecFirstDerivative(L, vxyz2, set_index, get_index, energy_index, grad);
+		double min2_2 = dot(grad, grad, num_sites*3);
+
+
+		//printf("(%s:%i) %10e, %g\n", __FILE__, __LINE__, h, sqrt(min2_2));
+		// printf("%10e %10e  %10e  %i\n", sqrt(min2_2), len_gg, h, min2_2 <= min2);
+		if(min2_2 <= min2)
+		{
+			consecutive_fails = 0;
+			consecutive_successes++;
+
+			min2 = min2_2;
+			memcpy(vxyz, vxyz2, sizeof(double)*num_sites*3);
+			for(int i=0; i<consecutive_successes; i++);
+			h = h * step_up;
+			good_steps++;
+			//printf("+ %e\n", h);
+		}
+		else
+		{
+			consecutive_fails++;
+			consecutive_successes = 0;
+
+			for(int i=0; i<consecutive_fails; i++)
+				h = h * step_down;
+			//printf("- %e\n", h);
+		}
+		max_steps--;
+	}
+
+	if(h < 1e-20 && min2 < goal*goal) // then stalling
+	{
+		int good_steps = relaxSinglePoint_expensiveDecent(L, get_index, set_index, energy_index, vxyz, 1e-10, 10);
+	}
+	
+	// write updated cfg
+ 	// setAllSpins(L, set_index, vxyz);
+
+	delete [] grad;
+	delete [] grad_grad;
+	delete [] vxyz2;
+
+	// need to restore saved configuration to SpinSystem
+	// loadConfiguration(L, set_index, cfg);
+
+	lua_pushnumber(L, sqrt(min2));
+	lua_pushnumber(L, h);
+	lua_pushinteger(L, good_steps);
+
+	energy_ok = false;
+	return 3;
+}
+
+
+
+// relax individual point. This is used to refine a maximal point
+// expected on the stack:
+// at 1, mep
+// at 2, function get_site_ss1(x,y,z) return sx,sy,sz 
+// at 3, function set_site_ss1(x,y,z, sx,sy,sz)  return something_changed
+// at 4, function get_energy_ss1()
+// at 5, point number
+// at 6, direction
+// at 7, num steps
+// at 8, step size
+// at 9, tolerance
+// returns new step size
+int MEP::slidePoint(lua_State* L)
+{
+	const int num_sites = numberOfSites();
+	const int path_length = numberOfImages();
+
+	const int get_index = 2;
+	const int set_index = 3;
+	const int energy_index = 4;
+
+	const int p = lua_tointeger(L, 5) - 1;
+	if(p < 0 || p >= path_length)
+		return luaL_error(L, "Point index out of bounds");
+
+	double direction = lua_tonumber(L, 6);
+	if(direction < 0)
+		direction = -1;
+	else
+		direction =  1;
+
+	int num_steps = lua_tointeger(L, 7);
+	double step_size = lua_tonumber(L, 8);
+
+	double tol = 1e-6;
+	if(lua_isnumber(L, 9))
+		tol = lua_tonumber(L, 9);
+
+	if(step_size == 0)
+		step_size = epsilon;
+
+
+	const int n = num_sites*3;
+	double* vxyz = &state_xyz_path[p*n];
+
+	
+	double* slope = new double[n];
+
+	double* s1 = new double[n];
+	double* s2 = new double[n];
+	
+	// write path point as it currently stands (at this point)
+	setAllSpins(L, set_index, vxyz);
+
+	for(int i=0; i<num_steps; i++)
+	{
+		computeVecFirstDerivative(L, vxyz, set_index, get_index, energy_index, slope);
+
+		for(int j=0; j<n; j++)
+		{
+			s1[j] = vxyz[j] + step_size * slope[j] * direction;;
+			s2[j] = vxyz[j] + step_size * slope[j] * 0.5 * direction;;
+		}
+
+		computeVecFirstDerivative(L, s2, set_index, get_index, energy_index, slope);
+
+		for(int j=0; j<n; j++)
+		{
+			s2[j] += step_size * slope[j] * 0.5 * direction;;
+		}
+
+		bool eq = true;
+		for(int i=0; i<num_sites && eq; i++)
+		{
+			if(_angleBetween(&s1[i*3], &s2[i*3], currentSystem, currentSystem) > tol)
+				eq = false;
+		}
+
+		if(eq)
+		{
+			memcpy(vxyz, s2, n*sizeof(double));
+			step_size *= 1.5;
+		}
+		else
+		{
+			step_size *= 0.5;
+		}
+	}
+
+	energy_ok = false;
+	delete [] slope;
+	delete [] s1;
+	delete [] s2;
+
+	lua_pushnumber(L, step_size);
+	return 1;
+}
+
+
 
 int MEP::numberOfImages()
 {
@@ -2213,6 +2639,101 @@ int MEP::numberOfImages()
 int MEP::numberOfSites()
 {
 	return sites.size() / 3;
+}
+
+
+bool MEP::equal(int a, int b, double allowable)
+{
+	const int chunk = sites.size();
+
+	double* s1 = &state_xyz_path[a * chunk];
+	double* s2 = &state_xyz_path[b * chunk];
+
+	for(int i=0; i<numberOfSites(); i++)
+	{
+		if(_angleBetween(&s1[i*3], &s2[i*3], currentSystem, currentSystem) > allowable)
+			return false;
+	}
+
+	return true;
+}
+
+#include <set>
+int MEP::uniqueSites(lua_State* L)
+{
+    const int ni = numberOfImages();
+
+	double tol = 1e-4;
+	vector<int> consider_sites;
+	vector<int> unique_sites;
+	set<int> sites_set;
+
+	for(int i=2; i<=lua_gettop(L); i++)
+	{
+		if(lua_isnumber(L, i))
+		{
+			tol = lua_tonumber(L, i);
+		}
+
+		if(lua_istable(L, i))
+		{
+			lua_pushnil(L);
+			while(lua_next(L, i))
+			{
+				if(lua_isnumber(L, -1))
+				{
+					int a = lua_tointeger(L, -1) - 1;
+					if(a >= 0 && a < ni)
+					{
+						sites_set.insert(a);
+					}
+				}
+				lua_pop(L, 1);
+			}
+		}
+	}
+
+	if(sites_set.size() == 0)
+	{
+		for(int i=0; i<ni; i++)
+		{
+			consider_sites.push_back(i);
+		}
+	}
+	else
+	{
+		set<int>::iterator it;
+		for(it=sites_set.begin(); it!=sites_set.end(); ++it)
+		{
+			consider_sites.push_back(*it);
+		}
+	}
+
+	for(unsigned int i=0; i<consider_sites.size(); i++)
+	{
+		bool is_unique = true;
+
+		for(unsigned int j=0; is_unique &&  j<unique_sites.size(); j++)
+		{
+			if(equal( consider_sites[i], unique_sites[j], tol))
+			{
+				is_unique = false;				
+			}
+		}
+
+		if(is_unique)
+			unique_sites.push_back(consider_sites[i]);
+	}
+
+	lua_newtable(L);
+	for(unsigned int i=0; i<unique_sites.size(); i++)
+	{
+		lua_pushinteger(L, i+1);
+		lua_pushinteger(L, unique_sites[i]+1);
+		lua_settable(L, -3);
+	}
+
+	return 1;
 }
 
 void MEP::computePointGradAtSite(lua_State* L, int p, int s, int set_index, int energy_index, double* grad3)
@@ -2286,6 +2807,42 @@ static int addToTable(lua_State* L, int tab_pos, int index, int value)
 	return index;
 }
 
+int MEP::anglesBetweenPoints(lua_State* L)
+{
+	const int path_length = numberOfImages();
+	const int ns = numberOfSites();
+
+	if(!lua_isnumber(L, 2) || !lua_isnumber(L, 3))
+		return luaL_error(L, "Require 2 numbers");
+
+	int a = lua_tointeger(L, 2) - 1;
+	int b = lua_tointeger(L, 3) - 1;
+	
+	if( (a < 0) || (b < 0) || (a >= path_length) || (b >= path_length))
+		return luaL_error(L, "Require 2 numbers between 1 and number of points (%i)", path_length);
+
+   	const int chunk = sites.size();
+
+	double* s1 = &state_xyz_path[a * chunk];
+	double* s2 = &state_xyz_path[b * chunk];
+
+	   
+	lua_newtable(L);
+  	for(int i=0; i<ns; i++)
+	{
+		lua_pushinteger(L, i+1);
+
+		double angle = _angleBetween(&s1[i*3], &s2[i*3], currentSystem, currentSystem);
+		lua_pushnumber(L, angle);
+
+		lua_settable(L, -3);
+	}
+		
+
+	return 1;
+}
+
+
 int MEP::maxpoints(lua_State* L)
 {
 	const int path_length = numberOfImages();
@@ -2300,7 +2857,7 @@ int MEP::maxpoints(lua_State* L)
 	const int all_idx = lua_gettop(L);
 	
 	
-	if(energies.size() != path_length)
+	if(energies.size() != path_length || energies.size() == 0)
 		return luaL_error(L, "Energies not found. You may need to run a single round of :compute");
 
 	int szMin = 0;
@@ -2380,6 +2937,91 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
 	return 0;
 }
 
+int MEP::classifyPoint(lua_State* L)
+{
+	const int num_sites = numberOfSites();
+	const int path_length = numberOfImages();
+
+	const int get_index = 2;
+	const int set_index = 3;
+	const int energy_index = 4;
+
+	const int p = lua_tointeger(L, 5) - 1;
+	if(p < 0 || p >= path_length)
+		return luaL_error(L, "Point index out of bounds");
+
+
+	double h = epsilon;
+	if(lua_isnumber(L, 6))
+		h = lua_tonumber(L, 6);
+
+	// back up old sites so we can restore after
+	vector<double> cfg;
+	saveConfiguration(L, get_index, cfg);
+
+	double* vec = &state_xyz_path[p*num_sites*3];
+	double* state = new double[num_sites * 3];
+	double* mags = new double[num_sites];
+
+	for(int i=0; i<num_sites; i++)
+	{
+		mags[i] = _magnitude(currentSystem, &(vec[i*3]));
+	}
+
+	arrayCopyWithElementChange(state, vec, 0, 0, num_sites * 3);
+	rescale_vectors(currentSystem, state, mags, num_sites);
+	setAllSpins(L, set_index, state);
+	const double base_energy = getEnergy(L, energy_index);
+	
+
+	int ups = 0;
+	int downs = 0;
+	int equals = 0;
+	
+	for(int i=0; i<num_sites*3; i++)
+	{
+		arrayCopyWithElementChange(state,   vec,  i, -h, num_sites * 3);
+		rescale_vectors(currentSystem, state, mags, num_sites);
+		setAllSpins(L, set_index, state);
+		const double e1 = getEnergy(L, energy_index);
+
+		arrayCopyWithElementChange(state,   vec,  i,  h, num_sites * 3);
+		rescale_vectors(currentSystem, state, mags, num_sites);
+		setAllSpins(L, set_index, state);
+		const double e2 = getEnergy(L, energy_index);
+		
+		if(e1 == base_energy && e1 == e2)
+			equals++;
+
+		if(e1 > base_energy && e2 > base_energy)
+		{
+			ups++;
+		}
+		if(e1 < base_energy && e2 < base_energy)
+		{
+			downs++;
+		}
+	}
+
+	loadConfiguration(L, set_index, cfg);	
+
+	delete [] state;	
+	delete [] mags;
+	
+	if(ups && (downs == 0))
+	{
+		lua_pushstring(L, "Minimum");
+		return 1;
+	}
+	if(downs && (ups == 0))
+	{
+		lua_pushstring(L, "Maximum");
+		return 1;
+	}
+	lua_pushstring(L, "");
+	return 1;
+}
+
 
 static int l_applyforces(lua_State* L)
 {
@@ -2404,6 +3046,18 @@ static int l_getdata(lua_State* L)
 	return 1;
 }
 
+static int l_setrfm(lua_State* L)
+{
+	LUA_PREAMBLE(MEP, mep, 1);
+	mep->relax_direction_fail_max = lua_tointeger(L, 2);
+	return 0;
+}
+static int l_getrfm(lua_State* L)
+{
+	LUA_PREAMBLE(MEP, mep, 1);
+	lua_pushinteger(L, mep->relax_direction_fail_max);
+	return 1;
+}
 
 static int l_addsite(lua_State* L)
 {
@@ -2637,14 +3291,21 @@ static int l_getgradient(lua_State* L)
 // at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
 // at 4, function set_site_ss1(x,y,z, sx,sy,sz) 
 // at 5, function get_energy_ss1()
-// at 6, number of steps
 // this is the internal version
-static int l_relaxSinglePoint_(lua_State* L)
+static int l_relaxSinglePoint_sd_(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
 
-	return mep->relaxSinglePoint(L);
+	return mep->relaxSinglePoint_SteepestDecent(L);
 }
+
+
+static int l_slidePoint_(lua_State* L)
+{
+	LUA_PREAMBLE(MEP, mep, 1);
+	return mep->slidePoint(L);
+}
+
 
 // expected on the stack at function call
 // at 1, mep
@@ -3011,6 +3672,23 @@ static int l_setep(lua_State* L)
 	return 0;
 }
 
+static int l_asbs(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+	return mep->anglesBetweenPoints(L);
+}
+
+static int l_us(lua_State* L)
+{
+	LUA_PREAMBLE(MEP, mep, 1);
+	return mep->uniqueSites(L);
+}
+
+static int l_cp_(lua_State* L)
+{
+	LUA_PREAMBLE(MEP, mep, 1);
+	return mep->classifyPoint(L);
+}
 
 int MEP::help(lua_State* L)
 {
@@ -3141,6 +3819,7 @@ int MEP::help(lua_State* L)
 		lua_pushstring(L, "Get the scale factor used in numerical derivatives to calculate step size. By default this is 1e-3");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Number: Scale factor used in numerical derivatives.");
+		return 3;
 	}
 
 	if(func == l_setep)
@@ -3148,6 +3827,38 @@ int MEP::help(lua_State* L)
 		lua_pushstring(L, "Set the scale factor used in numerical derivatives to calculate step size. By default this is 1e-3");
 		lua_pushstring(L, "1 Number: New scale factor used in numerical derivatives.");
 		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_us)
+	{
+		lua_pushstring(L, "Get a list of which sites that are unique.");
+		lua_pushstring(L, "Zero or 1 number, 0 or 1 table: tolerances used to determine equality. If a number is provided it will be used. The tolerance is the fraction of the spin magnitude that two vectors can be different by. If a table is provided then only the points in the table will be considered.");
+		lua_pushstring(L, "1 Table: Indexes of unique sites");
+		return 3;
+	}
+
+
+	if(func = l_getrfm)
+	{
+		lua_pushstring(L, "Get the max number of tries to advance in a direction before attempting a new direction in the relax algorithm.");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "1 Integer: Max number of tries.");
+		return 3;
+	}
+	if(func = l_setrfm)
+	{
+		lua_pushstring(L, "Set the max number of tries to advance in a direction before attempting a new direction in the relax algorithm.");
+		lua_pushstring(L, "1 Integer: Max number of tries.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_asbs)
+	{
+		lua_pushstring(L, "Determine the angles between pairs of points for each site");
+		lua_pushstring(L, "2 Integers: Point indexes");
+		lua_pushstring(L, "1 Table: Angles between sites");
 	}
 
 	return LuaBaseObject::help(L);
@@ -3186,7 +3897,7 @@ const luaL_Reg* MEP::luaMethods()
 		{"applyForces", l_applyforces},
 		{"_addStateXYZ", l_addstatexyz},
 		{"_setImageSiteMobility", l_setimagesitemobility},
-		{"_relaxSinglePoint", l_relaxSinglePoint_}, //internal method
+		{"_relaxSinglePoint_sd", l_relaxSinglePoint_sd_}, //internal method
 		{"_hessianAtPoint", l_computepoint2deriv},
 		{"_gradAtPoint", l_computepoint1deriv},
 		{"_maximalPoints", l_maxpoints},
@@ -3202,6 +3913,12 @@ const luaL_Reg* MEP::luaMethods()
 		{"setCoordinateSystem", _l_setCoordinateSystem},
 		{"epsilon", l_getep},
 		{"setEpsilon", l_setep},
+		{"uniqueSites", l_us},
+		{"setRelaxDirectionFailMax", l_setrfm},
+		{"relaxDirectionFailMax", l_getrfm},
+		{"_slidePoint", l_slidePoint_},
+		{"_classifyPoint", l_cp_},
+		{"anglesBetweenPoints", l_asbs},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

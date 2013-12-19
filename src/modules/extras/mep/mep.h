@@ -115,7 +115,10 @@ public:
 
 	void internal_copy_to(MEP* dest);
 
-	int relaxSinglePoint(lua_State* L);
+	int relaxSinglePoint_SteepestDecent(lua_State* L);
+	int relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_index, int energy_index, double* vxyz, double h, int steps);
+
+//	int relaxSinglePoint(lua_State* L);
 // 	int relaxSaddlePoint(lua_State* L);
 
 	void projForcePerpSpins(lua_State* L, int get_index, int set_index, int energy_index); //project force onto subspace perpendicular to spin direction
@@ -163,7 +166,16 @@ public:
 	void computeVecFirstDerivative(lua_State* L, double* vec, int set_index, int get_index, int energy_index, double* d);
 	double computeVecFirstDerivativeC(lua_State* L, double* vec, int set_index, int get_index, int energy_index, int coord);
 
+	int uniqueSites(lua_State* L);
+	int slidePoint(lua_State* L);
+	int classifyPoint(lua_State* L);
+
+	int relax_direction_fail_max;
+
+	int anglesBetweenPoints(lua_State* L);
+
 private:
+	bool equal(int a, int b, double tol);
 	void make_path_size(const int n);
 
 	void computePointGradAtSite(lua_State* L, int p, int s, int set_index, int energy_index, double* grad3);
