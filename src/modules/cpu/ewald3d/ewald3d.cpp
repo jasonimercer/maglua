@@ -555,6 +555,7 @@ int DipoleEwald3D::luaInit(lua_State* L)
 
 void DipoleEwald3D::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	char version = 0;
 	encodeChar(version, b);
 	

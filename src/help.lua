@@ -22,7 +22,7 @@ function write_help(file_handle, optional_links)
 		return string.gsub(x, "\"", "")
 	end
 
-	function lp(txt) -- Link Process, change *TEXT* into <a href="#TEXT">TEXT</a>. Also changing \n for <br>\n
+	function lp(txt) -- Link Process, change *TEXT* into <a href="#TEXT">TEXT</a>. Also changing \n for <br>\n. Also latex
 -- 		txt = string.gsub(txt, "<", "&lt;")
 -- 		txt = string.gsub(txt, ">", "&gt;")
 		
@@ -43,6 +43,58 @@ function write_help(file_handle, optional_links)
 			return txt
 		end
 		
+
+		local function _latexParse(txt)
+			local a, b, c, d, e = string.find(txt, "^(.*)%$(.-)%$(.*)$")
+
+			if a then
+				local f = io.open("latex_expression.tex", "w")
+				f:write([[\documentclass{minimal}
+\usepackage{amssymb}
+\begin{document}
+$]] .. d .. [[$
+\end{document}]]
+)
+				f:close()
+
+				local cmd = [[ pdflatex latex_expression.tex && \
+				pdfcrop latex_expression.pdf && \
+				pdftoppm latex_expression-crop.pdf|pnmtopng > latex_expression.png && \
+				base64 latex_expression.png > latex_expression.b64 ]]
+				
+				-- print(cmd)
+				os.execute(cmd)
+
+				local f = io.open("latex_expression.b64", "r")
+				local b64 = f:read("*all")
+				f:close()
+
+				local cmd = [[ rm -f latex_expression.aux latex_expression.b64 latex_expression-crop.pdf latex_expression.log latex_expression.pdf latex_expression.png latex_expression.tex ]]
+				os.execute(cmd)
+
+
+				local itag = string.format("<img alt=\"%s\" src=\"data:image/png;base64,%s\" />", d, b64)
+
+				return _latexParse(c .. itag .. e)
+			end
+			return txt
+		end
+		
+
+
+		local function _codeParse(txt)
+			local a, b, c, d, e = string.find(txt, "^(.*)##(.-)##(.*)$")
+
+			if a then
+				local res = assert(loadstring(d))()
+				return _codeParse(c .. res .. e)
+			end
+			return txt
+		end
+		
+
+
+
 		--don't want to process <pre>xyz</pre>
 		local function parts(txt, t)
 			t=t or {}
@@ -59,7 +111,7 @@ function write_help(file_handle, optional_links)
 		
 		for k,v in pairs(p) do
 			if v[1] == "txt" then
-				p[k][2] = _lp(_ws(p[k][2]))
+				p[k][2] = _codeParse(_latexParse(_lp(_ws(p[k][2]))))
 			end
 		end
 		

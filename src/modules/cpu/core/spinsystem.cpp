@@ -636,6 +636,7 @@ void SpinSystem::ensureSlotExists(int slot)
 
 void SpinSystem::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	char version = 0;
 	encodeChar(version, b);
 	encodeInteger(nx, b);

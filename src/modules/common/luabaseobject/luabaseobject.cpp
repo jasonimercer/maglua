@@ -21,12 +21,12 @@ LuaBaseObject::LuaBaseObject(int t)
 	L = 0;
 }
 
-void LuaBaseObject::encode(buffer* b)
+void LuaBaseObject::encode(buffer* /*b*/)
 {
 	fprintf(stderr, "Encode has not been written for `%s'\n", lineage(0));
 }
 
-int  LuaBaseObject::decode(buffer* b)
+int  LuaBaseObject::decode(buffer* /*b*/)
 {
 	fprintf(stderr, "Decode has not been written for `%s'\n", lineage(0));
 	return 0;
@@ -139,6 +139,39 @@ void encodeChar(const char c, buffer* b)
 	encodeBuffer(&c, sizeof(char), b);
 }
 
+int  encodeContains(LuaBaseObject* o, buffer* b)
+{
+	for(int i=0; i< (int)b->encoded.size(); i++)
+	{
+		if(b->encoded[i] == o)
+			return 1;
+	}
+	return 0;
+}
+
+void encodeOldThis (LuaBaseObject* o, buffer* b)
+{
+	int pos = -1;
+	for(int i=0; i<(int)b->encoded.size() && pos < 0; i++)
+	{
+		if(b->encoded[i] == o)
+			pos = i;
+	}
+	encodeChar(ENCODE_MAGIC_OLD, b);
+	encodeInteger(pos, b);
+}
+
+void encodeNewThis (LuaBaseObject* o, buffer* b)
+{
+	int pos = b->encoded.size();
+	b->encoded.push_back(o);
+	encodeChar(ENCODE_MAGIC_NEW, b);
+	encodeInteger(pos, b);
+}
+
+
+
+
 
 void decodeBuffer(void* dest, const int len, buffer* b)
 {
@@ -164,15 +197,62 @@ char decodeChar(buffer* b)
 	return c;
 }
 
+LuaBaseObject* decodeLuaBaseObject(lua_State* L, buffer* b)
+{
+	int type = decodeInteger(b);
+	char magic = decodeChar(b);
+	int pos = decodeInteger(b);
 
+	if((magic != ENCODE_MAGIC_NEW) && (magic != ENCODE_MAGIC_OLD))
+	{
+		fprintf(stderr, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+		return 0;
+	}
+
+	LuaBaseObject* e = 0;
+	if(magic == ENCODE_MAGIC_NEW)
+	{
+		e = Factory_newItem(type);
+		if(e)
+		{
+			e->L = L;
+			e->decode(b);
+		}
+		else
+		{
+			fprintf(stderr, "Failed to create new type from factory\n");
+		}
+
+		if(pos != (int)b->encoded.size())
+			fprintf(stderr, "(%s:%i)Position mismatch", __FILE__, __LINE__);
+		b->encoded.push_back(e);
+	}
+	if(magic == ENCODE_MAGIC_OLD)
+	{
+		if(pos < 0 || pos >= (int)b->encoded.size())
+		{
+			fprintf(stderr, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+		}
+		else
+		{
+			e->L = L;
+			e = (LuaBaseObject*)b->encoded[pos];
+		}
+	}
+	//luaT_inc<LuaBaseObject>(e);
+	return e;
+}
+
+
+#ifdef _CREATE_LIBRARY
 
 #include "info.h"
 extern "C"
 {
-LUABASEOBJECT_API int lib_register(lua_State* L);
-LUABASEOBJECT_API int lib_version(lua_State* L);
-LUABASEOBJECT_API const char* lib_name(lua_State* L);
-LUABASEOBJECT_API int lib_main(lua_State* L);
+	LUABASEOBJECT_API int lib_register(lua_State* L);
+	LUABASEOBJECT_API int lib_version(lua_State* L);
+	LUABASEOBJECT_API const char* lib_name(lua_State* L);
+	LUABASEOBJECT_API int lib_main(lua_State* L);
 }
 
 LUABASEOBJECT_API int lib_register(lua_State* L)
@@ -199,3 +279,4 @@ int lib_main(lua_State* L)
 	return 0;
 }
 
+#endif

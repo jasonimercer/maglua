@@ -24,7 +24,6 @@
 #include "checkpoint.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "info.h"
 
 static int sure_fwrite(const void* _data, int sizeelement, int numelement, FILE* f)
 {
@@ -91,7 +90,7 @@ static char* bin_fmt(lua_State* L, const int start, const int end, int& buffer_s
 		
 		// note: adding some extra memory below so we can get multiples of 3
 		// in the uuencode case
-		if(bb_pos + sizeof(int) + size + 3 > bb_size)
+		if(bb_pos + (int)sizeof(int) + size + 3 > bb_size)
 		{
 			bigbuf = (char*)realloc(bigbuf, bb_size + sizeof(int) + size + 3);
 			bb_size = bb_size + sizeof(int) + size;
@@ -169,7 +168,6 @@ static int uuencode_line(const char* in_data, int& in_pos, const int in_size, ch
 static char* uuencode(char* input, int size)
 {
 	char* buf = (char*)malloc(size*2+128); //making sure out buffer is more than big enough
-	char line[128];
 
 	sprintf(buf, "begin 600 checkpoint.dat\n");
 	
@@ -203,8 +201,6 @@ static int l_checkpoint_save_to_string(lua_State* L)
 
 static int l_checkpoint_save(lua_State* L)
 {
-	const int n = lua_gettop(L) - 1;
-	
 	if(!lua_isstring(L, 1))
 	{
 		return luaL_error(L, "checkpointSave must have a filename as the first argument");
@@ -363,7 +359,7 @@ static int l_uudecode(lua_State* L, const char* data)
 	int data_start = -1;
 	for(int i=begin_pos; (i<data_size) && (data_start == -1); i++)
 	{
-		if(data[i] == LF | data[i] == CR)
+		if( (data[i] == LF) | (data[i] == CR))
 			data_start = i;
 	}
 	
@@ -420,7 +416,7 @@ static int l_uudecode(lua_State* L, const char* data)
 	}
 	
 	
-	if(bin_pos < 128 + sizeof(int))
+	if(bin_pos < 128 + (int)sizeof(int))
 	{
 		free(bindata);
 		return luaL_error(L, "Decoded data too small (%d). Not large enough to store header and data count.", bin_pos);
@@ -468,6 +464,8 @@ static int l_checkpoint_load_from_string(lua_State* L)
 	return l_uudecode(L, s);
 }
 
+#include "checkpointer.h"
+#include "checkpointer_luafuncs.h"
 void registerCheckPoint(lua_State* L)
 {
 	lua_pushcfunction(L, l_checkpoint_save);
@@ -482,10 +480,16 @@ void registerCheckPoint(lua_State* L)
 	lua_pushcfunction(L, l_checkpoint_load_from_string);
 	lua_setglobal(L, "checkpointFromString");
 
-	
 }
 
+#ifdef _CREATE_LIBRARY
+
 #include "checkpoint_luafuncs.h"
+#include "info.h"
+
+#ifndef CHECKPOINT_API
+#define CHECKPOINT_API
+#endif
 
 extern "C"
 {
@@ -504,6 +508,8 @@ CHECKPOINT_API int lib_register(lua_State* L)
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 	}
 	
+	checkpointer_register(L);
+
 	return 0;
 }
 
@@ -526,3 +532,4 @@ CHECKPOINT_API int lib_main(lua_State* L)
 	return 0;
 }
 
+#endif

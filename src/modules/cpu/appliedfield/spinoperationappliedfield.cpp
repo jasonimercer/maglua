@@ -32,6 +32,7 @@ int AppliedField::luaInit(lua_State* L)
 	
 void AppliedField::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	SpinOperation::encode(b);
 	char version = 0;
 	encodeChar(version, b);

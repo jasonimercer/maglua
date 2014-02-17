@@ -307,6 +307,7 @@ bool InterpolatingFunction::getValue(double in, double* out)
 
 void InterpolatingFunction::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	char version = 0;
 	
 	encodeChar(version, b);

@@ -10,6 +10,9 @@
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ******************************************************************************/
 
+// #define CREATE_LIBRARY
+#ifdef CREATE_LIBRARY
+
 extern "C" {
         #include <lua.h>
         #include <lualib.h>
@@ -29,4 +32,8 @@ extern "C" {
  #endif
 #else
  #define CHECKPOINT_API 
+#endif
+
+#else
+void registerCheckPoint(lua_State* L);
 #endif

@@ -34,6 +34,7 @@ int Dipole::luaInit(lua_State* L)
 
 void Dipole::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	LongRange::encode(b);
 	char version = 0;
 	encodeChar(version, b);

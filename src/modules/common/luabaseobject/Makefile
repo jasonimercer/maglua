@@ -12,6 +12,7 @@
 OBJECTS=luamigrate.o luabaseobject.o factory.o MurmurHash3.o
 LIBNAME=LuaBaseObject
 CATEGORY=common
+CC_EXTRAOPS=-D_CREATE_LIBRARY
 
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu

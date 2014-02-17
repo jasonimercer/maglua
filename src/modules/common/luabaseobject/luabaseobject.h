@@ -14,12 +14,29 @@
 #define LUABASEOBJECT_H
 #include "factory.h"
 
+#include <vector>
 typedef struct buffer
 {
 	char* buf;
 	int pos;
 	int size;
+	std::vector<void*> encoded;
+	std::vector<int> encoded_table_refs;
+	std::vector<const void*> encoded_table_pointers;
 }buffer;
+
+#ifndef ENCODE_PREAMBLE
+#define ENCODE_MAGIC_NEW ((char)111)
+#define ENCODE_MAGIC_OLD ((char)222)
+#define ENCODE_PREAMBLE \
+if(encodeContains(this, b)) \
+{ \
+	encodeOldThis(this, b); \
+	return; \
+} \
+encodeNewThis(this, b);
+#endif
+
 
 
 extern "C"
@@ -28,11 +45,21 @@ extern "C"
    void encodeDouble(const double d, buffer* b);
    void encodeInteger(const int i, buffer* b);
    void encodeChar(const char c, buffer* b);
+//   void encode
+
+   int  encodeContains(LuaBaseObject* o, buffer* b);
+   void encodeOldThis (LuaBaseObject* o, buffer* b);
+   void encodeNewThis (LuaBaseObject* o, buffer* b);
+
+
     char decodeChar(buffer* b);
 	int decodeInteger(buffer* b);
  double decodeDouble(buffer* b);
    void decodeBuffer(void* dest, const int len, buffer* b);
    void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals);
+
+   LuaBaseObject* decodeLuaBaseObject(lua_State* L, buffer* b);
+
 }
 
 #include <string.h>
@@ -106,6 +133,8 @@ public:
 	T* t = luaT_to<T>(L, i); \
 	if(!t) return 0;
 
+
+
 // decrement refcounter. delete if needed.
 // always return resulting pointer
 // does not rely on a lua_State
@@ -137,6 +166,31 @@ T* luaT_inc(T* t)
 	t->refcount++;
 	return t;
 }
+
+// this is a common pattern
+template<class T>
+void luaT_set(T** pdest, T* src)
+{
+	luaT_inc<T>(src);
+	luaT_dec<T>(*pdest);
+	*pdest = src;
+}
+
+// Cast from LuaBaseObject to T
+// useful when getting a LuaBaseObject from a buffer stream
+template<class T>
+T* luaT_cast(LuaBaseObject* t)
+{
+	return dynamic_cast<T*>(t);
+}
+
+// Convenience
+template<class T>
+T* luaT_inc_cast(LuaBaseObject* t)
+{
+	return luaT_inc<T>(luaT_cast<T>(t));
+}
+
 
 // test type
 template<class T>
@@ -301,6 +355,14 @@ int luaT_wrapper(lua_State* L)
 	((*t).*setValue)(d);
 	return 0;
 }
+template<typename T, void (T::*setValue)(float)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	double d = lua_tonumber(L, 2);
+	((*t).*setValue)(d);
+	return 0;
+}
 template<typename T, void (T::*setValue)(int)>
 int luaT_wrapper(lua_State* L)
 {
@@ -348,14 +410,6 @@ int luaT_wrapper(lua_State* L)
 	((*t).*method)(v2);
 	return 0;
 }
-template<typename T, typename R, void (T::*method)(const R*)>
-int luaT_wrapper(lua_State* L)
-{
-	LUA_PREAMBLE(T, t, 1);
-	R* v2 = luaT_to<R>(L, 2);
-	((*t).*method)(v2);
-	return 0;
-}
 template<typename T, typename R, void (T::*method)(R*)>
 int luaT_wrapper(lua_State* L)
 {
@@ -364,6 +418,15 @@ int luaT_wrapper(lua_State* L)
 	((*t).*method)(v2);
 	return 0;
 }
+template<typename T, typename R, void (T::*method)(const R*)>
+int luaT_wrapper(lua_State* L)
+{
+	LUA_PREAMBLE(T, t, 1);
+	R* v2 = luaT_to<R>(L, 2);
+	((*t).*method)(v2);
+	return 0;
+}
+
 template<typename T, typename R, typename S, void (T::*method)(R*, S)>
 int luaT_wrapper(lua_State* L)
 {
@@ -453,15 +516,15 @@ int luaT_setname(lua_State* L)
 	return 0;
 }
 
-template<class T>
-int luaT_getname(lua_State* L)
-{
-	T* t = luaT_to<T>(L, 1);
-	if(!t) return 0;
+//template<class T>
+//int luaT_getname(lua_State* L)
+//{
+//	T* t = luaT_to<T>(L, 1);
+//	if(!t) return 0;
 
-	lua_pushstring(L, t->name.toStdString().c_str());
-	return 1;
-}
+//	lua_pushstring(L, t->name.toStdString().c_str());
+//	return 1;
+//}
 
 // create a new object and push it on the stack
 template<class T>

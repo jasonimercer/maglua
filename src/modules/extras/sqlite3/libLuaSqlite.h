@@ -38,7 +38,7 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 
-	void encode(buffer* b) {}
+	void encode(buffer* b) {ENCODE_PREAMBLE}
 	int  decode(buffer* b) {return 0;}
 
 	sqlite3* db;

@@ -190,6 +190,7 @@ void Anisotropy::addAnisotropy(int site, double nx, double ny, double nz, double
 
 void Anisotropy::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	SpinOperation::encode(b); //nx,ny,nz,global_scale
 
 	char version = 0;

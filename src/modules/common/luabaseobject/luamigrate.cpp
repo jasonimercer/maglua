@@ -18,7 +18,7 @@
 #include "luamigrate.h"
 #include "luabaseobject.h"
 
-#ifdef WIN32
+#ifdef size64_t
 //using size64_t (defined in luaconf.h) to allow compat with x86_64 bit linux
 static int lexportwriter(lua_State *L, const void* chunk, size64_t size, void* data) 
 #else
@@ -63,35 +63,58 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 			encodeBuffer(c, strlen(c)+1, b);
 		break;
 		case LUA_TTABLE:
+		{
 			// printf("exporting table\n");
-			tablesize = 0;
-
-			lua_pushnil( L );
-			while(lua_next( L, index))
+			const void* tab_ptr = lua_topointer(L, index);
+			int existing_index = -1;
+			for(unsigned int i=0; i<b->encoded_table_pointers.size() &&
+				existing_index == -1; i++)
 			{
-				tablesize++;
-				lua_pop( L, 1 );
+				if(tab_ptr == b->encoded_table_pointers[i])
+					existing_index = i;
 			}
-			
-			encodeInteger(tablesize, b);
 
-			lua_pushnil(L);
-			while(lua_next(L, index) != 0)
+			if(existing_index == -1) //new
 			{
-				_exportLuaVariable(L, -2, b);
-				_exportLuaVariable(L, -1, b);
+				b->encoded_table_pointers.push_back(tab_ptr);
+				encodeChar(ENCODE_MAGIC_NEW, b);
+				encodeInteger(0, b); // for NEW/OLD symmetry
+
+				tablesize = 0;
+
+				lua_pushnil( L );
+				while(lua_next( L, index))
+				{
+					tablesize++;
+					lua_pop( L, 1 );
+				}
+
+				encodeInteger(tablesize, b);
+
+				lua_pushnil(L);
+				while(lua_next(L, index) != 0)
+				{
+					_exportLuaVariable(L, -2, b);
+					_exportLuaVariable(L, -1, b);
+					lua_pop(L, 1);
+				}
+
+				if(	lua_getmetatable(L, index) == 0)
+				{
+					//printf("table does not have a metatable, pushing nil\n");
+					lua_pushnil(L);
+				}
+				//printf("exporting metatable\n");
+				_exportLuaVariable(L, lua_gettop(L), b);
 				lua_pop(L, 1);
 			}
-
-			if(	lua_getmetatable(L, index) == 0)
+			else
 			{
-				//printf("table does not have a metatable, pushing nil\n");
-				lua_pushnil(L);
+				encodeChar(ENCODE_MAGIC_OLD, b);
+				encodeInteger(existing_index, b);
 			}
-			//printf("exporting metatable\n");
-			_exportLuaVariable(L, lua_gettop(L), b);
-			lua_pop(L, 1);
-		break;
+			break;
+		}
 		case LUA_TFUNCTION:
 		{
 			buffer* b2 = new buffer;
@@ -195,27 +218,55 @@ int _importLuaVariable(lua_State* L, buffer* b)
 		break;
 		case LUA_TTABLE:
 		{
-			lua_newtable(L);
-			int ts = decodeInteger(b);
-			
-			for(int i=0; i<ts; i++)
+			char magic = decodeChar(b);
+			int pos = decodeInteger(b);
+
+			if((magic != ENCODE_MAGIC_NEW) && (magic != ENCODE_MAGIC_OLD))
 			{
-				_importLuaVariable(L, b);
-				_importLuaVariable(L, b);
-				lua_settable(L, -3);
+				luaL_error(L, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+				return -1;
 			}
 
-			_importLuaVariable(L, b); //import potential metatable
-			if(lua_isnil(L, -1))
+			if(magic == ENCODE_MAGIC_NEW)
 			{
-				// no metatable
-				lua_pop(L, 1);
-			}
-			else
-			{
-				lua_setmetatable(L, -2);
-			}
+				lua_newtable(L);
+				int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+				lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+				b->encoded_table_refs.push_back(ref);
 
+				int ts = decodeInteger(b);
+
+
+				for(int i=0; i<ts; i++)
+				{
+					_importLuaVariable(L, b);
+					_importLuaVariable(L, b);
+					lua_settable(L, -3);
+				}
+
+				_importLuaVariable(L, b); //import potential metatable
+				if(lua_isnil(L, -1))
+				{
+					// no metatable
+					lua_pop(L, 1);
+				}
+				else
+				{
+					lua_setmetatable(L, -2);
+				}
+			}
+			if(magic == ENCODE_MAGIC_OLD)
+			{
+				if(pos < 0 || pos >= (int)b->encoded_table_refs.size())
+				{
+					luaL_error(L, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+				}
+				else
+				{
+					int ref = b->encoded_table_refs[pos];
+					lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+				}
+			}
 		}
 		break;
 		case LUA_TFUNCTION:
@@ -235,19 +286,42 @@ int _importLuaVariable(lua_State* L, buffer* b)
 		case LUA_TUSERDATA:
 		{
 			int type = decodeInteger(b);
-// 			printf(">>> %i, %i\n", lua_gettop(L), type);
-			LuaBaseObject* e = Factory_newItem(type);
-			if(e)
+			char magic = decodeChar(b);
+			int pos = decodeInteger(b);
+
+			if((magic != ENCODE_MAGIC_NEW) && (magic != ENCODE_MAGIC_OLD))
 			{
-				e->L = L;
-				e->decode(b);
-				Factory_lua_pushItem(L, e, type);
+				luaL_error(L, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+				return -1;
 			}
-			else
+
+			LuaBaseObject* e = 0;
+			if(magic == ENCODE_MAGIC_NEW)
 			{
-				luaL_error(L, "Failed to create new type from factory\n");
+				e = Factory_newItem(type);
+				if(e)
+				{
+					e->L = L;
+					e->decode(b);
+					Factory_lua_pushItem(L, e, type);
+					b->encoded.push_back(e);
+				}
+				else
+				{
+					luaL_error(L, "Failed to create new type from factory\n");
+				}
 			}
-// 			printf(">>> %i\n", lua_gettop(L));
+			if(magic == ENCODE_MAGIC_OLD)
+			{
+				if(pos < 0 || pos >= (int)b->encoded.size())
+				{
+					luaL_error(L, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+				}
+				else
+				{
+					e = (LuaBaseObject*)b->encoded[pos];
+				}
+			}
 		}
 
 		break;
@@ -270,5 +344,13 @@ int importLuaVariable(lua_State* L, char* chunk, int chunksize)
 	b.pos = 0;
 	b.size = chunksize;
 	_importLuaVariable(L, &b);
+
+	// importing can create table references, we need to unref them
+	for(unsigned int i=0; i<b.encoded_table_refs.size(); i++)
+	{
+		int r = b.encoded_table_refs[i];
+		luaL_unref(L, LUA_REGISTRYINDEX, r);
+	}
+
 	return 0;
 }

@@ -208,6 +208,7 @@ bool InterpolatingFunction2D::getValue(double x, double y, double* z)
 
 void InterpolatingFunction2D::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	encodeInteger( rawdata.size(), b);
 	for(unsigned int i=0; i<rawdata.size(); i++)
 	{

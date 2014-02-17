@@ -39,6 +39,8 @@ $(LIBNAME) : $(OBJECTS)
 info.h:						#dev version
 	lua premake.lua $(CXX) $(CFLAGS)	#dev version
 
+isntall: install
+
 install: $(BIN)
 	mkdir -p $(HOME)/bin
 	cp -f maglua $(HOME)/bin 2> /dev/null || true
@@ -69,6 +71,10 @@ help: $(BIN)
 
 help_install: help              #dev version
 	scp maglua.html cmms01.ace-net.ca:~/public_html #dev version
+
+help_install_testing: help              #dev version
+	scp maglua.html cmms01.ace-net.ca:~/public_html/maglua_testing.html #dev version
+
 
 distclean: clean
 	make -C modules/cuda distclean #cuda version

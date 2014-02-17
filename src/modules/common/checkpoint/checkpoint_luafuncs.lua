@@ -30,6 +30,18 @@ print(g(value), t[1], t2])
 				"1 String: The String is the file to be read",
 				"0 or more Values: The values encoded in the file are returned from the function."
 	end
+
+    if f == checkpointToBase64 then
+		return "Function to save zero or more values to a checkpoint string encoded using the base64 algorithm. " ..
+			   "Encoded data use only printable characters and so can be easily emailed, copied to a clipboard, " ..
+			   "stored in a text file or stored in a database.\n" ..
+			   "Example:" .. ""
+		,
+                "0 or more Values: Values will be encoded and returned as a string",
+                "1 String: The string representing the values as a printable string encoded using the vase64 algorithm."
+
+	end
+
 	
 -- 	These functions will save and load data using the uuencode/uudecode algorithm.
 -- 
@@ -93,6 +105,7 @@ f, v, t = checkpointFromString(s)
 				"1 String: The string representing the values as a printable string encoded using the uuencode algorithm.",
 				"0 or more Values: Values will be decoded and returned."
 	end
+
 	
 	
 	return h(f) -- calling previous help function

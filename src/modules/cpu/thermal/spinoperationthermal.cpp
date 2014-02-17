@@ -50,6 +50,7 @@ int Thermal::luaInit(lua_State* L)
 
 void Thermal::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	SpinOperation::encode(b);
 	char version = 0;
 	encodeChar(version, b);

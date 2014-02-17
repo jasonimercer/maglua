@@ -60,6 +60,7 @@ int Timer::luaInit(lua_State* L)
 
 void Timer::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	char version = 0;
 	encodeChar(version, b);
 	

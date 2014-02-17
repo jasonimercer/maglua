@@ -52,6 +52,7 @@ int KMC::luaInit(lua_State* L)
 
 void KMC::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 }
 
 int  KMC::decode(buffer* b)

@@ -67,6 +67,7 @@ int DisorderedDipole::luaInit(lua_State* L)
 
 void DisorderedDipole::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	SpinOperation::encode(b);
 	char version = 0;
 	encodeChar(version, b);

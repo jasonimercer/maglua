@@ -65,6 +65,7 @@ void Wood::deinit()
 
 void Wood::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	SpinOperation::encode(b); //nx,ny,nz,global_scale
 	char version = 0;
 	encodeChar(version, b);

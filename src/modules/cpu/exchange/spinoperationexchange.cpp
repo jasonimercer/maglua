@@ -46,6 +46,7 @@ int Exchange::luaInit(lua_State* L)
 
 void Exchange::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	SpinOperation::encode(b);
 	char version = 0;
 	encodeChar(version, b);

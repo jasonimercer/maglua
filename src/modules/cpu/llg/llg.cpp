@@ -45,6 +45,7 @@ LLG::~LLG()
 
 void LLG::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	char version = 0;
 	encodeChar(version, b);
 	encodeInteger(thermalOnlyFirstTerm, b);

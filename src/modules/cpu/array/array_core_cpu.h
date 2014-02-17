@@ -197,6 +197,7 @@ public:
 
 	void encode(buffer* b)
 	{
+		ENCODE_PREAMBLE
 		sync_hd();
 		char version = 0;
 		encodeChar(version, b);

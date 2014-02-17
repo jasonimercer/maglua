@@ -503,6 +503,7 @@ int MEP::luaInit(lua_State* L, int base)
 
 void MEP::encode(buffer* b) //encode to data stream
 {
+	ENCODE_PREAMBLE
 	if(ref_data != LUA_REFNIL)
 	{
 		lua_rawgeti(L, LUA_REGISTRYINDEX, ref_data);

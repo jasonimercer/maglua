@@ -53,6 +53,7 @@ int LongRange2D::luaInit(lua_State* L)
 
 void LongRange2D::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	SpinOperation::encode(b);
 	char version = 0;
 	encodeChar(version, b);

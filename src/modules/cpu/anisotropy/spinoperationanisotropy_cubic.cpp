@@ -238,6 +238,7 @@ int AnisotropyCubic::addAnisotropy(int site, double* a1, double* a2, double* K3)
 
 void AnisotropyCubic::encode(buffer* b)
 {
+	ENCODE_PREAMBLE
 	SpinOperation::encode(b); //nx,ny,nz,global_scale
 
 	char version = 0;
