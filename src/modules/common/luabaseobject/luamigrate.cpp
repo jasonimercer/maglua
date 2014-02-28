@@ -42,6 +42,10 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 		index = lua_gettop(L) + index + 1;
 	}
 
+	if(b->debug)
+	{
+		fprintf(b->debug, "(%s:%i) exporting %12s pos:%6i\n", __FILE__, __LINE__, lua_typename(L, t), b->pos);
+	}
 	encodeInteger(t, b);
 	switch(t)
 	{
@@ -127,6 +131,13 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 				luaL_error(L, "Unable to encode function");
 			
 			lua_pop(L, 1);
+
+			#if 0
+			if(b->debug)
+			{
+				fprintf(b->debug, "(%s:%i) function size: %i\n", __FILE__, __LINE__, b2->pos);
+			}
+			#endif
 			
 			if(b2->pos)
 			{
@@ -345,12 +356,7 @@ int importLuaVariable(lua_State* L, char* chunk, int chunksize)
 	b.size = chunksize;
 	_importLuaVariable(L, &b);
 
-	// importing can create table references, we need to unref them
-	for(unsigned int i=0; i<b.encoded_table_refs.size(); i++)
-	{
-		int r = b.encoded_table_refs[i];
-		luaL_unref(L, LUA_REGISTRYINDEX, r);
-	}
+	buffer_unref(L, &b);
 
 	return 0;
 }

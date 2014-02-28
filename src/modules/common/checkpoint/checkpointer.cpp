@@ -90,6 +90,7 @@ int Checkpointer::luaInit(lua_State* L)
 Checkpointer::~Checkpointer()
 {
 	clear();
+	setData(0);
 	delete b;
 }
 
@@ -100,11 +101,16 @@ void Checkpointer::clear()
 	{
 		if(b->buf)
 			free(b->buf);
+		if(b->debug)
+			fclose(b->debug);
+		b->debug = 0;
 	}
 	b = new buffer;
-    b->size = 0;
+    b->size = 32;
     b->pos  = 0;
 	b->buf = 0;
+
+	buffer_unref(L, b);
 
 	b->encoded.clear();
 	b->encoded_table_refs.clear();
@@ -113,6 +119,9 @@ void Checkpointer::clear()
 	n = 0;
 	end_pos = 0;
 	has_checksum = false;
+	setData((char*)malloc(b->size));
+	for(int i=0; i<b->size; i++)
+		b->buf[i] = 0;
 }
 
 int Checkpointer::l_tostring(lua_State* L)
@@ -161,8 +170,15 @@ int Checkpointer::l_fromstring(lua_State* L, int idx)
 
 int Checkpointer::l_add(lua_State* L, int idx)
 {
-	if(currentState() != OP_NONE)
+	if(currentState() == OP_NONE)
 	{
+		if(debug_file.length())
+		{
+			if(b->debug == 0)
+			{
+				b->debug = fopen(debug_file.c_str(), "w");
+			}
+		}
 		_exportLuaVariable(L, idx, b);
 		has_checksum = false;
 		n++;
@@ -184,7 +200,32 @@ int Checkpointer::l_get(lua_State* L)
 			_importLuaVariable(L, &b2);
 
 		b2.buf = 0;
+		buffer_unref(L, &b2);
+
 		return n;
+	}
+	return luaL_error(L, "Cannot get data from Checkpointer with internal encoding");
+}
+
+int Checkpointer::l_gettable(lua_State* L)
+{
+	if(currentState() == OP_NONE)
+	{
+		lua_newtable(L);
+		buffer b2;
+		b2.pos = 0;
+		b2.size = b->size;
+		b2.buf = b->buf;
+		for(int i=0; i<n; i++)
+		{
+			lua_pushinteger(L, i+1);
+			_importLuaVariable(L, &b2);
+			lua_settable(L, -3);
+		}
+
+        buffer_unref(L, &b2);
+		b2.buf = 0;
+		return 1;
 	}
 	return luaL_error(L, "Cannot get data from Checkpointer with internal encoding");
 }
@@ -244,6 +285,7 @@ int  Checkpointer::decode(buffer* b)
 
 int Checkpointer::deoperate_data(lua_State* L)
 {
+
 	char sig[4];
 	int new_encoding;
 	int old_encoding;
@@ -397,9 +439,9 @@ char* Checkpointer::setData(char* c)
 	return c;
 }
 
-int  Checkpointer::operate_data(lua_State* L)
+int  Checkpointer::operate_data(lua_State* L, int idx)
 {
-	int op = lua_tointeger(L, 2) - 1;
+	int op = lua_tointeger(L, idx) - 1;
 
 	int iss = internalStateSize();
 
@@ -684,13 +726,24 @@ static int _l_loadfromfile(lua_State* L)
 static int _l_operate(lua_State* L)
 {
 	LUA_PREAMBLE(Checkpointer, c, 1);
-	return c->operate_data(L);	
+	for(int i=2; i<=lua_gettop(L); i++)
+	{
+		c->operate_data(L, i);	
+	}
+	return 0;
 }
 
 static int _l_deoperate(lua_State* L)
 {
 	LUA_PREAMBLE(Checkpointer, c, 1);
-	return c->deoperate_data(L);	
+	c->deoperate_data(L);	
+	return 0;
+}
+
+static int _l_gettable(lua_State* L)
+{
+	LUA_PREAMBLE(Checkpointer, c, 1);
+	return c->l_gettable(L);	
 }
 
 static int _l_transformation(lua_State* L)
@@ -738,11 +791,35 @@ static int _l_copy(lua_State* L)
 	return c->l_copy(L);
 }
 
+static int _l_setdbfile(lua_State* L)
+{
+    LUA_PREAMBLE(Checkpointer, c, 1);
+	if(lua_isstring(L, 2))
+		c->debug_file = lua_tostring(L, 2);
+	else
+		c->debug_file = "";
+	return 0;
+}
+
 int Checkpointer::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
 	{
-		lua_pushstring(L, "Checkpointing Object. This can be used to encode data into various formats.");
+		char txt[1024];
+		
+		snprintf(txt, 1024, "Checkpointing Object. This can be used to encode data into various formats. "
+			"You can also build custom checkpoint functions. Consider the following replacement for the "
+		    "default checkpointToFile which will compress the data:"
+			"<pre>function checkpointToFile(fn, ...)\n"
+			"    local cp = Checkpointer.new()\n"
+			"    cp:addTable(arg)\n"
+            "    cp:transform(\"Compress\")\n"
+			"    cp:saveToFile(fn)\n"
+			"end</pre>It should be noted that the default checkpointFromFile does not need to be changed to deal with the new files.");
+
+
+
+		lua_pushstring(L, txt);
 		lua_pushstring(L, "0 or more data: These data will be added to the encoded state.");
 		lua_pushstring(L, ""); //output, empty
 		return 3;
@@ -815,6 +892,9 @@ const luaL_Reg* Checkpointer::luaMethods()
 		{"_deoperate", _l_deoperate},
 		{"_transformation", _l_transformation},
 		{"_decodeHeader", _l_decodeheader},
+		{"_getTable", _l_gettable},
+
+		{"_setDebugFile", _l_setdbfile},
 
 		{NULL, NULL}
 	};

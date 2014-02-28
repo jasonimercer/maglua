@@ -22,6 +22,7 @@ extern "C" {
 #include "luabaseobject.h"
 #include <stdlib.h>
 
+#include <string>
 using namespace std;
 
 class Checkpointer : public LuaBaseObject
@@ -44,6 +45,7 @@ public:
 
 	int l_add(lua_State* L, int idx);
 	int l_get(lua_State* L);
+	int l_gettable(lua_State* L);
 	int l_checksum(lua_State* L);
 	int l_tostring(lua_State* L);
     int l_copy(lua_State* L);
@@ -70,12 +72,14 @@ public:
 	unsigned long checksum;
 	bool has_checksum;
 
-	int  operate_data(lua_State* L); 
+	int  operate_data(lua_State* L, int idx); 
 	int deoperate_data(lua_State* L);
 
 	int currentState(const char* d = 0);
 	static int currentStateS(const char* d = 0);
 
+
+	std::string debug_file;
 };
 
 int checkpointer_register(lua_State* L);

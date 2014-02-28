@@ -12,18 +12,46 @@
 
 #ifndef LUABASEOBJECT_H
 #define LUABASEOBJECT_H
-#include "factory.h"
 
+extern "C" {
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+}
+
+#include "factory.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <vector>
 typedef struct buffer
 {
 	char* buf;
 	int pos;
 	int size;
+	FILE* debug;
 	std::vector<void*> encoded;
 	std::vector<int> encoded_table_refs;
 	std::vector<const void*> encoded_table_pointers;
+	buffer() { debug = 0; }
 }buffer;
+
+inline void buffer_init(buffer* b)
+{
+	b->pos = 0;
+	b->size = 32;
+	b->buf = (char*)malloc(32);
+}
+
+inline void buffer_unref(lua_State* L, buffer* b)
+{
+    // importing can create table references, we need to unref them
+	for(unsigned int i=0; i<b->encoded_table_refs.size(); i++)
+	{
+		int r = b->encoded_table_refs[i];
+		luaL_unref(L, LUA_REGISTRYINDEX, r);
+	}
+}
+
 
 #ifndef ENCODE_PREAMBLE
 #define ENCODE_MAGIC_NEW ((char)111)
@@ -67,11 +95,7 @@ extern "C"
 #include <vector>
 using namespace std;
 
-extern "C" {
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-}
+
 
 class LuaBaseObject;
 template<class T>

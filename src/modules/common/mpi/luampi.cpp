@@ -39,7 +39,35 @@ extern "C" {
         #include <lauxlib.h>
 }
 
+
+static int getSendBufferSize(const char* buf);
+static void setSendBufferSize(char* buf, int sz);
+static char* setupSendBuffer(lua_State* L, int export_start_idx, int export_end_idx, int min_buf_size=-1);
+
+
 static int decodeBuffer(lua_State* L, char* buf);
+
+static char* realloc_to_req_size(char* src, int& size)
+{
+	if(size > REQ12_SIZE && size < REQ123_SIZE)
+	{
+		size = REQ123_SIZE;
+		return (char*)realloc( (void*)src, REQ123_SIZE);
+	}
+	if(size > REQ1_SIZE && size < REQ12_SIZE)
+	{
+		size = REQ12_SIZE;
+		return (char*)realloc( (void*)src, REQ12_SIZE);
+	}
+	if(size < REQ1_SIZE)
+	{
+		size = REQ1_SIZE;
+		return (char*)realloc( (void*)src, REQ1_SIZE);
+	}
+
+	// else it's big. leave it big
+	return src;
+}
 
 
 inline int mpi_rank(MPI_Comm comm = MPI_COMM_WORLD)
@@ -149,8 +177,7 @@ lua_mpi_request::~lua_mpi_request()
 	if(buf)
 		free(buf);
 	if(full_buf)
-		free(full_buf);
-	
+		free(full_buf);	
 }
 
 int lua_mpi_request::luaInit(lua_State* L)
@@ -432,102 +459,82 @@ static int decodeBuffer(lua_State* L, char* buf)
 	if(buf == 0)
 		return 0;
 
-	const int* ibuf = (int*)buf;
-	const int total_size = ibuf[0];
-	const int n = ibuf[1];
+	buffer b;
 
-	//printf("decode: %i %i\n", total_size, n);
+	b.buf = buf + sizeof(int)*2;
+	b.size = getSendBufferSize(buf) - sizeof(int)*2;
+	b.pos = 0;
 
-	vector<int> size;
-	for(int i=0; i<n; i++)
-		size.push_back(ibuf[i+2]);
+	int n;
+	memcpy(&n, buf+sizeof(int), sizeof(int));
 
-	const int header_size = sizeof(int) * (2 + n);
-	int p = header_size;
 	for(int i=0; i<n; i++)
 	{
-		importLuaVariable(L, buf + p, size[i]);
-		p += size[i];
+		_importLuaVariable(L, &b);
 	}
+
+	buffer_unref(L, &b);
 
 	return n;
 }
 
-static char* setupSendBuffer(lua_State* L, int datapos, int& ret_n, int& ret_size, int& error, int matchChunks)
+static int getSendBufferSize(const char* buf)
 {
-	int n = lua_gettop(L) - (datapos-1);
-	//printf("setupSendBuffer %i\n", n);
-	int* size;
-	char** buf;
-	error = 0;
-	
-	if(sizeof(int)*(n+3) > CHUNK_SIZE)
-	{
-		error = 1;
-		return 0;
-	}
-	
-	buf = new char* [n];
-	size = new int[n];
-	
-	int complete_message_size = sizeof(int)*2; // for message size, numer of variables
-	
-	
+	int i;
+	memcpy(&i, buf, sizeof(int));
+	return i;
+}
+
+static void setSendBufferSize(char* buf, int sz)
+{
+	memcpy(buf, &sz, sizeof(int));
+}
+
+static char* setupSendBuffer(lua_State* L, int export_start_idx, int export_end_idx, int min_buf_size)
+{
+	int n = export_end_idx - (export_start_idx-1);
+	buffer b;
+	buffer_init(&b);
+
 	for(int i=0; i<n; i++)
 	{
-		buf[i] = exportLuaVariable(L, datapos+i, &(size[i]));
-		complete_message_size += sizeof(int) + size[i]; //data size, data
- 		//printf("size[%i] = %i\n", i, size[i]);
+		int j = i+export_start_idx;
+		if(lua_isnone(L, j))
+		{
+			lua_pushnil(L);
+			_exportLuaVariable(L, lua_gettop(L), &b);
+			lua_pop(L, 1);
+		}
+		else
+		{
+			_exportLuaVariable(L, j, &b);
+		}
 	}
 
-	// we want the full buffer size to fit in some ranges
 
-	int full_buffer_size = complete_message_size;
+	int full_buffer_size = b.pos + sizeof(int)*2;
 
-	// printf("complete_message_size = %i\n", complete_message_size);
-
-	if(matchChunks)
+	// we may want the full buffer size to fit in some ranges
+	if(min_buf_size > 0)
 	{
-		full_buffer_size = REQ1_SIZE; //at least this big
-		
-		if(complete_message_size > REQ1_SIZE)
-			full_buffer_size = REQ12_SIZE;
-		
-		if(complete_message_size > REQ12_SIZE)
-			full_buffer_size = REQ123_SIZE;
-		
-		if(complete_message_size > REQ123_SIZE)
-			full_buffer_size = complete_message_size;
+		if(full_buffer_size < min_buf_size)
+			full_buffer_size = min_buf_size;
 	}
-	
-	// printf("encode: %i %i\n", full_buffer_size, n);
 
 	char* full_buffer = (char*)malloc(full_buffer_size);
 
 	int pos = 0;
 	memcpy(full_buffer + pos, &full_buffer_size, sizeof(int)); pos+=sizeof(int);
-	memcpy(full_buffer + pos, &n,                     sizeof(int)); pos+=sizeof(int);
-	memcpy(full_buffer + pos,  size,                n*sizeof(int)); pos+=sizeof(int)*n;
+	memcpy(full_buffer + pos, &n,                sizeof(int)); pos+=sizeof(int);
+	memcpy(full_buffer + pos, b.buf, b.pos);
 	
-	for(int i=0; i<n; i++)
-	{
-		memcpy(full_buffer + pos, buf[i], size[i]); pos += size[i];
-	}
-
-	ret_n = n;
-	ret_size = full_buffer_size;
-	
-	for(int i=0; i<n; i++)
-	{
-		free(buf[i]);
-	}
-	
-	delete [] buf;
-	delete [] size;
+	buffer_unref(L, &b);
+	free(b.buf);
 	
 	return full_buffer;
 }
 
+#define IBUFCHUNK (sizeof(int)*16)
 
 template<int base>
 static int l_mpi_isend(lua_State* L)
@@ -540,17 +547,21 @@ static int l_mpi_isend(lua_State* L)
 	if(dest < 0 || dest >= mpi_size(comm))
 		return luaL_error(L, "ISend destination (%d) is out of range.", dest+1); 
 	
-	int n;
-	int complete_message_size;
-	int error;
-	char* full_buffer = setupSendBuffer(L, base+3, n, complete_message_size, error, 1);
+	// int n;
+	// int complete_message_size;
+	// int error;
+	// char* full_buffer = setupSendBuffer(L, base+3, n, complete_message_size, error, 1);
 
-	if(error)
-		return luaL_error(L, "Attempting to send too many values on one line. Increasing CHUNK_SIZE in luampi.cpp will fix this. Current value = %d\n. Required size = %i.", CHUNK_SIZE, sizeof(int)*(n+3));
+	char* full_buffer = setupSendBuffer(L, base+3, lua_gettop(L), IBUFCHUNK);
+
+	int complete_message_size = getSendBufferSize(full_buffer);
+
+	full_buffer = realloc_to_req_size(full_buffer, complete_message_size);
+	
+	setSendBufferSize(full_buffer, complete_message_size);
 
 	lua_mpi_request* req = new lua_mpi_request;
 	
-
 	req->buf = full_buffer;
 	req->buf_size = complete_message_size;
 	req->active_requests = 0;
@@ -558,35 +569,23 @@ static int l_mpi_isend(lua_State* L)
 	req->dest = dest; 
 	req->sender = true;
 
-	// new we need to see if we can fit the data in the 1st 3 fixed size async packages	
-	if(complete_message_size >= REQ1_SIZE)
-	{
-		MPI_Isend(full_buffer + 0, REQ1_SIZE, MPI_CHAR, dest, tag+0, comm, &(req->request[0]));
-		req->active_requests++;
-		req->active[0] = 1;
-		// printf("sending REQ1 %i/%i\n", REQ1_SIZE, complete_message_size);
-	}
-	if(complete_message_size >= REQ12_SIZE)
+	MPI_Isend(full_buffer + 0, REQ1_SIZE, MPI_CHAR, dest, tag+0, comm, &(req->request[0]));
+	req->active[0] = 1;
+
+	if(complete_message_size > REQ1_SIZE)
 	{
 		MPI_Isend(full_buffer + REQ1_SIZE, REQ2_SIZE, MPI_CHAR, dest, tag+1, comm, &(req->request[1]));
-		req->active_requests++;
 		req->active[1] = 1;
-		// printf("sending REQ2 %i/%i\n", REQ2_SIZE, complete_message_size);
 	}
-	if(complete_message_size >= REQ123_SIZE)
+	if(complete_message_size > REQ12_SIZE)
 	{
-		MPI_Isend(full_buffer + REQ12_SIZE, REQ3_SIZE, MPI_CHAR, dest, tag+2, comm, &(req->request[2]));
-		req->active_requests++;
+		MPI_Isend(full_buffer + REQ12_SIZE, REQ3_SIZE, MPI_CHAR, dest, tag+1, comm, &(req->request[2]));
 		req->active[2] = 1;
-		// printf("sending REQ3\n");
 	}
-	if(complete_message_size >  REQ123_SIZE)
+	if(complete_message_size > REQ123_SIZE)
 	{
-		const int sz = complete_message_size - REQ123_SIZE;
-		MPI_Isend(full_buffer + REQ123_SIZE, sz, MPI_CHAR, dest, tag+3, comm, &(req->request[3]));
-		req->active_requests++;
+		MPI_Isend(full_buffer + REQ123_SIZE, complete_message_size - REQ12_SIZE, MPI_CHAR, dest, tag+1, comm, &(req->request[2]));
 		req->active[3] = 1;
-		// printf("sending REQ4 %i/%i\n", sz, complete_message_size);
 	}
 
 	luaT_push<lua_mpi_request>(L, req);
@@ -857,13 +856,10 @@ static int l_mpi_send(lua_State* L)
 		return luaL_error(L, "Send destination (%d) is out of range.", dest+1); 
 	
 	int n;
-	int complete_message_size;
-	int error;
-	char* full_buffer = setupSendBuffer(L, base+2, n, complete_message_size, error, 0);
+	char* full_buffer = setupSendBuffer(L, base+2, lua_gettop(L), CHUNK_SIZE);
 
-	if(error)
-		return luaL_error(L, "Attempting to send too many values on one line. Increasing CHUNK_SIZE in luampi.cpp will fix this. Current value = %d\n. Required size = %i.", CHUNK_SIZE, sizeof(int)*(n+3));
-	
+	int complete_message_size = getSendBufferSize(full_buffer);
+
 	// ok, we've now built the buffer, lets send the first chunk, it may be enough
 	MPI_Send(full_buffer, CHUNK_SIZE, MPI_CHAR, dest, FIRSTCHUNK_TAG, comm);
 
@@ -892,15 +888,12 @@ static int l_mpi_recv(lua_State* L)
 	char first_chunk[CHUNK_SIZE];
 	MPI_Recv(first_chunk, CHUNK_SIZE, MPI_CHAR, src, FIRSTCHUNK_TAG, comm, &stat);
 
-	int complete_message_size = ((int*)first_chunk)[0];
-	int bs = complete_message_size;
-	if(bs < CHUNK_SIZE)
-		bs = CHUNK_SIZE;
-	
-   	int n;
+	int complete_message_size = getSendBufferSize(first_chunk);
+	int n;
+
 	if(complete_message_size >= CHUNK_SIZE) //then we need more
 	{
-		char* buf = new char[bs];	
+		char* buf = new char[complete_message_size];	
 		memcpy(buf, first_chunk, CHUNK_SIZE);
 
 	    MPI_Recv(buf + CHUNK_SIZE, complete_message_size - CHUNK_SIZE, MPI_CHAR, src, REMAININGCHUNK_TAG, comm, &stat);
@@ -930,15 +923,16 @@ int l_mpi_gather(lua_State* L)
 	if(root < 0 || root >= s)
 		return luaL_error(L, "invalid rank");
 
-	int size = 0;
-
 	int* rs = new int [s]; //remote_sizes
 	for(int i=0; i<s; i++)
 		rs[i] = 0;
 
-	char* buf = exportLuaVariable(L, base+2, &size);
+	char* full_buffer = setupSendBuffer(L, base+2, base+3); // just 1 value
 
 	lua_pop(L, n); //clear stack
+
+	int size = getSendBufferSize(full_buffer);
+	int orig_size = size;
 
 	MPI_Gather(&size, sizeof(int), MPI_CHAR, rs, sizeof(int), MPI_CHAR, root, comm);
 
@@ -953,34 +947,32 @@ int l_mpi_gather(lua_State* L)
 		}
 	}
 
-
 	MPI_Bcast(&ms, 1, MPI_INT, root, comm);
 
-	char* big_chunk = (char*) malloc( (sizeof(int)+ms) * s  );
-	char* little_chunk = (char*) malloc(sizeof(int)+ms );
+	char* big_chunk = (char*) malloc( ms * s  );
+	char* little_chunk = (char*) malloc( ms );
 
-	bzero(big_chunk, (sizeof(int)+ms) * s);
-	bzero(little_chunk, sizeof(int)+ms);
+	bzero(big_chunk, ms * s);
+	bzero(little_chunk, ms);
 
-	memcpy(little_chunk, &size, sizeof(int));
-	memcpy(little_chunk + sizeof(int), buf, size);
+	memcpy(little_chunk, full_buffer, orig_size);
 
-	MPI_Gather(little_chunk, sizeof(int)+ms, MPI_CHAR, big_chunk, sizeof(int)+ms, MPI_CHAR, root, comm);
-
+	MPI_Gather(little_chunk, ms, MPI_CHAR, big_chunk, ms, MPI_CHAR, root, comm);
 
 	if(r == root)
 	{
 		lua_newtable(L);
 		for(int i=0; i<s; i++)
 		{
+			char* buf = big_chunk + ms*i;
+
 			lua_pushinteger(L, i+1);
-			importLuaVariable(L, big_chunk + sizeof(int) + (sizeof(int) + ms) * i, rs[i]);
+			decodeBuffer(L, buf);
 			lua_settable(L, -3);
 		}
 	}
 
-
-	free(buf);
+	free(full_buffer);
 	delete [] rs;
 	free(little_chunk);
 	free(big_chunk);
@@ -1008,7 +1000,8 @@ int l_mpi_bcast(lua_State* L)
 	int size;
 	if(root == r)
 	{
-		buf = exportLuaVariable(L, base+2, &size);
+		buf = setupSendBuffer(L, base+2, lua_gettop(L));
+		size = getSendBufferSize(buf);
 	}
 	
 	MPI_Bcast(&size, 1, MPI_INT, root, comm);
@@ -1026,7 +1019,7 @@ int l_mpi_bcast(lua_State* L)
 	}
 	else
 	{
-		importLuaVariable(L, buf, size);
+		decodeBuffer(L, buf);
 	}
 	free(buf);
 	return 1;
