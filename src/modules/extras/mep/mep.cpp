@@ -3899,14 +3899,14 @@ int MEP::help(lua_State* L)
 	}
 
 
-	if(func = l_getrfm)
+	if(func == l_getrfm)
 	{
 		lua_pushstring(L, "Get the max number of tries to advance in a direction before attempting a new direction in the relax algorithm.");
 		lua_pushstring(L, "");
 		lua_pushstring(L, "1 Integer: Max number of tries.");
 		return 3;
 	}
-	if(func = l_setrfm)
+	if(func == l_setrfm)
 	{
 		lua_pushstring(L, "Set the max number of tries to advance in a direction before attempting a new direction in the relax algorithm.");
 		lua_pushstring(L, "1 Integer: Max number of tries.");

@@ -39,7 +39,7 @@ void arraySetAll(floatComplex* a, const floatComplex& v, const int n)
 template<typename T>
 void scaleAll_o_(T* dest, const int offset, const int n, const T& v)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		dest[i+offset] *= v;
 }
@@ -93,7 +93,7 @@ void arrayScaleAll_o(floatComplex* a, const int offset, const floatComplex& v, c
 template<typename T>
 void arrayDot_(T* dest, T* s1, T* s2, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		dest[i] = s1[i] * s2[i];
 }
@@ -130,7 +130,7 @@ void arrayMultAll(floatComplex* d, floatComplex* s1, floatComplex* s2, const int
 template<typename T>
 void arrayDiff_(T* dest, T* s1, T* s2, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		dest[i] = s1[i] - s2[i];
 }
@@ -164,19 +164,19 @@ void arrayDiffAll(floatComplex* d, floatComplex* s1, floatComplex* s2, const int
 
 void arrayNormAll(double* d, double* s1, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		d[i] = fabs(s1[i]);
 }
 void arrayNormAll(float* d, float* s1, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		d[i] = fabsf(s1[i]);
 }
 void arrayNormAll(int* d, int* s1, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 	{
 		if(d[i] < 0)
@@ -187,13 +187,13 @@ void arrayNormAll(int* d, int* s1, const int n)
 }
 void arrayNormAll(doubleComplex* d, doubleComplex* s1, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		d[i] = doubleComplex(abs(s1[i]), 0);
 }
 void arrayNormAll(floatComplex* d, floatComplex* s1, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		d[i] = floatComplex(abs(s1[i]), 0);
 }
@@ -205,14 +205,14 @@ void arrayNormAll(floatComplex* d, floatComplex* s1, const int n)
 template<typename A, typename B>
 void arrayGetRealPart_(A* dest, const B* src, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		dest[i] = src[i].real();
 }
 template<typename A, typename B>
 void arrayGetImagPart_(A* dest, const B* src, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		dest[i] = src[i].imag();
 }
@@ -239,14 +239,14 @@ void arrayGetImagPart(float* dest, const floatComplex* src, const int n)
 template<typename A, typename B>
 void arraySetRealPart_(A* dest, const B* src, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		dest[i] = A(src[i], dest[i].imag());
 }
 template<typename A, typename B>
 void arraySetImagPart_(A* dest, const B* src, const int n)
 {
-#pragma omp for schedule(static)
+//#pragma omp for schedule(static)
 	for(int i=0; i<n; i++)
 		dest[i] = A(dest[i].real(), src[i]);
 }
@@ -337,7 +337,7 @@ T arrayPowerSumAll_(const T* v, const double p, const int n)
 	T res = 0;
 // #pragma omp parallel for default(shared)	schedule(static) reduction(+:res)  
   for(int i=0; i<n; i++)
-	  res += pow(v[i], p);
+	  res += pow((double)v[i], (double)p);
 	
 	return res;
 }
@@ -374,7 +374,7 @@ void reduceDiffSumAll(const double* d_a, const double* d_b, const int n, double&
 {
 // 	v = 0;
 	double v = 0;
-#pragma omp parallel for default(shared) schedule(static) reduction(+:v)  
+//#pragma omp parallel for default(shared) schedule(static) reduction(+:v)  
 	for(int i=0; i<n; i++)
 	{
 		const double q = d_a[i] - d_b[i];
@@ -388,7 +388,7 @@ void reduceDiffSumAll(const double* d_a, const double* d_b, const int n, double&
 void reduceDiffSumAll(const float* d_a, const float* d_b, const int n, float& _v)
 {
 	float v = 0;
-#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
+//#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
 	for(int i=0; i<n; i++)
 		v+= fabsf((d_a[i] - d_b[i]));
 	_v = v;
@@ -396,7 +396,7 @@ void reduceDiffSumAll(const float* d_a, const float* d_b, const int n, float& _v
 void reduceDiffSumAll(const int* d_a, const int* d_b, const int n, int& _v)
 {
 	int v = 0;
-#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
+//#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
 	for(int i=0; i<n; i++)
 	{
 		const int q = d_a[i] - d_b[i];
@@ -428,7 +428,7 @@ void reduceDiffSumAll(const floatComplex* d_a, const floatComplex* d_b, const in
 void reduceMultSumAll(const double* d_a, const double* d_b, const int n, double& _v)
 {
 	double v = 0;
-#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
+//#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
 	for(int i=0; i<n; i++)
 		v+= d_a[i] * d_b[i];
 	_v = v;
@@ -436,7 +436,7 @@ void reduceMultSumAll(const double* d_a, const double* d_b, const int n, double&
 void reduceMultSumAll(const float* d_a, const float* d_b, const int n, float& _v)
 {
 	float v = 0;
-#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
+//#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
 	for(int i=0; i<n; i++)
 		v+= d_a[i] * d_b[i];
 	_v = v;
@@ -444,7 +444,7 @@ void reduceMultSumAll(const float* d_a, const float* d_b, const int n, float& _v
 void reduceMultSumAll(const int* d_a, const int* d_b, const int n, int& _v)
 {
 	int v = 0;
-#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
+//#pragma omp parallel for default(shared)	schedule(static) reduction(+:v)  
 	for(int i=0; i<n; i++)
 		v+= d_a[i] * d_b[i];
 	_v = v;
@@ -475,31 +475,31 @@ void reduceMultSumAll(const floatComplex* d_a, const floatComplex* d_b, const in
 
 void arrayAddAll(double* d_a, const double& v, const int n)
 {
-#pragma omp parallel for default(shared)	schedule(static)
+//#pragma omp parallel for default(shared)	schedule(static)
 	for(int i=0; i<n; i++)
 		d_a[i] += v;
 }
 void arrayAddAll(float* d_a, const float& v, const int n)
 {
-#pragma omp parallel for default(shared)	schedule(static)
+//#pragma omp parallel for default(shared)	schedule(static)
 	for(int i=0; i<n; i++)
 		d_a[i] += v;
 }
 void arrayAddAll(int* d_a, const int& v, const int n)
 {
-#pragma omp parallel for default(shared)	schedule(static)
+//#pragma omp parallel for default(shared)	schedule(static)
 	for(int i=0; i<n; i++)
 		d_a[i] += v;
 }
 void arrayAddAll(doubleComplex* d_a, const doubleComplex& v, const int n)
 {
-#pragma omp parallel for default(shared)	schedule(static)
+//#pragma omp parallel for default(shared)	schedule(static)
 	for(int i=0; i<n; i++)
 		d_a[i] += v;
 }
 void arrayAddAll(floatComplex* d_a, const floatComplex& v, const int n)
 {
-#pragma omp parallel for default(shared)	schedule(static)
+//#pragma omp parallel for default(shared)	schedule(static)
 	for(int i=0; i<n; i++)
 		d_a[i] += v;
 }

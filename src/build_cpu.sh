@@ -10,6 +10,7 @@ fi
 BUILD_LUA=1
 BUILD_FFTW=1
 BUILD_LAPACK=1
+BUILD_ZLIB=1
 BUILD_MAGLUA=1
 
 
@@ -53,6 +54,27 @@ if [ -f lua-5.1.5/etc/lua.pc ] ; then
 fi
 fi
 
+
+
+
+
+
+if [[ $BUILD_ZLIB = 1 ]]; then
+echo "#####################################################"
+echo "###################  Building zlib ##################"
+echo "#####################################################"
+if [ ! -f zlib-1.2.8.tar.gz ]; then
+  wget http://zlib.net/zlib-1.2.8.tar.gz
+fi
+rm -rf zlib-1.2.8
+tar -xzf zlib-1.2.8.tar.gz
+cd zlib-1.2.8
+./configure  --prefix=$DEPDIR
+make -j10
+make install
+cd ..
+rm -rf zlib-1.2.8
+fi
 
 
 
@@ -150,6 +172,7 @@ export PATH=\$HOME/bin:\$PATH
 export PKG_CONFIG_PATH=$DEPDIR/lib/pkgconfig:\$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH=$DEPDIR/lib:\$LD_LIBRARY_PATH
 EOF
+
 
 echo -e ""
 echo "#####################################################"

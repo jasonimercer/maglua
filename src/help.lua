@@ -5,6 +5,10 @@
 -- Also provides the default Global Scope help function
 -- 
 
+-- if your system doesn't have the tools to
+-- turn latex into a png, set this flag to true
+local disable_latex_render = false
+
 help = help or
 function(f)
 	if f == nil then --want description for Global Scope
@@ -48,6 +52,9 @@ function write_help(file_handle, optional_links)
 			local a, b, c, d, e = string.find(txt, "^(.*)%$(.-)%$(.*)$")
 
 			if a then
+				if disable_latex_render == true then
+					return c .. "<code>" .. d .. "</code>" .. e
+				end
 				local f = io.open("latex_expression.tex", "w")
 				f:write([[\documentclass{minimal}
 \usepackage{amssymb}
