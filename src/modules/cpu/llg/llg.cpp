@@ -23,6 +23,10 @@ LLG::LLG(int encode_type)
 : LuaBaseObject(encode_type), disableRenormalization(false)
 {
 	thermalOnlyFirstTerm = true;
+
+
+	precess_scale = 1;
+	damp_scale = 1;
 }
 
 int LLG::luaInit(lua_State* L)
@@ -46,22 +50,36 @@ LLG::~LLG()
 void LLG::encode(buffer* b)
 {
 	ENCODE_PREAMBLE
-	char version = 0;
+	char version = 1;
 	encodeChar(version, b);
 	encodeInteger(thermalOnlyFirstTerm, b);
 	encodeInteger(disableRenormalization, b);
 
+	encodeDouble(precess_scale, b);
+	encodeDouble(damp_scale, b);
 }
 
 int  LLG::decode(buffer* b)
 {
 	char version = decodeChar(b);
-	if(version == 0)
+	if(version == 0 || version == 1)
 	{
 		thermalOnlyFirstTerm = decodeInteger(b);
 		disableRenormalization = decodeInteger(b);
 	}
+	
+	if(version == 1)
+	{
+		precess_scale = decodeDouble(b);
+		damp_scale = decodeDouble(b);
+	}
 	else
+	{
+		precess_scale = 1;
+		damp_scale = 1;
+	}
+
+	if(version < 0 || version > 1)
 	{
 		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
@@ -258,6 +276,19 @@ static int l_setdisablerenormalization(lua_State* L)
 	return 0;
 }
 
+static int l_setupds(lua_State* L)
+{
+	LUA_PREAMBLE(LLG, llg, 1);
+	llg->damp_scale = lua_tonumber(L, 2);
+	return 0;
+}
+static int l_setupps(lua_State* L)
+{
+	LUA_PREAMBLE(LLG, llg, 1);
+	llg->precess_scale = lua_tonumber(L, 2);
+	return 0;
+}
+
 int LLG::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -280,6 +311,22 @@ int LLG::help(lua_State* L)
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
 	
+	if(func == l_setupds)
+	{
+		lua_pushstring(L, "Set an unphysical scaling factor on the damping term of the LLG equation");
+		lua_pushstring(L, "1 Number: value the damping term will be scaled by");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
+	if(func == l_setupps)
+	{
+		lua_pushstring(L, "Set an unphysical scaling factor on the precessional term of the LLG equation");
+		lua_pushstring(L, "1 Number: value the precessional term will be scaled by");
+		lua_pushstring(L, "");
+		return 3;
+	}
+
 	if(func == l_apply)
 	{
 		lua_pushstring(L, "Compute 1 LLG Euler Step.");
@@ -353,6 +400,8 @@ const luaL_Reg* LLG::luaMethods()
 		{"thermalOnlyFirstTerm", l_getthermalOnlyFirstTerm},
 		{"setDisableRenormalization", l_setdisablerenormalization},
 		{"disableRenormalization", l_getdisablerenormalization},
+		{"setUnphysicalDampingScale", l_setupds},
+		{"setUnphysicalPrecessionScale", l_setupps},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

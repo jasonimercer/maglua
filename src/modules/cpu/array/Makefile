@@ -9,11 +9,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=array.o memory.o array_ops.o fourier.o  \
-	array_core_cpu.o array_core_matrix_cpu.o \
-  	array_core_matrix_cpu_lapack.o
 
-	
+OBJECTS=array_luafuncs.lo array.o memory.o array_ops.o fourier.o  \
+	array_core_cpu.o array_core_matrix_cpu.o \
+	array_core_matrix_cpu_lapack.o
+
+
 LIBNAME=Array
 CATEGORY=cpu
 

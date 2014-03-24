@@ -36,6 +36,37 @@ ARRAY_API void  registerWS()
 	WS_MEM.refcount++;
 }
 
+ARRAY_API int l_ws_info(lua_State* L)
+{
+	lua_newtable(L);
+	if(WS_MEM.refcount == 0)
+		return 1;
+
+	int p = 0;
+
+	for(int i=0; i<64; i++)
+	{
+		if(WS_MEM.level[i] != -1000)
+		{
+			p++;
+			lua_pushinteger(L, p);
+
+			lua_newtable(L);
+			lua_pushstring(L, "size");
+			lua_pushinteger(L, WS_MEM.size[i]);
+			lua_settable(L, -3);
+			lua_pushstring(L, "hash");
+			lua_pushinteger(L, WS_MEM.level[i]);
+			lua_settable(L, -3);
+
+			lua_settable(L, -3);
+		}
+
+	}
+
+	return 1;
+}
+
 ARRAY_API void unregisterWS()
 {
 	WS_MEM.refcount--;

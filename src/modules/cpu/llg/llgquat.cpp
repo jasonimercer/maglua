@@ -216,8 +216,10 @@ bool LLGQuaternion::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dm
 				}
 				
 				CROSS(Sh, M, h);
+				// the scales below are the unphysical terms that you can
+				// set with :setUnphysicalDampScale and :setUnphysicalPrecessScale
 				for(int j=0; j<3; j++)
-					H[j] += alpha * Sh[j] * inv;
+					H[j] = precess_scale * H[j] + damp_scale * alpha * Sh[j] * inv;
 
 
 				HLen = sqrt(H[0]*H[0] + H[1]*H[1] + H[2]*H[2]);

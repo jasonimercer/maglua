@@ -56,6 +56,9 @@ public:
 	bool disableRenormalization;
 	bool thermalOnlyFirstTerm;
 
+	double precess_scale;
+	double damp_scale;
+
 	// 	void encode(buffer* b);
 // 	int  decode(buffer* b);
 };

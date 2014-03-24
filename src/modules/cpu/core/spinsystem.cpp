@@ -1080,8 +1080,8 @@ void SpinSystem::getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* sit
 		v[i+4] = wsReal->sum(2.0) * m;
 	}
 
-	v[3] = sqrt(v[0]*v[0] + v[1]*v[1] * v[2]*v[2]);
-	v[7] = sqrt(v[4]*v[4] + v[5]*v[5] * v[6]*v[6]);
+	v[3] = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+	v[7] = sqrt(v[4]*v[4] + v[5]*v[5] + v[6]*v[6]);
 }
 
 
@@ -2460,16 +2460,6 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
-	}
-	
-	if(lua_istable(L, 1))
-	{
-		return 0;
-	}
-	
-	if(!lua_iscfunction(L, 1))
-	{
-		return luaL_error(L, "help expects zero arguments or 1 function.");
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);

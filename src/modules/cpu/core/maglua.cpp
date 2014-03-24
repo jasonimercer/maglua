@@ -26,10 +26,30 @@ CORE_API const char* lib_name(lua_State* L);
 CORE_API int lib_main(lua_State* L);
 }
 
-#include <stdio.h>
+static int l_getmetatable(lua_State* L)
+{
+    if(!lua_isstring(L, 1))
+        return luaL_error(L, "First argument must be a metatable name");
+    luaL_getmetatable(L, lua_tostring(L, 1));
+    return 1;
+}
+
+#include "spinsystem_luafuncs.h"
 CORE_API int lib_register(lua_State* L)
 {
 	luaT_register<SpinSystem>(L);
+
+	lua_pushcfunction(L, l_getmetatable);
+	lua_setglobal(L, "maglua_getmetatable");
+
+	if(luaL_dostring(L, __spinsystem_luafuncs()))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		return luaL_error(L, lua_tostring(L, -1));
+	}
+	lua_pushnil(L);
+	lua_setglobal(L, "maglua_getmetatable");
+
 	return 0;
 }
 

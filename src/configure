@@ -96,17 +96,26 @@ f_torngat()
 	f_Write;
 	exit;
 }
+f_WDC()
+{
+	CXX="icc"
+	MPICC="/home/cwolf/MPICH2/mpich2-1.4.1p1/bin/mpicxx"
+	f_PrintCurrent;
+	f_Write;
+	exit;
+}
 
 f_QC () {
 echo "Quick Configure"
 f_PrintCurrent;
 cat << **
-1. vulcan.physics.mun.ca
+1. Ubuntu
 2. cobalt.ucsd.edu
 3. orcinus.westgrid.ca
 4. placentia.ace-net.ca
 5. torngat.creait.mun.ca
-6. back
+6. Jan's WDC Environment
+7. back
 **
 
 echo -n " Your choice? : "
@@ -118,6 +127,7 @@ case $choice in
 3) f_orcinus ;;
 4) f_placentia ;;
 5) f_torngat ;;
+6) f_WDC ;;
 esac
 }
 

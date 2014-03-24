@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=spinoperation.o maglua.o spinsystem.o
+OBJECTS=spinsystem_luafuncs.lo spinoperation.o maglua.o spinsystem.o
 LIBNAME=Core
 CATEGORY=cpu
 
@@ -17,3 +17,5 @@ CATEGORY=cpu
 DEPEND=luabaseobject array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
+
+EXTRA_CLEAN=spinsystem_luafuncs.cpp spinsystem_luafuncs.h

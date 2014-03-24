@@ -14,6 +14,7 @@ BUILD_ZLIB=1
 BUILD_MAGLUA=1
 
 
+PWD=`pwd`
 mkdir -p deps/lib/pkgconfig
 cd deps
 DEPDIR=`pwd`
@@ -159,23 +160,52 @@ echo "#####################################################"
 echo -e "\nHelp file named \"maglua.html\" in:\n     `pwd`\n"
 
 
+cat << EOF > maglua_wrapper
+#!/bin/bash
 
+if [ -n "\$LD_LIBRARY_PATH" ]
+then
+   LD_LIBRARY_PATH=$PWD/deps/lib:\$LD_LIBRARY_PATH
+else
+   LD_LIBRARY_PATH=$PWD/deps/lib
+fi
+export LD_LIBRARY_PATH
 
-echo -e "\n\n"
-echo "#####################################################"
-echo "###############   Install  Complete   ###############"
-echo "#####################################################"
-echo -e "\nAdd the following to ~/.bashrc and either source it\nor log out and back in:\n"
+exec $PWD/maglua "\$@"
+EOF
+
+rm -f ~/bin/maglua
+chmod 755 maglua_wrapper
+cp maglua_wrapper ~/bin/maglua
+
 
 cat <<EOF
+
+#####################################################
+###############   Install  Complete   ###############
+#####################################################
+
+This installation of MagLua depends on libraries in non-standard
+locations. Previously this meant adding directories to your
+LD_LIBRARY_PATH but now there is a wrapper script that will do
+this for you whenever you run maglua. A file has been created
+in the current directory called maglua_wrapper, it has been 
+copied to ~/bin and renamed maglua which, when called, will 
+alter the local environemnt and execute the compiled binary in t
+his directory.
+
+If you want to work on the source and compile maglua, you can
+add the following to your ~/.bashrc and either source it or log 
+out and back in:
+
 export PATH=\$HOME/bin:\$PATH
 export PKG_CONFIG_PATH=$DEPDIR/lib/pkgconfig:\$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH=$DEPDIR/lib:\$LD_LIBRARY_PATH
+
+If you are only interested in running MagLua, you are done.
+*** There is no need to edit ~/.bashrc ***
+
 EOF
-
-
-echo -e ""
-echo "#####################################################"
 fi
 
 

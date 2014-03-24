@@ -1390,6 +1390,53 @@ static int l_getmetatable(lua_State* L)
 }
 
 
+static int l_get_dc_ws(lua_State* L)
+{
+	int nx = lua_tointeger(L, 1);
+	int ny = lua_tointeger(L, 2);
+	int nz = lua_tointeger(L, 3);
+	const char* name = lua_tostring(L, 4);
+
+	if(nx*ny*nz == 0)
+		return luaL_error(L, "Must supply non-zero nx,ny and nz");
+
+	if(name == 0)
+		return luaL_error(L, "Must supply name");
+
+	luaT_push<dcArray>(L,  getWSdcArray(nx,ny,nz,hash32(name)));
+	return 1;
+}
+
+
+static int l_get_d_ws(lua_State* L)
+{
+    int nx = lua_tointeger(L, 1);
+    int ny = lua_tointeger(L, 2);
+    int nz = lua_tointeger(L, 3);
+    const char* name = lua_tostring(L, 4);
+
+    if(nx*ny*nz == 0)
+        return luaL_error(L, "Must supply non-zero nx,ny and nz");
+
+    if(name == 0)
+        return luaL_error(L, "Must supply name");
+
+    luaT_push<dArray>(L,  getWSdArray(nx,ny,nz,hash32(name)));
+    return 1;
+}
+
+static int l_registerws(lua_State* L)
+{
+	registerWS();
+	return 0;
+}
+static int l_unregisterws(lua_State* L)
+{
+	unregisterWS();
+	return 0;
+}
+
+
 extern "C"
 {
 #include <lua.h>
@@ -1403,6 +1450,8 @@ ARRAY_API const char* lib_name(lua_State* L);
 ARRAY_API int lib_main(lua_State* L);
 }
 
+
+#include "array_luafuncs.h"
 #include "info.h"
 ARRAY_API int lib_register(lua_State* L)
 {
@@ -1421,6 +1470,36 @@ ARRAY_API int lib_register(lua_State* L)
 #ifdef SINGLE_ARRAY
 	luaT_register<fcArray>(L);
 #endif
+
+  	lua_getglobal(L, "Array");
+	lua_pushstring(L, "DoubleComplexWorkSpace");
+	lua_pushcfunction(L, l_get_dc_ws);
+	lua_settable(L, -3);
+	lua_pushstring(L, "DoubleWorkSpace");
+	lua_pushcfunction(L, l_get_d_ws);
+	lua_settable(L, -3);
+
+	lua_pushstring(L, "_registerws");
+	lua_pushcfunction(L, l_registerws);
+	lua_settable(L, -3);
+	lua_pushstring(L, "_unregisterws");
+	lua_pushcfunction(L, l_unregisterws);
+	lua_settable(L, -3);
+
+	lua_pushstring(L, "WorkSpaceInfo");
+	lua_pushcfunction(L, l_ws_info);
+	lua_settable(L, -3);
+
+	lua_pop(L, 1);
+
+	
+
+	if(luaL_dostring(L, __array_luafuncs()))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		return luaL_error(L, lua_tostring(L, -1));
+	}
+
 
 	return 0;
 }

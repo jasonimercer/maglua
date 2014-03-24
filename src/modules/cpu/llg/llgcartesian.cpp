@@ -177,7 +177,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 				gaa = gamma / (1.0+alpha*alpha);
 
 				for(int c=0; c<3; c++)
-					dM[c] = -gaa * MH[c] - (alpha/ms[i]) * gaa * MMH[c];
+					dM[c] = precess_scale * -gaa * MH[c] - damp_scale * (alpha/ms[i]) * gaa * MMH[c];
 
 				x[i] = (sx[i] + dt * dM[0]);
 				y[i] = (sy[i] + dt * dM[1]);
