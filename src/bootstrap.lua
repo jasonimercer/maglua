@@ -130,7 +130,7 @@ function reference()
 	return "Publications with results derived from MagLua must co-author the following:\n" ..
 			"   Jason I. Mercer, Department of Computer Science,\n   Memorial University of Newfoundland. jason.mercer@mun.ca"
 --	return "Use the following reference when citing this code:\n" ..
---		   [["MagLua, a Micromagnetics Programming Environment". Mercer, Jason I. (2013). Journal. Vol, pages]]
+--		   [["MagLua, a Micromagnetics Programming Environment". Mercer, Jason I. (2014). Journal. Vol, pages]]
 end
 
 local function make_version()
@@ -300,7 +300,7 @@ RLIMIT = nil
 
 
 if print_help then
-	print("MagLua-r" .. version()..  " by Jason Mercer (c) 2013\n")
+	print("MagLua-r" .. version()..  " by Jason Mercer (c) 2014\n")
 	print(
 [[ MagLua is a micromagnetics programming environment built
  on top of the Lua scripting language.
@@ -433,7 +433,7 @@ end
 
 if be_quiet == nil then
 	e("This evaluation version of MagLua is for academic, non-commercial use only")
-	e("MagLua-r" .. version() .. " by Jason Mercer (c) 2013\n")
+	e("MagLua-r" .. version() .. " by Jason Mercer (c) 2014\n")
 	e( reference() .. "\n")
 	e("Modules:")
 	local t = {}

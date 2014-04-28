@@ -490,9 +490,11 @@ static void setSendBufferSize(char* buf, int sz)
 	memcpy(buf, &sz, sizeof(int));
 }
 
+// inclusive endpoints
 static char* setupSendBuffer(lua_State* L, int export_start_idx, int export_end_idx, int min_buf_size)
 {
-	int n = export_end_idx - (export_start_idx-1);
+	int n = export_end_idx - export_start_idx + 1;
+	// printf("SEND BUFFER SIZE: %i\n", n);
 	buffer b;
 	buffer_init(&b);
 
@@ -550,8 +552,9 @@ static int l_mpi_isend(lua_State* L)
 	// int n;
 	// int complete_message_size;
 	// int error;
-	// char* full_buffer = setupSendBuffer(L, base+3, n, complete_message_size, error, 1);
-
+	// +1 = destination
+	// +2 = tag
+	// +3 to end = data
 	char* full_buffer = setupSendBuffer(L, base+3, lua_gettop(L), IBUFCHUNK);
 
 	int complete_message_size = getSendBufferSize(full_buffer);
@@ -856,6 +859,8 @@ static int l_mpi_send(lua_State* L)
 		return luaL_error(L, "Send destination (%d) is out of range.", dest+1); 
 	
 	int n;
+	// +1 is destination
+	// +2 to end is data
 	char* full_buffer = setupSendBuffer(L, base+2, lua_gettop(L), CHUNK_SIZE);
 
 	int complete_message_size = getSendBufferSize(full_buffer);
@@ -910,6 +915,14 @@ static int l_mpi_recv(lua_State* L)
 }
 
 
+static void ps(lua_State* L)
+{
+	for(int i=1; i<=lua_gettop(L); i++)
+	{
+		printf("%i %s\n", i, lua_typename(L, lua_type(L, i)));
+	}
+}
+
 template<int base>
 int l_mpi_gather(lua_State* L)
 {
@@ -919,7 +932,7 @@ int l_mpi_gather(lua_State* L)
 	int n = lua_gettop(L)-base;
 
 	int root = lua_tointeger(L, base+1)-1;
-
+	//printf("%s:%i\n", __FILE__, __LINE__);
 	if(root < 0 || root >= s)
 		return luaL_error(L, "invalid rank");
 
@@ -927,7 +940,8 @@ int l_mpi_gather(lua_State* L)
 	for(int i=0; i<s; i++)
 		rs[i] = 0;
 
-	char* full_buffer = setupSendBuffer(L, base+2, base+3); // just 1 value
+	// +1 is root
+	char* full_buffer = setupSendBuffer(L, base+2, base+2); // just 1 value
 
 	lua_pop(L, n); //clear stack
 
@@ -1000,6 +1014,8 @@ int l_mpi_bcast(lua_State* L)
 	int size;
 	if(root == r)
 	{
+		// +1 is root
+		// +2 to end is data
 		buf = setupSendBuffer(L, base+2, lua_gettop(L));
 		size = getSendBufferSize(buf);
 	}

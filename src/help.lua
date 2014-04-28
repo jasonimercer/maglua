@@ -149,6 +149,20 @@ $]] .. d .. [[$
 	<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 	<html>
 	<head>
+
+<link rel="shortcut icon" href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAACXBIWXMAAAsTAAALEwEAmpwYAAAA
+B3RJTUUH3gQPAAkLDxMDqAAAAgdJREFUKM910ktoU0EUBuB/5j6Sm3uLtE19gfYWsSEiKGoRs5GY
+gtrSuHFVW7ToxrULXQhuhYIrV4Igda1dCC5qBReC9VEtfaQtIZg0ElpF8+DG3tfMuEhrEk1nNRz+
+b86BM8RMjEAIxgUAECJRguYjOOcCIKCUEkCGEPbBw7cGzuxWSWl+7sn0XFGhf9PMD8TOJi6c6OK/
+N55Pvlj8pcgAvK79ycH+3hD1TitTq7PF9TrwO8Pnh5PXIrpbSs++nlz4WX+MCOYqe/uihika5unp
+2HeuR7cZgK3yNiCEVXMLRf12UuaiPv6u2KXuanapyqTtWkN3z/3ybj3cP6ZwvpUX9PqQmZtJ2x7H
+/wCel3/1tqIemjjmWgzgjtM9Ohi2n039cDy0AITwD4Xl+RJO3hyu2q5rO5dvnAqWMzOFVUZaAQAs
+tfZpcSPYG7urbVbk+Njxjm9LmVSqMd8MVLnweC0LsidyNWIORY/qWCm8yUgydgJUlfMPs3ngSOfF
+O9Goiu+fH3xVAnRHAKgBMfE0zSLxvoH4AS89fU8owebEP0AENe3R+ArV29p18nH8paEpogXgzHE8
+2/U5IYJqUu7++zJQXr6SkwwKEOG6ru36jAMAMRMjhPmVTYcTSTc0WQgAlmV5kNoNrfYHLMv2BQ2F
+QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
+
 	<style media="screen,print" type="text/css">
 	body {
 		color: #000000 ;

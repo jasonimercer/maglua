@@ -44,6 +44,7 @@ end
 mep:setEnergyFunction(mep_energy)
 mep:setSpinSystem(ss)
 mep:setTolerance(1e-1)
+mep:setCoordinateSystem("Spherical")
 
 kmc = KMC.new() -- empty framework, needs some functions and info
 kmc:setFields({ex,ani,thermal,zee})

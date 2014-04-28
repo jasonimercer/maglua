@@ -46,9 +46,14 @@ public:
 
 	enum CoordinateSystem
 	{
+		Undefined =-1,
 		Cartesian = 0,
 		Spherical = 1,
-		Canonical = 2
+		Canonical = 2,
+		SphericalX = 3,
+		SphericalY = 4,
+		CanonicalX = 5,
+		CanonicalY = 6
 	};
 	CoordinateSystem currentSystem;
 
@@ -158,7 +163,7 @@ public:
 	int maxpoints(lua_State* L);
 	
 	void computePointSecondDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, double* derivsAB);
-	double computePointSecondDerivativeAB(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1, int c2);
+	double computePointSecondDerivativeAB(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1, int c2, double dc1=-1, double dc2=-1);
 
 	void computePointFirstDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, double* d);
 	double computePointFirstDerivativeC(lua_State* L, int p, int set_index, int get_index, int energy_index, int coord);

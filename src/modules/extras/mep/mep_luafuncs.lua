@@ -20,6 +20,32 @@ local function get_mep_data(mep)
 	return mep:getInternalData()
 end
 
+
+-- helper function to generate common closures
+-- usage:
+-- get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+local function build_gse_closures(mep)
+	local d = get_mep_data(mep)
+	local ss = mep:spinSystem()
+	local energy_function = mep:energyFunction()
+
+	local function get_site_ss(x,y,z)
+		local sx,sy,sz = ss:spin(x,y,z)
+		return sx,sy,sz
+	end
+	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
+		local ox,oy,oz,m = ss:spin({x,y,z})
+		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
+	end
+	local function get_energy_ss()
+		local e = energy_function(ss)
+		return e
+	end
+	return get_site_ss, set_site_ss, get_energy_ss
+end
+
+
 local function getStepMod(tol, err, maxMotion)
 	-- print("getStepMod(tol=" .. tol .. ",err=" .. err .. ")")
 	if maxMotion then
@@ -44,6 +70,7 @@ local function getStepMod(tol, err, maxMotion)
 	-- print("ret " .. 0.95 * (tol / err)^(0.9) .. ", " .. tostring(err<tol))
 	return 0.95 * (tol / err)^(0.9), err<tol
 end
+
 
 
 methods["spinSystem"] =
@@ -79,7 +106,6 @@ methods["setTolerance"] =
 	end
 }
 
-
 methods["energyFunction"] =
 {
 	"Get the function used to determine system energy for the calculation.",
@@ -90,6 +116,8 @@ methods["energyFunction"] =
 		return (d.energy_function or function() return 0 end)
 	end
 }
+
+
 
 -- write a state to a spinsystem
 methods["writePathPointTo"] =
@@ -129,29 +157,7 @@ methods["pathEnergy"] =
 	"",
 	"1 Table: energies along the path",
 	function(mep)
-		local d = get_mep_data(mep)
-		local ss = d.ss
-		local energy_function = d.energy_function
-		
-		if ss == nil then
-			error("Initial State required for pathEnergies")
-		end
-		if energy_function == nil then
-			error("Energy Function required for pathEnergies")
-		end
-		
-		local function get_site_ss(x,y,z)
-			local sx,sy,sz = ss:spin(x,y,z)
-			return sx,sy,sz
-		end
-		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-			local ox,oy,oz,m = ss:spin({x,y,z})
-			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-		end
-		local function get_energy_ss()
-			return energy_function(ss)
-		end
+		get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 		
 		mep:calculateEnergies(get_site_ss, set_site_ss, get_energy_ss);
 		return mep:getPathEnergy()
@@ -170,21 +176,32 @@ methods["randomize"] =
 	end
 }
 
-local function copy_to_children(mep)
+local function copy_to_children(mep, do_big, do_small)
+	do_big = do_big or true
+	do_small = do_small or true
 	local d = get_mep_data(mep)
 	if not mep:isChild() then
-		mep:internalCopyTo(d.big_step)
-		mep:internalCopyTo(d.small_step)
+		local children = {}
+		if do_big then
+			mep:internalCopyTo(d.big_step)
+			table.insert(children, d.big_step)
+		end
+		if do_small then
+			mep:internalCopyTo(d.small_step)
+			table.insert(children, d.small_step)
+		end
 
-		for _,c in pairs({d.big_step, d.small_step}) do
-			local id ={}
-			for k,v in pairs(d) do
-				id[k] = v
+		for _,c in pairs(children) do
+			if c then
+				local id ={}
+				for k,v in pairs(d) do
+					id[k] = v
+				end
+				c:setChild(true)
+				id.big_step = nil
+				id.small_step = nil
+				c:setInternalData(id)
 			end
-			c:setChild(true)
-			id.big_step = nil
-			id.small_step = nil
-			c:setInternalData(id)
 		end
 	end
 end
@@ -247,19 +264,7 @@ methods["compute"] =
 			error("Energy function is nil. Set an energy function with :setEnergyFunction")
 		end
 		
-		local function get_site_ss(x,y,z)
-			local sx,sy,sz = ss:spin(x,y,z)
-			return sx,sy,sz
-		end
-		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-			local ox,oy,oz,m = ss:spin({x,y,z})
-			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-		end
-		local function get_energy_ss()
-			local e = energy_function(ss)
-			return e
-		end
+        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 		
 		if d.isInitialized == nil then
 			mep:initialize()
@@ -272,7 +277,8 @@ methods["compute"] =
 			-- 		print(successful_steps)
 			local current_beta = mep:beta()
 			
-			copy_to_children(mep)
+			-- first bool below is for "do_big" second is for "do_small"
+			copy_to_children(mep, true, tol>=0)
 			
 			d.big_step:setBeta(current_beta)
 			single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss, np)
@@ -283,11 +289,10 @@ methods["compute"] =
 				single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
 				single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
 				
-				
 				local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
 				local aDiffAvrg = aDiff / np
 				
-				-- print("beta = ", current_beta, "max_idx", max_idx)
+				-- print("beta = ", current_beta)
 				local step_mod, good_step = getStepMod(tol, maxDiff)
 				-- 			print(maxDiff, tol)
 				if good_step then
@@ -302,12 +307,6 @@ methods["compute"] =
 			end
 			
 			mep:resampleStateXYZPath(np)
-			
-			-- 		local ee, pos, zc = mep:pathEnergyNDeriv(3)
-			-- 		table.insert(zc, 0)
-			-- 		table.insert(zc, 1)
-			-- 		mep:resampleStateXYZPath(zc, 0, np)
-			
 		end
 		
 		return successful_steps
@@ -395,6 +394,22 @@ methods["setSites"] =
 		for k,v in pairs(tt) do
 			mep:_addSite(v[1], v[2], v[3])
 		end
+	end
+}
+
+
+methods["site"] = 
+{
+	"Get a single site.",
+	"1 Integer: Site index, positive will count from start, negative will count from end",
+	"1 Table of 3 Integers: Site",
+	function(mep, idx)
+		idx = idx or error("require index")
+		if idx < 0 then
+			idx = mep:numberOfSites() + idx
+		end
+
+		return mep:sites()[idx] or "Invalid index"
 	end
 }
 
@@ -494,22 +509,7 @@ methods["pathEnergyNDeriv"] =
 			mep:initialize()
 		end
 		
-		local ss = mep:spinSystem()
-		local energy_function = mep:energyFunction()
-		
-		local function get_site_ss(x,y,z)
-			local sx,sy,sz = ss:spin(x,y,z)
-			return sx,sy,sz
-		end
-		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-			local ox,oy,oz,m = ss:spin({x,y,z})
-			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-		end
-		local function get_energy_ss()
-			local e = energy_function(ss)
-			return e
-		end
+        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 		
 		return mep:_pathEnergyNDeriv(n, get_site_ss, set_site_ss, get_energy_ss)
 	end
@@ -520,23 +520,10 @@ local function relaxPoint(mep, pointNum, steps, goal)
 	if mep_data.isInitialized == nil then
 		mep:initialize()
 	end
-	local ss = mep:spinSystem()
 	local energy_function = mep:energyFunction()
 	local tol = nonDefaultTol or mep:tolerance()
 		
-	local function get_site_ss(x,y,z)
-		local sx,sy,sz = ss:spin(x,y,z)
-		return sx,sy,sz
-	end
-	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-		local ox,oy,oz,m = ss:spin({x,y,z})
-		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-	end
-	local function get_energy_ss()
-		local e = energy_function(ss)
-		return e
-	end
+	get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 
 	steps = steps or 10
 	goal = goal or 0
@@ -574,22 +561,8 @@ methods["slidePoint"] =
 		if d.isInitialized == nil then
 			mep:initialize()
 		end
-		local ss = mep:spinSystem()
-		local energy_function = mep:energyFunction()
 		
-		local function get_site_ss(x,y,z)
-			local sx,sy,sz = ss:spin(x,y,z)
-			return sx,sy,sz
-		end
-		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-			local ox,oy,oz,m = ss:spin({x,y,z})
-			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-		end
-		local function get_energy_ss()
-			local e = energy_function(ss)
-			return e
-		end
+        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 		
 		local numSteps = numSteps or 50
 
@@ -617,23 +590,9 @@ methods["classifyPoint"] =
 		if d.isInitialized == nil then
 			mep:initialize()
 		end
-		local ss = mep:spinSystem()
-		local energy_function = mep:energyFunction()
 		
-		local function get_site_ss(x,y,z)
-			local sx,sy,sz = ss:spin(x,y,z)
-			return sx,sy,sz
-		end
-		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-			local ox,oy,oz,m = ss:spin({x,y,z})
-			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-		end
-		local function get_energy_ss()
-			local e = energy_function(ss)
-			return e
-		end
-		
+        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+ 		
 		return mep:_classifyPoint(get_site_ss, set_site_ss, get_energy_ss, pointNum, h)
 	end
 }
@@ -669,21 +628,6 @@ methods["gradientAtPoint"] =
 		local d = get_mep_data(mep)
 		local ss = mep:spinSystem()
 		local energy_function = mep:energyFunction()
-		
-		local function get_site_ss(x,y,z)
-			local sx,sy,sz = ss:spin(x,y,z)
-			return sx,sy,sz
-		end
-		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-			local ox,oy,oz,m = ss:spin({x,y,z})
-			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-		end
-		local function get_energy_ss()
-			local e = energy_function(ss)
-			return e
-		end
-		
 		local c = mep:siteCount()
 		
 		if destArray then
@@ -704,28 +648,37 @@ methods["gradientAtPoint"] =
 	end
 }
 
+methods["secondDerivativeAtPoint"] = {
+	"Compute d2 E / dC1 dC2 at a point",
+	"1 Integer, 2 Integers, 2 optional Numbers: The first integer is the point number. The next 2 integers are coordinate numbers. Valid values are between 1 and then number of sites time 3. A 2 Site problem would accept numbers between 1 and 6 inclusively. The optional numbers are step sizes for the numeric differentiaion",
+	"1 Number: second derivative of energy with repect to the coordinates",
+	function(mep, pointNum, c1, c2, h1, h2)
+        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+
+		if c1 < 1 or c1 > mep:numberOfSites()*3 then
+			error("c1 out of bounds")
+		end
+
+		if c2 < 1 or c2 > mep:numberOfSites()*3 then
+			error("c2 out of bounds")
+		end
+
+		if pointNum < 1 or pointNum > mep:numberOfPathPoints() then
+			error("point index out of bounds")
+		end
+
+		local t = mep:_computePointSecondDerivativeAB(pointNum, c1, c2, get_site_ss, set_site_ss, get_energy_ss, h1, h2)
+		return t
+	end
+
+}
+
 methods["hessianAtPoint"] = {
 	"Compute the 2nd order partial derivative at a given point along the path.",
 	"1 Integer, 1 Optional Array: Point to calculate 2nd derivative about. If no array is provided one will be created",
 	"1 Array: Derivatives",
 	function(mep, pointNum, destArray)
-		local d = get_mep_data(mep)
-		local ss = mep:spinSystem()
-		local energy_function = mep:energyFunction()
-		
-		local function get_site_ss(x,y,z)
-			local sx,sy,sz = ss:spin(x,y,z)
-			return sx,sy,sz
-		end
-		local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-			local ox,oy,oz,m = ss:spin({x,y,z})
-			ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-			return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-		end
-		local function get_energy_ss()
-			local e = energy_function(ss)
-			return e
-		end
+        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 		
 		local c = mep:siteCount()
 		
@@ -751,14 +704,14 @@ methods["hessianAtPoint"] = {
 methods["coordinateComponentNames"] = 
 {
 	"Get the short and long names for each coordinate component given a coordinate type",
-	[[1 Optional String: "Cartesian", "Canonical" or "Spherical". If no string is provided then the current coordinate system is assumed.]],
+	"1 Optional String: \"Cartesian\", \"Canonical\" or \"Spherical\". If no string is provided then the current coordinate system is assumed.",
 	"2 Tables of Strings: Short and long forms",
 	function(mep, s)
 		s = s or mep:coordinateSystem()
 		local data = {}
 		data["cartesian"] = {{"x", "y", "z"}, {"X Axis", "Y Axis", "Z Axis"}}
 		data["spherical"] = {{"r", "p", "t"}, {"Radial", "Azimuthal", "Polar"}}
-		data["canonical"] = {{"r", "ph", "p"},{"Radial", "Azimuthal", "cos(Polar)"}}
+		data["canonical"] = {{"r", "phi", "p"},{"Radial", "Azimuthal", "cos(Polar)"}}
 		if s == nil then
 			error("method requires a coordinate system name")
 		end
@@ -794,6 +747,43 @@ methods["criticalPoints"] =
 }
 
 
+methods["reduceToPoints"] = 
+{
+	"Reduce the path to the given set of points. The points between the given points will be discarded and the total number of points will be reduced to the given number of points.",
+	"N Integers or 1 Table of integers: The points to keep while discarding the others.",
+	"",
+	function(mep, ...)
+		if type(arg[1]) == type({}) then -- we were given a table
+			arg = arg[1]
+		end
+		local new_initial_path = {}
+		local n = 0
+		for i,v in pairs(arg) do
+			local t = {}
+			for j=1,mep:numberOfSites() do
+				local x,y,z = mep:spin(v, j)
+				t[j] = {x,y,z}
+			end
+			new_initial_path[i] = t
+			n = n + 1
+		end
+
+		mep:setInitialPath(new_initial_path)
+		mep:setNumberOfPathPoints(n)
+	end
+}
+
+
+methods["reduceToCriticalPoints"] = 
+{
+	"Reduce the path to the points returned from the :criticalPoints() method. The points between the critical points will be discarded and the total number of points will be reduced to the number of critical points.",
+	"",
+	"",
+	function(mep)
+		local _, _, cps = mep:criticalPoints()
+		mep:reduceToPoints(cps)
+	end
+}
 
 
 methods["energyBarrier"] =
@@ -950,6 +940,45 @@ methods["merge"] =
 }
 
 
+methods["convertCoordinateSystem"] =
+{
+	"Convert a vector from a source coordinate system to a destination coordinate system",
+	"2 Strings, 1 Table of 3 Numbers or 3 Numbers: Source and Destination Coordinate System names (must match one" ..
+		"of the return values from MEP:coordinateSystems() ) and a vector given either as a table of nubmers or as 3 numbers.",
+	"1 Table of 3 Numbers or 3 Numbers and 1 String: The return transformed vector will be returned in the same format as the input vector and the name of the new coordinate system will be returned as the last argument",
+
+	function(mep, src_cs, dest_cs, ...)
+		local possible_cs = mep:coordinateSystems()
+		local src_cs_idx = nil
+		local dest_cs_idx = nil
+		local input_as_table = nil
+		for k,v in pairs(possible_cs) do
+			if string.lower(v) == string.lower(src_cs) then
+				src_cs_idx = k-1
+			end
+			if string.lower(v) == string.lower(dest_cs) then
+				dest_cs_idx = k-1
+			end
+		end
+
+		if src_cs_idx == nil then error("Invalid source coordinate system") end
+		if dest_cs_idx == nil then error("Invalid destination coordinate system") end
+
+		if type(arg[1]) == type({}) then -- we were given a table
+            arg = arg[1]
+			input_as_table = true
+        end
+
+		local a,b,c = arg[1], arg[2], arg[3]
+		a,b,c = mep:_convertCoordinateSystem(a,b,c, src_cs_idx, dest_cs_idx)
+
+		if input_as_table then
+			return {a,b,c}, possible_cs[dest_cs_idx+1]
+		end
+		return a,b,c, possible_cs[dest_cs_idx+1]
+	end
+}
+
 
 -- inject above into existing metatable for MEP operator
 for k,v in pairs(methods) do
@@ -968,8 +997,22 @@ MODTAB.help = function(x)
     end
 
     -- fallback to old help if a case is not handled
-    if x == nil then
-        return help()
+    if x == nil then -- MEP overview
+		return [[
+Calculates a minimum energy pathway between two states. There are ##return table.maxn(MEP.new():coordinateSystems())## coordinate systems to choose from: Cartesian, Spherical and Canonical.
+
+The Cartesian coordinate system has the standard coordinates along orthogonal axis: x, y, z. 
+The gradient is defined as:
+$ \nabla = \hat{x} \frac{\partial}{\partial x} + \hat{y} \frac{\partial}{\partial y} + \hat{z} \frac{\partial}{\partial z}$ 
+
+The Spherical coordinate system follows physics conventions with coordinates $r$, $\phi$, $\theta$ as Radial, Azimuthal and Polar directions. 
+The gradient is defined as:
+$ \nabla = \hat{r} \frac{\partial}{\partial r} + \frac{1}{r} \hat{\theta} \frac{\partial}{\partial \theta} + \frac{1}{r\: sin(\theta)} \hat{\phi} \frac{\partial}{\partial \phi}$ 
+
+The Canonical coordinate system is a modified spherical system with coordinates $r$, $\phi$, $p = cos(\theta)$ as Radial, Azimuthal and Cosine Polar directions. 
+The gradient is defined as:
+$ \nabla = \hat{r} \frac{\partial}{\partial r} + (r^2 (1-p^2))^{-\frac{1}{2}} \hat{\theta} \frac{\partial}{\partial \theta} + (r^2/(1-p^2))^{-\frac{1}{2}} \hat{p} \frac{\partial}{\partial p}$ 
+]], "", ""
     end
     return help(x)
 end

@@ -5,6 +5,16 @@
 
 
 template<typename T>
+double norm(const T& value) { return 0; }
+
+template <> double norm(const int& value) {return abs(value);}
+template <> double norm(const double& value) {return fabs(value);}
+template <> double norm(const float& value) {return fabs(value);}
+template <> double norm(const doubleComplex& value) {return std::norm(value);}
+template <> double norm(const floatComplex& value) {return std::norm(value);}
+
+
+template<typename T>
 void setAll_(T* dest, const int n, const T& v)
 {
 // #pragma omp for schedule(static)
@@ -31,6 +41,41 @@ void arraySetAll(doubleComplex* a, const doubleComplex& v, const int n)
 void arraySetAll(floatComplex* a, const floatComplex& v, const int n)
 {
 	setAll_<floatComplex>(a, n, v);
+}
+
+
+
+
+template<typename T>
+void arrayChop_(T* dest, const int n, const T& v)
+{
+	double tol = norm<T>(v);
+	for(int i=0; i<n; i++)
+	{
+		if(norm(dest[i]) < tol)
+			dest[i] = luaT<T>::zero();
+	}
+}
+
+void arrayChop(double* a, const double& v, const int n)
+{
+	arrayChop_<double>(a, n, v);
+}
+void arrayChop(float* a, const float& v, const int n)
+{
+	arrayChop_<float>(a, n, v);
+}
+void arrayChop(int* a,  const int& v, const int n)
+{
+	arrayChop_<int>(a, n, v);
+}
+void arrayChop(doubleComplex* a, const doubleComplex& v, const int n)
+{
+	arrayChop_<doubleComplex>(a, n, v);
+}
+void arrayChop(floatComplex* a, const floatComplex& v, const int n)
+{
+	arrayChop_<floatComplex>(a, n, v);
 }
 
 

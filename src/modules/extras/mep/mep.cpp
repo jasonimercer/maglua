@@ -19,6 +19,37 @@ static const double seven_directions[7][3] = {
 	{-1, 0, 0}  // for spherical/canonical
 };
 
+#define _acos(x) _acosFL(x, __FILE__, __LINE__)
+
+static double _acosFL(double x, const char* file, const int line)
+{
+	if(fabs(x) > 1)
+	{
+		{int* i = (int*)5; *i = 5;}
+		fprintf(stderr, "(%s:%i) argument of acos out of range (%g)\n", file, line, x);
+		if(x < 0)
+			x = -1;
+		else
+			x = 1;
+	}
+	return acos(x);
+}
+
+
+#define CARTESIAN_X 0
+#define CARTESIAN_Y 1
+#define CARTESIAN_Z 2
+
+#define SPHERICAL_R 0
+#define SPHERICAL_PHI 1
+#define SPHERICAL_THETA 2
+
+#define CANONICAL_R 0
+#define CANONICAL_PHI 1
+#define CANONICAL_P 2
+
+
+
 
 
 // deterministic random number generator - don't want to interfere with
@@ -79,15 +110,19 @@ void _setmagnitude(MEP::CoordinateSystem cs, double* v, double mag)
 		v[0] = mag;
 	}
 }
-void _setmagnitude(double* v, double mag, MEP::CoordinateSystem cs)
+static void _setmagnitude(double* v, double mag, MEP::CoordinateSystem cs)
 {
 	_setmagnitude(cs,v,mag);
 }
 
 
-static void _convertCoordinateSystem(
+
+
+#define _convertCoordinateSystem(ss, ds, src, dest) _convertCoordinateSystem_(ss,ds,src,dest,__FILE__, __LINE__)
+
+static void _convertCoordinateSystem_(
 	MEP::CoordinateSystem src_cs, MEP::CoordinateSystem dest_cs,
-	const double* src, double* dest)
+	const double* src, double* dest, const char* file, unsigned int line)
 {
 	if(src_cs == dest_cs)
 	{
@@ -95,67 +130,99 @@ static void _convertCoordinateSystem(
 		return;
 	}
 
+	if(src_cs == MEP::Undefined || dest_cs == MEP::Undefined)
+	{
+		dest[0] = 0;
+		dest[1] = 0;
+		dest[2] = 0;
+		return;
+	}
+
+
+	double temp[3];
+	if(src == dest)
+	{
+		// copy to temp
+		_convertCoordinateSystem_(src_cs, src_cs, src, temp, file, line);
+		src = temp; // to make sure we're not stomping around like morons, overwriting parts of src with dest
+	}
+
 	if(src_cs == MEP::Cartesian)
 	{
-		const double x = src[0];
-		const double y = src[1];
-		const double z = src[2];
+		const double x = src[CARTESIAN_X];
+		const double y = src[CARTESIAN_Y];
+		const double z = src[CARTESIAN_Z];
 
 		const double r = sqrt(x*x + y*y + z*z);
 		const double p = atan2(y, x);
-		const double t = acos(z / r);
+		const double t = _acos(z / r);
 
-		dest[0] = r;
 		if(dest_cs == MEP::Spherical)
 		{
-			dest[1] = p;
-			dest[2] = t;
+			dest[SPHERICAL_R] = r;
+			dest[SPHERICAL_PHI] = p;
+			dest[SPHERICAL_THETA] = t;
 		}
 		if(dest_cs == MEP::Canonical)
 		{
-			dest[1] = p;
-			dest[2] = cos(t);
+			dest[CANONICAL_R] = r;
+			dest[CANONICAL_PHI] = p;
+			dest[CANONICAL_P] = cos(t);
 		}
 	}
 	if(src_cs == MEP::Spherical)
 	{
 		if(dest_cs == MEP::Canonical)
 		{
-			dest[0] = src[0];
-			dest[1] = src[1];
-			dest[2] = acos(src[2]);
+			dest[CANONICAL_R] = src[SPHERICAL_R];
+			dest[CANONICAL_PHI] = src[SPHERICAL_PHI];
+			dest[CANONICAL_P] = cos(src[SPHERICAL_THETA]);
 		}
 		if(dest_cs == MEP::Cartesian)
 		{
-			dest[0] = src[0] * cos( src[1] ) * sin( src[2] );
-			dest[1] = src[0] * sin( src[1] ) * sin( src[2] );
-			dest[2] = src[0] * cos( src[2] );
+			dest[CARTESIAN_X] = src[0] * cos( src[SPHERICAL_PHI] ) * sin( src[SPHERICAL_THETA] );
+			dest[CARTESIAN_Y] = src[0] * sin( src[SPHERICAL_PHI] ) * sin( src[SPHERICAL_THETA] );
+			dest[CARTESIAN_Z] = src[0] * cos( src[SPHERICAL_THETA] );
 		}
 	}
 	if(src_cs == MEP::Canonical)
 	{
+		double r = src[CANONICAL_R];
+		double phi = src[CANONICAL_PHI];
+		double p = src[CANONICAL_P];
+
+		while(p < -1 || p > 1)
+		{
+			while(p < -1)
+				p += 4;
+			if(p > 1)
+			{
+				p = 2.0 - p;
+				phi = phi + M_PI; // flip phi
+			}
+		}
+
+		while(phi < 0)
+			phi += 2.0 * M_PI;
+		while(phi >= 2.0 * M_PI)
+			phi -= 2.0 * M_PI;
+			  
+
+
 		if(dest_cs == MEP::Spherical)
 		{
-			dest[0] = src[0];
-			dest[1] = src[1];
-			dest[2] = cos(src[2]);
+			dest[SPHERICAL_R] = r;
+			dest[SPHERICAL_PHI] = phi;
+			dest[SPHERICAL_THETA] = _acos(p);
 		}
 		if(dest_cs == MEP::Cartesian)
 		{
-			const double t = acos( src[2] );
-			dest[0] = src[0] * cos( src[1] ) * sin( t );
-			dest[1] = src[0] * sin( src[1] ) * sin( t );
-			dest[2] = src[0] * src[2];
+			const double t = _acosFL(p, file, line );
+			dest[CARTESIAN_X] = r * cos( phi ) * sin( t );
+			dest[CARTESIAN_Y] = r * sin( phi ) * sin( t );
+			dest[CARTESIAN_Z] = r * p;
 		}
 	}
-}
-
-// overload version because I sometimes forget order
-static void _convertCoordinateSystem(
-	const double* src, double* dest,
-	MEP::CoordinateSystem src_cs, MEP::CoordinateSystem dest_cs)
-{
-	_convertCoordinateSystem(src_cs, dest_cs, src, dest);
 }
 
 static void _normalizeTo(double* dest, const double* src, MEP::CoordinateSystem cs, const double length=1.0, const int n=3)
@@ -187,60 +254,56 @@ static void _scaleFactors(MEP::CoordinateSystem cs, const double* vec, double* s
 	switch(cs)
 	{
 	case MEP::Cartesian:
-		sf[0] = 1;
-		sf[1] = 1;
-		sf[2] = 1;
+		sf[CARTESIAN_X] = 1;
+		sf[CARTESIAN_Y] = 1;
+		sf[CARTESIAN_Z] = 1;
 		break;
 	case MEP::Spherical:
-		if(vec[0] == 0)
+		if(vec[SPHERICAL_R] == 0)
 		{
-			sf[0] = 1;
-			sf[1] = 1;
-			sf[2] = 1;
+			sf[SPHERICAL_R] = 1;
+			sf[SPHERICAL_PHI] = 1;
+			sf[SPHERICAL_THETA] = 1;
 		}
 		else
 		{
-			if(sin(vec[2]) == 0)
+			if(sin(vec[SPHERICAL_THETA]) == 0)
 			{
-				sf[0] = 1;
-				sf[1] = 1;
-				sf[2] = 1.0 / vec[0];
+				sf[SPHERICAL_R] = 1;
+				sf[SPHERICAL_PHI] = 1;
+				sf[SPHERICAL_THETA] = 1.0 / vec[SPHERICAL_R];
 			}
 			else
 			{
-				sf[0] = 1;
-				sf[1] = 1/(sin(vec[2]) * vec[0]);
-				sf[2] = 1/vec[0];
+				sf[SPHERICAL_R] = 1;
+				sf[SPHERICAL_PHI] = 1/(sin(vec[SPHERICAL_THETA]) * vec[SPHERICAL_R]);
+				sf[SPHERICAL_THETA] = 1/vec[SPHERICAL_R];
 			}
 		}
 		break;
 	case MEP::Canonical:
-		// need to fix the following:
-		if(vec[0] == 0)
+		if(vec[CANONICAL_R] == 0)
 		{
-			sf[0] = 1;
-			sf[1] = 1;
-			sf[2] = 1;
+			sf[CANONICAL_R] = 1;
+			sf[CANONICAL_PHI] = 1;
+			sf[CANONICAL_P] = 1;
+			return;
 		}
-		else
+
+		if(vec[CANONICAL_P] * vec[CANONICAL_P] == 1)
 		{
-			if(sin(vec[2]) == 0)
-			{
-				sf[0] = 1;
-				sf[1] = 1;
-				sf[2] = 1.0 / vec[0];
-			}
-			else
-			{
-				sf[0] = 1;
-				sf[1] = 1/(sin(vec[2]) * vec[0]);
-				sf[2] = 1/vec[0];
-			}
+			sf[CANONICAL_R] = 1;   // definitely not zero like P
+			sf[CANONICAL_PHI] = 1; // if P^2 is 1 then the PHI term is 1/0 = inf. Let's call it 1
+			sf[CANONICAL_P] = 1;   // if P^2 is 1 then the P term is 1/(1/0)) = 1/inf = 0. Trying 1
+			return;
 		}
-		{
-			int* fail = (int*)5;
-			*fail = 0;
-		}
+
+		const double r2 = vec[CANONICAL_R] * vec[CANONICAL_R];
+		const double p2 = vec[CANONICAL_P] * vec[CANONICAL_P];
+
+		sf[CANONICAL_R]   = 1;
+		sf[CANONICAL_PHI] = 1/sqrt(r2*(1-p2));
+		sf[CANONICAL_P]   = 1/sqrt(r2/(1-p2));
 		break;
 	}
 }
@@ -251,19 +314,19 @@ static void _stepSize(MEP::CoordinateSystem cs, const double* vec, const double 
 	switch(cs)
 	{
 	case MEP::Cartesian:
-		h3[0] = m*epsilon;
-		h3[1] = m*epsilon;
-		h3[2] = m*epsilon;
+		h3[CARTESIAN_X] = m*epsilon;
+		h3[CARTESIAN_Y] = m*epsilon;
+		h3[CARTESIAN_Z] = m*epsilon;
 		break;
 	case MEP::Spherical:
-		h3[0] = m*epsilon;
-		h3[1] = 2*M_PI*epsilon;
-		h3[2] =   M_PI*epsilon;
+		h3[SPHERICAL_R] = m*epsilon;
+		h3[SPHERICAL_PHI] = 2*M_PI*epsilon;
+		h3[SPHERICAL_THETA] = M_PI*epsilon;
 		break;
 	case MEP::Canonical:
-		h3[0] = m*epsilon;
-		h3[1] = 2*M_PI*epsilon;
-		h3[2] =      2*epsilon;
+		h3[CANONICAL_R] = m*epsilon;
+		h3[CANONICAL_PHI] = 2*M_PI*epsilon;
+		h3[CANONICAL_P] =    2*epsilon;
 		break;
 	}	
 }
@@ -392,7 +455,7 @@ static double _angleBetween(const double* a, const double* b, MEP::CoordinateSys
 	if(ct > 1)
 		ct = 1;
 
-	const double tt = acos(ct);
+	const double tt = _acos(ct);
 
 //	_D(FL, "a", a, 3);
 //	_D(FL, "b", b, 3);
@@ -597,29 +660,30 @@ const char* MEP::nameOfCoordinateSystem(CoordinateSystem s)
 {
 	switch(s)
 	{
+	case Undefined: return "Undefined";
 	case Cartesian: return "Cartesian";
 	case Spherical: return "Spherical";
 	case Canonical: return "Canonical";
+	case SphericalX: return "SphericalX";
+	case SphericalY: return "SphericalY";
+	case CanonicalX: return "CanonicalX";
+	case CanonicalY: return "CanonicalY";
 	}
 	return 0;
 }
 
 // return a list of what the user can play with
+// not telling them about "Undefined"
 int MEP::l_getCoordinateSystems(lua_State* L)
 {
 	lua_newtable(L);
 	
-	lua_pushinteger(L, 1);
-	lua_pushstring(L, nameOfCoordinateSystem(Cartesian));
-	lua_settable(L, -3);
-
-	lua_pushinteger(L, 2);
-	lua_pushstring(L, nameOfCoordinateSystem(Spherical));
-	lua_settable(L, -3);
-
-	lua_pushinteger(L, 3);
-	lua_pushstring(L, nameOfCoordinateSystem(Canonical));
-	lua_settable(L, -3);
+	for(int i=0; i<=6; i++)
+	{
+		lua_pushinteger(L, i+1);
+		lua_pushstring(L, nameOfCoordinateSystem( (CoordinateSystem)i ));
+		lua_settable(L, -3);
+	}
 
 	return 1;
 }
@@ -627,20 +691,40 @@ int MEP::l_getCoordinateSystems(lua_State* L)
 int MEP::l_setCoordinateSystem(lua_State* L, int idx)
 {
 	const char* new_cs = lua_tostring(L, idx);
+	if(new_cs == 0)
+	{
+		return luaL_error(L, "empty coordinate system");
+	}
+	CoordinateSystem newSystem = Undefined;
+	for(int i=0; i<=6; i++)
+	{
+		CoordinateSystem j = (CoordinateSystem)i;
+		if(strncasecmp(new_cs, nameOfCoordinateSystem(j), strlen(nameOfCoordinateSystem(j))) == 0)
+		{
+			newSystem = j;
+		}
+	}
 
-	if(strncasecmp(new_cs, nameOfCoordinateSystem(Cartesian), strlen(nameOfCoordinateSystem(Cartesian))) == 0)
+	if(newSystem != Undefined)
 	{
-		currentSystem = Cartesian;
-		return 0;
-	}
-	if(strncasecmp(new_cs, nameOfCoordinateSystem(Spherical), strlen(nameOfCoordinateSystem(Spherical))) == 0)
-	{
-		currentSystem = Spherical;
-		return 0;
-	}
-	if(strncasecmp(new_cs, nameOfCoordinateSystem(Canonical), strlen(nameOfCoordinateSystem(Canonical))) == 0)
-	{
-		currentSystem = Canonical;
+		if(newSystem != currentSystem)
+		{
+			const int ni = numberOfImages();
+			const int ns = numberOfSites();
+
+			for(int i=0; i<ni; i++)
+			{
+				for(int s=0; s<ns; s++)
+				{
+					const int k = (i*ns+s);
+
+					double* v = &(state_xyz_path[k*3]);
+
+					_convertCoordinateSystem(currentSystem, newSystem, v, v);
+				}
+			}
+		}
+		currentSystem = newSystem;
 		return 0;
 	}
 
@@ -1293,8 +1377,7 @@ int MEP::applyForces(lua_State* L)
 	const int ni = numberOfImages();
 	const int ns = numberOfSites();
 	
-	// end points are no longer fixed. 
-	//for(int i=num_sites; i<(force_vector.size()/3)-num_sites; i++)
+	// end points are no longer hardcoded fixed. 
 	for(int i=0; i<ni; i++)
 	{
 		for(int s=0; s<ns; s++)
@@ -1306,43 +1389,22 @@ int MEP::applyForces(lua_State* L)
 
 			memcpy(orig, v, sizeof(double)*3);
 
-			/*
-			double x = state_xyz_path[k*3+0];
-			double y = state_xyz_path[k*3+1];
-			double z = state_xyz_path[k*3+2];
-			*/
-
 			const double m1 = _magnitude(v, currentSystem);
 
-			// const double m1 = sqrt(x*x+y*y+z*z);
+			const double dC1 = force_vector[k*3+0] * image_site_mobility[k];
+			const double dC2 = force_vector[k*3+1] * image_site_mobility[k];
+			const double dC3 = force_vector[k*3+2] * image_site_mobility[k];
 			
-			const double dx = force_vector[k*3+0] * image_site_mobility[k];
-			const double dy = force_vector[k*3+1] * image_site_mobility[k];
-			const double dz = force_vector[k*3+2] * image_site_mobility[k];
-			
-			v[0] -= dx;
-			v[1] -= dy;
-			v[2] -= dz;
-			
+			v[0] -= dC1;
+			v[1] -= dC2;
+			v[2] -= dC3;
+
+			// printf("v = %g %g %g, dd = %g %g %g\n", v[0], v[1], v[2],dC1, dC2, dC3);
 			_normalizeTo(v, v, currentSystem, m1);
-			//const double dd = sqrt(dx*dx + dy*dy + dz*dz);
-			//const double normalized_movement = dd/m1;
-
-			/*
-			const double normalized_movement = _angleBetween(orig, v, currentSystem);
-
-			absMovement += normalized_movement;
-			if(maxMovement < normalized_movement)
-				maxMovement = normalized_movement;
-			*/
 		}
 	}
 	
 	return 0;
-
-	// lua_pushnumber(L, absMovement);
-	// lua_pushnumber(L, maxMovement);
-	// return 2;
 }
 	
 
@@ -1367,35 +1429,16 @@ void MEP::computeTangent(const int p1, const int p2, const int dest)
 	// compute difference
  	for(int i=0; i<s; i+=3)
 	{
-		_convertCoordinateSystem(&state_xyz_path[i + p1*s], a, currentSystem, Cartesian);
-		_convertCoordinateSystem(&state_xyz_path[i + p2*s], b, currentSystem, Cartesian);
+		_convertCoordinateSystem(currentSystem, Cartesian, &state_xyz_path[i + p1*s], a);
+		_convertCoordinateSystem(currentSystem, Cartesian, &state_xyz_path[i + p2*s], b);
 
 		for(int j=0; j<3; j++)
 			c[j] = a[j] - b[j];
 
 		_normalizeTo(c, c, Cartesian, 1);
-		_convertCoordinateSystem(c, & path_tangent[i + dest*s], Cartesian, currentSystem);
+		_convertCoordinateSystem(Cartesian, currentSystem, c, & path_tangent[i + dest*s]);
 	}
 
-	/*
-	const int n = state_xyz_path.size();
-	for(int i=0; i<n/3; i++)
-	{
-		const double x = state_xyz_path[i*3 + 0];
-		const double y = state_xyz_path[i*3 + 1];
-		const double z = state_xyz_path[i*3 + 2];
-
-		double length = sqrt(x*x + y*y + z*z);
-
-		if(length != 0)
-		{
-			length = 1.0/length;
-			path_tangent[i*3 + 0] *= length;
-			path_tangent[i*3 + 1] *= length;
-			path_tangent[i*3 + 2] *= length;
-		}
-	}
-	*/
 }
 
 
@@ -1790,19 +1833,13 @@ int MEP::calculatePathEnergyNDeriv(lua_State* L, int get_index, int set_index, i
 }
 
 
-static void arrayCopyWithElementChange(double* dest, double* src, int element, double delta, int n)
+static void arrayCopyWithElementChange(MEP::CoordinateSystem cs, double* dest, double* src, int element, double delta, int n)
 {
-	for(int i=0; i<n; i++)
-	{
-		dest[i] = src[i];
-		if(i == element)
-		{
-			dest[i] += delta;
-		}
-	}
+	memcpy(dest, src, sizeof(double)*n);
+	dest[element] += delta;
 }
 
-static void arrayCopyWithElementsChange(double* dest, double* src, int* directions, const double _dd, double* scale, int n)
+static void arrayCopyWithElementsChange(MEP::CoordinateSystem cs, double* dest, double* src, int* directions, const double _dd, double* scale, int n)
 {
 	for(int i=0; i<n; i++)
 	{
@@ -1817,7 +1854,7 @@ static void arrayCopyWithElementsChange(double* dest, double* src, int* directio
 }
 
 
-static void arrayCopyWithElementsChange(double* dest, double* src, int* directions, double* scale, int n)
+static void arrayCopyWithElementsChange(MEP::CoordinateSystem cs, double* dest, double* src, int* directions, double* scale, int n)
 {
 	for(int i=0; i<n; i++)
 	{
@@ -1839,7 +1876,7 @@ static void rescale_vectors(MEP::CoordinateSystem cs, double* vecs, double* mags
 	}
 }
 
-double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1, int c2)
+double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1, int c2, double _dc1, double _dc2)
 {
 	// back up old sites so we can restore after
 	vector<double> cfg;
@@ -1848,7 +1885,6 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, i
 	double* vec = &state_xyz_path[p*num_sites*3];
 	double result;
 	double* state = new double[num_sites * 3];
-	double* mags = new double[num_sites];
 	double e1,e2,e3,e4;
 	double d1,d2;
 
@@ -1858,70 +1894,54 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, i
 	const int site1 = c1 - c1m3;
 	const int site2 = c2 - c2m3;
 
-	double scaleFactors1[3];
-	double scaleFactors2[3];
-
 	double stepSize1[3];
 	double stepSize2[3];
-
-	_scaleFactors(currentSystem, &(vec[site1]), scaleFactors1);
-	_scaleFactors(currentSystem, &(vec[site2]), scaleFactors2);
 
 	_stepSize(currentSystem, &(vec[site1]), epsilon, stepSize1);
 	_stepSize(currentSystem, &(vec[site2]), epsilon, stepSize2);
 
-	const double dx1 = stepSize1[c1m3];
-	const double dx2 = stepSize2[c2m3];
+	double dx1 = stepSize1[c1m3];
+	double dx2 = stepSize2[c2m3];
 	
-	const double sf = scaleFactors1[c1m3] * scaleFactors2[c2m3];
-
-	for(int i=0; i<num_sites; i++)
-	{
-		mags[i] = _magnitude(currentSystem, &(vec[i*3]));
-	}
+	if(_dc1 > 0)
+		dx1 = _dc1;
+	if(_dc2 > 0)
+		dx2 = _dc2;
 
 	// calc upper deriv energies
-	arrayCopyWithElementChange(state,   vec, c1, dx1, num_sites * 3);
-	arrayCopyWithElementChange(state, state, c2, dx2, num_sites * 3);
-	rescale_vectors(currentSystem, state, mags, num_sites);
+	arrayCopyWithElementChange(currentSystem, state,   vec, c1, dx1, num_sites * 3);
+	arrayCopyWithElementChange(currentSystem, state, state, c2, dx2, num_sites * 3);
 	setAllSpins(L, set_index, state);
 	e1 = getEnergy(L, energy_index);
 	
-	arrayCopyWithElementChange(state,   vec, c1, dx1, num_sites * 3);
-	arrayCopyWithElementChange(state, state, c2,-dx2, num_sites * 3);
-	rescale_vectors(currentSystem, state, mags, num_sites);
+	arrayCopyWithElementChange(currentSystem, state,   vec, c1, dx1, num_sites * 3);
+	arrayCopyWithElementChange(currentSystem, state, state, c2,-dx2, num_sites * 3);
 	setAllSpins(L, set_index, state);
 	e2 = getEnergy(L, energy_index);
 		
 	// calc lower deriv energies
-	arrayCopyWithElementChange(state,   vec, c1,-dx1, num_sites * 3);
-	arrayCopyWithElementChange(state, state, c2, dx2, num_sites * 3);
-	rescale_vectors(currentSystem, state, mags, num_sites);
+	arrayCopyWithElementChange(currentSystem, state,   vec, c1,-dx1, num_sites * 3);
+	arrayCopyWithElementChange(currentSystem, state, state, c2, dx2, num_sites * 3);
 	setAllSpins(L, set_index, state);
 	e3 = getEnergy(L, energy_index);
 	
-	arrayCopyWithElementChange(state,   vec, c1,-dx1, num_sites * 3);
-	arrayCopyWithElementChange(state, state, c2,-dx2, num_sites * 3);
-	rescale_vectors(currentSystem, state, mags, num_sites);
+	arrayCopyWithElementChange(currentSystem, state,   vec, c1,-dx1, num_sites * 3);
+	arrayCopyWithElementChange(currentSystem, state, state, c2,-dx2, num_sites * 3);
 	setAllSpins(L, set_index, state);
 	e4 = getEnergy(L, energy_index);
 	
-	d1 = (e1-e2);
-	d2 = (e3-e4);
-	
-	result  = (d1-d2);
-	result /= (4.0 * dx1 * dx2);
-	result *= sf;
+	double diff_e1_e2 = (e1 - e2);
+	double diff_e3_e4 = (e3 - e4);
+
+	const double dd1 = diff_e1_e2 / (2.0 * dx2);
+	const double dd2 = diff_e3_e4 / (2.0 * dx2);
+
+	result = (dd1 - dd2) / (2.0 * dx1);
 
 	loadConfiguration(L, set_index, cfg);	
 
 	delete [] state;	
-	delete [] mags;
 
-//	printf("%e %e %e %e\n", e1,e2,e3,e4);
-//	printf("%e %e\n", dx1,dx2);
-//	printf("%i %i %g\n", c1,c2,result);
-	
 	return result;
 }
 
@@ -1947,6 +1967,7 @@ void MEP::computePointFirstDerivative(lua_State* L, int p, int set_index, int ge
 	for(int c=0; c<num_sites*3; c++)
 	{
 		d[c] = computePointFirstDerivativeC(L, p, set_index, get_index, energy_index, c);
+		
 	}
 }
 
@@ -1956,6 +1977,18 @@ void MEP::computeVecFirstDerivative(lua_State* L, double* vec, int set_index, in
 	for(int c=0; c<num_sites*3; c++)
 	{
 		d[c] = computeVecFirstDerivativeC(L, vec, set_index, get_index, energy_index, c);
+	}
+}
+
+void print_vec(double* v, int n)
+{
+	for(int i=0; i<n; i++)
+	{
+		printf("%g", v[i]);
+		if(i+1<n)
+			printf("\t");
+		else
+			printf("\n");
 	}
 }
 
@@ -1980,40 +2013,48 @@ double MEP::computeVecFirstDerivativeC(lua_State* L, double* vec, int set_index,
 
 	double stepSize1[3];
 
-	_scaleFactors(currentSystem, &(vec[site1]), scaleFactors1);
+	//_scaleFactors(currentSystem, &(vec[site1]), scaleFactors1);
 
 	_stepSize(currentSystem, &(vec[site1]), epsilon, stepSize1);
 
-	const double dx1 = stepSize1[c1m3];
 	
-	const double sf = scaleFactors1[c1m3];
+	//const double sf = scaleFactors1[c1m3];
+	const double dx1 = stepSize1[c1m3]; // / sf;
 
 	for(int i=0; i<num_sites; i++)
 	{
 		mags[i] = _magnitude(currentSystem, &(vec[i*3]));
 	}
 
-	arrayCopyWithElementChange(state,   vec, c1, dx1, num_sites * 3);
+	//printf("D = %g, C = %d\n", dx1, c1);
+	arrayCopyWithElementChange(currentSystem, state,   vec, c1, dx1, num_sites * 3);
 	rescale_vectors(currentSystem, state, mags, num_sites);
 	setAllSpins(L, set_index, state);
 	e1 = getEnergy(L, energy_index);
 	
-	arrayCopyWithElementChange(state,   vec, c1,-dx1, num_sites * 3);
+	//print_vec(state, num_sites*3);
+	//printf("e1: %g\n", e1);
+
+	arrayCopyWithElementChange(currentSystem, state,   vec, c1,-dx1, num_sites * 3);
 	rescale_vectors(currentSystem, state, mags, num_sites);
 	setAllSpins(L, set_index, state);
 	e2 = getEnergy(L, energy_index);
 		
+	//print_vec(state, num_sites*3);
+	//printf("e2: %g\n", e2);
+
    	d1 = (e1-e2);
 	
 	result  = d1;
 	result /= (2.0 * dx1);
-	result *= sf;
-
+	
 	loadConfiguration(L, set_index, cfg);	
 
 	delete [] state;	
 	delete [] mags;
 	
+	//printf("e1, e2 = %g, %g\n", e1, e2);
+
 	return result;
 }
 
@@ -2621,6 +2662,10 @@ int MEP::slidePoint(lua_State* L)
 		}
 
 		// gradient  direction
+		// the following line looks odd. The idea is to take the
+		// list of numbers representing the gradient of all spins
+		// and scale it down so the length, if it were treated as an
+		// n-dimensional cartesian vector, is one.  
 		_normalizeTo(slope, slope, MEP::Cartesian, 1.0, n);
 
 		for(int j=0; j<n; j++)
@@ -2693,6 +2738,8 @@ int MEP::slidePoint(lua_State* L)
 
 int MEP::numberOfImages()
 {
+	if(sites.size() == 0)
+		return 0;
 	return state_xyz_path.size() / sites.size();
 }
 
@@ -2941,13 +2988,13 @@ int MEP::maxpoints(lua_State* L)
 		const double b = energies[i];
 		const double c = energies[i+1];
 		
-		if(b<a && b<c) //local minimum
+		if(b<=a && b<c) //local minimum
 		{
 			szMin = addToTable(L, min_idx, szMin, i+1);
 			szAll = addToTable(L, all_idx, szAll, i+1);
 		}
 
-		if(b>a && b>c) //local maximum
+		if(b>a && b>=c) //local maximum
 		{
 			szMax = addToTable(L, max_idx, szMax, i+1);
 			szAll = addToTable(L, all_idx, szAll, i+1);
@@ -2972,21 +3019,27 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
 	const int ni = numberOfImages();
 	
 	force_vector.resize( state_xyz_path.size() ); //since we're doing random-ish access
-	
-	// need to save current configuration
-	// vector<double> cfg;
-	// saveConfiguration(L, get_index, cfg);
+
+	double sf[3] = {1,1,1};
 	
 	// lets march along the path
 	for(int i=0; i<ni; i++)
 	{
 		double* vec = &state_xyz_path[i*ns*3];
+		double* force = &force_vector[i*ns*3];
+		computeVecFirstDerivative(L, vec, set_index, get_index, energy_index, force);
 
-		computeVecFirstDerivative(L, vec, set_index, get_index, energy_index, &force_vector[i*ns*3]);
+
+		
+		for(int j=0; j<ns; j++)
+		{
+			//_scaleFactors(currentSystem, &vec[j*3], sf);
+			force[j*3+0] *= sf[0];
+			force[j*3+1] *= sf[1];
+			force[j*3+2] *= sf[2];
+		}
+		//printf("sf %e %e %e\n", sf[0], sf[1], sf[2]);
 	}
-	
-	// need to restore saved configuration
-	// loadConfiguration(L, set_index, cfg);
 	
 	for(int i=0; i<state_xyz_path.size(); i++)
 	{
@@ -3028,7 +3081,7 @@ int MEP::classifyPoint(lua_State* L)
 		mags[i] = _magnitude(currentSystem, &(vec[i*3]));
 	}
 
-	arrayCopyWithElementChange(state, vec, 0, 0, num_sites * 3);
+	arrayCopyWithElementChange(currentSystem, state, vec, 0, 0, num_sites * 3);
 	rescale_vectors(currentSystem, state, mags, num_sites);
 	setAllSpins(L, set_index, state);
 	const double base_energy = getEnergy(L, energy_index);
@@ -3040,12 +3093,12 @@ int MEP::classifyPoint(lua_State* L)
 	
 	for(int i=0; i<num_sites*3; i++)
 	{
-		arrayCopyWithElementChange(state,   vec,  i, -h, num_sites * 3);
+		arrayCopyWithElementChange(currentSystem, state,   vec,  i, -h, num_sites * 3);
 		rescale_vectors(currentSystem, state, mags, num_sites);
 		setAllSpins(L, set_index, state);
 		const double e1 = getEnergy(L, energy_index);
 
-		arrayCopyWithElementChange(state,   vec,  i,  h, num_sites * 3);
+		arrayCopyWithElementChange(currentSystem, state,   vec,  i,  h, num_sites * 3);
 		rescale_vectors(currentSystem, state, mags, num_sites);
 		setAllSpins(L, set_index, state);
 		const double e2 = getEnergy(L, energy_index);
@@ -3443,13 +3496,27 @@ static int l_computepoint1deriv(lua_State* L)
 }	
 	
 
-	
+template <int cartesian_output>
 static int l_getsite(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
 
-	const int p = lua_tointeger(L, 2) - 1;
-	const int s = lua_tointeger(L, 3) - 1;
+	// positive values count from beginning,
+	// negative values count from end
+	int p = lua_tointeger(L, 2);
+	int s = lua_tointeger(L, 3);
+
+	if(p < 0)
+	{
+		p = mep->numberOfImages() + p;
+	}
+	if(s < 0)
+	{
+		s = mep->numberOfSites() + s;
+	}
+
+	p--;
+	s--;
 
 	if(p < 0 || s < 0)
 	{
@@ -3471,16 +3538,24 @@ static int l_getsite(lua_State* L)
 	x[2] = mep->state_xyz_path[idx+2];
 	const double m = _magnitude(mep->currentSystem, x);
 	
-	_convertCoordinateSystem(mep->currentSystem, MEP::Cartesian, x, c);
-
+	if(cartesian_output)
+		_convertCoordinateSystem(mep->currentSystem, MEP::Cartesian, x, c);
+	else
+		_convertCoordinateSystem(mep->currentSystem, mep->currentSystem, x, c);
+	
 	lua_pushnumber(L, c[0]);
 	lua_pushnumber(L, c[1]);
 	lua_pushnumber(L, c[2]);
-	lua_pushnumber(L, m);
-	return 4;
+	if(cartesian_output)
+	{
+		lua_pushnumber(L, m);
+		return 4;
+	}
+	return 3;
 }
 
 	
+template <int cartesian_input>
 static int l_setsite(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
@@ -3533,7 +3608,11 @@ static int l_setsite(lua_State* L)
 	v[1] = y;
 	v[2] = z;
 
-	_convertCoordinateSystem(MEP::Cartesian, mep->currentSystem, v, c);
+
+	if(cartesian_input)
+		_convertCoordinateSystem(MEP::Cartesian, mep->currentSystem, v, c);
+	else
+		_convertCoordinateSystem(mep->currentSystem, mep->currentSystem, v, c);
 
 	mep->state_xyz_path[idx+0] = c[0];
 	mep->state_xyz_path[idx+1] = c[1];
@@ -3587,6 +3666,7 @@ static int l_internal_copyto(lua_State* L)
 static int l_maxpoints(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
+
 	return mep->maxpoints(L);	
 }
 
@@ -3750,8 +3830,63 @@ static int l_cp_(lua_State* L)
 	return mep->classifyPoint(L);
 }
 
+static int l_conv_cs(lua_State* L)
+{
+	double src[3];
+	double dest[3];
+
+	LUA_PREAMBLE(MEP, mep, 1);
+	MEP::CoordinateSystem src_cs;
+	MEP::CoordinateSystem dest_cs;
+
+	src[0] = lua_tonumber(L, 2);
+	src[1] = lua_tonumber(L, 3);
+	src[2] = lua_tonumber(L, 4);
+
+	src_cs = (MEP::CoordinateSystem) lua_tointeger(L, 5);
+	dest_cs = (MEP::CoordinateSystem) lua_tointeger(L, 6);
+	
+	_convertCoordinateSystem(src_cs, dest_cs, src, dest);
+
+	lua_pushnumber(L, dest[0]);
+	lua_pushnumber(L, dest[1]);
+	lua_pushnumber(L, dest[2]);
+
+	return 3;
+}
+
+
+static int l_computePointSecondDerivativeAB(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+
+	const int pt = lua_tonumber(L, 2) - 1;
+	const int c1 = lua_tonumber(L, 3) - 1;
+	const int c2 = lua_tonumber(L, 4) - 1;
+
+	const int get_index = 5;
+    const int set_index = 6;
+    const int energy_index = 7;
+
+	double d1 = -1;
+	double d2 = -1;
+
+	if(lua_isnumber(L, 8))
+		d1 = lua_tonumber(L, 8);
+	if(lua_isnumber(L, 9))
+		d2 = lua_tonumber(L, 9);
+
+
+	lua_pushnumber(L, mep->computePointSecondDerivativeAB(L, pt, set_index, get_index, energy_index, c1, c2, d1, d2));
+
+	return 1;
+}
+
+
 int MEP::help(lua_State* L)
 {
+#if 0
+	Moving this chunk to the lua file
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Calculates a minimum energy pathway between two states.");
@@ -3765,6 +3900,7 @@ int MEP::help(lua_State* L)
 	{
 		return 0;
 	}
+#endif
 
 	lua_CFunction func = lua_tocfunction(L, 1);
 
@@ -3782,17 +3918,31 @@ int MEP::help(lua_State* L)
 		lua_pushstring(L, "1 Value: the internal data");
 		return 3;
 	}
-	if(func == l_getsite)
+	if(func == &(l_getsite<1>))
 	{
-		lua_pushstring(L, "Get site x,y and z coordinates.");
-		lua_pushstring(L, "2 Integers: 1st integer is path index, 2nd integer is site index.");
+		lua_pushstring(L, "Get site as Cartesian Coordinates");
+		lua_pushstring(L, "2 Integers: 1st integer is path index, 2nd integer is site index. Positive values count from the start, negative values count from the end.");
 		lua_pushstring(L, "4 Numbers: x,y,z,m orientation of spin and magnitude at site s at path point p.");
 		return 3;
 	}
-	if(func == l_setsite)
+	if(func == &(l_getsite<0>))
 	{
-		lua_pushstring(L, "Set site x,y and z coordinates.");
+		lua_pushstring(L, "Get site as current coordinate system");
+		lua_pushstring(L, "2 Integers: 1st integer is path index, 2nd integer is site index. Positive values count from the start, negative values count from the end.");
+		lua_pushstring(L, "3 Numbers: Vector at site s at path point p.");
+		return 3;
+	}
+	if(func == &(l_setsite<1>))
+	{
+		lua_pushstring(L, "Set site direction and magnitude using Cartesian Coordinates");
 		lua_pushstring(L, "2 Integers, 3 Numbers or 1 table of 3 Numbers: 1st integer is path index, 2nd integer is site index, 3 numbers are the new x,y and z coordinates.");
+		lua_pushstring(L, "");
+		return 3;
+	}
+	if(func == &(l_setsite<0>))
+	{
+		lua_pushstring(L, "Set site direction and magnitude using current Coordinate System");
+		lua_pushstring(L, "2 Integers, 3 Numbers or 1 table of 3 Numbers: 1st integer is path index, 2nd integer is site index, 3 numbers represent the new vector in the current coordinate system.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -3854,13 +4004,13 @@ int MEP::help(lua_State* L)
 	{
 		lua_pushstring(L, "Get available coordinate systems.");
 		lua_pushstring(L, "");
-		lua_pushstring(L, "1 Table: Table of strings, coordinate system names.");
+		lua_pushstring(L, "1 Table: Table of strings, coordinate system names. Table = {\"## return table.concat(MEP.new():coordinateSystems(), [[\", \"]]) ##\"}");
 		return 3;
 	}
 
 	if(func == _l_setCoordinateSystem)
 	{
-		lua_pushstring(L, "Set the internal coordinate system.");
+		lua_pushstring(L, "Set the internal coordinate system. This can be changed during the calculation.");
 		lua_pushstring(L, "1 String: Must match one of the values in the table returned by :coordinateSystems.");
 		lua_pushstring(L, "");
 		return 3;
@@ -3952,8 +4102,10 @@ const luaL_Reg* MEP::luaMethods()
 		{"getPathEnergy", l_getpathenergy},
 		{"calculateEnergies", l_calculateEnergies},
 		{"gradient", l_getgradient},
-		{"spin", l_getsite},
-		{"setSpin", l_setsite},
+		{"spin", l_getsite<1>},
+		{"spinInCoordinateSystem", l_getsite<0>},
+		{"setSpin", l_setsite<1>},
+		{"setSpinInCoordinateSystem", l_setsite<0>},
 		{"applyForces", l_applyforces},
 		{"_addStateXYZ", l_addstatexyz},
 		{"_setImageSiteMobility", l_setimagesitemobility},
@@ -3971,6 +4123,7 @@ const luaL_Reg* MEP::luaMethods()
 		{"coordinateSystems", _l_getCoordinateSystems},
 		{"coordinateSystem", _l_getCoordinateSystem},
 		{"setCoordinateSystem", _l_setCoordinateSystem},
+		{"_convertCoordinateSystem", l_conv_cs},
 		{"epsilon", l_getep},
 		{"setEpsilon", l_setep},
 		{"uniqueSites", l_us},
@@ -3979,6 +4132,7 @@ const luaL_Reg* MEP::luaMethods()
 		{"_slidePoint", l_slidePoint_},
 		{"_classifyPoint", l_cp_},
 		{"anglesBetweenPoints", l_asbs},
+		{"_computePointSecondDerivativeAB", l_computePointSecondDerivativeAB},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

@@ -423,6 +423,9 @@ public:
 	void scaleAll(const T& v) {sync_hd(); arrayScaleAll(data(), v, nxyz);}
 	void scaleAll_o(const T& v, const int offset, const int n) {sync_hd(); arrayScaleAll_o(data(), offset, v, n);}
 	void addValue(const T& v) {sync_hd(); arrayAddAll(data(), v, nxyz);}
+
+	// make values close to zero identical to zero
+	void chop(const T& tol) {sync_hd(); arrayChop(data(), tol, nxyz);}
 	
 	
 	static bool doublePrep(Array<T>* dest, const Array<T>* src)

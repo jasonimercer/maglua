@@ -6,6 +6,7 @@ local methods = {} -- trying something new for style. Putting docs and code in a
                    -- to build metatable and help system. 
 
 -- initialize/set/get internal data
+-- "dd" means nothing, could read it as "do data"
 local function dd(kmc, new_data)
 	if new_data then
 		kmc:_setinternaldata(new_data)
@@ -102,7 +103,7 @@ methods["shutdownFunction"] = {
 
 methods["setEventFunction"] = {
 	"Set the function used to compute site energy barrier and attempt frequency", 
-	"1 Function: The function is expected to take a KMC object, a SpinSystem and a value representing a position. It is expected to return 2 numbers and 1 function, the energy barrier and the attempt frequency. The returned function should take a SpinSystem as an argument and, if called, do the event at the given site. If the function returns nil rather than the 2 numbers and 1 function this signifies that there is no other energy minimum to transition to. This can happen, for example. when pinned by a large field.", 
+	"1 Function: The function is expected to take a KMC object, a SpinSystem and a value representing a position. It is expected to return 2 numbers and 1 function, the energy barrier and the attempt frequency. The returned function should take a SpinSystem as an argument and, if called, do the event at the given site. If the function returns nil rather than the 2 numbers and 1 function this signifies that there is no other energy minimum to transition to. This can happen, for example, when pinned by a large field.", 
 	"",
 	function(kmc, func)
 		local data = dd(kmc)		
@@ -117,7 +118,7 @@ methods["setEventFunction"] = {
 methods["eventFunction"] = {
 	"Get the function used to compute the Energy Barrier and Attempt Frequency at a site.",
 	"", 
-	"1 Function: The function is expected to take a KMC object, a SpinSystem and a value representing a position. It is expected to return 2 numbers and 1 function, the energy barrier and the attempt frequency. The returned function should take a SpinSystem as an argument and, if called, do the event at the given site. If the function returns nil rather than the 2 numbers and 1 function this signifies that there is no other energy minimum to transition to. This can happen, for example. when pinned by a large field.", 
+	"1 Function: The function is expected to take a KMC object, a SpinSystem and a value representing a position. It is expected to return 2 numbers and 1 function, the energy barrier and the attempt frequency. The returned function should take a SpinSystem as an argument and, if called, do the event at the given site. If the function returns nil rather than the 2 numbers and 1 function this signifies that there is no other energy minimum to transition to. This can happen, for example, when pinned by a large field.", 
 	function(kmc, func)
 		local data = dd(kmc)
 		return (data.EBAF or function() error("event function not set") end)
@@ -322,7 +323,7 @@ methods["apply"] = {
 			-- local pos = {_pos[2], _pos[1], _pos[3]}
 			local eb, af, action = ebaf_f(kmc, ss, pos) -- energy barrier/attempt frequency
 			if eb then -- eb may be nil if in there is no other well to transition to
-				-- one day it will be possible to have a site by site temp which is why this is in the loop
+				-- one day it will be possible to have a position by position temp which is why this is in the loop
 				local kT = kmc:temperature() 
 				
 				local decay = af * math.exp(-eb/kT)

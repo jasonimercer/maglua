@@ -54,18 +54,23 @@ end
 
 zee:set(H)
 
-function energy(ss)
-	  ss:resetFields()
- 	  ex:apply(ss)
-	 ani:apply(ss)
-	 zee:apply(ss)
-	  ss:sumFields()
 
-	local E = -(ss:spinArrayX():dot(ss:fieldArrayX("Total"))+ 
-			    ss:spinArrayY():dot(ss:fieldArrayY("Total"))+
-			    ss:spinArrayZ():dot(ss:fieldArrayZ("Total")))
-	E = E/2.0
-	return E 
+function energy(ss)
+	ss:resetFields()
+	ex:apply(ss)
+	ani:apply(ss)
+	ss:sumFields()
+
+	local Eint = -(ss:spinArrayX():dot(ss:fieldArrayX("Total"))+
+				   ss:spinArrayY():dot(ss:fieldArrayY("Total"))+
+				   ss:spinArrayZ():dot(ss:fieldArrayZ("Total")))
+
+	local M = {ss:spinArrayX():sum(), ss:spinArrayY():sum(), ss:spinArrayZ():sum()}
+	local B = {zee:x(), zee:y(), zee:z()}
+
+	local Ezee = -math.dot(M, B)
+
+	return Ezee + Eint/2.0
 end
 
 -- support function for recording information
@@ -115,11 +120,11 @@ initial_path = {upup, downdown}
 np = 8
 
 mep = MEP.new()
+mep:setSpinSystem(ss)
 mep:setSites(sites)
 mep:setInitialPath(initial_path)
 mep:setEnergyFunction(energy)
 mep:setNumberOfPathPoints(np)
-mep:setSpinSystem(ss)
 mep:setTolerance(0.1)
 
 
@@ -191,8 +196,6 @@ local files = {"InitialComponents.dat", "FinalComponents.dat"}
 
 -- nice looking landscape plot (in another file)
 landscape_plot(files)
-
-
 
 
 -- From here on it's command line info

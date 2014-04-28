@@ -283,6 +283,16 @@ static int l_scale(lua_State* L)
 
 
 template<typename T>
+static int l_chop(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	T t = luaT<T>::to(L, 2);
+	a->chop(t);
+	return 0;
+}
+
+
+template<typename T>
 static int l_totable(lua_State* L)
 {
 	return luaL_error(L, "not implemented for complex datatypes");
@@ -544,7 +554,8 @@ static const luaL_Reg* get_base_methods()
 		{"sum",     l_sum<T>},
 		{"scale",   l_scale<T>},
 		{"toTable", l_totable<T>},
-		
+		{"chop",    l_chop<T>},
+
 		{"slice",    l_manip_region<T>},
 
 		{NULL, NULL}
@@ -894,7 +905,7 @@ static int Array_help(lua_State* L)
 	if(lua_gettop(L) == 0)
 	{
 		lua_pushstring(L, "Class for 3D Data Arrays");
-		lua_pushstring(L, "0 to 3 Integers: Length of each dimension X, Y and Z. Default values are 1.");
+		lua_pushstring(L, "0 to 3 Integers, Optional table: Length of each dimension X, Y and Z. Default values are 1. If a table is found after the size then the values in it will be used to populate the array.");
 		lua_pushstring(L, ""); //output, empty
 		return 3;
 	}
@@ -1055,6 +1066,14 @@ static int Array_help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+	lua_CFunction f123 = l_chop<T>;
+	if(func == f123)
+	{
+		lua_pushstring(L, "Make small values equal to zero. Similar to Mathematica's Chop function.");
+		lua_pushstring(L, "1 Value: The tolerance, values with smaller norms than this tolerance's norm will be ser to zero.");
+		lua_pushstring(L, "");
+		return 3;
+	}
 	lua_CFunction f16b = l_totable<T>;
 	if(func == f16b)
 	{
@@ -1189,6 +1208,29 @@ static int l_init( Array<T>* a, lua_State* L)
 		if(c[i] < 0) c[i] = 0;
 	
 	a->setSize(c[0], c[1], c[2]);
+
+
+	// looking for a table with initial values
+	int n = c[0]  * c[1] * c[2];
+	for(int i=2; i<=lua_gettop(L); i++)
+	{
+		if(lua_istable(L, i))
+		{
+			int idx = 0;
+			lua_pushnil(L);
+			while(lua_next(L, i))
+			{
+				if(idx < n)
+				{
+					a->data()[idx] = luaT<T>::to(L, -1);
+					idx++;
+				}
+				lua_pop(L, 1);
+			}
+			return 0;
+		}
+	}
+
 	return 0;
 }
 
@@ -1493,6 +1535,8 @@ ARRAY_API int lib_register(lua_State* L)
 	lua_pop(L, 1);
 
 	
+    lua_pushcfunction(L, l_getmetatable);
+    lua_setglobal(L, "maglua_getmetatable");
 
 	if(luaL_dostring(L, __array_luafuncs()))
 	{
@@ -1500,6 +1544,8 @@ ARRAY_API int lib_register(lua_State* L)
 		return luaL_error(L, lua_tostring(L, -1));
 	}
 
+    lua_pushnil(L);
+    lua_setglobal(L, "maglua_getmetatable");
 
 	return 0;
 }

@@ -34,6 +34,13 @@ ARRAY_API void arraySetAll(int* d_a, const int& v, const int n);
 ARRAY_API void arraySetAll(doubleComplex* d_a, const doubleComplex& v, const int n);
 ARRAY_API void arraySetAll(floatComplex* d_a,  const floatComplex& v, const int n);
 
+
+ARRAY_API void arrayChop(double* d_a, const double& v, const int n);
+ARRAY_API void arrayChop(float* d_a,  const float& v, const int n);
+ARRAY_API void arrayChop(int* d_a, const int& v, const int n);
+ARRAY_API void arrayChop(doubleComplex* d_a, const doubleComplex& v, const int n);
+ARRAY_API void arrayChop(floatComplex* d_a,  const floatComplex& v, const int n);
+
 ARRAY_API void arrayScaleAll(double* d_a, const double& v, const int n);
 ARRAY_API void arrayScaleAll(float* d_a, const float& v, const int n);
 ARRAY_API void arrayScaleAll(int* d_a, const int& v, const int n);
