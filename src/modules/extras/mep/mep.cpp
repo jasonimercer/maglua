@@ -116,7 +116,103 @@ static void _setmagnitude(double* v, double mag, MEP::CoordinateSystem cs)
 }
 
 
+static void _rotate(double* vec, int a, int b, int direction)
+{
+	double t = vec[a];
+	vec[a] = vec[b];
+	vec[b] = t;
 
+	if(direction < 0)
+		vec[a] *= -1.0;
+	else
+		vec[b] *= -1.0;
+}
+
+static char csRotatedType(MEP::CoordinateSystem cs)
+{
+	switch(cs)
+	{
+	case MEP::Undefined:
+	case MEP::Cartesian:
+	case MEP::Spherical:
+	case MEP::Canonical:
+		return ' ';
+	case MEP::SphericalX:
+	case MEP::CanonicalX:
+		return 'X';
+	case MEP::SphericalY:
+	case MEP::CanonicalY:
+		return 'Y';
+	}
+	return ' ';
+}
+
+static MEP::CoordinateSystem csRotate(MEP::CoordinateSystem cs, char r)
+{
+	if(cs == MEP::Spherical)
+	{
+		switch(r)
+		{
+		case 'x':
+		case 'X':
+			return MEP::SphericalX;
+		case 'y':
+		case 'Y':
+			return MEP::SphericalY;
+		}
+	}
+	if(cs == MEP::Canonical)
+	{
+		switch(r)
+		{
+		case 'x':
+		case 'X':
+			return MEP::CanonicalX;
+		case 'y':
+		case 'Y':
+			return MEP::CanonicalY;
+		}
+	}
+	return MEP::Undefined;
+}
+
+static MEP::CoordinateSystem csUnrotated(MEP::CoordinateSystem cs)
+{
+	switch(cs)
+	{
+	case MEP::Undefined:
+	case MEP::Cartesian:
+	case MEP::Spherical:
+	case MEP::Canonical:
+		return cs;
+ 	case MEP::SphericalX:
+	case MEP::SphericalY:
+		return MEP::Spherical;
+	case MEP::CanonicalX:
+	case MEP::CanonicalY:
+		return MEP::Canonical;
+	}
+	return cs;
+}
+
+static void rotate(double* vec, char plane, int direction)
+{
+	switch(plane)
+	{
+	case 'x':
+	case 'X':
+		_rotate(vec, 1,2,direction);
+		break;
+	case 'y':
+	case 'Y':
+		_rotate(vec, 0,2,direction);
+		break;
+	case 'z':
+	case 'Z':
+		_rotate(vec, 0,1,direction);
+		break;
+	}
+}
 
 #define _convertCoordinateSystem(ss, ds, src, dest) _convertCoordinateSystem_(ss,ds,src,dest,__FILE__, __LINE__)
 
@@ -138,7 +234,6 @@ static void _convertCoordinateSystem_(
 		return;
 	}
 
-
 	double temp[3];
 	if(src == dest)
 	{
@@ -146,6 +241,36 @@ static void _convertCoordinateSystem_(
 		_convertCoordinateSystem_(src_cs, src_cs, src, temp, file, line);
 		src = temp; // to make sure we're not stomping around like morons, overwriting parts of src with dest
 	}
+
+	char src_r = csRotatedType(src_cs);
+	if(src_r != ' ') //then it's a rotated type
+	{
+		_convertCoordinateSystem_(csUnrotated(src_cs), MEP::Cartesian, src, dest, file, line);
+		rotate(dest, src_r, -1); //remove rotation type
+		_convertCoordinateSystem_(MEP::Cartesian, dest_cs, dest, dest, file, line);
+	}
+
+	char dest_r = csRotatedType(dest_cs);
+	if(dest_r != ' ') // then it's a rotated type
+	{
+		if(src_cs == MEP::Cartesian)
+		{
+			// do the rotation
+			memcpy(dest, src, sizeof(double)*3);
+			rotate(dest, dest_r, 1); // apply rotation type
+			_convertCoordinateSystem_(src_cs, csUnrotated(dest_cs), dest, dest, file, line);
+			return;
+		}
+		else
+		{
+			double c[3];
+			_convertCoordinateSystem_(src_cs, MEP::Cartesian, src, c, file, line);
+			_convertCoordinateSystem_(MEP::Cartesian, dest_cs, c, dest, file, line);
+			return;
+		}
+	}
+		
+
 
 	if(src_cs == MEP::Cartesian)
 	{
@@ -259,6 +384,8 @@ static void _scaleFactors(MEP::CoordinateSystem cs, const double* vec, double* s
 		sf[CARTESIAN_Z] = 1;
 		break;
 	case MEP::Spherical:
+	case MEP::SphericalX:
+	case MEP::SphericalY:
 		if(vec[SPHERICAL_R] == 0)
 		{
 			sf[SPHERICAL_R] = 1;
@@ -282,6 +409,8 @@ static void _scaleFactors(MEP::CoordinateSystem cs, const double* vec, double* s
 		}
 		break;
 	case MEP::Canonical:
+	case MEP::CanonicalX:
+	case MEP::CanonicalY:
 		if(vec[CANONICAL_R] == 0)
 		{
 			sf[CANONICAL_R] = 1;
@@ -319,11 +448,15 @@ static void _stepSize(MEP::CoordinateSystem cs, const double* vec, const double 
 		h3[CARTESIAN_Z] = m*epsilon;
 		break;
 	case MEP::Spherical:
+	case MEP::SphericalX:
+	case MEP::SphericalY:
 		h3[SPHERICAL_R] = m*epsilon;
 		h3[SPHERICAL_PHI] = 2*M_PI*epsilon;
 		h3[SPHERICAL_THETA] = M_PI*epsilon;
 		break;
 	case MEP::Canonical:
+	case MEP::CanonicalX:
+	case MEP::CanonicalY:
 		h3[CANONICAL_R] = m*epsilon;
 		h3[CANONICAL_PHI] = 2*M_PI*epsilon;
 		h3[CANONICAL_P] =    2*epsilon;
@@ -3496,7 +3629,6 @@ static int l_computepoint1deriv(lua_State* L)
 }	
 	
 
-template <int cartesian_output>
 static int l_getsite(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
@@ -3538,24 +3670,16 @@ static int l_getsite(lua_State* L)
 	x[2] = mep->state_xyz_path[idx+2];
 	const double m = _magnitude(mep->currentSystem, x);
 	
-	if(cartesian_output)
-		_convertCoordinateSystem(mep->currentSystem, MEP::Cartesian, x, c);
-	else
-		_convertCoordinateSystem(mep->currentSystem, mep->currentSystem, x, c);
+	_convertCoordinateSystem(mep->currentSystem, MEP::Cartesian, x, c);
 	
 	lua_pushnumber(L, c[0]);
 	lua_pushnumber(L, c[1]);
 	lua_pushnumber(L, c[2]);
-	if(cartesian_output)
-	{
-		lua_pushnumber(L, m);
-		return 4;
-	}
-	return 3;
+	lua_pushnumber(L, m);
+	return 4;
 }
 
 	
-template <int cartesian_input>
 static int l_setsite(lua_State* L)
 {
 	LUA_PREAMBLE(MEP, mep, 1);
@@ -3609,10 +3733,7 @@ static int l_setsite(lua_State* L)
 	v[2] = z;
 
 
-	if(cartesian_input)
-		_convertCoordinateSystem(MEP::Cartesian, mep->currentSystem, v, c);
-	else
-		_convertCoordinateSystem(mep->currentSystem, mep->currentSystem, v, c);
+	_convertCoordinateSystem(MEP::Cartesian, mep->currentSystem, v, c);
 
 	mep->state_xyz_path[idx+0] = c[0];
 	mep->state_xyz_path[idx+1] = c[1];
@@ -3918,31 +4039,17 @@ int MEP::help(lua_State* L)
 		lua_pushstring(L, "1 Value: the internal data");
 		return 3;
 	}
-	if(func == &(l_getsite<1>))
+	if(func == &(l_getsite))
 	{
 		lua_pushstring(L, "Get site as Cartesian Coordinates");
 		lua_pushstring(L, "2 Integers: 1st integer is path index, 2nd integer is site index. Positive values count from the start, negative values count from the end.");
 		lua_pushstring(L, "4 Numbers: x,y,z,m orientation of spin and magnitude at site s at path point p.");
 		return 3;
 	}
-	if(func == &(l_getsite<0>))
-	{
-		lua_pushstring(L, "Get site as current coordinate system");
-		lua_pushstring(L, "2 Integers: 1st integer is path index, 2nd integer is site index. Positive values count from the start, negative values count from the end.");
-		lua_pushstring(L, "3 Numbers: Vector at site s at path point p.");
-		return 3;
-	}
-	if(func == &(l_setsite<1>))
+	if(func == &(l_setsite))
 	{
 		lua_pushstring(L, "Set site direction and magnitude using Cartesian Coordinates");
 		lua_pushstring(L, "2 Integers, 3 Numbers or 1 table of 3 Numbers: 1st integer is path index, 2nd integer is site index, 3 numbers are the new x,y and z coordinates.");
-		lua_pushstring(L, "");
-		return 3;
-	}
-	if(func == &(l_setsite<0>))
-	{
-		lua_pushstring(L, "Set site direction and magnitude using current Coordinate System");
-		lua_pushstring(L, "2 Integers, 3 Numbers or 1 table of 3 Numbers: 1st integer is path index, 2nd integer is site index, 3 numbers represent the new vector in the current coordinate system.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -4102,10 +4209,10 @@ const luaL_Reg* MEP::luaMethods()
 		{"getPathEnergy", l_getpathenergy},
 		{"calculateEnergies", l_calculateEnergies},
 		{"gradient", l_getgradient},
-		{"spin", l_getsite<1>},
-		{"spinInCoordinateSystem", l_getsite<0>},
-		{"setSpin", l_setsite<1>},
-		{"setSpinInCoordinateSystem", l_setsite<0>},
+		{"spin", l_getsite},
+		// {"spinInCoordinateSystem", l_getsite},
+		{"setSpin", l_setsite},
+		// {"setSpinInCoordinateSystem", l_setsite},
 		{"applyForces", l_applyforces},
 		{"_addStateXYZ", l_addstatexyz},
 		{"_setImageSiteMobility", l_setimagesitemobility},

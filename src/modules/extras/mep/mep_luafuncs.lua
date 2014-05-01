@@ -980,6 +980,71 @@ methods["convertCoordinateSystem"] =
 }
 
 
+methods["spinInCoordinateSystem"] =
+{
+	"Get site as current coordinate system or given coordinate system",
+	"2 Integers, Optional String: 1st integer is path index, 2nd integer is site index. Positive values count from the start, negative values count from the end. If a string is given the vector will be returned that that coordinate system",
+	"3 Numbers: Vector at site s at path point p.",
+	function(mep, ...)
+		local cs = mep:coordinateSystem()
+		local ints = {}
+		local txts = {}
+
+		for i=1,table.maxn(arg) do
+			if type(arg[i]) == type(1) then
+				table.insert(ints, arg[i])
+			end
+			if type(arg[i]) == type("s") then
+				table.insert(txts, arg[i])
+			end
+		end
+
+		local x1, x2, x3 = mep:spin(ints[1] or 0, ints[2] or 0)
+		
+		return mep:convertCoordinateSystem("Cartesian", txts[1] or cs, x1,x2,x3)
+
+	end
+}
+
+
+methods["setSpinInCoordinateSystem"] =
+{
+	"Set site as current coordinate system or given coordinate system",
+	"2 Integers, 3 Numbers or 1 table of 3 Numbers, 1 Optional String: 1st integer is path index, 2nd integer is site index, 3 numbers represent the new vector in the current coordinate system. If a string is given then the input is assumed to be in that coordinate system, otherwise the current coordinate system is used.",
+	"",
+	function(mep, ...)
+		local cs = mep:coordinateSystem()
+		local nums = {}
+		local txts = {}
+		local tabs = {}
+
+		for i=1,table.maxn(arg) do
+			if type(arg[i]) == type({}) then
+				table.insert(tabs, arg[i])
+			end
+			if type(arg[i]) == type(1) then
+				table.insert(nums, arg[i])
+			end
+			if type(arg[i]) == type("s") then
+				table.insert(txts, arg[i])
+			end
+		end
+
+		local p, s = nums[1] or 0, nums[2] or 0 -- idx
+		
+		table.remove(nums, 1)
+		table.remove(nums, 1)
+
+		if tabs[1] == nil then
+			tabs[1] = nums
+		end
+
+		tabs[1] = mep:convertCoordinateSystem(txts[1] or cs, "Cartesian", tabs[1])
+		mep:setSpin(p,s, tabs[1])
+	end
+}
+
+
 -- inject above into existing metatable for MEP operator
 for k,v in pairs(methods) do
     t[k] = v[4]
