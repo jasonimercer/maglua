@@ -227,6 +227,40 @@ static int l_dot(lua_State* L)
 	luaT<T>::push(L, t);
 	return 1;
 }
+template<typename T>
+static int l_abs(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	Array<T>* b = 0;
+	if(luaT_is< Array<T> >(L, 3))
+		b = luaT_to< Array<T> >(L, 3);
+	else
+		b = new Array<T>(a->nx, a->ny, a->nz);
+
+	Array<T>::norm(b, a);
+
+	luaT_push< Array<T> >(L, b);
+	return 1;
+}
+template<typename T>
+static int l_resize(lua_State* L)
+{
+	LUA_PREAMBLE(Array<T>, a, 1);
+	int n[3] = {1,1,1};
+	for(int i=2; i<=4; i++)
+	{
+		if(lua_isnumber(L, i))
+			n[i-1] = lua_tointeger(L, i);
+		if(n[i-1] < 1)
+			n[i-1] = 1;
+	}
+
+	a->setSize(n[0], n[1], n[2]);
+
+	return 0;
+}
+
+
 
 template<typename T>
 static int l_min(lua_State* L)
@@ -280,7 +314,6 @@ static int l_scale(lua_State* L)
 	a->scaleAll(t);
 	return 0;
 }
-
 
 template<typename T>
 static int l_chop(lua_State* L)
@@ -552,6 +585,8 @@ static const luaL_Reg* get_base_methods()
 		{"max",     l_max<T>},
 		{"mean",    l_mean<T>},
 		{"sum",     l_sum<T>},
+		{"absoluted", l_abs<T>},
+		{"resize", l_resize<T>},
 		{"scale",   l_scale<T>},
 		{"toTable", l_totable<T>},
 		{"chop",    l_chop<T>},
@@ -1056,6 +1091,22 @@ static int Array_help(lua_State* L)
 		lua_pushstring(L, "Calculate sum of array");
 		lua_pushstring(L, "1 optional Number: The power each element will be raised to before summing. Default = 1.");
 		lua_pushstring(L, "1 value");
+		return 3;
+	}
+	lua_CFunction f15b = l_abs<T>;
+	if(func == f15b)
+	{
+		lua_pushstring(L, "Take the absolute value of all elements.");
+		lua_pushstring(L, "1 optional Array: Destination. If empty, a new array will be created.");
+		lua_pushstring(L, "1 Array: The absolute value of the calling array.");
+		return 3;
+	}
+	lua_CFunction f15c = l_resize<T>;
+	if(func == f15c)
+	{
+		lua_pushstring(L, "Resize an array. New values may not be related to old values.");
+		lua_pushstring(L, "Up to 3 integers: New dimensions.");
+		lua_pushstring(L, "");
 		return 3;
 	}
 	lua_CFunction f16 = l_scale<T>;

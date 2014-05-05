@@ -128,6 +128,16 @@ static void _rotate(double* vec, int a, int b, int direction)
 		vec[b] *= -1.0;
 }
 
+static void _squashRadialComponent(MEP::CoordinateSystem cs, double* vecs, int nvecs=1)
+{
+	if(cs == MEP::Cartesian)
+		return;
+	for(int i=0; i<nvecs; i++)
+	{
+		vecs[i*3] = 0;
+	}
+}
+
 static char csRotatedType(MEP::CoordinateSystem cs)
 {
 	switch(cs)
@@ -2549,7 +2559,6 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	int consecutive_fails = 0;
 	int consecutive_successes = 0;
 
-
 	const double step_up = 2.0;
 	const double step_down = 0.1;
 
@@ -2575,6 +2584,7 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	saveConfiguration(L, get_index, cfg);
 
 	double* vxyz = &state_xyz_path[p*num_sites*3];
+
 	// write path point as it currently stands
 	setAllSpins(L, set_index, vxyz);
 
@@ -2585,26 +2595,26 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	double h = epsilon;
 
 	computeVecFirstDerivative(L, vxyz, set_index, get_index, energy_index, grad);
-	const double base_grad = sqrt(dot(grad, grad, num_sites*3));
+	_squashRadialComponent(currentSystem, grad, num_sites);
+	double base_grad2 = dot(grad, grad, num_sites*3);
 
 	for(int qq=0; qq<num_sites*3; qq++)
 	{
-		memcpy(vxyz2, vxyz, sizeof(double)*num_sites*3);
-
-		vxyz2[qq] = vxyz[qq] + h;
+		arrayCopyWithElementChange(currentSystem, vxyz2, vxyz, qq, -h, num_sites * 3);
 		computeVecFirstDerivative(L, vxyz2, set_index, get_index, energy_index, grad);
+		_squashRadialComponent(currentSystem, grad, num_sites);
+		double x_minus_h = sqrt(dot(grad, grad, num_sites*3));
+
+		arrayCopyWithElementChange(currentSystem, vxyz2, vxyz, qq, +h, num_sites * 3);
+		computeVecFirstDerivative(L, vxyz2, set_index, get_index, energy_index, grad);
+		_squashRadialComponent(currentSystem, grad, num_sites);
 		double x_plus_h = sqrt(dot(grad, grad, num_sites*3));
 
-		/*
-		vxyz2[qq] = vxyz[qq] - h;
-		computeVecFirstDerivative(L, vxyz2, set_index, get_index, energy_index, grad);
-		double x_minus_h = sqrt(dot(grad, grad, num_sites*3));
-		grad_grad[qq] = (x_plus_h - x_minus_h) / (2 * h);
-		*/
-		grad_grad[qq] = (x_plus_h - base_grad) / ( h);
+		grad_grad[qq] = (x_plus_h - x_minus_h) / (2.0 * h);
 	}
 
-#if 1
+	_squashRadialComponent(currentSystem, grad_grad, num_sites);
+#if 0
 	for(int q=0; q<num_sites; q++)
 	{
 		double sf[3];
@@ -2613,6 +2623,18 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 		grad_grad[q*3+1] *= sf[1];
 		grad_grad[q*3+2] *= sf[2];
 	}
+#endif
+
+	// gradient (of gradient magnitude) direction
+	_normalizeTo(grad_grad, grad_grad, MEP::Cartesian, 1.0, num_sites*3);
+
+#if 0
+	printf("Direction:\n");
+	for(int qq=0; qq<num_sites*3; qq++)
+	{
+		printf("%g ", grad_grad[qq]);
+	}
+	printf("\n");
 #endif
 
 	if(lua_isnumber(L, 6))
@@ -2625,54 +2647,59 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	if(lua_isnumber(L, 7))
 	   goal = lua_tonumber(L, 7);
 
-	// gradient (of gradient magnitude) direction
-	_normalizeTo(grad_grad, grad_grad, MEP::Cartesian, 1.0, num_sites*3);
 
 
 	// printf("(%s:%i) %g\n", __FILE__, __LINE__, sqrt(min2));
 
+#if 1
 	vector<double> mags;
 	for(int i=0; i<num_sites; i++)
 	{
 		mags.push_back( _magnitude(&vxyz[i*3], currentSystem));
 	}
-  
+#endif
+
 	int max_steps = 50;
 	int good_steps = 0;
-	double min2 = base_grad * base_grad;
+	double min2 = base_grad2;
 	const double start_min2 = min2;
 
 	const double len_gg = sqrt(dot(grad_grad, grad_grad, num_sites*3));
 	// printf(">>>>>>>>  h=%e  min2 > g2  (%e, %e)\n", h, min2, goal*goal);
-	while(h > (epsilon * 1e-200) && max_steps && min2 > goal*goal)
-		//while(max_steps)
+	while(h > (epsilon * 1e-200) && max_steps && (min2 > goal*goal))
 	{
 		for(int i=0; i<num_sites; i++)
 		{
 			vxyz2[i*3+0] = vxyz[i*3+0] - grad_grad[i*3+0] * h;
 			vxyz2[i*3+1] = vxyz[i*3+1] - grad_grad[i*3+1] * h;
 			vxyz2[i*3+2] = vxyz[i*3+2] - grad_grad[i*3+2] * h;
-			_normalizeTo(&vxyz2[i*3+0], &vxyz2[i*3+0], currentSystem, mags[i]);
+			if(currentSystem == MEP::Cartesian)
+				_normalizeTo(&vxyz2[i*3], &vxyz2[i*3], currentSystem, mags[i]);
 		}
 
 		computeVecFirstDerivative(L, vxyz2, set_index, get_index, energy_index, grad);
+		_squashRadialComponent(currentSystem, grad, num_sites);
 		double min2_2 = dot(grad, grad, num_sites*3);
-
 
 		//printf("(%s:%i) %10e, %g\n", __FILE__, __LINE__, h, sqrt(min2_2));
 		// printf("%10e %10e  %10e  %i\n", sqrt(min2_2), len_gg, h, min2_2 <= min2);
-		if(min2_2 <= min2)
+		if(min2_2 < min2)
 		{
 			consecutive_fails = 0;
 			consecutive_successes++;
 
 			min2 = min2_2;
 			memcpy(vxyz, vxyz2, sizeof(double)*num_sites*3);
-			for(int i=0; i<consecutive_successes; i++);
-			h = h * step_up;
+			for(int i=0; i<consecutive_successes; i++)
+				h = h * step_up;
 			good_steps++;
 			//printf("+ %e\n", h);
-			// printf("good step: %e -> %e      h = %e\n", min2, min2_2, h);
+			#if 0
+			printf("good step: %e -> %e      h = %e\n", min2, min2_2, h);
+			for(int i=0; i<num_sites*3; i++)
+				printf("%g ", vxyz[i]);
+			printf("\n");
+			#endif
 		}
 		else
 		{
@@ -2687,7 +2714,7 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 		max_steps--;
 	}
 
-#if 1
+#if 0
 	if(min2 > goal*goal)
 		if(start_min2 > 0)
 			if(min2/start_min2 > 0.9999999 ) // then stalling
@@ -2704,8 +2731,8 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	delete [] grad_grad;
 	delete [] vxyz2;
 
-	// need to restore saved configuration to SpinSystem
-	// loadConfiguration(L, set_index, cfg);
+	//need to restore saved configuration to SpinSystem
+	loadConfiguration(L, set_index, cfg);
 
 	lua_pushnumber(L, sqrt(min2));
 	lua_pushnumber(L, h);

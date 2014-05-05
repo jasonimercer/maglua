@@ -47,7 +47,6 @@ cp -r modules/cpu/magnetostatics3d     $version/modules/cpu
 cp -r modules/cpu/thermal              $version/modules/cpu
 cp -r modules/cpu/ewald3d              $version/modules/cpu
 cp -r modules/cpu/wood                 $version/modules/cpu
-cp -r modules/cpu/kmc                  $version/modules/cpu
 
 cp    modules/extras/Makefile          $version/modules/extras
 cp -r modules/extras/pngwriter         $version/modules/extras
@@ -55,6 +54,7 @@ cp -r modules/extras/sqlite3           $version/modules/extras
 cp -r modules/extras/math_vectors      $version/modules/extras
 cp -r modules/extras/os_extensions     $version/modules/extras
 cp -r modules/extras/mep               $version/modules/extras
+cp -r modules/extras/kmc               $version/modules/extras
 
 rm -rf `du -a $version | cut -f 2 | grep '\.svn'`
 
