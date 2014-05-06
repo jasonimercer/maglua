@@ -85,13 +85,7 @@ int lib_register(lua_State* L)
 
 	const char* s = __curl_luafuncs();
 
-	if(luaL_loadbuffer(L,s,strlen(s),__curl_luafuncs_name()))
-	{
-		fprintf(stderr, "CURL: %s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
-	
-	if(luaL_loadbuffer(L,s,strlen(s),__curl_luafuncs_name()))
+	if(luaL_dostringn(L, s, "curl_luafuncs.lua"))
 	{
 		fprintf(stderr, "CURL: %s\n", lua_tostring(L, -1));
 		return luaL_error(L, lua_tostring(L, -1));
