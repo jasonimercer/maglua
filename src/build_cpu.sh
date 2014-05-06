@@ -139,26 +139,9 @@ export PATH=$HOME/bin:$PATH
 export PKG_CONFIG_PATH=$DEPDIR/lib/pkgconfig:$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH=$DEPDIR/lib:$LD_LIBRARY_PATH
 
-echo "PKG_CONFIG_PATH = $PKG_CONFIG_PATH"
-make install
+make 
 
-rm -rf libs
-mkdir -p libs
-cd libs
-maglua --setup `pwd`
-cd ..
-
-make -C modules/common install
-make -C modules/cpu install
-make -C modules/extras install
-
-
-maglua --write_docs maglua.html
-echo "#####################################################"
-echo "######### Help Documentation Generated   ############"
-echo "#####################################################"
-echo -e "\nHelp file named \"maglua.html\" in:\n     `pwd`\n"
-
+# installing wrapper rather than binary into ~/bin.
 
 cat << EOF > maglua_wrapper
 #!/bin/bash
@@ -177,6 +160,22 @@ EOF
 rm -f ~/bin/maglua
 chmod 755 maglua_wrapper
 cp maglua_wrapper ~/bin/maglua
+
+rm -rf libs
+mkdir -p libs
+cd libs
+maglua --setup `pwd`
+cd ..
+
+make -C modules/common install
+make -C modules/cpu install
+make -C modules/extras install
+
+maglua --write_docs maglua.html
+echo "#####################################################"
+echo "######### Help Documentation Generated   ############"
+echo "#####################################################"
+echo -e "\nHelp file named \"maglua.html\" in:\n     `pwd`\n"
 
 
 cat <<EOF

@@ -5,8 +5,7 @@
 -- Also provides the default Global Scope help function
 -- 
 
--- if your system doesn't have the tools to
--- turn latex into a png, set this flag to true
+-- this flag is set by check_latex. If you have the required programs it will be false
 local disable_latex_render = false
 
 help = help or
@@ -17,8 +16,25 @@ function(f)
 	end
 end
 
+local function check_latex()
+	local reqd = {"pdflatex", "pdfcrop", "pdftoppm", "base64"}
+	local file = os.tmpname()
+
+	local cmd = "which " .. table.concat(reqd, " ") .. " | wc -l > " .. file
+	os.execute(cmd)
+
+	local f = io.open(file, "r")
+	local data = f:read("*line")
+	f:close()
+
+	disable_latex_render = not(data == tostring(table.maxn(reqd)))
+
+	os.execute("rm -f " .. file)
+end
+
 
 function write_help(file_handle, optional_links)
+	check_latex()
 	local f = file_handle or io.stdout
 	optional_links = optional_links or {}
 	
