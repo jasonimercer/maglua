@@ -7,23 +7,25 @@ function dofile(filename)
 	local prefix = string.sub(filename, 1, string.len(protocol))
 	local suffix = string.sub(filename, string.len(protocol)+1)
 	if prefix == protocol then
+		suffix = suffix or ""
+		suffix = string.lower(suffix)
 		if internals[suffix] then
-			return assert(loadstring(internals[suffix]))()
+			return assert(loadstring(internals[suffix], "=" .. filename))()
 		end
-		error("Failed to find internal data `" .. suffix or "" .. "'")
+		error("Failed to find internal data `" .. (suffix or "") .. "'")
 	end
 	
 	dofile_original(filename)
 end
 
 function dofile_add(filename, filecontents)
-	internals[filename] = filecontents
+	internals[string.lower(filename)] = filecontents
 end
 
 function dofile_get(filename)
 	if filename == nil then
 		return internals
 	end
-	return internals[filename]
+	return internals[string.lower(filename)]
 end
 

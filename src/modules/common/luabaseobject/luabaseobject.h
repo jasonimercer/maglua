@@ -670,4 +670,12 @@ inline void luaT_register(lua_State* L)
 #define _NULLPAIR64  _NULLPAIR32,_NULLPAIR32
 #define _NULLPAIR128 _NULLPAIR64,_NULLPAIR64
 
+inline int luaL_dostringn(lua_State* L, const char* code, const char* name)
+{
+	return luaL_loadbuffer(L, code, strlen(code), name) || lua_pcall(L, 0, LUA_MULTRET, 0);
+}
+
+
+
+
 #endif // LUABASEOBJECT_H

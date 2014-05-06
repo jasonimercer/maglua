@@ -74,6 +74,7 @@ static int l_mateigen_d(lua_State* L)
 
 	Array<double>* B = 0;
 	Array<double>* C = 0;
+	Array<double>* D = 0;
 	
 	if(luaT_is<Array<double> >(L, 3))
 	{
@@ -95,6 +96,17 @@ static int l_mateigen_d(lua_State* L)
 	else
 	{
 		C = new Array<double>(N,1);
+	}
+	
+	if(luaT_is<Array<double> >(L, 4))
+	{
+		D = luaT_to<Array<double> >(L, 4);
+		if(D->nx * D->ny != A->nx)
+			return luaL_error(L, "Destination imaginary part vector must be 1xN where N is the row count of the collaing matrix");
+	}
+	else
+	{
+		D = new Array<double>(N,1);
 	}
 	
 	
@@ -120,7 +132,7 @@ static int l_mateigen_d(lua_State* L)
 	double* eigenvectors = B->data();
 	double* eigenvalues  = C->data();
 	
-	double* imag_part = (double*)malloc(sizeof(double)*N);
+	double* imag_part = D->data(); //(double*)malloc(sizeof(double)*N);
 	
 // 	void LAPACK_dgeev( char* jobvl, char* jobvr, lapack_int* n, double* a,
 //                    lapack_int* lda, double* wr, double* wi, double* vl,
@@ -135,15 +147,16 @@ static int l_mateigen_d(lua_State* L)
 				WORK, &LWORK, &INFO);
 	
 	free(AT);
-	free(imag_part);
+	// free(imag_part);
 	free(WORK);
 	
 	
 	
 	luaT_push< Array<double> >(L, C);
 	luaT_push< Array<double> >(L, B);
+	luaT_push< Array<double> >(L, D);
 	
-	return 2;
+	return 3;
 }
 
 int l_mateigen(lua_State* L)
@@ -347,8 +360,8 @@ int l_mat_lapack_help(lua_State* L)
 	if(func == l_mateigen)
 	{
 		lua_pushstring(L, "Compute Eigen Values and Eigen Vectors of a Matrix. LAPACK: dgeev");
-		lua_pushstring(L, "2 Optional Arrays: The optional arrays will be the target arrays for values and vectors. If none are given then new arrays will be created.");
-		lua_pushstring(L, "2 Arrays: The first is an Nx1 array containing values, the second is an NxN array containing vectors. Elements of a single vector share y coordinates (rows).");
+		lua_pushstring(L, "3 Optional Arrays: The optional arrays will be the target arrays for values and vectors. If none are given then new arrays will be created. The first is the real part of the eigen values, the second is the NxN array which will contain the eigen vectors and the third is the imaginary part of the values. ");
+		lua_pushstring(L, "3 Arrays: The first is an Nx1 array containing the real values, the second is an NxN array containing vectors. The third contains the imaginary parts of the values. Elements of a single vector share y coordinates (rows). The order of the return values are awkward. If something changes in the future the method name will change so errors are not silent.");
 		return 3;
 	}
 	

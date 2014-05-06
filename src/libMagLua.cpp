@@ -169,6 +169,12 @@ static void do_rlimit(lua_State* L)
 	lua_setglobal(L, "setrlimit");
 }
 
+inline int luaL_dostringn(lua_State* L, const char* code, const char* name)
+{
+	return luaL_loadbuffer(L, code, strlen(code), name) || lua_pcall(L, 0, LUA_MULTRET, 0);
+}
+
+
 
 static void lua_setupPreamble(lua_State* L, int sub_process)
 {
@@ -176,7 +182,10 @@ static void lua_setupPreamble(lua_State* L, int sub_process)
 
 	register_os_extensions(L);
 	
-	luaL_dostring(L, __dofile());
+	if(luaL_dostringn(L, __dofile(), "=dofile.lua"))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+	}
 		
 	lua_getglobal(L, "dofile_add");
 	lua_pushstring(L, "Help.lua");
