@@ -649,21 +649,29 @@ void SpinSystem::encode(buffer* b)
 
 	encodeDouble(time, b);
 	
-	x->encode(b);
-	y->encode(b);
-	z->encode(b);
-	ms->encode(b);
+	encodeT<dArray>(x, b);
+	encodeT<dArray>(y, b);
+	encodeT<dArray>(z, b);
+	encodeT<dArray>(ms, b);
+
+	// the following is wrong, wrong, wrong
+	// must use encodeT to get proper headers 
+	// injected in the stream
+	//x->encode(b);
+	//y->encode(b);
+	//z->encode(b);
+	//ms->encode(b);
 
 	int site_alpha_exists = (site_alpha?1:0);
 	int site_gamma_exists = (site_gamma?1:0);
 	
 	encodeInteger(site_alpha_exists, b);
 	if(site_alpha_exists)
-		site_alpha->encode(b);
+		encodeT<dArray>(site_alpha, b);
 	
 	encodeInteger(site_gamma_exists, b);
 	if(site_gamma_exists)
-		site_gamma->encode(b);
+        encodeT<dArray>(site_gamma, b);
 	
 	
 	int numExtraData = 0;
@@ -740,23 +748,33 @@ int  SpinSystem::decode(buffer* b)
 		time = decodeDouble(b);
 		init();
 
-		x->decode(b);
-		y->decode(b);
-		z->decode(b);
-		ms->decode(b);
+		luaT_set<dArray>(&x , decodeT<dArray>(L, b));
+		luaT_set<dArray>(&y , decodeT<dArray>(L, b));
+		luaT_set<dArray>(&z , decodeT<dArray>(L, b));
+		luaT_set<dArray>(&ms, decodeT<dArray>(L, b));
+
+		// The following is wrong, wrong, wrong. 
+		// It misses the ENCODE_PREAMBLE data and corrupts the stream
+		// x->decode(b);
+		// y->decode(b);
+		// z->decode(b);
+		// ms->decode(b);
 		
 		const int site_alpha_exists = decodeInteger(b);
 		if(site_alpha_exists)
 		{
-			site_alpha = luaT_inc<dArray>(new dArray(nx,ny,nz));
-			site_alpha->decode(b);
+			luaT_set<dArray>(&site_alpha , decodeT<dArray>(L, b));
+			//site_alpha = luaT_inc<dArray>(new dArray(nx,ny,nz));
+			//site_alpha->decode(b);
 		}
 
 		const int site_gamma_exists = decodeInteger(b);
 		if(site_gamma_exists)
 		{
-			site_gamma = luaT_inc<dArray>(new dArray(nx,ny,nz));
-			site_gamma->decode(b);
+			luaT_set<dArray>(&site_gamma , decodeT<dArray>(L, b));
+
+			//site_gamma = luaT_inc<dArray>(new dArray(nx,ny,nz));
+			//site_gamma->decode(b);
 		}
 	
 		int numPartialData = decodeInteger(b);

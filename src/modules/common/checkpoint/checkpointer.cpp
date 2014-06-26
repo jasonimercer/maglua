@@ -271,13 +271,11 @@ int Checkpointer::l_copy(lua_State* L)
 
 void Checkpointer::encode(buffer* b)
 {
-	ENCODE_PREAMBLE
-   
+	ENCODE_PREAMBLE  
 }
 
 int  Checkpointer::decode(buffer* b)
 {
-
 	return 0;
 }
 
@@ -285,20 +283,27 @@ int  Checkpointer::decode(buffer* b)
 
 int Checkpointer::deoperate_data(lua_State* L)
 {
-
 	char sig[4];
 	int new_encoding;
 	int old_encoding;
 	int new_size;
 	int old_size;
 
-	decodeHeader(data(), sig, new_encoding, old_encoding, new_size, old_size);
+#if 0
+	{
+		const char* d = data();
+		int i;
+		memcpy(&i, d+HEADER_SIZE, sizeof(int));
+		fprintf(stderr, "!!!!    %c%c%c%c   %i\n", d[0], d[1], d[2], d[3], i);
+	}
+#endif
 
+	decodeHeader(data(), sig, new_encoding, old_encoding, new_size, old_size);
 
 	// special case where n is after the header
 	if(old_encoding == OP_NONE && new_encoding == OP_PACK)
 	{
-		char* d = (char*)malloc(old_size);
+		char* d = (char*)malloc(old_size+HEADER_SIZE+sizeof(int));
 		memcpy(&n, data()+HEADER_SIZE, sizeof(int));
 		memcpy(d, data()+HEADER_SIZE+sizeof(int), old_size);
 
@@ -506,7 +511,7 @@ int  Checkpointer::operate_data(lua_State* L, int idx)
 		int data_pos = HEADER_SIZE;
 
 		int old_size = internalStateSize();
-		int new_size = old_size * 1.4;
+		int new_size = old_size * 1.4 + 8; // 8 for good measure
 
 		int new_state = OP_B64;
 		int old_state = currentState();

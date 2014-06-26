@@ -143,6 +143,7 @@ local global_help = help
 function checkpointSave(fn, ...)
 	local cp = Checkpointer.new()
 	cp:addTable(arg)
+	cp:transform("Pack") --, "Base64")
 	cp:saveToFile(fn)
 end
 

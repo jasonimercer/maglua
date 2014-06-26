@@ -87,8 +87,25 @@ extern "C"
    void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals);
 
    LuaBaseObject* decodeLuaBaseObject(lua_State* L, buffer* b);
-
 }
+
+template<class T>
+void encodeT(T* lbo, buffer* b)
+{
+    encodeInteger(LUA_TUSERDATA, b);
+    encodeInteger(lbo->type, b);
+    lbo->encode(b);
+}
+
+
+
+template<class T>
+T* decodeT(lua_State* L, buffer* b)
+{
+	return dynamic_cast<T*>(decodeLuaBaseObject(L, b));
+}
+
+
 
 #include <string.h>
 #include <string>

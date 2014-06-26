@@ -150,36 +150,105 @@ $]] .. d .. [[$
 
 		if optional_links["devstats"] then
 			table.insert(data, 
-					string.format("<p>Development statistics can be found at the StatSVN <A HREF=\"%s\">page</A>.", optional_links["devstats"]))
+					string.format("<p>Development statistics can be found at the StatSVN <A id=\"link\" HREF=\"%s\">page</A>.", optional_links["devstats"]))
 		end
 		
 		if optional_links["tips"] then
 			table.insert(data, 
-					string.format("<p>Examples of specific MagLua functions and objects can be found at the MagLua Tips and Tricks <A HREF=\"%s\">page</A>.", optional_links["tips"]))
+					string.format("<p>Examples of specific MagLua functions and objects can be found at the MagLua Tips and Tricks <A id=\"link\" HREF=\"%s\">page</A>.", optional_links["tips"]))
 		end
 		
 		return table.concat(data, " ")
 	end
-	
-	f:write([[
-	<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-	<html>
-	<head>
 
-<link rel="shortcut icon" href="data:image/png;base64,
-iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAACXBIWXMAAAsTAAALEwEAmpwYAAAA
-B3RJTUUH3gQPAAkLDxMDqAAAAgdJREFUKM910ktoU0EUBuB/5j6Sm3uLtE19gfYWsSEiKGoRs5GY
-gtrSuHFVW7ToxrULXQhuhYIrV4Igda1dCC5qBReC9VEtfaQtIZg0ElpF8+DG3tfMuEhrEk1nNRz+
-b86BM8RMjEAIxgUAECJRguYjOOcCIKCUEkCGEPbBw7cGzuxWSWl+7sn0XFGhf9PMD8TOJi6c6OK/
-N55Pvlj8pcgAvK79ycH+3hD1TitTq7PF9TrwO8Pnh5PXIrpbSs++nlz4WX+MCOYqe/uihika5unp
-2HeuR7cZgK3yNiCEVXMLRf12UuaiPv6u2KXuanapyqTtWkN3z/3ybj3cP6ZwvpUX9PqQmZtJ2x7H
-/wCel3/1tqIemjjmWgzgjtM9Ohi2n039cDy0AITwD4Xl+RJO3hyu2q5rO5dvnAqWMzOFVUZaAQAs
-tfZpcSPYG7urbVbk+Njxjm9LmVSqMd8MVLnweC0LsidyNWIORY/qWCm8yUgydgJUlfMPs3ngSOfF
-O9Goiu+fH3xVAnRHAKgBMfE0zSLxvoH4AS89fU8owebEP0AENe3R+ArV29p18nH8paEpogXgzHE8
-2/U5IYJqUu7++zJQXr6SkwwKEOG6ru36jAMAMRMjhPmVTYcTSTc0WQgAlmV5kNoNrfYHLMv2BQ2F
-QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
+	local style = [[
+	html {
+	background-color: #F8F8F8 ;
+}
 
-	<style media="screen,print" type="text/css">
+body {
+}
+
+#link {
+	color: #000077 ;
+}
+
+.section { 	 
+    border: solid #a0a0a0 1px ;
+	border-radius: 20px ;
+	padding: 0px 26px;
+	margin: 16px 0px;
+	color: #000000 ;
+	background-color: #FFFFFF ;
+	font-family: Helvetica, Arial, sans-serif ;
+	text-align: justify ;
+ }
+
+h1, h2, h3, h4 {
+	font-family: Verdana, Geneva, sans-serif ;
+	font-weight: normal ;
+	font-style: normal ;
+}
+
+h2, h3 {
+	padding: 6px 26px;
+	background-color: #D0D0FF ;
+	border-radius: 8px ;
+	border: solid #a0a0a0 1px ;
+	font-weight:bold;
+}
+
+table {
+	  padding-left: 0px ;
+	  border-left: none ;
+}
+
+a:link {
+	   color: #000000 ;
+	   background-color: inherit ;
+	   text-decoration: none ;
+}
+
+a:visited {
+	color: #000000 ;
+	background-color: inherit ;
+	text-decoration: none ;
+}
+
+hr {
+   border: 0 ;
+   height: 1px ;
+   color: #a0a0a0 ;
+   background-color: #a0a0a0 ;
+   display: none ;
+}
+
+table hr {
+	  display: block ;
+}
+
+	pre {
+		-webkit-print-color-adjust: exact; 
+		padding: 5px;
+		background-color: #eeffcc;
+		color: #333333;
+		line-height: 120%;
+		border: 1px solid #ac9;
+		border-left: none;
+		border-right: none;
+	}
+	dt 
+	{
+		font-weight:bold;
+	}
+
+.footer {
+		color: gray ;
+		font-size: x-small ;
+}
+]]
+
+	local old_style = [[
 	body {
 		color: #000000 ;
 		background-color: #FFFFFF ;
@@ -265,6 +334,27 @@ QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
 		background-color: #3c7dab ;
 		border: solid #4fa5e2 1px ;
 	}
+]]
+	
+	f:write([[
+	<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+	<html>
+	<head>
+
+<link rel="shortcut icon" href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAACXBIWXMAAAsTAAALEwEAmpwYAAAA
+B3RJTUUH3gQPAAkLDxMDqAAAAgdJREFUKM910ktoU0EUBuB/5j6Sm3uLtE19gfYWsSEiKGoRs5GY
+gtrSuHFVW7ToxrULXQhuhYIrV4Igda1dCC5qBReC9VEtfaQtIZg0ElpF8+DG3tfMuEhrEk1nNRz+
+b86BM8RMjEAIxgUAECJRguYjOOcCIKCUEkCGEPbBw7cGzuxWSWl+7sn0XFGhf9PMD8TOJi6c6OK/
+N55Pvlj8pcgAvK79ycH+3hD1TitTq7PF9TrwO8Pnh5PXIrpbSs++nlz4WX+MCOYqe/uihika5unp
+2HeuR7cZgK3yNiCEVXMLRf12UuaiPv6u2KXuanapyqTtWkN3z/3ybj3cP6ZwvpUX9PqQmZtJ2x7H
+/wCel3/1tqIemjjmWgzgjtM9Ohi2n039cDy0AITwD4Xl+RJO3hyu2q5rO5dvnAqWMzOFVUZaAQAs
+tfZpcSPYG7urbVbk+Njxjm9LmVSqMd8MVLnweC0LsidyNWIORY/qWCm8yUgydgJUlfMPs3ngSOfF
+O9Goiu+fH3xVAnRHAKgBMfE0zSLxvoH4AS89fU8owebEP0AENe3R+ArV29p18nH8paEpogXgzHE8
+2/U5IYJqUu7++zJQXr6SkwwKEOG6ru36jAMAMRMjhPmVTYcTSTc0WQgAlmV5kNoNrfYHLMv2BQ2F
+QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
+
+	<style media="screen,print" type="text/css"> ]] .. style .. [[
 	</style>
 
 	<title>MagLua Reference Manual</title>
@@ -274,10 +364,10 @@ QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
 	<table width=\"100%\"><tr><td> <!-- for rendering to pdf -->
 	]])
 
+	f:write("<div class=\"section\">\n")
 	f:write(lp([[
-<H1>MagLua</H1>
-<p>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations with the Lua scripting language.	<p>MagLua is composed of 2 conceptual parts following the Data Oriented Design paradigm
-<ul><li>Data - Spin vectors and fields, these are held in a *SpinSystem*.<li>Transformations - Objects which modify data. Some calculate fields based on spins or external influences such as *Anisotropy*, *Dipole* and *Thermal*, others update the spin vectors such as *LLG.Cartesian*.	</ul>	<p>The <a href="#Index">Index</a> has links to all objects, methods and functions provided by MagLua.</p>]]))
+<H1>MagLua</H1>MagLua is an extension to the base Lua language that allows a user to build micromagnetic simulations with the Lua scripting language.	<p>MagLua is composed of 2 conceptual parts following the Data Oriented Design paradigm
+<ul><li>Data - Spin vectors and fields, these are held in a *SpinSystem*.<li>Transformations - Objects which modify data. Some calculate fields based on spins or external influences such as *Anisotropy*, *Dipole* and *Thermal*, others update the spin vectors such as *LLG.Cartesian*.	</ul>The <a id="link" href="#Index">Index</a> has links to all objects, methods and functions provided by MagLua.]]))
 
 
 -- 	print(lp(write_optional_links()))
@@ -286,7 +376,8 @@ QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
 
 	f:write("\n" .. lp([[<p>The following is a list of the objects and functions which may be combined to create a simulation.]] .. "\n"))
 	
-	
+	f:write("</div>\n")	
+
 	-- table for the index
 	local index = {}	
 
@@ -296,10 +387,11 @@ QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
 			table.insert(index, {name, level})
 		end
 
+		local anh = string.format([[<a name="%s" href="#%s">]], nq(name), nq(name))
 		if effect then
-			f:write("<p>\n<h" .. level .. "><a name=\"" .. nq(name) .. "\"><" .. effect .. ">" .. name .. "</" .. effect .. "></a></h" .. level .. ">\n")
+			f:write("<p>\n<h" .. level .. ">" .. anh .. "<" .. effect .. ">" .. name .. "</" .. effect .. "></a></h" .. level .. ">\n")
 		else
-			f:write("<p>\n<h" .. level .. "><a name=\"" .. nq(name) .. "\">" .. name .. "</a></h" .. level .. ">\n")
+			f:write("<p>\n<h" .. level .. ">" .. anh .. name .. "</a></h" .. level .. ">\n")
 		end
 	end
 
@@ -347,14 +439,13 @@ QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
 		local t = v[2] --table
 		local n = v[1] --name
 		local a, b, c = t.help()
+		f:write("<div class=\"section\">\n")
 		if a then
 			addsection(n, 2)
 			f:write("<p>\n" .. lp(a) .. "\n")
 			if b and b ~= "" then
-				f:write(string.format("<H3>%s.new</H3><dl><dt>Constructor Arguments</dt><dd>%s</dd></dl>", n,lp(b)))
--- 				f:write("<p><dl><dt>" .. n .. ".new() takes the following arguments</dt><dd>" .. lp(b) .. "</dd></dl>\n")
+				f:write(string.format("<H3> <a name=\"%s.new\" href=\"#%s.new\"><code>%s.new</code></a></H3><dl><dt>Constructor Arguments</dt><dd>%s</dd></dl>", n,n,n,lp(b)))
 			end
--- 			f:write("<hr>\n");
 		end
 
 		-- write documentation about all functions
@@ -386,18 +477,19 @@ QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
 					end
 				end
 			end
--- 		else
-			
 		end
 		table.sort(yy, comp)
 		for k,v in ipairs(yy) do
 			addsection(n .. ":" .. v[1], 3, "code")
 			dl(v[2], v[3], v[4])
 		end
+		f:write("</div>\n")		
 	end
 
-
 	-- now to process all the dofiles available using the maglua:// protocol
+	if dofile_get() then
+	f:write("<div class=\"section\">\n")
+
 	for k,v in pairs(dofile_get()) do
 		local text = dofile_get(k)
 		local lines = {}
@@ -426,13 +518,17 @@ QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
 		addsection("dofile(\"maglua://" .. k .. "\")", 2)
 		dl(table.concat(docs, "\n"))
 	end
-	
+		f:write("</div>\n")
+	end	
 
 	-- here we will explain what a 3Vector is, it appears in the documentation
+	f:write("<div class=\"section\">\n")
 	addsection("3Vector", 2, nil, true) --true - don't add index to index
 	dl("A 3Vector is an argument of some methods in MagLua, it can either be 3 numbers or a table with 3 values. If it is a table with less than 3 values, sensible defaults are used or an error is returned if none exist.", "", "") 
+	f:write("</div>\n")
 
 	-- write index, 4 columns
+	f:write("<div class=\"section\">\n")
 	addsection("Index", 2, nil, true) --true - don't add index to index
 	f:write("<table width=\"100%\">\n")
 	f:write("<tr align=\"top\">\n")
@@ -454,11 +550,15 @@ QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
 			f:write("<p>\n")
 		end
 
-		f:write("<a href=\"#"..nq(a).."\">"..a.."</a><br>\n")
+		f:write("<a id=\"link\" href=\"#"..nq(a).."\">"..a.."</a><br>\n")
 		rowcount = rowcount - 1
 	end
 
-	f:write("</td></tr></table><hr>\n")
+	f:write("</td></tr></table>\n")
+
+	f:write("</div>\n")
+
+	f:write("<div class=\"section\">\n")
 
 
 	f:write("<table>\n")
@@ -470,9 +570,11 @@ QgoVMgAhyW2GXNttra9hGPUphaTreu0K4A+0MN1Zl7IYbgAAAABJRU5ErkJggg==" />
 			f:write("<tr><td width=15%>" .. c .. ":<td>" .. d .. "\n")
 		end
 	end
-	f:write("</table>\n<br><hr>")
+	f:write("</table>\n")
+	f:write("</div>\n")
 
-	f:write("</table><!-- for rendering to pdf--></body>\n</html>\n")
+	f:write("</body>\n</html>\n")
+
 end
 	
 	

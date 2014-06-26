@@ -245,6 +245,11 @@ public:
 		else
 		{
 			fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+			{
+				// crashing so we can debug. 
+				int* q = (int*)5;
+				*q = 5;
+			}
 		}
 		return 0;
 	}

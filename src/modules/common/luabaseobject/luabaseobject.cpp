@@ -126,16 +126,19 @@ void encodeBuffer(const void* s, const int len, buffer* b)
 
 void encodeDouble(const double d, buffer* b)
 {
+	// encodeBuffer("d", 1, b); // temp
 	encodeBuffer(&d, sizeof(d), b);
 }
 
 void encodeInteger(const int i, buffer* b)
 {
+	// encodeBuffer("i", 1, b); // temp
 	encodeBuffer(&i, sizeof(i), b);
 }
 
 void encodeChar(const char c, buffer* b)
 {
+	// encodeBuffer("c", 1, b); // temp
 	encodeBuffer(&c, sizeof(char), b);
 }
 
@@ -151,22 +154,23 @@ int  encodeContains(LuaBaseObject* o, buffer* b)
 
 void encodeOldThis (LuaBaseObject* o, buffer* b)
 {
-	int pos = -1;
-	for(int i=0; i<(int)b->encoded.size() && pos < 0; i++)
+	int enc_idx = -1;
+	for(int i=0; i<(int)b->encoded.size() && enc_idx < 0; i++)
 	{
 		if(b->encoded[i] == o)
-			pos = i;
+			enc_idx = i;
 	}
 	encodeChar(ENCODE_MAGIC_OLD, b);
-	encodeInteger(pos, b);
+	encodeInteger(enc_idx, b);
 }
 
 void encodeNewThis (LuaBaseObject* o, buffer* b)
 {
-	int pos = b->encoded.size();
+	int enc_idx = b->encoded.size();
+	// printf("new encoded. idx = %i\n", enc_idx);
 	b->encoded.push_back(o);
 	encodeChar(ENCODE_MAGIC_NEW, b);
-	encodeInteger(pos, b);
+	encodeInteger(enc_idx, b);
 }
 
 
@@ -175,37 +179,84 @@ void encodeNewThis (LuaBaseObject* o, buffer* b)
 
 void decodeBuffer(void* dest, const int len, buffer* b)
 {
+	if(b->pos + len > b->size)
+	{
+		int* i = (int*)5;
+		*i = 5;
+	}
 	memcpy(dest, b->buf+b->pos, len);
 	b->pos += len;
 }
+
+static int check_type(const char* t, buffer* b)
+{
+	char d; decodeBuffer(&d, 1, b);
+	if(d != t[0])
+	{
+		fprintf(stderr, "Stream data mismatch. Expected %c, read %c. Crashing.\n", t[0], d);
+		int* q = (int*)5;
+		*q = 5;
+	}
+}
+
 int decodeInteger(buffer* b)
 {
+	// check_type("i", b);
 	int i;
 	decodeBuffer(&i, sizeof(int), b);
 	return i;
 }
 double decodeDouble(buffer* b)
 {
+	// check_type("d", b);
 	double d;
 	decodeBuffer(&d, sizeof(double), b);
 	return d;
 }
 char decodeChar(buffer* b)
 {
+	// check_type("c", b);
 	char c;
 	decodeBuffer(&c, sizeof(char), b);
 	return c;
 }
 
+
+/*
+template<class T>
+void encodeT(T* lbo, buffer* b)
+{
+    encodeInteger(LUA_TUSERDATA, b);
+    encodeInteger(lbo->type, b);
+    lbo->encode(b);
+}
+
+template<class T>
+T* decodeT(lua_State* L, buffer* b)
+{
+	return dynamic_cast<T*>(decodeLuaBaseObject(L, b));
+}
+*/
+
 LuaBaseObject* decodeLuaBaseObject(lua_State* L, buffer* b)
 {
+	int TUSERDATA = decodeInteger(b);
+	if(TUSERDATA != LUA_TUSERDATA)
+	{
+		fprintf(stderr, "(%s:%i) Expectd LUA_TUSERDATA(%i) in stream, got %i\n", __FILE__, __LINE__, LUA_TUSERDATA, TUSERDATA);
+		int* q = (int*)5;
+		*q = 5; // force tracable crash
+	}
+
 	int type = decodeInteger(b);
 	char magic = decodeChar(b);
 	int pos = decodeInteger(b);
 
 	if((magic != ENCODE_MAGIC_NEW) && (magic != ENCODE_MAGIC_OLD))
 	{
-		fprintf(stderr, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+		fprintf(stderr, "(%s:%i)Malformed data stream:\n", __FILE__, __LINE__);
+		fprintf(stderr, "(%s:%i)Expected New or Old flag (%i or %i), got %i\n",  __FILE__, __LINE__, ENCODE_MAGIC_NEW, ENCODE_MAGIC_OLD, magic);
+		fprintf(stderr, "(%s:%i)Type, Magic, Pos = %i, %i, %i\n", __FILE__, __LINE__, type, magic, pos);
 		return 0;
 	}
 
@@ -223,9 +274,9 @@ LuaBaseObject* decodeLuaBaseObject(lua_State* L, buffer* b)
 			fprintf(stderr, "Failed to create new type from factory\n");
 		}
 
-		if(pos != (int)b->encoded.size())
-			fprintf(stderr, "(%s:%i)Position mismatch", __FILE__, __LINE__);
 		b->encoded.push_back(e);
+		if(pos != (int)b->encoded.size())
+			fprintf(stderr, "(%s:%i)Encoded index mismatch. Expected %i, got %i\n", __FILE__, __LINE__, pos, (int)b->encoded.size());
 	}
 	if(magic == ENCODE_MAGIC_OLD)
 	{
