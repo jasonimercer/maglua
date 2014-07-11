@@ -219,7 +219,7 @@ static void lua_setupPreamble(lua_State* L, int sub_process)
 	lua_setglobal(L, "ENV");
 
 	lua_pushcfunction(L, lua_getModulesInDirectory);
-	lua_setglobal(L, "getModuleDirectory");
+	lua_setglobal(L, "getModulesInDirectory");
 	
 	lua_pushcfunction(L, lua_loadfile);
 	lua_setglobal(L, "loadModule");

@@ -161,42 +161,81 @@ local function get_basename(mag)
 	return string.format("MAB_%dx%dx%d", mag:nx(), mag:ny(), mag:nz())
 end
 
-local function get_possible_files(mag)
+-- we'll look in current directory first, then the common (if it exists)
+local function get_possible_files(mag, order)
     local possibles = {}
-	local basename = get_basename(mag)
-	local filenames = os.ls()
-	for k,v in pairs(filenames) do
-		local a,b,x = string.find(v, basename .. "%.(%d+)%.lua$")
-		if a then
-			table.insert(possibles, {v, tonumber(x)})
-		end
-	end
-	return possibles
+    local basename = get_basename(mag)
+    local available = {}
+    
+    available["local"] = function()
+			     for k,v in pairs(os.ls()) do
+				 local a,b,x = string.find(v, basename .. "%.(%d+)%.lua$")
+				 if a then
+				     table.insert(possibles, {v, tonumber(x)})
+				 end
+			     end
+			 end
+    
+    available["cache"] = function()
+			     if LongRange2D.cacheDirectory then
+				 if LongRange2D.cacheDirectory() then
+				     local filenames =  os.ls( LongRange2D.cacheDirectory() )
+				     for k,v in pairs(filenames) do
+					 local a,b,x = string.find(v, basename .. "%.(%d+)%.lua$")
+					 if a then
+					     table.insert(possibles, {v, tonumber(x)})
+					 end
+				     end
+				 end
+			     end
+			 end
+    
+    for k,v in pairs(order) do
+	available[v]()
+    end
+    
+    return possibles
 end
 
 local function get_new_filename(mag)
-	local basename = get_basename(mag)
-	local fns = get_possible_files(mag)
-
-	local n = {}
-	for k,v in pairs(fns) do
-		n[v[2]] = 1
+    local basename = get_basename(mag)
+    local fns = {}
+    local cache = nil
+    
+    if LongRange2D.cacheDirectory then
+	if LongRange2D.cacheDirectory() then
+	    cache = true
+	    fns = get_possible_files(mag, {"cache"})
 	end
-
-	local next = nil
-	for i=0,1000 do --looking for a free number
-		if next == nil then
-			if n[i] == nil then
-				next = i
-			end
-		end
-	end
-
+    end
+    
+    if cache == nil then -- no cache dir defined, write to local
+	fns = get_possible_files(mag, {"local"})
+    end
+    
+    local n = {}
+    for k,v in pairs(fns) do
+	n[v[2]] = 1
+    end
+    
+    local next = nil
+    for i=0,1000 do --looking for a free number
 	if next == nil then
-		next = 0
+	    if n[i] == nil then
+		next = i
+	    end
 	end
-
+    end
+    
+    if next == nil then
+	next = 0
+    end
+    
+    if cache then
+	return  LongRange2D.cacheDirectory() .. basename .. "." .. next .. ".lua"
+    else
 	return basename .. "." .. next .. ".lua"
+    end
 end
 
 
@@ -509,7 +548,7 @@ end
 
 local function makeData(mag)
 	-- first we'll see if the data already exists
-	local fns = get_possible_files(mag)
+	local fns = get_possible_files(mag, {"local", "cache"})
 
 	-- try each shoe for a match
 	for k,v in pairs(fns) do

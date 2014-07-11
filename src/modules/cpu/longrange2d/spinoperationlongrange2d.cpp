@@ -766,8 +766,17 @@ LONGRANGE2D_API const char* lib_name(lua_State* L)
 #endif
 }
 
+
+#include "longrange2d_main.h"
+
 LONGRANGE2D_API int lib_main(lua_State* L)
 {
+	if(luaL_dostring(L, __longrange2d_main()))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		return luaL_error(L, lua_tostring(L, -1));
+	}
+	
 	return 0;
 }
 

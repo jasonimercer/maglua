@@ -1,3 +1,26 @@
+To install run:
+
+./configure
+
+and choose the most appropriate options (try the quick configure options first).
+The ./configure script may list commands that need to be run or should be added
+to your startup files. Once configure is combplete and any post-configure commands
+have been run, execute the script
+
+./build_cpu.sh
+
+Note:
+
+your system may not have an up to dat cmake. If this is the case, run the command:
+
+./build_cmake.sh
+
+
+
+
+
+The following may be out of date:
+
 * What is MagLua?
   ---------------
   MagLua is an extension to the base Lua language that allows a user to build

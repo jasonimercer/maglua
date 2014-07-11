@@ -6,31 +6,31 @@
 -- OS specific file locations/cmds
 -- for now OS is only Linux
 local module_path_dir
-local module_path_file
-local module_short_dir
-local module_dir_sep
+local startup_path_file
+local startup_short_dir
+      startup_dir_sep = "" -- making this global, setting to nil near the end
 local mkdir_cmd
 if ENV == "WIN32" then
-	module_path_dir = os.getenv("APPDATA") .. "\\maglua"
-	module_path_file= os.getenv("APPDATA") .. "\\maglua\\module_path.lua"
+	startup_path_dir = os.getenv("APPDATA") .. "\\maglua"
+	startup_path_file= os.getenv("APPDATA") .. "\\maglua\\startup.lua"
 	mkdir_cmd = function(x) return "mkdir \"" .. x .. "\"" end
-	module_short_dir = "$(APPDATA)\\maglua"
-	module_dir_sep = "\\"
+	startup_short_dir = "$(APPDATA)\\maglua"
+	startup_dir_sep = "\\"
 else
-	module_path_dir = os.getenv("HOME") .. "/.maglua.d"
-	module_path_file= os.getenv("HOME") .. "/.maglua.d/module_path.lua"
+	startup_path_dir = os.getenv("HOME") .. "/.maglua.d"
+	startup_path_file= os.getenv("HOME") .. "/.maglua.d/startup.lua"
 	mkdir_cmd = function(x) return "mkdir -p \"" .. x .. "\"" end
-	module_short_dir = "$(HOME)/.maglua.d"
-	module_dir_sep = "/"
+	startup_short_dir = "$(HOME)/.maglua.d"
+	startup_dir_sep = "/"
 end
 ENV = nil
 
 local be_quiet = nil
 local print_module_path = nil
 local print_version = false
-local setup_module_path = nil
+local setup_startup_path = nil
 local print_help = false
-local print_module_path_file = nil
+local print_startup_path_file = nil
 local write_documentation = nil
 local cmd_line_max_memory = nil
 local do_error_trim = false
@@ -40,7 +40,7 @@ debug["trim_error"] = function(msg)
 	if do_error_trim == false then
 		return msg
 	end
-
+	msg = msg or "error"
 	local a, b, preStack, Stack, postStack = string.find(msg, "(.-)(stack traceback%:%s*)(.*)")
 
 	if a == nil then
@@ -70,19 +70,19 @@ for k,v in pairs(arg) do
 		print_module_path = arg[k+1] or true
 	end
 	
-	if v == "--use_module_file" then
-		module_path_file = arg[k+1]
+	if v == "--use_startup_file" then
+		startup_path_file = arg[k+1]
 	end
 	
-	if v == "--module_file" and sub_process == nil  then
-		print_module_path_file = arg[k+1] or true
+	if v == "--startup_file" and sub_process == nil  then
+		print_startup_path_file = arg[k+1] or true
 	end
 	
 	if v == "--write_docs" and sub_process == nil then
 		write_documentation = k --arg[k+1] or true
 	end
 
--- 	Moving this test to after dofile so that -q can be included removed by module_path_file
+-- 	Moving this test to after dofile so that -q can be included removed by startup_path_file
 -- 	if v == "-q" then
 -- 		be_quiet = k
 -- 	end
@@ -92,15 +92,15 @@ for k,v in pairs(arg) do
 	end
 	
 	if v == "--setup" and sub_process == nil then
-		setup_module_path = arg[k+1]
+		setup_startup_path = arg[k+1]
 		--need to strip quotes from it if they exist
-		local a, b, c = string.find(setup_module_path, "^%s*%'(.*)%'%s*$")
+		local a, b, c = string.find(setup_startup_path, "^%s*%'(.*)%'%s*$")
 		if a then
-			setup_module_path = c
+			setup_startup_path = c
 		end
-		local a, b, c = string.find(setup_module_path, "^%s*%\"(.*)\"%s*$")
+		local a, b, c = string.find(setup_startup_path, "^%s*%\"(.*)\"%s*$")
 		if a then
-			setup_module_path = c
+			setup_startup_path = c
 		end
 	end
 	
@@ -159,20 +159,20 @@ function escape(line)
 end
 
 if not print_help then
-	if setup_module_path then
-		print("Creating `module_path.lua' file in `" .. module_path_dir .. "'")
-		print("Setting path `" .. setup_module_path .. "'")
+	if setup_startup_path then
+		print("Creating `startup.lua' file in `" .. startup_path_dir .. "'")
+		print("Setting path `" .. setup_startup_path .. "'")
 
-		os.execute(mkdir_cmd(module_path_dir))
-		local f = io.open(module_path_file, "w")
+		os.execute(mkdir_cmd(startup_path_dir))
+		local f = io.open(startup_path_file, "w")
 		
 		f:write([[-- Modules in the following directories can be loaded
 module_path = {}
-module_path["common"] = "]] .. escape(setup_module_path .. module_dir_sep .. "common") .. [["
-module_path["cpu"]    = "]] .. escape(setup_module_path .. module_dir_sep .. "cpu"   ) .. [["
-module_path["cuda"]   = "]] .. escape(setup_module_path .. module_dir_sep .. "cuda"  ) .. [["
-module_path["cuda32"] = "]] .. escape(setup_module_path .. module_dir_sep .. "cuda32") .. [["
-module_path["extra"]  = "]] .. escape(setup_module_path .. module_dir_sep .. "extra" ) .. [["
+module_path["common"] = "]] .. escape(setup_startup_path .. startup_dir_sep .. "common") .. [["
+module_path["cpu"]    = "]] .. escape(setup_startup_path .. startup_dir_sep .. "cpu"   ) .. [["
+module_path["cuda"]   = "]] .. escape(setup_startup_path .. startup_dir_sep .. "cuda"  ) .. [["
+module_path["cuda32"] = "]] .. escape(setup_startup_path .. startup_dir_sep .. "cuda32") .. [["
+module_path["extra"]  = "]] .. escape(setup_startup_path .. startup_dir_sep .. "extra" ) .. [["
 	
 -- Modules in the following categories will be loaded
 use_modules = {"common", "cpu", "extra"}
@@ -182,8 +182,15 @@ use_modules = {"common", "cpu", "extra"}
 -- the help_args can also be changed.
 -- Example, always running quietly(-q) unless +q:
 ]].."--[[\n"..[[
-help_args["-q"] = nil
-help_args["+q"] = "Print startup messages and list messages"
+for i,v in ipairs(help_args) do
+	if v[1] == "-q" then
+		table.remove(help_args, i) -- delete help for -q
+	end
+end
+
+-- add new help
+table.insert(help_args, {"+q", "Print startup messages and list messages"}
+
 local foundq = nil
 for k,v in pairs(arg) do
 	if v == "+q" then
@@ -193,7 +200,7 @@ end
 if foundq then
 	table.remove(arg, foundq)
 else
-	table.insert(arg, 1, "-q")
+	table.insert(arg, 1, "-q") -- default: add be quiet
 end
 ]].."--]]\n"..[[
 -- Example, custom arg[] parsing to build the use_modules table:
@@ -220,7 +227,7 @@ end
 	end
 
 	if print_module_path then
-		dofile(module_path_file)
+		dofile(startup_path_file)
 		local mp = module_path[print_module_path]
 		if mp then
 			print(mp)
@@ -228,7 +235,7 @@ end
 		end
 
 		local cats = {}
-		for k,v in pairs(module_path) do
+		for k,v in pairs(startup_path) do
 			table.insert(cats, k)
 		end
 		
@@ -236,9 +243,9 @@ end
 		error("Must specify a module category (" .. table.concat(cats, ", ") .. ")", 0)
 	end
 
-	if print_module_path_file then
-		print(module_path_file)
-		return false
+	if print_startup_path_file then
+		print(startup_path_file)
+		return false -- stop here
 	end
 
 	if print_version then
@@ -249,26 +256,33 @@ end
 
 
 
+-- a module may have inserted help args
+-- so we'll default to a table
+help_args = help_args or {}
 
-help_args = {}
+table.insert(help_args,{"Common Options",""})
+table.insert(help_args,{"-h, --help",               "Show this help"})
+table.insert(help_args,{"-v, --version",            "Print version"})
+table.insert(help_args,{"-q",                       "Run quietly, omit some startup messages"})
 
-help_args["-q"] =                       "Run quietly, omit some startup messages"
-help_args["--setup path"] =             "Setup startup files in " .. module_short_dir
-help_args["--module_file"] =            "Print the name of the file that manages modules"
-help_args["--use_module_file <file>"] = "Use the given file to manage modules"
-help_args["--module_path <category>"] = "Print module directory for <category> module types"
-help_args["-v, --version"] =            "Print version"
-help_args["-h, --help"] =               "Show this help"
-help_args["--maxMemory value(B|KB|MB|GB)"]="Set the maximum amount of system memory that this process can allocate."
-help_args["--write_docs [file]"] =      "Write HTML documentation to given file or stdout"
+table.insert(help_args,{"",""}) -- intentionally blank
+
+table.insert(help_args,{"Advanced Options",""})
+table.insert(help_args,{"--setup path",             "Setup startup files in " .. startup_short_dir})
+table.insert(help_args,{"--module_path <category>", "Print module directory for <category> module types"})
+table.insert(help_args,{"--startup_file",           "Print the name of the file that manages modules"})
+table.insert(help_args,{"--use_startup_file <file>","Use the given file to manage modules"})
+table.insert(help_args,{"--write_docs [file]",      "Write HTML documentation to given file or stdout"})
+table.insert(help_args,{"--maxMemory value(B|KB|MB|GB)","Set the maximum amount of system memory that this process can allocate."})
+
 -- get the module path
-local mod_test = io.open(module_path_file, "r") --this file does not exist on a clean install
+local mod_test = io.open(startup_path_file, "r") --this file does not exist on a clean install
 if mod_test then 
-   dofile(module_path_file)
+   dofile(startup_path_file)
    mod_test:close()
 end
 
--- dealing with memory limits as defined in module_path_file or command line
+-- dealing with memory limits as defined in startup_path_file or command line
 if cmd_line_max_memory then
 	local a = getrlimit(RLIMIT.AS)
 	a[1] = cmd_line_max_memory
@@ -300,34 +314,6 @@ RLIMIT = nil
 
 
 
-if print_help then
-	print("MagLua-r" .. version()..  " by Jason I. Mercer (c) 2014\n")
-	print(
-[[ MagLua is a micromagnetics programming environment built
- on top of the Lua scripting language.
-
- Command Line Arguments:
-]])
-
-	local len = 0
-	for k,v in pairs(help_args) do
-		if string.len(k) > len then
-			len = string.len(k)
-		end
-	end
-
-	for k,v in pairs(help_args) do
-		print(string.format("  %-" .. len .. "s  %s", k,v))
-	end
-	print()
-
-	if reference() then
-		print(reference())
-	end
-	return false
-end
-
-
 
 -- test for "-q"
 be_quiet = nil
@@ -342,14 +328,14 @@ end
 
 
 if use_modules == nil then
-	error("use_modules not defined in `module_path.lua', do you need to --setup?")
+	error("use_modules not defined in `startup.lua', do you need to --setup?")
 end
 
 -- build a big flat list of modules to load
 local mod = {}
 
 for k1,v1 in pairs(use_modules) do
-	for k2,v2 in pairs(getModuleDirectory(module_path[v1])) do
+	for k2,v2 in pairs(getModulesInDirectory(module_path[v1])) do
 		table.insert(mod, {path=v2})
 	end
 end
@@ -386,12 +372,21 @@ while keep_trying do
 	end
 end
 
+-- shutdown_now is a flag that can be set in 
+-- a module's "main". This can be used, for example,
+-- if a module has printed something related to a command
+-- line request. Perhaps version data or path data.
+if shutdown_now then
+    return false
+end
+
 for k,v in pairs(mod) do
 	for a,b in pairs(v.result) do
 		mod[k][a] = b
 	end
 end
 
+-- creating a closure for modules
 function make_modules()
 	local m = mod
 	return function()
@@ -399,6 +394,39 @@ function make_modules()
 	end
 end
 modules = make_modules()
+
+
+if print_help then
+	print("MagLua-r" .. version()..  " by Jason I. Mercer (c) 2014\n")
+	print(
+[[ MagLua is a micromagnetics programming environment built
+ on top of the Lua scripting language.
+
+ Command Line Arguments:
+]])
+
+	local len = 0
+	for i,v in ipairs(help_args) do
+		if string.len(v[1]) > len then
+			len = string.len(v[1])
+		end
+	end
+
+	for i,v in ipairs(help_args) do
+		print(string.format("  %-" .. len .. "s  %s", v[1],v[2]))
+	end
+	print()
+
+	if reference() then
+		print(reference())
+	end
+	return false
+end
+
+
+
+
+
 
 local function e(x)
 	io.stderr:write(x .. "\n")
@@ -450,6 +478,7 @@ if be_quiet == nil then
 end
 
 
+startup_dir_sep = nil
 do_error_trim = true
 
 if sub_process == nil then

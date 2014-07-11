@@ -28,17 +28,20 @@ local function build_gse_closures(mep)
 	local d = get_mep_data(mep)
 	local ss = mep:spinSystem()
 	local energy_function = mep:energyFunction()
-
+	--print("BUILD GSE CLOSURES")
 	local function get_site_ss(x,y,z)
 		local sx,sy,sz = ss:spin(x,y,z)
+		--print(string.format("get(%d,%d,%d)", x,y,z))
 		return sx,sy,sz
 	end
 	local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
 		local ox,oy,oz,m = ss:spin({x,y,z})
 		ss:setSpin({x,y,z}, {sx,sy,sz}, m)
+		--print(string.format("get(%d,%d,%d,  %e,%e,%e)", x,y,z,sx,sy,sz))
 		return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
 	end
 	local function get_energy_ss()
+		--  print("energy")
 		local e = energy_function(ss)
 		return e
 	end
@@ -71,7 +74,56 @@ local function getStepMod(tol, err, maxMotion)
 	return 0.95 * (tol / err)^(0.9), err<tol
 end
 
+local function sweep_level(mep, rules, func, opt_func, depth)
+	depth = depth or 1
 
+	if table.maxn(rules) < depth then
+		error("Empty rules?")
+	end
+
+	local point = rules[depth][1]
+	local site  = rules[depth][2]
+	local coord = rules[depth][3]
+
+	local start = rules[depth][4]
+	local step  = rules[depth][6]
+	local endv  = rules[depth][5]
+
+	-- record original
+	local ox, oy, oz, oc = mep:_nativeSpin(point, site)
+
+	for v=start,endv,step do
+		local x1,x2,x3,c = mep:_nativeSpin(point, site)
+		local x = {x1,x2,x3}
+		x[coord] = v
+		x1,x2,x3 = x[1], x[2], x[3]
+		-- print("SET", point, site, x1,x2,x3,c)
+		mep:setSpinInCoordinateSystem(point, site, x1,x2,x3,c)
+		if depth == table.maxn(rules) then
+			func(mep)
+		end
+
+		if depth < table.maxn(rules) then
+			sweep_level(mep, rules, func, opt_func, depth+1)
+		end
+	end
+
+	opt_func(depth)
+
+	-- restore original
+	mep:setSpinInCoordinateSystem(point, site, ox,oy,oz,oc)
+end
+
+methods["sweepValues"] = 
+{
+	"Sweep coordinates at points and sites calling a function each time.",
+"1 Table of sweep rules, 1 function, 1 optional function: Each rule is an added dimension to the sweep. Each rule specifies a point (1 to mep:numberofPoints()), a site (1 to mep:numberOfSites()), a coordinate (1 to 3), a start value, an end value and a step value. The function will be called on the MEP for each sweep. If the 2nd optional function is specified it will be called after each sweep with the depth of the current sweep.",
+	"",
+	function( mep, rules, func, opt_func)
+	   opt_func = opt_func or (function() end)
+	   sweep_level(mep, rules, func, opt_func, 1)
+	end
+}
 
 methods["spinSystem"] =
 {
@@ -157,7 +209,7 @@ methods["pathEnergy"] =
 	"",
 	"1 Table: energies along the path",
 	function(mep)
-		get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+		local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 		
 		mep:calculateEnergies(get_site_ss, set_site_ss, get_energy_ss);
 		return mep:getPathEnergy()
@@ -173,6 +225,27 @@ methods["randomize"] =
 	"",
 	function(mep, magnitude)
 		mep:_randomize(magnitude)
+	end
+}
+
+methods["copy"] = 
+{
+	"Create a copy of the MEP object",
+	"",
+	"1 MEP oject: Copy of calling object",
+	function(mep)
+
+		local d = get_mep_data(mep)
+		local mep2 = MEP.new()
+		mep:internalCopyTo(mep2)
+
+		local id = {}
+		for k,v in pairs(d) do
+			id[k] = v
+		end
+		mep2:setInternalData(id)
+
+		return mep2		
 	end
 }
 
@@ -206,17 +279,97 @@ local function copy_to_children(mep, do_big, do_small)
 	end
 end
 
+methods["resamplePath"] =
+{
+	"Resample path using existing number of points or given number of points",
+	"0 or 1 Integers: Current or new number of path points",
+	"",
+	function(mep, _np)
+		local np = _np or mep:numberOfPathPoints()
+		mep:resampleStateXYZPath(np)
+		-- mep:setNumberOfPathPoints(np)
+	end
+}
+
+methods["equal"] =
+{
+    "Test if points or sites are equal. Equality if determined by comparing the angle between vectors.",
+    "2 Integers or 2 Tables each of 2 Integers, 1 optional Number: If 2 Tables of 2 Integers are given then they will each be interpreted as a point and site index and the two sites at the two points will be compared. If 2 Integers are given then they will be interpreted as points and all the sites at those points will be compared. If a number is provided it will be used a the maximum number of radians that two vectors can differ by and still be considered equal, default is 5 degrees converted to radians.",
+    "1 Boolean: Test result",
+    function(mep, v1,v2,tol)
+	tol = tol or 5 * math.pi / 180
+
+	if type(v1) ~= type(v2) then
+	    error("first two arguments must be the same type")
+	end
+
+	if v1 == nil then
+	    error("nil input")
+	end
+
+	if type(v1) == type(1) then -- integers
+	    for s=1,mep:numberOfSites() do
+		if not mep:equal({v1,s}, {v2,s}, tol) then
+		    return false
+		end
+	    end
+	    return true
+	end
+
+	if type(v1) == type({}) then
+	    local p1, s1, p2, s2 = v1[1], v1[2], v2[1], v2[2]
+	    local angle = mep:_angleBetweenPointSite(p1,s1,p2,s2)
+	    --print(p1,s1,p2,s2,angle,tol,angle<=tol)
+	    return angle <= tol
+	end
+
+	error("Invalid input")
+    end
+}
+
+methods["simplifyPath"] =
+{
+    "Remove cycles in a path. If a path goes from A to B to C to A to B then the path will be simplified to A to B. If a path goes from A to A to B then the path will be simplified to A to B.",
+    "1 Optional number: The maximum angle allowed between two vectors while still considering them equal. If none is supplied then 5 degrees expressed in radians is used.",
+    "",
+    function(mep, tol)
+	tol = tol or (5 * math.pi / 180)
+
+	-- we will march through the path. At each site we will look ahead at all other sites and see if it 
+	-- is the same as the current site. If so we will cull that and all sites in between. If we do that 
+	-- we will restart the algorithm until no more duplicates have been found
+	local np = mep:numberOfPoints()
+	for p=1,np-1 do
+	    for q=np,p+1,-1 do
+		if mep:equal(p,q,tol) then -- we have a cycle
+		    --print("points ", p,q, " are equal")
+		    local bad_points = {}
+		    for j=p+1,q do
+			if j < mep:numberOfPoints() then -- never ever ever delete the last point... ever
+			    table.insert(bad_points, j)
+			end
+		    end
+
+		    if table.maxn(bad_points) > 0 then -- may be zero if trying to remove last point
+			--print("Deleting " .. table.concat(bad_points))
+			mep:deletePoints(bad_points)
+			return mep:simplifyPath(tol) -- restart with a tail call
+		    end
+		end
+	    end
+	end
+    end
+}
+
 
 methods["initialize"] = 
 {
-	"Expand the endpoints into a coherent rotation over the number of path points specified with setNumberOfPathPoints.",
-	"1 Optional integer: A non-default number of points to interpolate over.",
+	"Create child MEPs for adaptive stepping. This is an internal function and is called automaticaly.",
 	"",
-	function(mep, _np)
+	"",
+	function(mep)
 		local d = get_mep_data(mep)
-		local np = _np or (d.np or 20)
-		mep:resampleStateXYZPath(np)
-		
+
 		if not mep:isChild() then
 			if d.big_step == nil then
 				d.big_step = MEP.new()
@@ -226,90 +379,105 @@ methods["initialize"] =
 				d.small_step:setChild(true)
 			end
 		end
-		d.isInitialized = true
 	end
 }
 
-local function single_compute_step(mep, get_site_ss, set_site_ss, get_energy_ss, np)
+local function single_compute_step(mep, get_site_ss, set_site_ss, get_energy_ss)
 	local d = get_mep_data(mep)
 
-	if d.isInitialized == nil then
-		mep:initialize()
-	end
+	mep:initialize()
 
 	mep:calculateEnergyGradients(get_site_ss, set_site_ss, get_energy_ss)
-	mep:makeForcePerpendicularToPath(get_site_ss, set_site_ss, get_energy_ss)
-	mep:makeForcePerpendicularToSpins(get_site_ss, set_site_ss, get_energy_ss)
+	--mep:makeForcePerpendicularToPath(get_site_ss, set_site_ss, get_energy_ss)
+	--mep:makeForcePerpendicularToSpins(get_site_ss, set_site_ss, get_energy_ss)
 	mep:applyForces()
 end
 
+local function filter_arg(arg)
+    local result = {}
+    result[ type(1) ] = {}
+    result[ type("s") ] = {}
+    result[ type({}) ] = {}
+    result[ type(print) ] = {}
+    for i=1,table.maxn(arg) do
+	result[ type(arg[i]) ] = result[ type(arg[i]) ] or {}
+	table.insert(result[ type(arg[i]) ], arg[i])
+    end
+    return result
+end
 
 methods["compute"] =
 {
 	"Run several relaxation steps of the Minimum Energy Pathway method",
-	"1 Optional Integer, 1 Optional Number: Number of steps, default 50. Tolerance different than tolerance specified.",
+	"1 Optional Integer, 1 Optional Number: Number of steps, default 50. Tolerance different than tolerance specified. Optional JSON-style table: report key with a print function.",
 	"1 Number: Number of successful steps taken, for tol > 0 this may be less than number of steps requested",
-	function(mep, n, tol)
-		local d = get_mep_data(mep)
-		local ss = mep:spinSystem()
-		local np = d.np or 20
-		local energy_function = d.energy_function
-		tol = tol or mep:tolerance()
+	function(mep, ...)
+	    local results = filter_arg(arg)
+
+	    local n    = results[ type(1) ][1] or 50 
+	    local tol  = results[ type(1) ][2] or mep:tolerance()
+	    
+	    local first_tab = results[ type({}) ][1] or {}
+
+	    local report = first_tab["report"] or function() end
+		    
+	    local d = get_mep_data(mep)
+	    local ss = mep:spinSystem()
+	    local np = mep:numberOfPathPoints()
+	    local energy_function = d.energy_function
+	    
+	    if ss == nil then
+		error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
+	    end
+	    
+	    if energy_function == nil then
+		error("Energy function is nil. Set an energy function with :setEnergyFunction")
+	    end
+	    
+	    local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+	    
+	    mep:initialize()
+	    
+	    local successful_steps = 0
+	    for i = 1,n do
+		report(string.format("step %3d of %3d, step size: %e", i, n, mep:beta()))
+		local current_beta = mep:beta()
 		
-		if ss == nil then
-			error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
-		end
+		-- first bool below is for "do_big" second is for "do_small"
+		copy_to_children(mep, true, tol>=0)
 		
-		if energy_function == nil then
-			error("Energy function is nil. Set an energy function with :setEnergyFunction")
-		end
+		d.big_step:setBeta(current_beta)
+		single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss)
 		
-        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-		
-		if d.isInitialized == nil then
-			mep:initialize()
-		end
-		
-		local successful_steps = 0
-		n = n or 50
-		for i = 1,n do
-			-- 	while successful_steps < n do
-			-- 		print(successful_steps)
-			local current_beta = mep:beta()
-			
-			-- first bool below is for "do_big" second is for "do_small"
-			copy_to_children(mep, true, tol>=0)
-			
-			d.big_step:setBeta(current_beta)
-			single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss, np)
-			
-			if tol > 0 then -- negative tolerance will mean no adaptive steps
-				d.small_step:setBeta(current_beta/2)
-				
-				single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
-				single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss, np)
-				
-				local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
-				local aDiffAvrg = aDiff / np
-				
-				-- print("beta = ", current_beta)
-				local step_mod, good_step = getStepMod(tol, maxDiff)
-				-- 			print(maxDiff, tol)
-				if good_step then
-					d.small_step:internalCopyTo(mep)
-					mep:resampleStateXYZPath(np)
-					successful_steps = successful_steps + 1
-				end
-				mep:setBeta(step_mod * current_beta)
-			else -- negative or zero tolerance: no adaptive step
-				successful_steps = successful_steps + 1
-				d.big_step:internalCopyTo(mep)
-			end
-			
+		if tol > 0 then -- negative tolerance will indicate no adaptive steps
+		    d.small_step:setBeta(current_beta/2)
+		    
+		    --print("small step 1:")
+		    single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
+		    --print("small step 2:")
+		    single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
+		    
+		    local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
+		    local aDiffAvrg = aDiff / np
+		    
+		    -- print("beta = ", current_beta)
+		    local step_mod, good_step = getStepMod(tol, maxDiff)
+		    --print("step_mod = ", step_mod)
+		    if good_step then
+			d.small_step:internalCopyTo(mep)
 			mep:resampleStateXYZPath(np)
+			successful_steps = successful_steps + 1
+		    end
+		    mep:setBeta(step_mod * current_beta)
+		else -- negative or zero tolerance: no adaptive step
+		    successful_steps = successful_steps + 1
+		    d.big_step:internalCopyTo(mep)
 		end
 		
-		return successful_steps
+		mep:resampleStateXYZPath(np)
+	    end
+	    
+	    return successful_steps
 	end
 }
 
@@ -327,23 +495,151 @@ methods["setSpinSystem"] =
 	end
 }
 
-
-methods["setNumberOfPathPoints"] =
+methods["resize"] =
 {
-	"Set the number of path points used to approximate a line (defualt 20).",
-	"1 Number: Number of path points",
+	"Set the number of path points and/or the number of sites without interpolating. This method should be used carefully.",
+	"1 or 2 Integers: New number of path points and sites. Missing values will be the existing values.",
 	"",
-	function(mep, n)
-		local d = get_mep_data(mep)
-		if type(n) ~= "number" then
-			error("setNumberOfPathPoints requires a number", 2)
-		end
-		if n < 2 then
-			error("Number of points must be 2 or greater.")
-		end
-		d.np = n
+	function(mep, npp, ns)
+		npp = npp or mep:numberOfPathPoints()
+		ns = ns or mep:numberOfSites()
+
+		mep:_resize(npp, ns)
+
+		-- mep:setNumberOfPathPoints(npp)
 	end
 }
+
+methods["path"] =
+{
+    "Get the current path.",
+    "",
+    "Table of points. Each point is a table of sites. Each site is a table of 3 numbers and a string where the numbers represent a vector and the string is a coordinate system name. This return value is compatible with setInitialPath.",
+    function(mep)
+	local t = {}
+	for p=1,mep:numberOfPoints() do
+	    t[p] = {}
+	    for s=1,mep:numberOfSites() do
+		local x1,x2,x3,cs = mep:spinInCoordinateSystem(p,s)
+		t[p][s] = {x1,x2,x3,cs}
+	    end
+	end
+	return t
+    end
+}
+
+methods["keepPoints"] =
+{
+    "Compliment of deletePoints. Delete points not provided. Synonym for reduceToPoints",
+    "N Integers or 1 Table of integers: The points to leep while deleting the others.",
+    "",
+    function(mep, ...)
+	if type(arg[1]) == type({}) then -- we were given a table
+	    arg = arg[1]
+	end
+
+	local keepers = arg
+	table.sort(keepers)
+	
+	local old_path = mep:path()
+
+	local new_path = {}
+	for i=1,table.maxn(keepers) do
+	    table.insert(new_path, old_path[keepers[i]])
+	end
+	
+	mep:setInitialPath(new_path)
+    end
+}
+
+methods["deletePoints"] =
+{
+    "Delete points at the given indices.",
+    "N Integers or 1 Table of integers: The points to delete while keeping the others.",
+    "",
+    function(mep, ...)
+	if type(arg[1]) == type({}) then -- we were given a table
+	    arg = arg[1]
+	end
+
+	local keepers = {}
+	for p=1,mep:numberOfPoints() do
+	    keepers[p] = p
+	end
+
+	table.sort(arg)
+
+	for i=table.maxn(arg),1,-1 do
+	    table.remove(keepers, arg[i])
+	end
+
+	mep:keepPoints(keepers)
+    end
+}
+
+
+methods["copyPointTo"] =
+{
+	"Copy configuration at source indices to destination indices.",
+	"2 Integers or 2 Tables of Integers",
+	"",
+	function(mep, a,b)
+		if type(a) == type(1) then
+			a = {a}
+		end
+		if type(b) == type(1) then
+			b = {b}
+		end
+		return mep:_copy(a,b)
+	end
+}
+
+methods["swapPoints"] =
+{
+	"Swap configuration at source indices and destination indices.",
+	"2 Integers or 2 Tables of Integers",
+	"",
+	function(mep, a,b)
+		if type(a) == type(1) then
+			a = {a}
+		end
+		if type(b) == type(1) then
+			b = {b}
+		end
+		return mep:_swap(a,b)
+	end
+}
+
+
+
+--[[
+methods["pointNearSingularity"] =
+{
+	"Check if a vector at a point and site is near a singularity either in the given coordinate system or in the current coordinate system.",
+	"2 Integers, 1 optional ",
+	"",
+	function(mep, point, site, cs)
+		cs = cs or mep:coordinateSystem()
+
+		local x,y,z = mep:spin(point, site)
+		local r = (x^2 + y^2 + z^2)^(1/2)
+		if r == 0 then
+		   return true
+		end
+		-- "Cartesian", "Spherical", "Canonical", "SphericalX", "SphericalY", "CanonicalX", "CanonicalY"
+		local v = {x/r, y/r, z/r}
+
+		if type(a) == type(1) then
+			a = {a}
+		end
+		if type(b) == type(1) then
+			b = {b}
+		end
+		return mep:_copy(a,b)
+	end
+}
+--]]
+
 
 -- local function setGradientMaxMotion(mep, dt)
 -- 	local d = get_mep_data(mep)
@@ -390,6 +686,10 @@ methods["setSites"] =
 			error("setSites requires a table of 1,2 or 3 Component Tables representing sites.") 
 		end
 		
+		-- need to clear children so they get reinitialized
+        local d = get_mep_data(mep)
+		d.big_step = nil
+
 		mep:clearSites()
 		for k,v in pairs(tt) do
 			mep:_addSite(v[1], v[2], v[3])
@@ -416,7 +716,7 @@ methods["site"] =
 methods["setInitialPath"] =
 {
 	"Set the initial path for the Minimum Energy Pathway calculation. Must be called after :setSpinSystem",
-	"1 Table of Tables of site orientations or nils: Must be at least 2 elements long to define the start and end points. Example:\n<pre>upupup     = {{0,0,1}, {0,0,1}, {0,0,1}}\ndowndowndc = {{0,0,-1},{0,0,-1},nil}\n mep:setInitialPath({upupup,downdowndc})\n</pre>Values of nil for orientations in the start or end points mean that the algorithm will not attempt to keep them stationary - they will be allowed to drift. Their initial value will be whatever they are in the SpinSystem at the time the method is called. These drifting endpoints are sometimes referred to as `don't care' sites.",
+	"1 Table of Tables of site orientations or nils: Must be at least 2 elements long to define the start and end points. Example:\n<pre>upupup     = {{0,0,1}, {0,0,1}, {0,0,1}}\ndowndowndc = {{0,0,-1},{0,0,-1},nil}\n mep:setInitialPath({upupup,downdowndc})\n</pre>Values of nil for orientations in the start or end points mean that the algorithm will not attempt to keep them stationary - they will be allowed to drift. Their initial value will be whatever they are in the SpinSystem at the time the method is called. These drifting endpoints are sometimes referred to as `don't care' sites. Coordinate systems are Cartesian by default but a 4th table value of a string can specify the coordinate system.",
 	"",
 	function(mep, pp)
 		local ss = mep:spinSystem() or error("SpinSystem must be set before :setInitialPath()")
@@ -442,18 +742,19 @@ methods["setInitialPath"] =
 			
 			for s=1,numSites do
 				local x, y, z = ss:spin( sites[s] )
+				local c = "Cartesian"
 				if pp[p][s] == nil then --user doesn't care
 					mep:_setImageSiteMobility(p, s, 1)
-				else
+				else -- user gave explicit orientations
 					x = pp[p][s][1] or x
 					y = pp[p][s][2] or y
 					z = pp[p][s][3] or z
+					c = pp[p][s][4] or "Cartesian"
 					mep:_setImageSiteMobility(p, s, mobility)
 				end
-				mep:_addStateXYZ(x,y,z)
+				mep:_addStateXYZ(x,y,z,c)
 			end
 		end
-		-- 	print("PP=", table.maxn(pp))
 	end
 }
 
@@ -461,14 +762,23 @@ methods["setInitialPath"] =
 
 methods["numberOfPathPoints"] =
 {
-	"Get the number of path points used to approximate a line (defualt 20).",
+	"Get the number of path points used to approximate a line.",
 	"",
 	"1 Integer: Number of path points",
 	function(mep)
-		local d = get_mep_data(mep)
-		return (d.np or 20)
+		return mep:pathPointCount()
 	end
 }
+
+methods["numberOfPoints"] =
+{
+	"Synonym for :numberOfPathPoints()",
+	methods["numberOfPathPoints"][2],
+	methods["numberOfPathPoints"][3],
+	methods["numberOfPathPoints"][4],
+}
+
+
 
 methods["numberOfSites"] = 
 {
@@ -476,7 +786,7 @@ methods["numberOfSites"] =
 	"",
 	"1 Integer: Number of sites.",
 	function(mep)
-		return table.maxn(mep:sites())
+		return mep:siteCount()
 	end
 }
 
@@ -509,7 +819,7 @@ methods["pathEnergyNDeriv"] =
 			mep:initialize()
 		end
 		
-        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 		
 		return mep:_pathEnergyNDeriv(n, get_site_ss, set_site_ss, get_energy_ss)
 	end
@@ -523,13 +833,14 @@ local function relaxPoint(mep, pointNum, steps, goal)
 	local energy_function = mep:energyFunction()
 	local tol = nonDefaultTol or mep:tolerance()
 		
-	get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 
 	steps = steps or 10
 	goal = goal or 0
 	local h, good_steps = nil
 	for i=1,steps do
 		min_mag_grad, h, good_steps = mep:_relaxSinglePoint_sd(pointNum, get_site_ss, set_site_ss, get_energy_ss, h, goal)
+		-- print(min_mag_grad, "<", goal)
 		if min_mag_grad < goal then
 			return min_mag_grad
 		end
@@ -562,7 +873,7 @@ methods["slidePoint"] =
 			mep:initialize()
 		end
 		
-        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 		
 		local numSteps = numSteps or 50
 
@@ -591,7 +902,7 @@ methods["classifyPoint"] =
 			mep:initialize()
 		end
 		
-        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
  		
 		return mep:_classifyPoint(get_site_ss, set_site_ss, get_energy_ss, pointNum, h)
 	end
@@ -653,7 +964,7 @@ methods["secondDerivativeAtPoint"] = {
 	"1 Integer, 2 Integers, 2 optional Numbers: The first integer is the point number. The next 2 integers are coordinate numbers. Valid values are between 1 and then number of sites time 3. A 2 Site problem would accept numbers between 1 and 6 inclusively. The optional numbers are step sizes for the numeric differentiaion",
 	"1 Number: second derivative of energy with repect to the coordinates",
 	function(mep, pointNum, c1, c2, h1, h2)
-        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 
 		if c1 < 1 or c1 > mep:numberOfSites()*3 then
 			error("c1 out of bounds")
@@ -678,7 +989,7 @@ methods["hessianAtPoint"] = {
 	"1 Integer, 1 Optional Array: Point to calculate 2nd derivative about. If no array is provided one will be created",
 	"1 Array: Derivatives",
 	function(mep, pointNum, destArray)
-        get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 		
 		local c = mep:siteCount()
 		
@@ -707,7 +1018,9 @@ methods["coordinateComponentNames"] =
 	"1 Optional String: \"Cartesian\", \"Canonical\" or \"Spherical\". If no string is provided then the current coordinate system is assumed.",
 	"2 Tables of Strings: Short and long forms",
 	function(mep, s)
-		s = s or mep:coordinateSystem()
+		if s == nil then
+		   error("Coordinate system required")
+		end
 		local data = {}
 		data["cartesian"] = {{"x", "y", "z"}, {"X Axis", "Y Axis", "Z Axis"}}
 		data["spherical"] = {{"r", "p", "t"}, {"Radial", "Azimuthal", "Polar"}}
@@ -716,7 +1029,7 @@ methods["coordinateComponentNames"] =
 			error("method requires a coordinate system name")
 		end
 		if data[string.lower(s)] == nil then
-			error("method requires a validcoordinate system name")
+			error("method requires a valid coordinate system name, given = `" .. s .. "'")
 		end
 		local t = data[string.lower(s)]
 		return t[1], t[2]
@@ -747,7 +1060,8 @@ methods["criticalPoints"] =
 }
 
 
-methods["reduceToPoints"] = 
+methods["reduceToPoints"] = methods["keepPoints"]
+--[[
 {
 	"Reduce the path to the given set of points. The points between the given points will be discarded and the total number of points will be reduced to the given number of points.",
 	"N Integers or 1 Table of integers: The points to keep while discarding the others.",
@@ -761,18 +1075,18 @@ methods["reduceToPoints"] =
 		for i,v in pairs(arg) do
 			local t = {}
 			for j=1,mep:numberOfSites() do
-				local x,y,z = mep:spin(v, j)
-				t[j] = {x,y,z}
+		        local x1, x2, x3, cs = mep:_nativeSpin(v,j)
+				t[j] = {x1,x2,x3,cs}
 			end
 			new_initial_path[i] = t
 			n = n + 1
 		end
 
 		mep:setInitialPath(new_initial_path)
-		mep:setNumberOfPathPoints(n)
+		-- mep:setNumberOfPathPoints(n) -- this is done in the above call
 	end
 }
-
+--]]
 
 methods["reduceToCriticalPoints"] = 
 {
@@ -831,13 +1145,13 @@ local function sub_mep(mep, p1, p2)
 	for p=p1,p2 do
 		local state = {}
 		for s=1,ns do
-			local x, y, z = mep:spin(p, s)
-			table.insert(state, {x,y,z})
+			local x, y, z, cs = mep:_nativeSpin(p, s)
+			table.insert(state, {x,y,z,cs})
 		end
 		table.insert(sub_path, state)
 	end
 	
-	smep:setNumberOfPathPoints(p2-p1+1)
+	-- smep:setNumberOfPathPoints(p2-p1+1) -- this is done in setInitialPath
 	smep:setSites(mep:sites())
 	smep:setInitialPath(sub_path)
 
@@ -918,8 +1232,8 @@ methods["merge"] =
 			local t = {}
 			local s = mep:numberOfSites()
 			for i=1,s do
-				local x,y,z = mep:spin(p, i) 
-				t[i] = {x,y,z}
+				local x,y,z,cs = mep:_nativeSpin(p, i) 
+				t[i] = {x,y,z,cs}
 			end
 			return t
 		end
@@ -932,51 +1246,310 @@ methods["merge"] =
 			end
 		end
 
-		mep:setNumberOfPathPoints(table.maxn(initial_path))
+		-- mep:setNumberOfPathPoints(table.maxn(initial_path)) -- done in setInitialPath
 		mep:setInitialPath(initial_path)
 		mep:initialize()
 
 	end
 }
 
-
 methods["convertCoordinateSystem"] =
 {
 	"Convert a vector from a source coordinate system to a destination coordinate system",
-	"2 Strings, 1 Table of 3 Numbers or 3 Numbers: Source and Destination Coordinate System names (must match one" ..
-		"of the return values from MEP:coordinateSystems() ) and a vector given either as a table of nubmers or as 3 numbers.",
+	"1 Table of 3 Numbers or 3 Numbers, 2 Strings: A vector given either as a table of nubmers or as 3 numbers and Source and Destination Coordinate System names (must match one" ..
+		"of the return values from MEP:coordinateSystems() ).",
 	"1 Table of 3 Numbers or 3 Numbers and 1 String: The return transformed vector will be returned in the same format as the input vector and the name of the new coordinate system will be returned as the last argument",
 
-	function(mep, src_cs, dest_cs, ...)
-		local possible_cs = mep:coordinateSystems()
-		local src_cs_idx = nil
-		local dest_cs_idx = nil
-		local input_as_table = nil
-		for k,v in pairs(possible_cs) do
-			if string.lower(v) == string.lower(src_cs) then
-				src_cs_idx = k-1
-			end
-			if string.lower(v) == string.lower(dest_cs) then
-				dest_cs_idx = k-1
-			end
-		end
-
-		if src_cs_idx == nil then error("Invalid source coordinate system") end
-		if dest_cs_idx == nil then error("Invalid destination coordinate system") end
-
-		if type(arg[1]) == type({}) then -- we were given a table
-            arg = arg[1]
-			input_as_table = true
-        end
-
-		local a,b,c = arg[1], arg[2], arg[3]
-		a,b,c = mep:_convertCoordinateSystem(a,b,c, src_cs_idx, dest_cs_idx)
-
-		if input_as_table then
-			return {a,b,c}, possible_cs[dest_cs_idx+1]
-		end
-		return a,b,c, possible_cs[dest_cs_idx+1]
+	function(mep, ...)
+		return mep:_convertCoordinateSystem(...)
 	end
+}
+
+local function pointsOnSphere(mep, n, rad, cs)
+	cs = cs or "Cartesian"
+	rad = rad or 1
+	local dlong = math.pi * (3 - math.sqrt(5))
+    local dz =  2/n
+	local long = 0
+	local z =  1 - dz/2
+	local t = {}
+	for k=1,n do
+		if z < -1 then
+		   z = 1
+		end
+		local r = math.sqrt(1-z^2)
+		local x1,x2,x3,cc = mep:convertCoordinateSystem(math.cos(long)*r*rad, math.sin(long)*r*rad, z*rad, "Cartesian", cs)
+		local p = {x1,x2,x3,cc}
+		table.insert(t, p)
+        z    = z - dz
+        long = long + dlong
+	end
+    return t
+end
+
+-- increment multidimensional value in t with max-value n
+local function incd(t, n, i)
+	i = i or 1
+	t[i] = (t[i] or 0) + 1
+	if t[i] == n+1 then
+	   t[i] = 1
+	   return incd(t,n,i+1)
+	end
+	return t
+end
+
+local function getFromTables(src, idxs)
+	local t = {}
+	for i=1,table.maxn(idxs) do
+		table.insert(t, src[i][idxs[i]])  
+	end
+	return t
+end
+
+methods["evenlyDistributedPoints"] = 
+{
+	"Get a list of points evenly distributed over the sites. Each point is a table of orientations.",
+	"1 Integer, 1 Optional string: Number of points, name of coordinate system (default Cartesian).",
+	"1 Table: Each table element is a table of orientations.",
+	function(mep, n, cs)
+		-- the plan is to get an even distribution of points on each 
+		-- site and then combine them to get even distribution over all
+		-- sites
+
+		local list = {}
+
+		local ns = mep:numberOfSites()
+		local ss = mep:spinSystem()
+		local sites = mep:sites()
+		local points_per_sphere = math.ceil(n ^ (1/ns))
+		local points = {}
+		for i=1,ns do
+			local magnitude = ss:spinArrayM():get(sites[i])
+			local r = pointsOnSphere(mep, points_per_sphere, magnitude, cs)
+			points[i] = r
+		end
+
+		-- we now have an even distribution of points for each site stored in the array "points"
+		local idx = {}
+		for i=1,ns do
+			table.insert(idx, 1)
+		end
+		for i=1,points_per_sphere^ns do
+			table.insert(list, getFromTables(points, idx))
+			idx = incd(idx, points_per_sphere)
+		end
+
+		-- cut list down to requested size (rather than something to the power of the number of sites)
+		while table.maxn(list) > n do
+			table.remove(list)
+		end
+
+		return list
+	end
+}
+
+
+local function global_relax_single_compute_step(mep, get_site_ss, set_site_ss, get_energy_ss)
+	local d = get_mep_data(mep)
+
+	mep:initialize()
+
+	mep:calculateEnergyGradients(get_site_ss, set_site_ss, get_energy_ss)
+	mep:applyForces(false) -- false = don't use internal mobility factor (all mobile)
+end
+
+
+methods["globalRelax"] =
+{
+	"Run several relaxation steps where each point follows the local gradient. Path resampling is not done. This is similar to :compute() minus the resampling.",
+	"1 Optional Integer, 1 Optional Number: Number of steps, default 50. Tolerance different than tolerance specified.",
+	"1 Number: Number of successful steps taken, for tol > 0 this may be less than number of steps requested",
+	function(mep, n, tol)
+		local d = get_mep_data(mep)
+		local ss = mep:spinSystem()
+		local np = mep:numberOfPathPoints()
+		local energy_function = d.energy_function
+		tol = tol or mep:tolerance()
+		
+		if ss == nil then
+			error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
+		end
+		
+		if energy_function == nil then
+			error("Energy function is nil. Set an energy function with :setEnergyFunction")
+		end
+		
+        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+		
+		mep:initialize()
+		
+		local successful_steps = 0
+		n = n or 50
+		for i = 1,n do
+			local current_beta = mep:beta()
+			
+			-- first bool below is for "do_big" second is for "do_small"
+			copy_to_children(mep, true, tol>=0)
+					
+			d.big_step:setBeta(current_beta)
+			global_relax_single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss)
+			
+			if tol > 0 then -- negative tolerance will indicate no adaptive steps
+				d.small_step:setBeta(current_beta/2)
+				
+				global_relax_single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
+				global_relax_single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
+				
+				local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
+				local aDiffAvrg = aDiff / np
+				
+				local step_mod, good_step = getStepMod(tol, maxDiff)
+				if good_step then
+					d.small_step:internalCopyTo(mep)
+					-- resampling is not done for this method
+					successful_steps = successful_steps + 1
+				end
+				mep:setBeta(step_mod * current_beta)
+			else -- negative or zero tolerance: no adaptive step
+				successful_steps = successful_steps + 1
+				d.big_step:internalCopyTo(mep)
+			end
+			
+			-- resampling is not done for this method
+		end
+		
+		return successful_steps
+	end
+}
+
+methods["uniquePoints"] =
+    {
+    "Get a list of which points that are unique.",
+    "Zero or 1 numbers, 0 or 1 tables: Tolerances used to determine equality. If a number is provided it will be used. The tolerance is radian difference that two \"equal\" vectors can differ by, default is the default used by the mep:equal() metamethod. If a table is provided then only the points in the table will be considered, otherwise all points will be considered.",
+    "1 Table: Indexes of unique points",
+    function(mep, ...)
+	local nums, tabs = {}, {}
+	for k,v in pairs(arg) do
+	    if(type(v)) == type(0) then -- number
+		table.insert(nums, v)
+	    end
+	    if(type(v)) == type({}) then -- table
+		table.insert(tabs, v)
+	    end
+	end
+	
+	local pts = {}
+	if tabs[1] == nil then
+	    for i=1,mep:numberOfPoints() do
+		pts[i] = i
+	    end
+	    return mep:uniquePoints(nums[1], pts)
+	end
+
+	for k,v in pairs(tabs[1]) do -- making a copy of the table
+	    pts[k] = v
+	end
+
+	local np = table.maxn(pts)
+
+	for i=1,np do
+	    for j=i+1,np do
+		if pts[j] and pts[i]then
+		    if mep:equal(pts[i], pts[j], nums[1]) then
+			if pts[i] == 1 then -- we keep 1
+			    pts[j] = nil
+			else
+			    pts[i] = nil
+			end
+		    end
+		end
+	    end
+	end
+
+	local up = {}
+	for i=1,np do
+	    if pts[i] then
+		table.insert(up, pts[i])
+	    end
+	end
+	return up
+    end
+}
+
+
+local function p_cs(mep)
+	for p=1,mep:numberOfPoints() do
+		local t = {}
+		for s=1,mep:numberOfSites() do
+			t[s] = mep:coordinateSystem(p,s)
+		end
+		print(p, table.concat(t, ", "))
+	end
+end
+
+methods["findMinima"] =
+    {
+    "Find the coordinates of minima in the energy landscape",
+    "1 Integer or input compatible with :setInitialPath(): Number of initial points which will be spread out evenly over hyper-sphere created by the sites involved in the calculation. If a table is instead given then the orientations in it will be used for the search start. Additionally, a JSON-style table can be provided as the second argument with data at a \"report\" key, data at a \"cs\" key and  and data at a \"plan\" key. The data at the report will be a function that will be called with human readable data regarding the progress of the algorithm (common choice is the print function). The cs key is the coordinate system used in the case that you are not specifying starting points but a point count and the program will evenly distribute them (a common choice, as well as the default, is \"Spherical\"). The plan data is a table of step definitions. Each step definition is a table with numberic values representing outter steps, relax tolerance,  relax steps, equal test criteria (degrees).",
+    "Table of minima: Each minimum will be a table of sites, each site is 3 numbers representing a vector and a string naming the coordinate system.",
+    
+    function(mep, n, json) --data_function)
+	json = json or {}
+	if type(n) == type(4) then -- need n points over hypersphere		
+	    local cs = json.cs or "Spherical"
+	    return mep:findMinima(mep:evenlyDistributedPoints(n, cs), json)
+	end
+	if type(n) == type({}) then
+	    local report = json.report or function() end
+	    mep:setInitialPath(n)
+
+	    local default_plan = {
+		-- steps, relax tol,  relax steps, equal test
+		{      5,         1,            5,     0.1},
+		{      5,       1/4,            5,     0.5},
+		{      5,       1/2,            5,     0.7},
+		{     10,       3/4,           10,     1.0},
+		{     10,       3/4,           10,     3.0},
+		{     10,       3/4,           10,     4.0},
+		{     10,       0.1,           10,     0.1} -- settle down
+	    }
+	    
+	    local plan = json.plan or  default_plan
+
+	    for k,v in pairs(plan) do
+		local steps  = v[1]
+		local rtol   = v[2]
+		local rsteps = v[3]
+		local eqtol  = v[4]
+
+		for i=1,steps do
+		    local x = mep
+	    
+		    local x = mep:globalRelax(rsteps, rtol)
+		    local up = mep:uniquePoints(eqtol * math.pi/180)
+		    mep:reduceToPoints(up)
+		    report(string.format("Global relax tolerance: %4g, " .. 
+					 "Unique test degrees: %4g, Unique points: %4d",
+				     rtol, eqtol, table.maxn(up)))
+		end
+	    end
+
+	    local m = {}
+	    for p=1,mep:numberOfPoints() do
+		local t = {}
+		for s=1,mep:numberOfSites() do
+		    local x,y,z,c = mep:spinInCoordinateSystem(p,s)
+		    t[s] = {x,y,z,c}
+		end
+		m[p] = t
+	    end
+
+	    return m
+	end
+	
+
+	error("`findMinima' expects an integer or table as input")
+    end
 }
 
 
@@ -986,7 +1559,6 @@ methods["spinInCoordinateSystem"] =
 	"2 Integers, Optional String: 1st integer is path index, 2nd integer is site index. Positive values count from the start, negative values count from the end. If a string is given the vector will be returned that that coordinate system",
 	"3 Numbers: Vector at site s at path point p.",
 	function(mep, ...)
-		local cs = mep:coordinateSystem()
 		local ints = {}
 		local txts = {}
 
@@ -999,10 +1571,68 @@ methods["spinInCoordinateSystem"] =
 			end
 		end
 
-		local x1, x2, x3 = mep:spin(ints[1] or 0, ints[2] or 0)
-		
-		return mep:convertCoordinateSystem("Cartesian", txts[1] or cs, x1,x2,x3)
+		local point = ints[1] or 0
 
+		if point == 0 then
+		    error("Invalid point: mep:spinInCoordinateSystem(" .. table.concat(arg, ",") .. ")")
+		end
+
+		if point < 0 then
+			point = mep:numberOfPathPoints() + point + 1
+		end
+
+		local site = ints[2] or 0
+		if site == 0 then
+			error("Invalid site")
+		end
+		if site < 0 then
+			site = mep:numberOfSites() + site + 1
+		end
+		local x1, x2, x3, cs = mep:_nativeSpin(point, site)
+		
+		--print("NS", x1,x2,x3,cs)
+		--local cs = mep:coordinateSystem(point,site)
+		-- print("CCS", x1,x2,x3,cs, txts[1] or cs)
+		
+		return mep:convertCoordinateSystem(x1,x2,x3,cs, txts[1] or cs)
+
+	end
+}
+
+methods["setPointSiteMobility"] =
+{
+	"Usually the endpoints are fixed for the MEP algorithm. This allows the explicit setting of the mobility",
+	"2 Integers, 1 Number or 1 Integer, 1 Table: Point and site indices and a mobility value: 0 for fixed, 1 for free. If a site is not provided then a table can be passed to set all site at the point.",
+	"",
+	function (mep,p,s,v)
+		if type(s) == type(1) then
+		   mep:_setImageSiteMobility(p,s,v)
+		   return
+		end
+		if type(s) == type({}) then
+		   for i=1,mep:numberOfSites() do
+		   	   mep:setPointSiteMobility(p,i,s[i])
+		   end
+		   return
+		end
+		error("Invalid arguments")
+	end
+}
+
+methods["pointSiteMobility"] =
+{
+	"Usually the endpoints are fixed for the MEP algorithm. This allows the explicit retreival of the mobility",
+	"1 or 2 Integers: Point and site indices. If the site index is not provided then a table of mobilities will be returned",
+	"1 Number or 1 Table:  Mobility value: 0 for fixed, 1 for free. If the site is not specified then a table of site mobilities at the given point will be returned",
+	function (mep,p,s)
+		if s == nil then
+		   local t = {}
+		   for i=1,mep:numberOfSites() do
+		   	   t[i] = mep:pointSiteMobility(p,i)
+		   end
+		   return t
+		end
+		return mep:_getImageSiteMobility(p,s)
 	end
 }
 
@@ -1010,7 +1640,7 @@ methods["spinInCoordinateSystem"] =
 methods["setSpinInCoordinateSystem"] =
 {
 	"Set site as current coordinate system or given coordinate system",
-	"2 Integers, 3 Numbers or 1 table of 3 Numbers, 1 Optional String: 1st integer is path index, 2nd integer is site index, 3 numbers represent the new vector in the current coordinate system. If a string is given then the input is assumed to be in that coordinate system, otherwise the current coordinate system is used.",
+	"2 Integers, 3 Numbers, 1 Optional String: 1st integer is path index, 2nd integer is site index, 3 numbers represent the new vector in the current coordinate system. If a string is given then the input is assumed to be in that coordinate system, otherwise the current coordinate system is used.",
 	"",
 	function(mep, ...)
 		local cs = mep:coordinateSystem()
@@ -1020,7 +1650,7 @@ methods["setSpinInCoordinateSystem"] =
 
 		for i=1,table.maxn(arg) do
 			if type(arg[i]) == type({}) then
-				table.insert(tabs, arg[i])
+			   error("setSpinInCoordinateSystem no longer accepts tables")
 			end
 			if type(arg[i]) == type(1) then
 				table.insert(nums, arg[i])
@@ -1035,12 +1665,16 @@ methods["setSpinInCoordinateSystem"] =
 		table.remove(nums, 1)
 		table.remove(nums, 1)
 
-		if tabs[1] == nil then
-			tabs[1] = nums
+		if txts[1] == nil then
+		   txts[1] = mep:coordinateSystem(p,s)
 		end
 
-		tabs[1] = mep:convertCoordinateSystem(txts[1] or cs, "Cartesian", tabs[1])
-		mep:setSpin(p,s, tabs[1])
+		local x,y,z,c = nums[1], nums[2], nums[3], txts[1]
+
+		-- print("SCS", x,y,z,c)
+		x,y,z,c = mep:convertCoordinateSystem(x,y,z,c,"Cartesian")
+
+		mep:setSpin(p,s, x,y,z,c)
 	end
 }
 

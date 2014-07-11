@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=longrange2d_luafuncs.lo spinoperationlongrange2d.o
+OBJECTS=longrange2d_luafuncs.lo longrange2d_main.lo spinoperationlongrange2d.o
 LIBNAME=LongRange2D
 CATEGORY=cpu
 
@@ -18,4 +18,4 @@ DEPEND=core luabaseobject array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 
-EXTRA_CLEAN=longrange2d_luafuncs.cpp longrange2d_luafuncs.h
+EXTRA_CLEAN=longrange2d_luafuncs.cpp longrange2d_luafuncs.h longrange2d_main.cpp longrange2d_main.h
