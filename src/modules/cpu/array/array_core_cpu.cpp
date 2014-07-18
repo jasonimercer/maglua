@@ -232,8 +232,8 @@ static int l_abs(lua_State* L)
 {
 	LUA_PREAMBLE(Array<T>, a, 1);
 	Array<T>* b = 0;
-	if(luaT_is< Array<T> >(L, 3))
-		b = luaT_to< Array<T> >(L, 3);
+	if(luaT_is< Array<T> >(L, 2))
+		b = luaT_to< Array<T> >(L, 2);
 	else
 		b = new Array<T>(a->nx, a->ny, a->nz);
 
@@ -242,6 +242,24 @@ static int l_abs(lua_State* L)
 	luaT_push< Array<T> >(L, b);
 	return 1;
 }
+
+template<typename T>
+static int l_pow(lua_State* L)
+{
+    LUA_PREAMBLE(Array<T>, a, 1);
+    double power = lua_tonumber(L, 2);
+    Array<T>* b = 0;
+    if(luaT_is< Array<T> >(L, 3))
+	b = luaT_to< Array<T> >(L, 3);
+    else
+	b = new Array<T>(a->nx, a->ny, a->nz);
+    
+    Array<T>::pow(b, a, power);
+    
+    luaT_push< Array<T> >(L, b);
+    return 1;
+}
+
 template<typename T>
 static int l_resize(lua_State* L)
 {
@@ -586,6 +604,7 @@ static const luaL_Reg* get_base_methods()
 		{"mean",    l_mean<T>},
 		{"sum",     l_sum<T>},
 		{"absoluted", l_abs<T>},
+		{"elementsRaisedTo", l_pow<T>},
 		{"resize", l_resize<T>},
 		{"scale",   l_scale<T>},
 		{"toTable", l_totable<T>},
@@ -1099,6 +1118,14 @@ static int Array_help(lua_State* L)
 		lua_pushstring(L, "Take the absolute value of all elements.");
 		lua_pushstring(L, "1 optional Array: Destination. If empty, a new array will be created.");
 		lua_pushstring(L, "1 Array: The absolute value of the calling array.");
+		return 3;
+	}
+	lua_CFunction f15q = l_pow<T>;
+	if(func == f15q)
+	{
+		lua_pushstring(L, "Raise each element to the given power.");
+		lua_pushstring(L, "1 Number, 1 optional Array: Power to raise each element. Destination, if empty a new array will be created.");
+		lua_pushstring(L, "1 Array: Array with elements raised to the given power");
 		return 3;
 	}
 	lua_CFunction f15c = l_resize<T>;

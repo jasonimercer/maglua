@@ -112,8 +112,16 @@ KMC.Wood.new = function(ss)
 			ss:setSpin(pos, {sx,sy,-sz})
 		end
 
-		-- as required, returning energy barrier, attempt frequency and code that will do the event
-		return EB, f0, event
+		-- as required, time and event
+		local kT = kmc:temperature()
+		local rng = kmc:rng()
+		local decay = f0 * math.exp(-EB/kT)
+		local r = rng:rand()
+
+		local time = -math.log(r) / decay
+
+
+		return time, event
 
 	end
 

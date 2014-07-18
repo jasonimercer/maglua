@@ -97,6 +97,8 @@ public:
 
 	int relaxSinglePoint_SteepestDecent(lua_State* L);
 	int relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_index, int energy_index, int point, double h, int steps);
+	int expensiveEnergyMinimization(lua_State* L, int get_index, int set_index, int energy_index, int point, double h, int steps);
+	int expensiveGradientMinimization(lua_State* L, int get_index, int set_index, int energy_index, int point, double h, int steps);
 
 //	int relaxSinglePoint(lua_State* L);
 // 	int relaxSaddlePoint(lua_State* L);

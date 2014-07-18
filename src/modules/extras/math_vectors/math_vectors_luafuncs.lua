@@ -46,10 +46,14 @@ local function angleBetween(a,b)
 	local n = norm(a) * norm(b)
 	
 	if n == 0 then
-		return 0
+	    return 0
 	end
 	
 	local ct = dot(a, b) / n
+
+	-- floating point problems:
+	if ct < -1 then ct = -1 end
+	if ct >  1 then ct =  1 end
 
 	return math.acos(ct)
 end

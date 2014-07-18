@@ -324,18 +324,23 @@ static void _convertCoordinateSystem(
 	}
 	if(src_cs == Spherical)
 	{
-		if(dest_cs == Canonical)
-		{
-			dest[CANONICAL_R] = src[SPHERICAL_R];
-			dest[CANONICAL_PHI] = src[SPHERICAL_PHI];
-			dest[CANONICAL_P] = cos(src[SPHERICAL_THETA]);
-		}
 		if(dest_cs == Cartesian)
 		{
-			dest[CARTESIAN_X] = src[0] * cos( src[SPHERICAL_PHI] ) * sin( src[SPHERICAL_THETA] );
-			dest[CARTESIAN_Y] = src[0] * sin( src[SPHERICAL_PHI] ) * sin( src[SPHERICAL_THETA] );
-			dest[CARTESIAN_Z] = src[0] * cos( src[SPHERICAL_THETA] );
+		    double r = src[SPHERICAL_R];
+		    double p = src[SPHERICAL_PHI];
+		    double t = src[SPHERICAL_THETA];
+
+		    dest[CARTESIAN_X] = src[0] * cos( p ) * sin( t );
+		    dest[CARTESIAN_Y] = src[0] * sin( p ) * sin( t );
+		    dest[CARTESIAN_Z] = src[0] * cos( t );
 		}
+		else
+		{
+		    double t[3];
+		    _convertCoordinateSystem(src_cs, Cartesian, src, t);
+		    _convertCoordinateSystem(Cartesian, dest_cs, t, dest);
+		}
+
 	}
 	if(src_cs == Canonical)
 	{
@@ -354,23 +359,18 @@ static void _convertCoordinateSystem(
 			}
 		}
 
-		while(phi < 0)
-			phi += 2.0 * M_PI;
-		while(phi >= 2.0 * M_PI)
-			phi -= 2.0 * M_PI;
-
-		if(dest_cs == Spherical)
-		{
-			dest[SPHERICAL_R] = r;
-			dest[SPHERICAL_PHI] = phi;
-			dest[SPHERICAL_THETA] = _acos(p);
-		}
 		if(dest_cs == Cartesian)
 		{
 			const double t = _acos(p);
 			dest[CARTESIAN_X] = r * cos( phi ) * sin( t );
 			dest[CARTESIAN_Y] = r * sin( phi ) * sin( t );
 			dest[CARTESIAN_Z] = r * p;
+		}
+		else
+		{
+		    double t[3];
+		    _convertCoordinateSystem(src_cs, Cartesian, src, t);
+		    _convertCoordinateSystem(Cartesian, dest_cs, t, dest);
 		}
 	}
 }
@@ -395,6 +395,43 @@ VectorCS VectorCS::normalizedTo(double length) const
 	return copy().setMagnitude(length);
 }
 
+
+// bring the values for periodic coordinates in good looking ranges
+void VectorCS::fix()
+{
+    return;
+    if(cs == Cartesian || cs == Undefined)
+	return; // nothing to be done here
+
+    if(cs == Canonical)
+    {
+	double& phi   = v[1];
+	double& p     = v[2];
+
+
+	// done thinking about the "smart" way to do this:
+	if(p < -1 || p > 1 || phi < 0 || phi > 2*M_PI)
+	{
+	    convertToCoordinateSystem(Cartesian);
+	    convertToCoordinateSystem(Canonical);
+	}
+    }
+    
+    if(cs == Spherical)
+    {
+	double& phi   = v[1];
+	double& theta = v[2];
+
+
+	// done thinking about the "smart" way to do this:
+	if(theta < 0 || theta > M_PI || phi < 0 || phi > 2*M_PI)
+	{
+	    convertToCoordinateSystem(Cartesian);
+	    convertToCoordinateSystem(Spherical);
+	}
+    }
+
+}
 
 void VectorCS::scaleFactors(double* sf)
 {
@@ -546,6 +583,7 @@ void VectorCS::scale(double* s3)
 {
 	for(int i=0; i<3; i++)
 		v[i] *= s3[i];
+	fix();
 }
 
 VectorCS VectorCS::scaled(double* s3) const
@@ -794,7 +832,7 @@ CoordinateSystem coordinateSystemByName(const char* name)
 	for(int i=0; i<7; i++)
 	{
 		const char* c = nameOfCoordinateSystem( (CoordinateSystem) i );
-		const int len = strlen(c);
+		const int len = strlen(name);
 
 		if(strncasecmp(c, name, len) == 0)
 		{

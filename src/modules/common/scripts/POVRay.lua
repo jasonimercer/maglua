@@ -295,7 +295,7 @@ function POVRay(filename, ss, custom)
 
 	local nx, ny, nz = ss:nx(), ss:ny(), ss:nz()
 	local nn = (nx*nx+ny*ny+nz*nz)^(1/2)
-	local cam_pos = custom.camera_position or {nx/2+1/2, -(1/8) * nn, (3/4) * nn}
+	local cam_pos = custom.camera_position or {nx/2+1/2, -(1/8) * nn - 1, (3/4) * nn + 1}
 	local cam_at = custom.camera_focus or {nx/2+1/2 ,ny/2+1/2 - (1/8)*nn, nz/2+1}
 	local draw_func = custom.draw_function or function() return nil end
 	local q, qz = 30, 20

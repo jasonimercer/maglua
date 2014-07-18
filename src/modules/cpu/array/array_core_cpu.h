@@ -472,6 +472,13 @@ public:
 		arrayNormAll(dest->_data, src->_data, dest->nxyz);
 		return true;
 	}
+
+	static bool pow(Array<T>* dest, Array<T>* src, const double power)
+	{
+		if(!doublePrep(dest, src)) return false;
+		arrayPowAll(dest->_data, src->_data, power, dest->nxyz);
+		return true;
+	}
 	
 	static T dot(Array<T>* a, Array<T>* b)
 	{

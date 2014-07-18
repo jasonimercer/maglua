@@ -148,9 +148,16 @@ function ebaf(kmc, ss, pos)
 		ss:setSpin(sites[2], {sx2,sy2,sz2}, sm2)
 	end
 
-	-- and return the Energy Barrier, Attempt Frequency and 
-	-- the corresponding event to the KMC framework
-	return eb, f0, event
+
+	local kT = kmc:temperature()
+	local rng = kmc:rng()
+	local decay = f0 * math.exp(-eb/kT)
+	local r = rng:rand()
+
+	local time = -math.log(r) / decay
+
+
+	return time, event
 end
 
 kmc:setEventFunction(ebaf)

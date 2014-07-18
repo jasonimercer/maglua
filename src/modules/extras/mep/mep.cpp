@@ -1271,7 +1271,7 @@ int MEP::calculateEnergies(lua_State* L, int get_index, int set_index, int energ
 {
     if(energy_ok)
 	return 0;
-		
+    
     energies.clear();
     const int num_sites = numberOfSites();
     const int path_length = numberOfImages();
@@ -1391,11 +1391,6 @@ int MEP::calculatePathEnergyNDeriv(lua_State* L, int get_index, int set_index, i
 }
 
 
-static void arrayCopyWithElementChange(double* dest, double* src, int element, double delta, int n)
-{
-    memcpy(dest, src, sizeof(double)*n);
-    dest[element] += delta;
-}
 
 static void vectorElementChange(vector<VectorCS>& vec, int c, double change, const bool fixedRadius)
 {
@@ -1581,6 +1576,10 @@ void MEP::setPointSite(int p, int s, VectorCS src)
 	return;
     const int ns = numberOfSites();
     state_path[p * ns + s] = src;
+
+    energy_ok = false;
+    good_distances = false;
+
 }
 
 CoordinateSystem MEP::getCSAt(int p, int s)
@@ -1764,6 +1763,10 @@ double MEP::computePointFirstDerivativeC(lua_State* L, int p, int set_index, int
 
 int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_index, int energy_index, int point, double h, int steps)
 {
+    // back up old sites so we can restore after
+    vector<double> cfg;
+    saveConfiguration(L, get_index, cfg);
+
     int good_steps = 0;
     const int num_sites = numberOfSites();
 
@@ -1808,8 +1811,159 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_i
     setPoint(point, vec);
 
     energy_ok = false;
+
+    loadConfiguration(L, set_index, cfg);
+
     return good_steps;
 }
+
+int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index, int energy_index, int point, double h, int steps)
+{
+    // back up old sites so we can restore after
+    vector<double> cfg;
+    saveConfiguration(L, get_index, cfg);
+
+    int good_steps = 0;
+    const int ns = numberOfSites();
+
+    vector<VectorCS> vec;
+    vector<VectorCS> vec2;
+
+    getPoint(point, vec);
+    getPoint(point, vec2);
+
+    setAllSpins(L, set_index, vec);
+    double current_energy = getEnergy(L, energy_index);
+    double start_energy = current_energy;
+
+
+    for(int i=0; i<steps; i++)
+    {
+	bool improvement = false;
+	for(int qq=0; qq<ns*3; qq++)
+	{
+	    for(int d=0; d<2; d++) //direction
+	    {
+		copyVectorTo(vec, vec2);
+		if(d == 0)
+		    vectorElementChange(vec2, qq, -h, fixedRadius);
+		else
+		    vectorElementChange(vec2, qq,  h, fixedRadius);
+
+		
+		setAllSpins(L, set_index, vec2);
+		double new_energy = getEnergy(L, energy_index);
+		
+		if(new_energy < current_energy)
+		{
+		    current_energy = new_energy;
+		    improvement = true;
+
+		    copyVectorTo(vec2, vec);
+		}
+	    }
+	}
+
+	if(improvement)
+	{
+	    good_steps++;
+	    h *= 1.2;
+	}
+	else
+	{
+	    h *= 0.5;
+	}
+    }
+
+
+
+    setPoint(point, vec);
+
+    energy_ok = false;
+
+    lua_pushinteger(L, good_steps);
+    lua_pushnumber(L, start_energy);
+    lua_pushnumber(L, current_energy);
+    lua_pushnumber(L, h);
+    loadConfiguration(L, set_index, cfg);
+    return 4;
+}
+
+
+
+int MEP::expensiveGradientMinimization(lua_State* L, int get_index, int set_index, int energy_index, int point, double h, int steps)
+{
+    // back up old sites so we can restore after
+    vector<double> cfg;
+    saveConfiguration(L, get_index, cfg);
+
+    int good_steps = 0;
+    const int ns = numberOfSites();
+
+    vector<VectorCS> vec;
+    vector<VectorCS> vec2;
+    vector<VectorCS> grad;
+
+    getPoint(point, vec);
+    getPoint(point, vec2);
+
+    computeVecFirstDerivative(L, vec, set_index, get_index, energy_index, grad);
+
+    double start_grad2 = cart_norm2(grad);
+    double current_grad2 = start_grad2;
+    
+    for(int i=0; i<steps; i++)
+    {
+	bool improvement = false;
+	for(int qq=0; qq<ns*3; qq++)
+	{
+	    for(int d=0; d<2; d++) //direction
+	    {
+		copyVectorTo(vec, vec2);
+		if(d == 0)
+		    vectorElementChange(vec2, qq, -h, fixedRadius);
+		else
+		    vectorElementChange(vec2, qq,  h, fixedRadius);
+
+		computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+		double new_grad2 = cart_norm2(grad);
+		
+		if(new_grad2 < current_grad2)
+		{
+		    current_grad2  = new_grad2;
+		    improvement = true;
+
+		    copyVectorTo(vec2, vec);
+		}
+	    }
+	}
+
+	if(improvement)
+	{
+	    good_steps++;
+	    h *= 2;
+	}
+	else
+	{
+	    h *= 0.5;
+	}
+    }
+
+
+
+    setPoint(point, vec);
+
+    energy_ok = false;
+
+    lua_pushinteger(L, good_steps);
+    lua_pushnumber(L, start_grad2);
+    lua_pushnumber(L, current_grad2 );
+    lua_pushnumber(L, h);
+    loadConfiguration(L, set_index, cfg);
+    return 4;
+}
+
+
 
 
 // relax individual point. This is used to refine a maximal point
@@ -2095,7 +2249,7 @@ int MEP::slidePoint(lua_State* L)
 	{
 	    double sf[3];
 	    vec[q].scaleFactors(sf);
-	    slope[q].scale(sf);
+	    // slope[q].scale(sf);
 	}
 
 	// gradient  direction
@@ -2119,7 +2273,7 @@ int MEP::slidePoint(lua_State* L)
 	setAllSpins(L, set_index, state);
 	double current_energy = getEnergy(L, energy_index);
 
-	// printf("%g %e %e    %e\n", direction, current_energy, last_energy, h);
+	// printf("(%s:%i)  %g %e %e    %e\n", __FILE__, __LINE__, direction, current_energy, last_energy, h);
 
 	if(direction < 0)
 	{
@@ -2169,6 +2323,8 @@ int MEP::slidePoint(lua_State* L)
 	}
 
     }
+
+
 
     loadConfiguration(L, set_index, cfg);	
     energy_ok = false;
@@ -2421,10 +2577,9 @@ int MEP::maxpoints(lua_State* L)
 	
     lua_newtable(L); //all
     const int all_idx = lua_gettop(L);
-	
-	
+
     if(energies.size() != path_length || energies.size() == 0)
-	return luaL_error(L, "Energies not found. You may need to run a single round of :compute");
+	return luaL_error(L, "Energy path size mismatch, expected %d and greater than zero, got %d", path_length,  energies.size());
 
     int szMin = 0;
     int szMax = 0;
@@ -2687,7 +2842,7 @@ static int l_addstatexyz(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
     mep->state_path.push_back( lua_toVectorCS(L, 2) );
-
+    mep->energy_ok = false;
 /*
   VectorCS v = mep->state_path.back();
   printf("%i  %g %g %g\n", (int)mep->state_path.size(), v.v[0], v.v[1], v.v[2]);
@@ -3299,6 +3454,33 @@ static int _l_angle_between_pointsite(lua_State* L)
     return mep->l_angle_between_pointsite(L,2);
 }
 
+static int _l_expensiveenergyminimization(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+
+    int get_index = 2;
+    int set_index = 3;
+    int energy_index = 4;
+    int point = lua_tointeger(L, 5)-1;
+    double h = lua_tonumber(L, 6);
+    int steps = lua_tointeger(L, 7);
+
+    return mep->expensiveEnergyMinimization(L, get_index, set_index, energy_index, point, h, steps);
+}
+static int _l_expensivegradientminimization(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+
+    int get_index = 2;
+    int set_index = 3;
+    int energy_index = 4;
+    int point = lua_tointeger(L, 5)-1;
+    double h = lua_tonumber(L, 6);
+    int steps = lua_tointeger(L, 7);
+
+    return mep->expensiveGradientMinimization(L, get_index, set_index, energy_index, point, h, steps);
+}
+
 static int l_computePointSecondDerivativeAB(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
@@ -3588,6 +3770,8 @@ const luaL_Reg* MEP::luaMethods()
 	    {"_swap", _l_swap},
 	    {"_copy", _l_copy},
 	    {"_angleBetweenPointSite", _l_angle_between_pointsite},
+	    {"_expensiveEnergyMinimization", _l_expensiveenergyminimization},
+	    {"_expensiveGradientMinimization", _l_expensivegradientminimization},
 	    {NULL, NULL}
 	};
     merge_luaL_Reg(m, _m);
@@ -3616,9 +3800,13 @@ extern "C"
 
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
-	if(luaL_dostring(L, __mep_luafuncs()))
+
+
+	const char* s = __mep_luafuncs();
+
+	if(luaL_dostringn(L, s, "mep_luafuncs.lua"))
 	{
-	    fprintf(stderr, "%s\n", lua_tostring(L, -1));
+	    fprintf(stderr, "MEP: %s\n", lua_tostring(L, -1));
 	    return luaL_error(L, lua_tostring(L, -1));
 	}
 

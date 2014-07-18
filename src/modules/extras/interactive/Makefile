@@ -1,4 +1,4 @@
-# Copyright (C) 2012 Jason Mercer.  All rights reserved.
+# Copyright (C) 2014 Jason Mercer.  All rights reserved.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -9,13 +9,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=CGS.lo PathDynamics.lo ColorMap.lo RungeKutta.lo POVRay.lo PredictorCorrector.lo AdaptiveTimeStep.lo MakeMacro.lo scripts.o
-LIBNAME=Scripts
-CATEGORY=common
-DEPEND=luabaseobject
+OBJECTS=interactive_luafuncs.lo interactive.o
+LIBNAME=Interactive
+CATEGORY=extra
 
+DEPEND=luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
-include $(BASEDIR)/makefile.common.mpi
 
-EXTRA_CLEAN=ColorMap.h ColorMap.cpp CGS.h RungeKutta.h POVRay.h CGS.cpp RungeKutta.cpp POVRay.cpp PredictorCorrector.h PredictorCorrector.cpp AdaptiveTimeStep.h AdaptiveTimeStep.cpp PathDynamics.cpp PathDynamics.h
+EXTRA_CLEAN=interactive_luafuncs.cpp interactive_luafuncs.h

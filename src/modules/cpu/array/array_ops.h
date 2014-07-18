@@ -90,6 +90,13 @@ ARRAY_API void arrayNormAll(int* d_dest, int* d_src1, const int n);
 ARRAY_API void arrayNormAll(doubleComplex* d_dest, doubleComplex* d_src1, const int n);
 ARRAY_API void arrayNormAll(floatComplex* d_dest, floatComplex* d_src1, const int n);
 
+ARRAY_API void arrayPowAll(double* d_dest, double* d_src1, const double power, const int n);
+ARRAY_API void arrayPowAll(float* d_dest, float* d_src1, const double power, const int n);
+ARRAY_API void arrayPowAll(int* d_dest, int* d_src1, const double power, const int n);
+ARRAY_API void arrayPowAll(doubleComplex* d_dest, doubleComplex* d_src1, const double power, const int n);
+ARRAY_API void arrayPowAll(floatComplex* d_dest, floatComplex* d_src1, const double power, const int n);
+
+
 ARRAY_API void reduceDiffSumAll(const double* d_a, const double* d_b, const int n, double& v);
 ARRAY_API void reduceDiffSumAll(const float* d_a, const float* d_b, const int n, float& v);
 ARRAY_API void reduceDiffSumAll(const int* d_a, const int* d_b, const int n, int& v);

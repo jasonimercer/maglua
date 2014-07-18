@@ -65,7 +65,7 @@ int KMC::help(lua_State* L)
 {
     if(lua_gettop(L) == 0)
     {
-        lua_pushstring(L, "Kinetic Monte Carlo operator. See ref #reference. This is the base class and serves as the framework for all KMC algorithms in MagLua. Variants are implemented with custom event functions.  TODO: allow temperature to vary by site.");
+        lua_pushstring(L, "Kinetic Monte Carlo operator. See ref #reference. This is the base class and serves as the framework for all KMC algorithms in MagLua. Variants are implemented with custom event functions.");
         lua_pushstring(L, "");
         lua_pushstring(L, ""); //output, empty
         return 3;
@@ -129,34 +129,30 @@ static int l_getmetatable(lua_State* L)
 #include "kmc_wood_luafuncs.h"
 KMC_API int lib_register(lua_State* L)
 {
-	luaT_register<KMC>(L);
+    luaT_register<KMC>(L);
 
 	// augmenting metatable with custom lua code
     lua_pushcfunction(L, l_getmetatable);
     lua_setglobal(L, "maglua_getmetatable");
-    if(luaL_dostring(L, __kmc_luafuncs()))
+
+    const char* s = __kmc_luafuncs();
+
+    if(luaL_dostringn(L, s, "kmc_luafuncs.lua"))
     {
-        fprintf(stderr, "%s\n", lua_tostring(L, -1));
-        return luaL_error(L, lua_tostring(L, -1));
+	fprintf(stderr, "KMC: %s\n", lua_tostring(L, -1));
+	return luaL_error(L, lua_tostring(L, -1));
     }
 
-
-    if(luaL_dostring(L, __kmc_wood_luafuncs()))
+    if(luaL_dostringn(L, __kmc_wood_luafuncs(), "kmc_wood_luafuncs.lua"))
     {
-        fprintf(stderr, "%s\n", lua_tostring(L, -1));
-        return luaL_error(L, lua_tostring(L, -1));
+	fprintf(stderr, "KMC: %s\n", lua_tostring(L, -1));
+	return luaL_error(L, lua_tostring(L, -1));
     }
-
-	
-
 
     lua_pushnil(L);
     lua_setglobal(L, "maglua_getmetatable");
 
-	
-
-
-	return 0;
+    return 0;
 }
 
 KMC_API int lib_version(lua_State* L)

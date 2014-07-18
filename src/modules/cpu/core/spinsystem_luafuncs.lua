@@ -47,6 +47,54 @@ methods["netMoment"] = {
 	end
 }
 
+methods["difference"] =
+{
+    "Compute the sum of the magnitudes of the vector differences at each site between the calling and provided *SpinSystem*.",
+    "1 SpinSystem: SpinSystem to compare",
+    "1 Number or nil: Sum of magnitudes of vector differences if SpinSystems are the same size, nill otherwise.",
+    function(ss, ssb)
+	if not ss:sameDimensions(ssb) then
+	    return
+	end
+
+	local x = ss:spinArrayX():pairwiseScaleAdd(-1, ssb:spinArrayX())
+	local y = ss:spinArrayY():pairwiseScaleAdd(-1, ssb:spinArrayY())
+	local z = ss:spinArrayZ():pairwiseScaleAdd(-1, ssb:spinArrayZ())
+
+	x:pairwiseMultiply(x, x)
+	y:pairwiseMultiply(y, y)
+	z:pairwiseMultiply(z, z)
+
+	x:pairwiseScaleAdd(1, y, x)
+	x:pairwiseScaleAdd(1, z, x)
+
+	x:elementsRaisedTo(0.5, x)
+
+	return x:sum()
+
+    end
+}
+
+methods["sameDimensions"] =
+{
+    "Test if the calling SpinSystem is of the same dimensions as the provided SpinSystem",
+    "1 SpinSystem: SpinSystem to compare.",
+    "1 Boolean: True is dimensions match, False otherwise",
+    function(ss, ssb)
+	if ss:nx() ~= ssb:nx() then
+	    return false
+	end
+	if ss:ny() ~= ssb:ny() then
+	    return false
+	end
+	if ss:nz() ~= ssb:nz() then
+	    return false
+	end
+	return true
+    end
+}
+
+
 -- inject above into existing metatable for SpinSystem
 for k,v in pairs(methods) do
 	t[k] = v[4]

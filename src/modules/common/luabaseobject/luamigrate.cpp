@@ -18,6 +18,24 @@
 #include "luamigrate.h"
 #include "luabaseobject.h"
 
+const char* find_cfunc_code = 
+    "return function(target)\n"
+    "  for k1,v1 in pairs(_G) do\n"
+    "    if v1 == target then return k1 end\n"
+    "    if type(v1) == type({}) and k1 ~= \"_G\" then\n"
+    "      for k2,v2 in pairs(v1) do\n"
+    "        if v2 == target then return k1..\".\"..k2 end\n"
+    "        if type(v2) == type({}) and k2 ~= \"_G\" then\n"
+    "          for k3,v3 in pairs(v2) do\n"
+    "            if v3 == target then return k1..\".\"..k2..\".\"..k3 end\n"
+    "          end\n"
+    "        end\n"
+    "      end\n"
+    "    end\n"
+    "  end\n"
+    "end\n";
+
+
 #ifdef size64_t
 //using size64_t (defined in luaconf.h) to allow compat with x86_64 bit linux
 static int lexportwriter(lua_State *L, const void* chunk, size64_t size, void* data) 
@@ -46,6 +64,7 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 	{
 		fprintf(b->debug, "(%s:%i) exporting %12s pos:%6i\n", __FILE__, __LINE__, lua_typename(L, t), b->pos);
 	}
+	//printf("ENCODING %s\n", lua_typename(L, t));
 	encodeInteger(t, b);
 	switch(t)
 	{
@@ -121,6 +140,50 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 		}
 		case LUA_TFUNCTION:
 		{
+		    int c = lua_iscfunction(L, index);
+		    encodeInteger(c, b);
+
+		    if(c)
+		    {
+			// can't encode a C function so we'll iterate through the tree and look
+			// for a match and encode the name. Inefficient but it'll work for now
+			lua_CFunction func = lua_tocfunction(L, index);
+
+
+			if(luaL_loadstring(L, find_cfunc_code))
+			{
+ 			    fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+			}
+
+			if(lua_pcall(L, 0,1,0))
+			{
+ 			    fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+			}
+
+			// now the above function is on the stack so we can use it to find our target
+			lua_pushvalue(L, index); //copy func to top
+			
+			if(lua_pcall(L, 1,1,0))
+			{
+ 			    fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+			}
+
+
+			if(lua_isstring(L, -1))
+			{
+			    const char* func_name = lua_tostring(L, -1);
+			    int len = strlen(func_name) + 1;
+			    encodeInteger(len, b);
+			    encodeBuffer(func_name, len, b);
+			    lua_pop(L, 1); // remove name
+			}
+			else
+			{
+			    encodeInteger(0, b); // failed to find the function. should tell someone
+			}
+		    }
+		    else
+		    {
 			buffer* b2 = new buffer;
 			b2->pos = 0;
 			b2->size = 0;
@@ -146,27 +209,27 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 				free(b2->buf);
 			}
 			delete b2;
+		    }
 
-			// now it's time for upvalues
-			int num_upvalues = 0;
-			for(int q=1; q<60; q++) // assuming less than 60 upvalues
+		    // now it's time for upvalues
+		    int num_upvalues = 0;
+		    for(int q=1; q<60; q++) // assuming less than 60 upvalues
+		    {
+			if( lua_getupvalue(L, index, q))
 			{
-				const char *lua_getupvalue (lua_State *L, int funcindex, int n);
-				if( lua_getupvalue(L, index, q))
-				{
-					num_upvalues++;
-					lua_pop(L, 1);
-				}
+			    num_upvalues++;
+			    lua_pop(L, 1);
 			}
-
-			encodeInteger(num_upvalues, b);
-
-			for(int q=1; q<=num_upvalues; q++)
-			{
-				lua_getupvalue(L, index, q);
-				_exportLuaVariable(L, lua_gettop(L), b);
-			}
-	   		lua_pop(L,num_upvalues);
+		    }
+		    
+		    encodeInteger(num_upvalues, b);
+		    
+		    for(int q=1; q<=num_upvalues; q++)
+		    {
+			lua_getupvalue(L, index, q);
+			_exportLuaVariable(L, lua_gettop(L), b);
+		    }
+		    lua_pop(L,num_upvalues);
 		}
 		break;
 		case LUA_TUSERDATA:
@@ -282,9 +345,41 @@ int _importLuaVariable(lua_State* L, buffer* b)
 		break;
 		case LUA_TFUNCTION:
 		{
+		    int cfunc = decodeInteger(b);
+		    if(cfunc)
+		    {
+                        int len = decodeInteger(b);
+			if(len == 0)
+			{
+			    lua_pushnil(L);
+			}
+			else
+			{
+			    char* s = (char*)malloc(len+15); // + 15 for "return    "  
+			    snprintf(s, 15, "return    ");
+			    memcpy(s+8, b->buf + b->pos, len);
+			    b->pos += len;
+			    
+			    if(luaL_loadstring(L, s))
+			    {
+				fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+			    }
+			    
+			    if(lua_pcall(L, 0,1,0))
+			    {
+				fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+				fprintf(stderr, "Current state does not have `%s'\n", s+8);
+			    }
+
+			}
+			
+		    }
+		    else
+		    {
 			int chunksize = decodeInteger(b);
 			luaL_loadbuffer(L, b->buf + b->pos, chunksize, "import_function");
 			b->pos += chunksize;
+		    }
 			int func_pos = lua_gettop(L);
 			int num_upvalues = decodeInteger(b);
 			for(int q=1; q<=num_upvalues; q++)

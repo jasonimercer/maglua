@@ -41,6 +41,7 @@ typedef struct ss
 #include "ColorMap.h"
 #include "AdaptiveTimeStep.h"
 #include "MakeMacro.h"
+#include "PathDynamics.h"
 
 SCRIPTS_API int lib_register(lua_State* L)
 {
@@ -52,6 +53,7 @@ SCRIPTS_API int lib_register(lua_State* L)
 		{__AdaptiveTimeStep_name(),  __AdaptiveTimeStep()},
 		{__ColorMap_name(),  __ColorMap()},
 		{__MakeMacro_name(),  __MakeMacro()},
+		{__PathDynamics_name(), __PathDynamics()},
 		{0,0}
 	};
 	

@@ -247,6 +247,42 @@ void arrayNormAll(floatComplex* d, floatComplex* s1, const int n)
 
 
 
+void arrayPowAll(double* d, double* s1, const double power, const int n)
+{
+//#pragma omp for schedule(static)
+    for(int i=0; i<n; i++)
+	d[i] = pow(s1[i], power);
+}
+void arrayPowAll(float* d, float* s1, const double power, const int n)
+{
+//#pragma omp for schedule(static)
+    for(int i=0; i<n; i++)
+	d[i] = pow(s1[i], power);
+}
+void arrayPowAll(int* d, int* s1, const double power, const int n)
+{
+//#pragma omp for schedule(static)
+    for(int i=0; i<n; i++)
+	d[i] = pow(s1[i], power);
+}
+void arrayPowAll(doubleComplex* d, doubleComplex* s1, const double power, const int n)
+{
+//#pragma omp for schedule(static)
+    for(int i=0; i<n; i++)
+	d[i] = pow(s1[i], power);
+}
+void arrayPowAll(floatComplex* d, floatComplex* s1, const double power, const int n)
+{
+//#pragma omp for schedule(static)
+    for(int i=0; i<n; i++)
+	d[i] = pow(s1[i], power);
+}
+
+
+
+
+
+
 template<typename A, typename B>
 void arrayGetRealPart_(A* dest, const B* src, const int n)
 {

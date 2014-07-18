@@ -12,14 +12,11 @@ kmc = KMC.new() -- empty framework, needs some functions and info
 
 kmc:setFields({ex,ani,mag,thermal,zee})
 
--- this is the function that computes the energy barrier and 
--- attempt frequency for an action
-function ebaf(kmc, ss, pos)
+-- this is the function that computes the time and event for a site
+function time_event(kmc, ss, pos)
 	local fields_rng, fields_det = kmc:fields("Thermal")
 
-	-- do physics with the deterministic fields at a position to get the 
-	-- energy barrier and attempt frequency for an event
-	local eb, af = magic_physics(ss, pos, fields_det)
+	local time = magic_physics(ss, pos, fields_det)
 
 	-- define what the event is via a function that acts on a SpinSystem
 	local function event(ss)
@@ -27,10 +24,10 @@ function ebaf(kmc, ss, pos)
 		ss:setSpin(pos, {mx,my,-mz})
 	end
 
-	return eb, af, event
+	return time, event
 end
 
-kmc:setEventFunction(ebaf)
+kmc:setEventFunction(time_event)
 
 thermal:setTemperature(5)
 
