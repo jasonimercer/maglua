@@ -1,9 +1,42 @@
 
 local prompt = "> "
 
--- build an environment that allows the reading of locals and upvalues
--- would be nice to be able to write to them. not a current priority as
--- this is used mainly for debugging
+-- this dumb name will be overwritten with setValue in the interactive state
+local function interactive_set_value(name, value)
+    local level = 4
+    local locals = {}
+    local env = debug.getinfo(level)
+
+    while env do
+ 	local i,k,v = 1,debug.getlocal(level, 1)
+
+	while k do
+	    if k == name then
+		debug.setlocal(level, i, value)
+		return
+	    end
+	    i,k,v = i+1,debug.getlocal(level, i+1)
+	end
+
+	if env.func then
+	    i,k,v = 1,debug.getupvalue(env.func, 1)
+	    while k do
+		if k == name then
+		    debug.setupvalue(env.func, i, value)
+		    return
+		end
+		i,k,v = i+1,debug.getupvalue(env.func, i+1)
+	    end
+	end
+
+	level = level + 1
+	env = debug.getinfo(level)
+    end
+end
+
+-- build an environment that allows the reading of globals, locals and upvalues
+-- globals can be written to as normal
+-- upvalues and locals must be set using the function setValue("name", value)
 function add_local_env(cmd, level)
     local locals = {}
     local env = debug.getinfo(level)
@@ -15,7 +48,6 @@ function add_local_env(cmd, level)
 	    if locals[k] == nil then
 		locals[k] = v
 	    end
-	    -- print("local:",i,k,v)
 	    i,k,v = i+1,debug.getlocal(level, i+1)
 	end
 
@@ -25,8 +57,7 @@ function add_local_env(cmd, level)
 		if locals[k] == nil then
 		    locals[k] = v
 		end
-		-- print("upval:",i,k,v)
-		i,k,v = i+1,debug.getupvalue(env.func, i)
+		i,k,v = i+1,debug.getupvalue(env.func, i+1)
 	    end
 	end
 
@@ -34,6 +65,7 @@ function add_local_env(cmd, level)
 	env = debug.getinfo(level)
     end
 
+    locals["setValue"] = interactive_set_value
 
     local f = loadstring(cmd)
     if f then
@@ -44,6 +76,8 @@ function add_local_env(cmd, level)
         return f
     end
 end
+
+
 
 
 local function get_input()
@@ -106,7 +140,7 @@ function interactive(...)
     local line = caller.currentline or "0"
 
 
-    print("Interactive environemnt initiated from (" .. src .. ":" .. line .. ")")
+    print("Interactive environment initiated from (" .. src .. ":" .. line .. ")")
     print("Call Stack:")
     bt(3)
     print("Continue script with Ctrl+d")
@@ -126,4 +160,22 @@ function interactive(...)
 	end
     end
 
+end
+
+dofile("maglua://Help.lua") --get default global scope help function
+
+local global_help = help
+function help(x)
+    if x == nil then
+	return global_help()
+    end
+    
+    if x == interactive then
+	return 
+	"Function to enter an interactive mode, mainly used in debugging. This function builds a local environment that includes not only globals but all locals and upvalues from the chain of calling scopes. Setting global values works as normal but the special function setValue(name, value) must be used to set upvalues and locals.",
+	"1 Optional String: Message to print on entering the interactive environment.",
+	""
+    end
+
+    return global_help(x)
 end
