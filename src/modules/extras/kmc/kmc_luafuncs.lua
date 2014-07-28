@@ -57,6 +57,31 @@ methods["maxTimeStep"] = {
 }
 
 
+--[[
+methods["setGroundStateEnergy"] = {
+    "Set the energy of the ground state. This is used when looking at probabilities in some MC picking.",
+    "1 Number: Ground state energy",
+    "",
+    function(kmc, value)
+	local data = dd(kmc)
+	data.ground_state_energy = value
+	dd(kmc, data)
+    end
+}
+methods["groundStateEnergy"] = {
+    "Get the energy of the ground state. This is used when looking at probabilities in some MC picking.",
+    "",
+    "1 Number: Ground state energy",
+    function(kmc)
+	local data = dd(kmc)
+	if data.ground_state_energy then
+	    return data.ground_state_energy
+	end
+	error("Ground state energy not set, please use KMC:setGroundStateEnergy()")
+    end
+}
+--]]
+
 methods["setStartupFunction"] = {
     "Set a function that will be called before the loop over sites in the apply method. This will be called by all MPI processes.",
     "1 function: It is expected that the first argument is a KMC object and the second is the *SpinSystem* invovled in the calculation",

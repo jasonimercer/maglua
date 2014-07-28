@@ -245,6 +245,46 @@ methods["swappedZ"] =
 }
 
 
+methods["matPrint"] =
+{
+"Print an array as if were a matrix.",
+"1 Optional String: If a string is provided, it will be printed to the left of the matrix with matrix dimensions either under the label or to the right of the label if the matrix only has a single row.",
+"Terminal output: Matrix form",
+function(M, name)
+    if name then
+	local name_len = string.len(name)
+	local dims_txt = M:ny() .. "x" .. M:nx()
+	local dims_len = string.len(dims_txt)
+	
+	if M:ny() == 1 then
+	    local t = {}
+	    for c=1,M:nx() do
+		table.insert(t, string.format("% 06.6e", M:get(c,1)))
+	    end
+	    print( name .. "(" .. dims_txt .. ")", table.concat(t, "\t"))
+	else
+	    local default = {"  " .. name, "(" .. dims_txt .. ")"}
+	    for r=1,M:ny() do
+		local t = {default[r] or ""}
+		for c=1,M:nx() do
+		    table.insert(t, string.format("% 06.6e", M:get(c,r)))
+		end
+		print(table.concat(t, "\t"))
+	    end
+	end
+    else
+	for r=1,M:ny() do
+	    local t = {}
+	    for c=1,M:nx() do
+		table.insert(t, string.format("% 06.6e", M:get(c,r)))
+	    end
+	    print(table.concat(t, "\t"))
+	end
+    end
+end
+}
+
+
 for _,name in pairs({"Array.Double", "Array.Float", "Array.DoubleComplex", "Array.Integer"}) do
 	local t = maglua_getmetatable(name)
 

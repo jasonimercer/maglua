@@ -938,24 +938,129 @@ int MEP::applyForces(lua_State* L)
     if(lua_isboolean(L, 2))
 	use_mobility = lua_toboolean(L, 2);
 
+    bool reject_path = true; // vector rejection against path
+
+
     const int num_sites = numberOfSites();
 	
-    const int ni = numberOfImages();
+    const int np = numberOfImages();
     const int ns = numberOfSites();
 	
+    // compute cartesian path tangent
+    path_tangent.clear();
+    path_tangent.resize(state_path.size());
+    computeTangent(0, 1, 0);
+    for(int i=1; i<np-1; i++)
+    {
+	computeTangent(i-1,i+1,i);
+    }
+    computeTangent(np-2, np-1, np-1);
+
+
+    vector<VectorCS> new_state_path(state_path);
+
     // end points are no longer hardcoded fixed. 
     for(int k=0; k<state_path.size(); k++)
     {
 	const double mag = state_path[k].magnitude();
 
 	if(use_mobility)
-	    state_path[k] = VectorCS::axpy(-image_site_mobility[k], force_vector[k], state_path[k]);
+	    new_state_path[k] = VectorCS::axpy(-image_site_mobility[k]*beta, force_vector[k], state_path[k]);
 	else
-	    state_path[k] = VectorCS::axpy(-1, force_vector[k], state_path[k]);
+	    new_state_path[k] = VectorCS::axpy(-beta, force_vector[k], state_path[k]);
+
+	new_state_path[k].setMagnitude(mag);
+    }
+
+    vector<VectorCS> cart_diff;
+    for(int k=0; k<state_path.size(); k++)
+    {
+	const VectorCS& new_ = new_state_path[k];
+	const VectorCS& old_ = state_path[k];
+	
+	VectorCS v = VectorCS::axpy(-1, 
+				    old_.convertedToCoordinateSystem(Cartesian), 
+				    new_.convertedToCoordinateSystem(Cartesian));
+	cart_diff.push_back(v);
+    }
+
+    // now we have the vector from the old state to the new state, we can 
+    // reject against path tangent now
+    double* a = new double[ns*3];
+    double* b = new double[ns*3];
+    for(int p=0; p>np; p++)
+    {
+	// considering point as a high dimension vector
+	vector<VectorCS> ptan;
+	getPathTangentPoint(p, ptan);
+	
+	// get the displacement vector and tangent in array form
+	for(int i=0; i<ns; i++)
+	{
+	    a[i*3+0] = cart_diff[p*ns + i].v[0];
+	    a[i*3+1] = cart_diff[p*ns + i].v[1];
+	    a[i*3+2] = cart_diff[p*ns + i].v[2];
+
+	    a[i*3+0] = path_tangent[p*ns + i].v[0];
+	    b[i*3+1] = path_tangent[p*ns + i].v[1];
+	    b[i*3+2] = path_tangent[p*ns + i].v[2];
+	}
+
+
+	double ab = 0;
+	double bb = 0;
+
+	for(int i=0; i<ns*3; i++)
+	{
+	    ab += a[i]*b[i];
+	    bb += b[i]*b[i];
+	}
+
+	if(bb == 0)
+	    bb = 1;
+
+	for(int i=0; i<ns*3; i++)
+	{
+	    a[i] = a[i] - (ab/bb) * b[i];
+	}
+
+	for(int i=0; i<ns; i++)
+	{
+	    cart_diff[p*ns + i].v[0] = a[i*3+0];
+	    cart_diff[p*ns + i].v[1] = a[i*3+0];
+	    cart_diff[p*ns + i].v[2] = a[i*3+0];
+	}
+    }
+
+    delete [] a;
+    delete [] b;
+
+    // cart_diff now has vector rejected displacement
+    // time to add it to the initial point
+    for(int k=0; k<state_path.size(); k++)
+    {
+	const double mag = state_path[k].magnitude();
+
+	state_path[k] = VectorCS::axpy(1.0, state_path[k].convertedToCoordinateSystem(Cartesian),
+				       cart_diff[k]).convertedToCoordinateSystem(state_path[k].cs);
 
 	state_path[k].setMagnitude(mag);
     }
-	
+
+#if 0
+    // end points are no longer hardcoded fixed. 
+    for(int k=0; k<state_path.size(); k++)
+    {
+	const double mag = state_path[k].magnitude();
+
+	if(use_mobility)
+	    state_path[k] = VectorCS::axpy(-image_site_mobility[k]*beta, force_vector[k], state_path[k]);
+	else
+	    state_path[k] = VectorCS::axpy(-beta, force_vector[k], state_path[k]);
+
+	state_path[k].setMagnitude(mag);
+    }
+#endif
     return 0;
 }
 	
@@ -995,7 +1100,11 @@ void MEP::computeTangent(const int p1, const int p2, const int dest)
 }
 
 
-void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int energy_index) //project gradients onto vector perpendicular to path direction
+//project gradients onto vector perpendicular to path direction
+// the plan is to compute vectors along the path (cartesian), apply the forces to the state
+// saving in a temporary buffer. Convert old and new states to cartesian and get the difference
+// from that we can do the proper vector rejection and move that back into the force
+void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int energy_index) 
 {
     path_tangent.clear();
     path_tangent.resize(state_path.size());
@@ -1010,59 +1119,92 @@ void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int ener
     }
     computeTangent(np-2, np-1, np-1);
 
-    //printf("PT\n");
-    //print_vecv(path_tangent);
 
-
-    for(int p=0; p<np; p++)
+    // new state is where the force would take things if applied as is
+    vector<VectorCS> new_state;
+    for(int k=0; k<state_path.size(); k++)
     {
-	vector<VectorCS> force;
-	vector<VectorCS> force_orig;
-	getForcePoint(p, force_orig);
-#if 0
-	printf("force_orig\n");
-	print_vecv(force_orig);
-#endif
-	vector<VectorCS> ptan;
-	getPathTangentPoint(p, ptan);
-		
-	for(int s=0; s<ns; s++)
-	{
-	    force.push_back(force_orig[s].convertedToCoordinateSystem(Cartesian));
-	    ptan[s].convertToCoordinateSystem(Cartesian);
-	}
-#if 0
-	printf("force\n");
-	print_vecv(force);
-	printf("ptan\n");
-	print_vecv(ptan);
-#endif
-	const double bb = cart_dot(ptan, ptan); //dot(v_c, v_c, ss);
-	if(bb == 0)
-	{
-	    //	for(int s=0; s<ns; s++)
-	    //	force[s] = force - VectorCS(0,0,0, Cartesian);
-	}
-	else
-	{
-	    const double ab = cart_dot(force, ptan);
-	    for(int s=0; s<ns; s++)
-	    {
-		force[s] = VectorCS::axpy(-1.0, ptan[s].scaled(ab/bb), force[s]);
-		//print_vec("force", force[s]);
-		//print_vec("ptan", ptan[s]);
-	    }
-	}
-
-	for(int s=0; s<ns; s++)
-	{
-	    force[s].convertToCoordinateSystem( force_orig[s].cs );
-	    // print_vec("force", force[s]);
-	}
-
-	setForcePoint(p, force );
+	const double mag = state_path[k].magnitude();
+	VectorCS v = VectorCS::axpy(-image_site_mobility[k]*beta, force_vector[k], state_path[k]);
+	v.setMagnitude(mag);
+	v.convertToCoordinateSystem(Cartesian);
+	new_state.push_back(v);
     }
 
+    vector<VectorCS> cart_diff;
+    for(int k=0; k<state_path.size(); k++)
+    {
+	const VectorCS& new_ = new_state[k];
+	const VectorCS& old_ = state_path[k];
+	
+	VectorCS v = VectorCS::axpy(-1, old_.convertedToCoordinateSystem(Cartesian), new_);
+	cart_diff.push_back(v);
+    }
+
+    // now we have a cartesian vector from the old state to the results of the old + beta * force
+    // so we can do vector rejection properly
+    double* a = new double[ns*3];
+    double* b = new double[ns*3];
+    for(int p=0; p>np; p++)
+    {
+	// considering point as a high dimension vector
+	vector<VectorCS> ptan;
+	getPathTangentPoint(p, ptan);
+	
+	// get the displacement vector and tangent in array form
+	for(int i=0; i<ns; i++)
+	{
+	    a[i*3+0] = cart_diff[p*ns + i].v[0];
+	    a[i*3+1] = cart_diff[p*ns + i].v[1];
+	    a[i*3+2] = cart_diff[p*ns + i].v[2];
+
+	    a[i*3+0] = path_tangent[p*ns + i].v[0];
+	    b[i*3+1] = path_tangent[p*ns + i].v[1];
+	    b[i*3+2] = path_tangent[p*ns + i].v[2];
+	}
+
+
+	double ab = 0;
+	double bb = 0;
+
+	for(int i=0; i<ns*3; i++)
+	{
+	    ab += a[i]*b[i];
+	    bb += b[i]*b[i];
+	}
+
+	if(bb == 0)
+	    bb = 1;
+
+	for(int i=0; i<ns*3; i++)
+	{
+	    a[i] = a[i] - (ab/bb) * b[i];
+	}
+
+	for(int i=0; i<ns; i++)
+	{
+	    cart_diff[p*ns + i].v[0] = a[i*3+0];
+	    cart_diff[p*ns + i].v[1] = a[i*3+0];
+	    cart_diff[p*ns + i].v[2] = a[i*3+0];
+	}
+    }
+
+    delete [] a;
+    delete [] b;
+
+
+    // now to convert cart_diff back to force_vector
+    for(int k=0; k<state_path.size(); k++)
+    {
+	cart_diff[k].scale(1/beta);
+	force_vector[k] = cart_diff[k].convertedToCoordinateSystem(force_vector[k].cs);
+	print_vec(force_vector[k]);
+	// force_vector[k].zeroRadialComponent();
+    }
+    {
+	int* i = (int*)5;
+	*i = 5; //crash
+    }
 }
 
 
@@ -1241,6 +1383,7 @@ void MEP::setSiteSpin(lua_State* L, int set_index, int* site3, const VectorCS& m
 	energy_ok = false; //need to recalc energy
 	good_distances = false;
     }
+    lua_pop(L, 1);
 }
 
 void MEP::setAllSpins(lua_State* L, int set_index, vector<VectorCS>& m)
@@ -1881,11 +2024,12 @@ int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index,
 
     energy_ok = false;
 
+    loadConfiguration(L, set_index, cfg);
+
     lua_pushinteger(L, good_steps);
     lua_pushnumber(L, start_energy);
     lua_pushnumber(L, current_energy);
     lua_pushnumber(L, h);
-    loadConfiguration(L, set_index, cfg);
     return 4;
 }
 
@@ -2656,13 +2800,6 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
 
 	setForcePoint(i, force);
     }
-	
-    for(int i=0; i<force_vector.size(); i++)
-    {
-	for(int j=0; j<3; j++)
-	    force_vector[i].v[j] *= beta;
-    }
-
 
     return 0;
 }

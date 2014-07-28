@@ -2,6 +2,7 @@
 --<dl>
 --<dt>report</dt><dd>Function used to report internal progress of the algorithms, generally `print'</dd>
 --<dt>onNan</dt> <dd>Function called when a nan is detected in the final stages of the calculation, generally `interactive' or `error'</dd>
+--<dt>onMultipleHops</dt><dd>Function to call when multiple hops are detected</dd>
 --<dt>EnergyMinimizationSteps</dt><dd>Number of steps to take to refine minima, default 100</dd>
 --<dt>GradientMinimizationSteps</dt><dd>Number of steps to take to refine saddle point, default 100</dd>
 --<dt>addResults</dt><dd>A table that will be joined to the return table</dd>
@@ -45,7 +46,10 @@
 --<dt>MEPComputeSteps</dt><dd>Number of steps to use in the internal mep:compute(), default 40</dd>
 --<dt>MEPComputeReport</dt><dd>Function to provide as the mep:compute report function, default `function() end'. The print function could be used.</dd>
 --<dt>Report</dt><dd>Functon to use as the internal report function, default `function() end'. The print function could be used.</dd>
+--<dt>SimplifyDegrees</dt><dd>Number of degrees to use for equality testing in the loop finding code, default 5.</dd>
+--<dt>MultipleHopRetries</dt><dd>Number of times to attempt to re-refine a multiple hop path in the event that one of the extra minimum points is due to some noise. Default 2</dd>
 --<dt>PathDynamicsOnNan</dt><dd>Function to provide the PathDynamics function's OnNan option, default `error'.</dd>
+--<dt>PathDynamicsOnMultipleHops</dt><dd>Passed to PathDynamic's onMultipleHops</dd>
 --<dt>PathDynamicsReport</dt><dd>Function to provide the PathDynamics function's Report option, default `function() end'.</dd>
 --</dl>
 
@@ -92,12 +96,14 @@ function PathDynamics(mepOrig, json)
     results["MinimumConfigurations"] = {}
 
     json = json or {}
+    local blank = function() end
     local addResults = json.addResults or {}
-    local report = json.report or function() end
+    local report = json.report or blank
     -- mpi root report functon
     local report1 = function(...) if mpi.get_rank() == 1 then report(...) end end
     local energyMinimizationSteps = json.EnergyMinimizationSteps or 100
     local gradientMinimizationSteps = json.GradientMinimizationSteps or 100
+    local onMultipleHops = json.onMultipleHops or blank
 
     local mep = mepOrig:copy()
     local sites = mep:sites()
@@ -105,7 +111,12 @@ function PathDynamics(mepOrig, json)
     mep:setCoordinateSystem("Canonical")
     mep:setTolerance(0.0001)
 
-    local function ar(res) -- add inputted results, add txt res
+    -- getting important points
+    local mins, maxs, all = mep:criticalPoints()
+
+
+    -- add common results to the return value
+    local function ar(res) -- add inputted results, add text
 	for k,v in pairs(addResults) do
 	    res[k] = v
 	end
@@ -165,7 +176,6 @@ function PathDynamics(mepOrig, json)
     end
 
 
-
     results["InitialEnergy"] = mep:energyAtPoint(1)
     results["FinalEnergy"] = mep:energyAtPoint( mep:numberOfPoints())
 
@@ -182,14 +192,14 @@ function PathDynamics(mepOrig, json)
     end
 
 
-    local mins, maxs, all = mep:criticalPoints()
     -- record all minimum configurations
     for k,idx in pairs(mins) do
 	results.MinimumConfigurations[k] = mep:point(idx)
     end 
 
 
-    if table.maxn(maxs) > 1 then -- it's a double multi-hop transition. We don't deal with this
+    if table.maxn(maxs) > 1 then -- it's a double or multi-hop transition. We don't deal with this
+	onMultipleHops()
 	results["MultipleHops"] = true
 	results["Description"] = "Multiple hops, discarding case"
 	report(results["Description"])
@@ -205,20 +215,10 @@ function PathDynamics(mepOrig, json)
     txtSites = "{" .. table.concat(txtSites, ", ") .. "}"
 
 
-    -- working on individual points
-    local mins, maxs, critPts = mep:criticalPoints()
-
-    if maxs[1] then
-	mep:expensiveGradientMinimizationAtPoint(maxs[1], gradientMinimizationSteps, 1e-7)
-    end
-
-    -- we should ahve good points coming in, no need to do this
-    -- mep:expensiveEnergyMinimizationAtPoint(1, energyMinimizationSteps, 1e-7) -- 100 steps
-
     
     local txtDestination = txtPt(mep, mep:numberOfPoints(),"Cartesian")
 
-    mep:reduceToPoints(critPts) -- reduce from N to 3 points
+    mep:reduceToPoints(all) -- reduce from N to 3 points
     local mins, maxs, all = mep:criticalPoints()
 
 
@@ -359,7 +359,7 @@ function PathDynamics(mepOrig, json)
     results["FinalEnergy"] = mep:energyAtPoint(mep:numberOfPoints())
     results["Description"] = string.format("Physics for %s calculated" , txtSites)
     results["AtSingleWell"] = false
-    results["ToSingleWell"] = true
+    results["ToSingleWell"] = false
     results["MultipleHops"] = false
 
 
@@ -504,7 +504,13 @@ function GeneratePathDynamicsGraph(all_paths, MaxDegreesDifference, LowEnergy)
     -- are no more to add. 
     -- (This will add the self reference, which is a good thing)
     local added_cluster_info = true
+    local cluster_iteration = 0
     while added_cluster_info do
+	cluster_iteration = cluster_iteration + 1
+	if cluster_iteration > 100 then
+	    interactive("cluster_iteration > 100")
+	end
+
 	added_cluster_info = false
 	for k,n in pairs(nodes) do
 	    for i,cp in pairs(n.Cluster_Partner) do
@@ -565,7 +571,72 @@ function GeneratePathDynamicsGraph(all_paths, MaxDegreesDifference, LowEnergy)
 end
 
 
+local function refine_mins(mep, mins)
+    local _mins, _maxs = mep:criticalPoints()
+    mins = mins or _mins
+    for k,v in pairs(mins) do
+	-- never ever, ever refine the start and end points:
+	if v ~= 1 and v ~= np then
+	    local iterations = 0
+	    local ratio = mep:expensiveEnergyMinimizationAtPoint(v)
+	    local h = 1e-8
+	    while ratio > 1/50 and iterations < 20 do 
+		-- we will continue to minimize until we hit the bottom
+		ratio,_,_,h = mep:expensiveEnergyMinimizationAtPoint(v, 50, h)
+		iterations = iterations + 1
+	    end
+	end
+    end
+end
 
+local function refine_maxs(mep, maxs)
+    local _mins, _maxs = mep:criticalPoints()
+    maxs = maxs or _maxs
+    for k,v in pairs(maxs) do
+	-- never ever, ever refine the start and end points:
+	if v ~= 1 and v ~= np then
+	    local iterations = 0
+	    local ratio = mep:expensiveGradientMinimizationAtPoint(v)
+	    local h = 1e-8
+	    while ratio > 1/50 and iterations < 20 do 
+		-- we will continue to minimize until we hit the bottom
+		ratio,_,_,h = mep:expensiveGradientMinimizationAtPoint(v, 50, h)
+		iterations = iterations + 1
+	    end
+	end
+    end
+end
+
+local function attempt_simplify(mep, equal_degrees)
+    -- we'll look for multi-hops and loops
+    -- first we'll push any mid-mins down to their local well
+    -- and maxs to their minimum gradient
+    -- goal is to have points line up so we can identify similar points
+    local np = mep:numberOfPoints()
+    mep:reduceToCriticalPoints() -- this is new: reducing to crit pts so simplify works better
+    local mins, maxs = mep:criticalPoints()
+
+    refine_mins(mep, mins)
+    refine_maxs(mep, maxs)
+
+    -- and then run the simplify algorithm to cut out internal loops
+    mep:simplifyPath(equal_degrees * math.pi / 180)
+    --local cut_points = np - mep:numberOfPoints()
+
+    --mep:resamplePath(np) -- and re-expand the path
+    --return cut_points
+end
+
+local function coords(mep, filename)
+    local g = io.open(filename, "w")
+    for i=1,mep:numberOfPoints() do
+	local x1,x2,x3,xc = mep:spinInCoordinateSystem(i,1)
+	local y1,y2,y3,yc = mep:spinInCoordinateSystem(i,2)
+
+	g:write(string.format("% 4g  % 4g   %e\n", x3, y3, mep:energyAtPoint(i)))
+    end
+    g:close()
+end
 
 function AllPathDynamics(mep, minima, JSON)
     JSON = JSON or {}
@@ -576,9 +647,12 @@ function AllPathDynamics(mep, minima, JSON)
     local computeReport = JSON.MEPComputeReport or blank
     local PathDynamicsOnNan = JSON.PathDynamicsOnNan or error
     local PathDynamicsReport = JSON.PathDynamicsReport or blank
-
+    local PathDynamicsOnMultipleHops = JSON.PathDynamicsOnMultipleHops or blank
+    local SimplifyDegrees = JSON.SimplifyDegrees or 5
+    local MultipleHopRetries = JSON.MultipleHopRetries or 2
     local all_paths = {}
     local number_of_minima = table.maxn(minima)
+    local f = coords
 
     for i=1,number_of_minima-1 do
 	for j=i+1,number_of_minima do
@@ -586,10 +660,28 @@ function AllPathDynamics(mep, minima, JSON)
 
 	    mep2:setInitialPath({minima[i], minima[j]})
 	    mep2:resamplePath(ComputePoints)
+
 	    mep2:compute(ComputeSteps, {report=computeReport}) -- run MEP
+	    -- local mep3 = mep2:copy() -- for debuging
+
+	    -- local np = mep2:numberOfPoints()
+	    if mep2:minCount() > 2 then 
+		attempt_simplify(mep2, SimplifyDegrees)
+	    else
+		local mins, maxs, all = mep2:criticalPoints()
+		refine_mins(mep2, mins)
+		refine_maxs(mep2, maxs)
+		mep2:reduceToPoints(all)
+	    end
+
+	    --[[
+	    if mep2:minCount() > 2 then 
+		interactive("Multi-hop correction failed. Pre: mep3   post: mep2")
+	    end
+	    --]]
 
 	    report("Creating path between minimum points " .. i .. " and " .. j)
-	    local pd = PathDynamics(mep2,  {report=PathDynamicsReport, onNan=PathDynamicsOnNan})
+	    local pd = PathDynamics(mep2,  {report=PathDynamicsReport, onNan=PathDynamicsOnNan, onMultipleHops=PathDynamicsOnMultipleHops})
 	    table.insert(all_paths, pd)
 	    report("")
 

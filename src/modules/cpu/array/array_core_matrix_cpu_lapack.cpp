@@ -353,14 +353,152 @@ int l_matmul(lua_State* L)
 
 
 
+
+static int l_matsvd_f(lua_State* L)
+{
+    LUA_PREAMBLE(Array<float>, A, 1);
+
+    const int M = A->ny;
+    const int N = A->nx;
+	
+    Array<float>* a[3] = {0,0,0};
+
+    int dims[3][2];// = {{M,M}, {M,N}, {N,N}}
+    dims[0][0] = M; dims[0][1] = M;
+    dims[1][0] = M; dims[1][1] = N;
+    dims[2][0] = N; dims[2][1] = N;
+
+    for(int i=0; i<3; i++)
+    {
+	if(luaT_is<Array<float> >(L, 2+i))
+	    a[i] = luaT_to< Array<float> >(L, 2+i);
+	else
+	    a[i] = new Array<float>(dims[i][1], dims[i][0]);
+	
+	if(a[i]->nx != dims[i][1] || a[i]->ny != dims[i][0])
+	    return luaL_error(L, "Size mismatch for destination matrix");	
+    }
+
+    Array<float>* U = a[0];
+    Array<float>* SIGMA = a[1];
+    Array<float>* VT = a[2];
+
+// lapack_int LAPACKE_sgesdd (int matrix_order, char jobz, lapack_int m, lapack_int n, float *a, lapack_int lda, float *s, float *u, lapack_int ldu, float *vt, lapack_int ldvt)
+    int info;
+    info = LAPACKE_sgesdd(LAPACK_ROW_MAJOR, 'A', M, N, A->data(), N, SIGMA->data(), U->data(), M, VT->data(), N);
+    if (info) // handle error conditions here
+    {
+	//return luaL_error(L, "The algorithm computing SVD failed to converge.");
+	lua_pushnil(L);
+	lua_pushstring(L, "The algorithm computing SVD failed to converge.");
+	return 2;
+    }
+
+
+
+    // SIGMA is a row of data, need to make it a diagonal matrix
+    const int SX = SIGMA->nx;
+    for(int x=1; x<SX && x<SIGMA->ny; x++)
+    {
+	SIGMA->data()[x * SX + x] = SIGMA->data()[x];
+	SIGMA->data()[x] = 0;
+    }
+
+    luaT_push<fArray>(L, a[0]);
+    luaT_push<fArray>(L, a[1]);
+    luaT_push<fArray>(L, a[2]);
+
+    return 3;
+}
+
+
+static int l_matsvd_d(lua_State* L)
+{
+    LUA_PREAMBLE(Array<double>, A, 1);
+
+    const int M = A->ny;
+    const int N = A->nx;
+	
+    Array<double>* a[3] = {0,0,0};
+
+    int dims[3][2];// = {{M,M}, {M,N}, {N,N}}
+    dims[0][0] = M; dims[0][1] = M;
+    dims[1][0] = M; dims[1][1] = N;
+    dims[2][0] = N; dims[2][1] = N;
+
+    for(int i=0; i<3; i++)
+    {
+	if(luaT_is<Array<double> >(L, 2+i))
+	    a[i] = luaT_to< Array<double> >(L, 2+i);
+	else
+	    a[i] = new Array<double>(dims[i][1], dims[i][0]);
+	
+	if(a[i]->nx != dims[i][1] || a[i]->ny != dims[i][0])
+	    return luaL_error(L, "Size mismatch for destination matrix");	
+    }
+
+    Array<double>* U = a[0];
+    Array<double>* SIGMA = a[1];
+    Array<double>* VT = a[2];
+
+    int info;
+    info = LAPACKE_dgesdd(LAPACK_ROW_MAJOR, 'A', M, N, A->data(), N, SIGMA->data(), U->data(), M, VT->data(), N);
+    if (info) // handle error conditions here
+    {
+	//return luaL_error(L, "The algorithm computing SVD failed to converge.");	
+	lua_pushnil(L);
+	lua_pushstring(L, "The algorithm computing SVD failed to converge.");
+	return 2;
+    }
+
+    // SIGMA is a row of data, need to make it a diagonal matrix
+    const int SX = SIGMA->nx;
+    for(int x=1; x<SX && x<SIGMA->ny; x++)
+    {
+	SIGMA->data()[x * SX + x] = SIGMA->data()[x];
+	SIGMA->data()[x] = 0;
+    }
+
+    luaT_push<dArray>(L, a[0]);
+    luaT_push<dArray>(L, a[1]);
+    luaT_push<dArray>(L, a[2]);
+
+    return 3;
+}
+
+
+
+
+
+int l_matsvd(lua_State* L)
+{
+    if(luaT_is<dArray>(L, 1))
+	return l_matsvd_d(L);
+    if(luaT_is<fArray>(L, 1))
+	return l_matsvd_f(L);
+    return luaL_error(L, "Array.matSVD is only implemented for single and double precision arrays");
+}
+
+
+
+
 int l_mat_lapack_help(lua_State* L)
 {
 	lua_CFunction func = lua_tocfunction(L, 1);
+
+	if(func == l_matsvd)
+	{
+	    lua_pushstring(L, "Compute Singular Value Decomposition of a Matrix. A = U * SIGMA * transpose(V). A is MxN, U is MxM, SIGMA is MxN and V is NxN. LAPACK: dgesdd");
+	    lua_pushstring(L, "3 Optional Arrays: The optional arrays will be the target arrays decomposition, dimensions must match. If no arrays are given then new arrays will be created. The first is the U matix, the second is the SIGMA matix and the third will be the transpose of V (not V itself).");
+	    lua_pushstring(L, "3 Arrays: The first is the U matix, the second is the SIGMA matix and the third will be the transpose of V (not V itself).");
+	    return 3;
+
+	}
 	
 	if(func == l_mateigen)
 	{
 		lua_pushstring(L, "Compute Eigen Values and Eigen Vectors of a Matrix. LAPACK: dgeev");
-		lua_pushstring(L, "3 Optional Arrays: The optional arrays will be the target arrays for values and vectors. If none are given then new arrays will be created. The first is the real part of the eigen values, the second is the NxN array which will contain the eigen vectors and the third is the imaginary part of the values. ");
+		lua_pushstring(L, "3 Optional Arrays: The optional arrays will be the target arrays for values and vectors. If no arrays are given then new arrays will be created. The first is the real part of the eigen values, the second is the NxN array which will contain the eigen vectors and the third is the imaginary part of the values. ");
 		lua_pushstring(L, "3 Arrays: The first is an Nx1 array containing the real values, the second is an NxN array containing vectors. The third contains the imaginary parts of the values. Elements of a single vector share y coordinates (rows). The order of the return values are awkward. If something changes in the future the method name will change so errors are not silent.");
 		return 3;
 	}

@@ -478,6 +478,7 @@ static const luaL_Reg* get_base_methods_matrix_()
 		{"matMul",       l_matmul},     // BLAS DGEMM
 		{"matEigen",     l_mateigen},   // LAPACK
 		{"matInv",       l_matinverse}, // LAPACK
+		{"matSVD",       l_matsvd}, // LAPACK
 #endif
 		{NULL, NULL}
 	};

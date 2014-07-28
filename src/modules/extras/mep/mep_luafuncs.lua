@@ -291,6 +291,23 @@ methods["resamplePath"] =
     end
 }
 
+methods["equalPoints"] =
+{
+"Test if two points are equal. Equality is determined by having angles between all points less than a given tolerance (in radians)",
+"2 Integers, 1 Optional Number: Point indices, optional tolerance or 5 degrees expressed in radians",
+"1 Boolean: Result of equality",
+function(mep, idx1, idx2, tol)
+    tol = tol or 5 * math.pi / 180
+
+    for k,v in pairs(mep:anglesBetweenPoints(idx1, idx2)) do
+	if v > tol then
+	    return false
+	end
+    end
+    return true
+end
+}
+
 methods["equal"] =
     {
     "Test if points or sites are equal. Equality if determined by comparing the angle between vectors.",
@@ -341,9 +358,14 @@ methods["simplifyPath"] =
 	local np = mep:numberOfPoints()
 	for p=1,np-1 do
 	    for q=np,p+1,-1 do
-		if mep:equal(p,q,tol) then -- we have a cycle
+		if mep:equalPoints(p,q,tol) then -- we have a cycle
 		    --print("points ", p,q, " are equal")
 		    local bad_points = {}
+		    if q == mep:numberOfPoints() then
+			if p > 1 then
+			    table.insert(bad_points, p)
+			end
+		    end
 		    for j=p+1,q do
 			if j < mep:numberOfPoints() then -- never ever ever delete the last point... ever
 			    table.insert(bad_points, j)
@@ -957,11 +979,15 @@ methods["expensiveEnergyMinimizationAtPoint"] =
     {
     "Attempt to minimize energy at a point using inefficient methods",
     "1 Integer, 1 Optional Integer, 1 Optional Number: Point index, number of steps (default 50), starting step size (default 1e-3)",
-    "1 Integer, 3 Number: number of successful steps, initial energy, final energy, final step size",
+    "1 Integer, 3 Number: Ratio of successful steps to total steps, initial energy, final energy, final step size",
     function(mep, point, steps, h)
 	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 	
-	return mep:_expensiveEnergyMinimization(get_site_ss, set_site_ss, get_energy_ss, point, (h or 1e-3), (steps or 50))
+	steps = steps or 50
+
+	local good_steps, iE, fE, fH = mep:_expensiveEnergyMinimization(get_site_ss, set_site_ss, get_energy_ss, point, (h or 1e-3), steps)
+
+	return good_steps / steps, iE, fE, fH
     end
 }
 
@@ -992,11 +1018,15 @@ methods["expensiveGradientMinimizationAtPoint"] =
     {
     "Attempt to minimize the energy gradient at a point using inefficient methods",
     "1 Integer, 1 Optional Integer, 1 Optional Number: Point index, number of steps (default 50), starting step size (default 1e-3)",
-    "1 Integer, 3 Number: number of successful steps, initial square of the gradient, final square of the gradient, final step size",
+    "1 Integer, 3 Number: Ratio of successful steps to total steps, initial square of the gradient, final square of the gradient, final step size",
     function(mep, point, steps, h)
 	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 	
-	return mep:_expensiveGradientMinimization(get_site_ss, set_site_ss, get_energy_ss, point, (h or 1e-3), (steps or 50))
+        steps = steps or 50
+
+        local good_steps, iG, fG, fH = mep:_expensiveGradientMinimization(get_site_ss, set_site_ss, get_energy_ss, point, (h or 1e-3), steps)
+
+        return good_steps / steps, iG, fG, fH
     end
 }
 
@@ -1197,6 +1227,31 @@ methods["criticalPoints"] =
 	return mep:_maximalPoints()
     end
 }
+
+methods["minCount"] = 
+    {
+    "Convenience function. Counts the number of elements in the minimum points returned from MEP:criticalPoints()",
+    "",
+    "1 Number: Number of minimum points",
+    function(mep)
+	local mins, maxs, all = mep:criticalPoints()
+	return table.maxn(mins)
+    end
+}
+  
+
+methods["maxCount"] =
+    {
+    "Convenience function. Counts the number of elements in the maximum points returned from MEP:criticalPoints()",
+    "",
+    "1 Number: Number of minimum points",
+    function(mep)
+        local mins, maxs, all = mep:criticalPoints()
+        return table.maxn(maxs)
+    end
+}
+
+
 
 
 methods["reduceToPoints"] = methods["keepPoints"]
@@ -1602,14 +1657,14 @@ methods["findMinima"] =
 		{      3,      1e-2,           40,     0.0002},
 		{      3,      1e-2,           40,     0.005},
  		{      3,      1e-2,           40,     0.3},
- 		{      3,      1e-2,          100,     0.2},
- 		{      1,      1e-6,          100,     0.1},
+ 		{      3,      1e-2,          100,     0.2}
+ 		--{      1,      1e-6,          100,     0.1},
 	    }
 	    
 	    local plan = json.plan or  default_plan
 	    local mid_up = nil
 	    local num_up
-	    for j=1,6 do
+	    for j=1,table.maxn(default_plan) do
 		local v = default_plan[j]
 		local steps  = v[1]
 		local rtol   = v[2]
@@ -1639,6 +1694,22 @@ methods["findMinima"] =
 		report("search has not converged, continuing search with current state")
 		return mep:findMinima(mep:path(), json)
 	    end
+
+	    -- finalization
+	    for i=1,mep:numberOfPoints() do
+		local ratio, step_size = 1, 1e-10
+		local iteration = 0
+		while ratio > 1/30 and iteration < 10 do
+		    ratio, _, _, step_size = mep:expensiveEnergyMinimizationAtPoint(i, 30, step_size)
+		    iteration = iteration + 1
+		end
+	    end
+
+	    local up = mep:uniquePoints(2 * math.pi/180)
+	    if table.maxn(up) == 0 then
+		interactive("Zero unique points")
+	    end
+	    mep:reduceToPoints(up)
 
 	    return mep:path()
 	end
