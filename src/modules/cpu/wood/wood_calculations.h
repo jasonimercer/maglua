@@ -11,4 +11,5 @@ complex<double> ACOS_COMP( complex<double> Z);
 int EffAni(Cvctr& K, Cvctr M, double Nx, double Ny, double Nz);
 int EffAni2(Cvctr& K, Cvctr M, double Nx, double Ny, double Nz);
 double DU(Cvctr H, Cvctr K, Cvctr M, double DN);
+double DU_return(Cvctr H, Cvctr K, Cvctr M, double DN);
 

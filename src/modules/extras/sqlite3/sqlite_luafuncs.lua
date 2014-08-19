@@ -60,7 +60,7 @@ end
 
 
 
-function bootstrap(sql)
+local function bootstrap(sql)
 	local res = sql:exec("SELECT code FROM Bootstrap;")
 	local code = res[table.maxn(res)]["code"]
 	local g = loadstring(code)

@@ -74,6 +74,7 @@ function write_help(file_handle, optional_links)
 				local f = io.open("latex_expression.tex", "w")
 				f:write([[\documentclass{minimal}
 \usepackage{amssymb}
+\usepackage{amsmath}
 \begin{document}
 $]] .. d .. [[$
 \end{document}]]

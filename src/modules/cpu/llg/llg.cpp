@@ -429,7 +429,7 @@ LLG_API int lib_register(lua_State* L)
 	luaT_register<LLGAlign>(L);
 	luaT_register<LLGFake>(L);	
 	
-	if(luaL_dostring(L, __llg_wrapper()))
+	if(luaL_dostringn(L, __llg_wrapper(), __llg_wrapper_name()))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 	}

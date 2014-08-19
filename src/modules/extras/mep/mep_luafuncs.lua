@@ -24,20 +24,22 @@ end
 -- helper function to generate common closures
 -- usage:
 -- get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-local function build_gse_closures(mep)
+local function build_gse_closures(mep, JSON)
     local d = get_mep_data(mep)
     local ss = mep:spinSystem()
     local energy_function = mep:energyFunction()
+    JSON = JSON or {}
+    local report = JSON.report or function()end
     --print("BUILD GSE CLOSURES")
     local function get_site_ss(x,y,z)
 	local sx,sy,sz = ss:spin(x,y,z)
-	--print(string.format("get(%d,%d,%d)", x,y,z))
+	--report(string.format("get(%d,%d,%d)", x,y,z))
 	return sx,sy,sz
     end
     local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
 	local ox,oy,oz,m = ss:spin({x,y,z})
 	ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-	--print(string.format("get(%d,%d,%d,  %e,%e,%e)", x,y,z,sx,sy,sz))
+	--report(string.format("set(%d,%d,%d,  %e,%e,%e)", x,y,z,sx,sy,sz))
 	return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
     end
     local function get_energy_ss()
@@ -181,13 +183,20 @@ methods["writePathPointTo"] =
 	local d = get_mep_data(mep)
 	local ss = d.ss
 	
-	ss:copySpinsTo(ssNew)
-	-- 	print("pp", path_point)
+	local cfg = {}
+	local ns = mep:numberOfSites() 
 	local sites = mep:sites()
-	for i=1,table.maxn(sites) do
-	    local x,y,z,m = mep:spin(path_point, i)
-	    -- 		print(table.concat(sites[i], ","))
-	    ssNew:setSpin(sites[i], {x,y,z}, m)
+
+	for i=1,ns do
+	    local x,y,z = mep:spin(path_point, i)
+	    cfg[i] = {x,y,z}
+	end
+
+	ss:copySpinsTo(ssNew)
+	local sites = mep:sites()
+	for i=1,ns do
+	    --print(table.concat(sites[i], ","), table.concat(cfg[i], ","))
+	    ssNew:setSpin(sites[i], cfg[i])
 	end
     end
 }
@@ -209,9 +218,8 @@ methods["pathEnergy"] =
     "",
     "1 Table: energies along the path",
     function(mep)
-	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-	
-	mep:calculateEnergies(get_site_ss, set_site_ss, get_energy_ss);
+	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep, {report=print})
+	mep:calculateEnergies(get_site_ss, set_site_ss, get_energy_ss)
 	return mep:getPathEnergy()
     end
 }
@@ -404,6 +412,40 @@ methods["initialize"] =
     end
 }
 
+
+methods["movingSites"] =
+    {
+    "Determine which sites are in motion along the path.",
+    "",
+    "2 Table of Integers: Table of indices of sites which move along the path, table of ndices of sites which are stationary along the path.",
+    function(mep)
+	local movers = {}
+	local stationary = {}
+	local same  = {}
+	for s=1,mep:numberOfSites() do
+	    same[s] = true
+	end
+
+	for p=2,mep:numberOfPoints() do
+	    local a = mep:anglesBetweenPoints(1, p)
+	    for s=1,mep:numberOfSites() do
+		if a[s] > 1e-10 then
+		    same[s] = false
+		end
+	    end
+	end
+
+	for k,v in pairs(same) do
+	    if v == true then
+		table.insert(movers, k)
+	    else
+		table.insert(stationary, k)
+	    end
+	end
+	return movers, stationary
+    end
+
+}
 
 --[[
 methods["describePoint"] = 
@@ -1065,15 +1107,22 @@ methods["classifyPoint"] =
     "Determine if a point is a local maximum, minimum or neither",
     "1 Integer, 1 optional Number: Point index, optional step size",
     "1 String: \"Maximum\", \"Minimum\" or \"\"",
-    function(mep, pointNum, h)
+    function(mep, pointNum, kind, h)
 	local d = get_mep_data(mep)
 	if d.isInitialized == nil then
 	    mep:initialize()
 	end
 	
+	h = h or 1e-4
+	local step = {}
+	for i=1,mep:numberOfPoints() * 3 do
+	    step[i] = h
+	end
+
         local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 	
-	return mep:_classifyPoint(get_site_ss, set_site_ss, get_energy_ss, pointNum, h)
+	local t1, t2, t3 = mep:_classifyPoint(pointNum, step, set_site_ss, get_site_ss, get_energy_ss)
+	return t1, t2, t3
     end
 }
 
@@ -1117,7 +1166,7 @@ methods["gradientAtPoint"] =
 	else
 	    destArray = Array.Double.new(c*3, 1)
 	end
-	
+        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 	local t = mep:_gradAtPoint(pointNum, get_site_ss, set_site_ss, get_energy_ss)
 	
 	for x=1,c*3 do
@@ -1621,6 +1670,35 @@ local function p_cs(mep)
     end
 end
 
+methods["printPoint"] = 
+    {
+    "Primarily a debugging method. Prints a given point.",
+    "1 Integer, 1 Optional String: Point index, optional coordinate",
+    "",
+    function(mep, p, cs) 
+	local pe = mep:pathEnergy()
+
+	local t = {string.format("%3d  % 6.6e", p, pe[p])}
+	for s=1,mep:numberOfSites() do
+	    local x,y,z,c = mep:spinInCoordinateSystem(p,s,cs)
+	    table.insert(t, string.format(" {% 4.4e, % 4.4e, % 4.4e, %10s}", x,y,z,c))
+	end
+	print(table.concat(t))
+    end
+}
+
+methods["printPath"] = 
+    {
+    "Primarily a debugging method. Prints the current path.",
+    "",
+    "",
+    function(mep) 
+	for p=1,mep:numberOfPoints() do
+	    mep:printPoint(p)
+	end
+    end
+}
+
 methods["findMinima"] =
     {
     "Find the coordinates of minima in the energy landscape",
@@ -1672,7 +1750,9 @@ methods["findMinima"] =
 		local eqtol  = v[4]
 
 		for i=1,steps do
+		    -- mep:printPath()
 		    mep:globalRelax(rsteps, rtol)
+		    -- mep:printPath()
 		    local up = mep:uniquePoints(eqtol * math.pi/180)
 		    num_up = table.maxn(up)
 
@@ -1680,6 +1760,7 @@ methods["findMinima"] =
 			interactive("Zero unique points")
 		    end
 		    mep:reduceToPoints(up)
+		    -- mep:printPath()
 		    report(string.format("Global relax tolerance: %4g, " .. 
 					 "Unique test degrees: %4g, Unique points: %4d",
 				     rtol, eqtol, table.maxn(up)))
@@ -1803,6 +1884,25 @@ methods["pointSiteMobility"] =
     end
 }
 
+methods["movePoint"] = 
+    {
+    "Change the coordinates of a point by the given amounts",
+    "1 Integer, 1 Table of 3*:numberOfSites() Numbers, 1 optional Number: Point index, coordinate changes, scale factor (default 1)",
+    "",
+    function(mep, p, delta, scale)
+	scale = scale or 1
+	for s=1,mep:numberOfSites() do
+	    local x1,y1,z1,c = mep:_nativeSpin(p,s)
+
+	    local q = (s-1)*3
+	    local x2 = x1 + scale * delta[q+1]
+	    local y2 = y1 + scale * delta[q+2]
+	    local z2 = z1 + scale * delta[q+3]
+	    --print(p,s,x1,y1,z1, x2,y2,z2, c)
+	    mep:setSpinInCoordinateSystem(p,s,x2,y2,z2,c)
+	end
+    end
+}
 
 methods["setSpinInCoordinateSystem"] =
     {
@@ -1844,6 +1944,72 @@ methods["setSpinInCoordinateSystem"] =
 	mep:setSpin(p,s, x,y,z,c)
     end
 }
+
+
+local tcopy = nil
+function tcopy(t)
+    if type(t) == type({}) then
+	local c = {}
+	for k,v in pairs(t) do
+	    c[ tcopy(k) ] = tcopy(v)
+	end
+	return c
+    end
+    if type(t) == type("a") then
+	return t .. ""
+    end
+    return t
+end
+
+local function ors_build(base, current, n, pop)
+    if n == 0 then
+	table.insert(base, current)
+	return
+    end
+
+    for k,v in pairs(pop) do
+	local c = tcopy(current)
+	table.insert(c, v)
+	ors_build(base, c, n-1, pop)
+    end
+end
+
+
+methods["findBestPath"] =
+{
+"Find best path. JSON = {orientationsPerSite=n(default 20)}}",
+"Optional JSON style table",
+"",
+function(_mep, JSON)
+    JSON = JSON or {}
+    local orientationsPerSite = JSON.orientationsPerSite or 20
+
+
+    if _mep:numberOfPoints() ~= 2 then
+	error("Require exactly 2 points in mep object.")
+    end
+
+    local mep = _mep:copy()
+
+    local ns = mep:numberOfSites()
+
+    local ors = math.vectorIcosphere(orientationsPerSite)
+
+    local ors_combinations = {}
+
+    ors_build(ors_combinations, {}, ns, ors)
+
+    mep:setInitialPath(ors_combinations)
+
+    local pe = mep:pathEnergy()
+    
+    mep:_findBestPath(ors_combinations, pe, _mep:pointInCoordinateSystem(1, "Cartesian"), _mep:pointInCoordinateSystem(2, "Cartesian"))
+
+end
+}
+methods["findBestPath"] = nil -- disabling until after ising-like approx 
+
+
 
 
 -- inject above into existing metatable for MEP operator

@@ -102,6 +102,29 @@ methods["startupFunction"] = {
     end
 }
 
+
+methods["setProposedEventFunction"] = {
+    "Set a function that will be called before immediatelty before the selected event function. It will be passed the time and function of the fastest event as well as the third return value from the eventFunction. The semantics of the third return value is opaque as far as the KMC framework is concerned. It is up to the user to decide what to do with it. A common choice is to have it be a table with information regarding the energy barrier of the event and clustering decisions to allow adaption of a cluster energy cutoff. It could also be used to record the sequence of events for a simulation. If this function is defined, it is responsible for retuning a boolean value. If it returns true then the event function will be called, otherwise it will not. If a proposedEvent function is not provided or it is set to nil then the selected event function will always be called.",
+    "1 Function: The function will be passed a minimum time, the corresponding event function and an arbitrary 3rd return value from the create event function. It must return a boolean value which will determine if the KMC framework will call the event function on the SpinSystem.",
+    "",
+    function(kmc, sf)
+	local data = dd(kmc)
+	data.proposed_function = sf
+	dd(kmc, data)
+    end
+}
+methods["proposedEventFunction"] = {
+    "Get the \"proposedEvent\" function. See KMC:setProposedEventFunction for details",
+    "",
+    "1 function: proposed event function.",
+    function(kmc, sf)
+	local data = dd(kmc)
+	return (data.proposed_function or function() return true end)
+    end
+}
+
+
+
 methods["setShutdownFunction"] = {
     "Set a function that will be called after the loop over sites in the apply method. This will be called by all MPI processes.",
     "1 function: It is expected that the first argument is a KMC object and the second is the *SpinSystem* invovled in the calculation and the third is a table of key-value pairs with keys of positions and values of event times. If you want all the event times you will need to combine the data manually from all the processes.",
@@ -357,6 +380,7 @@ methods["apply"] = {
 	local event_f = kmc:eventFunction() -- energy barrier, attempt frequenct
 	local start_f = kmc:startupFunction()
 	local end_f = kmc:shutdownFunction()
+	local proposed_f = kmc:proposedEventFunction()
 
 	local det_fields  = data.fields_no_temp
 	local temp_fields =  data.fields_only_temp
@@ -374,15 +398,17 @@ methods["apply"] = {
 
 	local all_times = {}
 	local all_actions = {}
+	local all_opaque = {} -- opaque user data 
 	local all_pos = {}
 	local local_idx = 1
 
 	local function inner_loop(pos)
-	    local time, action = event_f(kmc, ss, pos) -- energy barrier/attempt frequency
+	    local time, action, opaque = event_f(kmc, ss, pos) -- energy barrier/attempt frequency
 
 	    all_times[ local_idx ] = time
 	    all_actions[ local_idx ] = action
 	    all_pos[ local_idx ] = pos
+	    all_opaque[ local_idx ] = opaque
 
 	    local_idx = local_idx + 1
 	end
@@ -405,9 +431,9 @@ methods["apply"] = {
 	local mta
 	-- send all proposed time/events to root
 	if min_idx then
-	    mta = comm:gather(1, {all_times[min_idx], all_actions[min_idx], all_pos[min_idx]}) 
+	    mta = comm:gather(1, {all_times[min_idx], all_actions[min_idx], all_pos[min_idx], all_opaque[min_idx]}) 
 	else
-	    mta = comm:gather(1, {nil, nil, nil})
+	    mta = comm:gather(1, {nil, nil, nil, nil})
 	end
 
 	-- only root will look for smallest as 
@@ -416,40 +442,45 @@ methods["apply"] = {
 	    all_times = {}
             all_actions = {}
             all_pos = {}
+	    all_opaque = {}
 	    for i=1,table.maxn(mta) do
 		all_times[i]   = mta[i][1]
 		all_actions[i] = mta[i][2]
 		all_pos[i]     = mta[i][3]
+		all_opaque[i]  = mta[i][4]
 	    end
 
 	    min_idx = index_of_smallest_value(all_times, rng)
 
 	    if min_idx then
-		mta = comm:bcast(1,  {all_times[min_idx], all_actions[min_idx], all_pos[min_idx]})
+		mta = comm:bcast(1,  {all_times[min_idx], all_actions[min_idx], all_pos[min_idx], all_opaque[min_idx]})
 	    else
-		mta = comm:bcast(1,  {nil, nil, nil})
+		mta = comm:bcast(1,  {nil, nil, nil, nil})
 	    end
 	else
 	    mta = comm:bcast(1, nil)
 	end
 
 	--  min time
-	min_time = mta[1]
-	min_action = mta[2]
-	min_pos = mta[3]
+	local min_time = mta[1]
+	local min_action = mta[2]
+	local min_pos = mta[3]
+	local min_opaque = mta[4]
 
-	if min_time then
-	    if min_time > max_step then
-		ss:setTime(ss:time() + max_step)
+	if proposed_f(min_time, min_action, min_opaque) then
+	    if min_time then
+		if min_time > max_step then
+		    ss:setTime(ss:time() + max_step)
+		else
+		    -- do action, update time
+		    min_action(ss)
+		    ss:setTime(ss:time() + min_time)
+		end
 	    else
-		-- do action, update time
-		min_action(ss)
-		ss:setTime(ss:time() + min_time)
+		-- we haven't found a transition (all single wells), 
+		-- let's step forward without doing anything
+		ss:setTime(ss:time() + max_step)
 	    end
-	else
-	    -- we haven't found a transition (all single wells), 
-	    -- let's step forward without doing anything
-	    ss:setTime(ss:time() + max_step)
 	end
 
 	end_f(kmc, ss, all_times) -- do something custom

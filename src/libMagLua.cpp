@@ -169,12 +169,6 @@ static void do_rlimit(lua_State* L)
 	lua_setglobal(L, "setrlimit");
 }
 
-inline int luaL_dostringn(lua_State* L, const char* code, const char* name)
-{
-	return luaL_loadbuffer(L, code, strlen(code), name) || lua_pcall(L, 0, LUA_MULTRET, 0);
-}
-
-
 
 static void lua_setupPreamble(lua_State* L, int sub_process)
 {
@@ -223,6 +217,9 @@ static void lua_setupPreamble(lua_State* L, int sub_process)
 	
 	lua_pushcfunction(L, lua_loadfile);
 	lua_setglobal(L, "loadModule");
+	
+	lua_pushcfunction(L, lua_unloadfile);
+	lua_setglobal(L, "unloadModule");
 	
 	do_rlimit(L);
 
@@ -277,8 +274,8 @@ int libMagLua(lua_State* L, int sub_process, int force_quiet)
 	lua_setupPreamble(L, sub_process);
 	
 	pushtraceback(L);
-	
-	if(luaL_loadstring(L, __bootstrap()))
+
+	if(luaL_loadbuffer(L, __bootstrap(), strlen(__bootstrap()), __bootstrap_name()))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 		return 2;

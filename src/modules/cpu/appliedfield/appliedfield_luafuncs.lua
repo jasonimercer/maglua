@@ -38,6 +38,10 @@ local function get(a)
 	return a:x(), a:y(), a:z()
 end
  
+local function toTable(a)
+    return {a:x(), a:y(), a:z()}
+end
+
 
 local function apply(a, ss)
 	if type(ss) == "table" then
@@ -58,6 +62,7 @@ end
 t.set = set
 t.get = get
 t.add = add
+t.toTable = toTable
 t.apply = apply
 
 local help = MODTAB.help
@@ -82,6 +87,13 @@ MODTAB.help = function(x)
 		"Get the direction and strength of the Applied Field",
 		"",
 		"3 numbers: The x, y and z components of the field"
+	end
+		
+	if x == toTable then
+		return 
+		"Get the direction and strength of the Applied Field",
+		"",
+		"1 Table of 3 Numbers: The x, y and z components of the field"
 	end
 		
 	if x == nil then

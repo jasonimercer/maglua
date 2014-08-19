@@ -18,6 +18,11 @@
 #include "luamigrate.h"
 #include "luabaseobject.h"
 
+
+//static FILE* report = stdout;
+#define report 0
+
+
 const char* find_cfunc_code = 
     "return function(target)\n"
     "  for k1,v1 in pairs(_G) do\n"
@@ -64,7 +69,10 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 	{
 		fprintf(b->debug, "(%s:%i) exporting %12s pos:%6i\n", __FILE__, __LINE__, lua_typename(L, t), b->pos);
 	}
-	//printf("ENCODING %s\n", lua_typename(L, t));
+	
+	if(report)
+	    fprintf(report, "(%s:%04i) Encoding `%s' (lua_type=%i)\n", __FILE__, __LINE__, lua_typename(L, t), t);
+
 	encodeInteger(t, b);
 	switch(t)
 	{
@@ -99,10 +107,16 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 
 			if(existing_index == -1) //new
 			{
-				b->encoded_table_pointers.push_back(tab_ptr);
-				encodeChar(ENCODE_MAGIC_NEW, b);
-				encodeInteger(0, b); // for NEW/OLD symmetry
+			    if(report)
+			    {
+				fprintf(report, "(%s:%04i) Buffer does not contain table\n", __FILE__, __LINE__);
+				fprintf(report, "(%s:%04i) New table index: %d\n", __FILE__, __LINE__, (int)b->encoded_table_pointers.size());
+			    }
 
+			    b->encoded_table_pointers.push_back(tab_ptr);
+			    encodeChar(ENCODE_MAGIC_NEW, b);
+			    encodeInteger(0, b); // for NEW/OLD symmetry
+			    
 				tablesize = 0;
 
 				lua_pushnil( L );
@@ -117,6 +131,17 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 				lua_pushnil(L);
 				while(lua_next(L, index) != 0)
 				{
+				    if(report)
+				    {
+					lua_getglobal(L, "tostring");
+					lua_pushvalue(L, -3);
+					lua_pcall(L, 1,1,0);
+					lua_getglobal(L, "tostring");
+					lua_pushvalue(L, -3);
+					lua_pcall(L, 1,1,0);
+					fprintf(report, "(%s:%04i) Exporting Key/Value %s/%s:\n", __FILE__, __LINE__, lua_tostring(L, -2), lua_tostring(L, -1));
+					lua_pop(L, 2);
+				    }
 					_exportLuaVariable(L, -2, b);
 					_exportLuaVariable(L, -1, b);
 					lua_pop(L, 1);
@@ -133,8 +158,13 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 			}
 			else
 			{
-				encodeChar(ENCODE_MAGIC_OLD, b);
-				encodeInteger(existing_index, b);
+			    if(report)
+			    {
+				fprintf(report, "(%s:%04i) Buffer does contain table\n", __FILE__, __LINE__);
+				fprintf(report, "(%s:%04i) Table index: %i\n", __FILE__, __LINE__, existing_index);
+			    }
+			    encodeChar(ENCODE_MAGIC_OLD, b);
+			    encodeInteger(existing_index, b);
 			}
 			break;
 		}
@@ -152,12 +182,12 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 
 			if(luaL_loadstring(L, find_cfunc_code))
 			{
- 			    fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+ 			    fprintf(stderr, "(%s:%04i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 			}
 
 			if(lua_pcall(L, 0,1,0))
 			{
- 			    fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+ 			    fprintf(stderr, "(%s:%04i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 			}
 
 			// now the above function is on the stack so we can use it to find our target
@@ -165,7 +195,7 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 			
 			if(lua_pcall(L, 1,1,0))
 			{
- 			    fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+ 			    fprintf(stderr, "(%s:%04i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 			}
 
 
@@ -198,7 +228,7 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 			#if 0
 			if(b->debug)
 			{
-				fprintf(b->debug, "(%s:%i) function size: %i\n", __FILE__, __LINE__, b2->pos);
+				fprintf(b->debug, "(%s:%04i) function size: %i\n", __FILE__, __LINE__, b2->pos);
 			}
 			#endif
 			
@@ -234,9 +264,12 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 		break;
 		case LUA_TUSERDATA:
 		{
-			//luaL_error(L, "Cannot export USERDATA");
 			LuaBaseObject** pe = (LuaBaseObject**)lua_topointer(L, index);
 			LuaBaseObject* e = *pe;
+			if(report)
+			{
+                            fprintf(report, "(%s:%04i) Exporting `%s' (type=%i)\n", __FILE__, __LINE__, Factory_typename(e->type), e->type);
+			}
 			encodeInteger(e->type, b);
 			e->encode(b);
 		}
@@ -297,7 +330,7 @@ int _importLuaVariable(lua_State* L, buffer* b)
 
 			if((magic != ENCODE_MAGIC_NEW) && (magic != ENCODE_MAGIC_OLD))
 			{
-				luaL_error(L, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+				luaL_error(L, "(%s:%04i)Malformed data stream\n", __FILE__, __LINE__);
 				return -1;
 			}
 
@@ -308,13 +341,24 @@ int _importLuaVariable(lua_State* L, buffer* b)
 				lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
 				b->encoded_table_refs.push_back(ref);
 
-				int ts = decodeInteger(b);
+				int ts = decodeInteger(b); // table size
 
 
 				for(int i=0; i<ts; i++)
 				{
 					_importLuaVariable(L, b);
 					_importLuaVariable(L, b);
+					if(report)
+					{
+					    lua_getglobal(L, "tostring");
+					    lua_pushvalue(L, -3);
+					    lua_pcall(L, 1,1,0);
+					    lua_getglobal(L, "tostring");
+					    lua_pushvalue(L, -3);
+					    lua_pcall(L, 1,1,0);
+					    fprintf(report, "(%s:%04i) Importing Key/Value %s/%s:\n", __FILE__, __LINE__, lua_tostring(L, -2), lua_tostring(L, -1));
+					    lua_pop(L, 2);
+					}
 					lua_settable(L, -3);
 				}
 
@@ -333,7 +377,7 @@ int _importLuaVariable(lua_State* L, buffer* b)
 			{
 				if(pos < 0 || pos >= (int)b->encoded_table_refs.size())
 				{
-					luaL_error(L, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+					luaL_error(L, "(%s:%04i)Malformed data stream\n", __FILE__, __LINE__);
 				}
 				else
 				{
@@ -362,12 +406,12 @@ int _importLuaVariable(lua_State* L, buffer* b)
 			    
 			    if(luaL_loadstring(L, s))
 			    {
-				fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+				fprintf(stderr, "(%s:%04i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 			    }
 			    
 			    if(lua_pcall(L, 0,1,0))
 			    {
-				fprintf(stderr, "(%s:%i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+				fprintf(stderr, "(%s:%04i)%s\n", __FILE__, __LINE__, lua_tostring(L, -1));
 				fprintf(stderr, "Current state does not have `%s'\n", s+8);
 			    }
 
@@ -392,40 +436,59 @@ int _importLuaVariable(lua_State* L, buffer* b)
 		case LUA_TUSERDATA:
 		{
 			int type = decodeInteger(b);
+			if(report)
+			    fprintf(report, "(%s:%04i) Decoding `%s'\n", __FILE__, __LINE__, Factory_typename(type));
+
 			char magic = decodeChar(b);
 			int pos = decodeInteger(b);
 
 			if((magic != ENCODE_MAGIC_NEW) && (magic != ENCODE_MAGIC_OLD))
 			{
-				luaL_error(L, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+				luaL_error(L, "(%s:%04i)Malformed data stream\n", __FILE__, __LINE__);
 				return -1;
 			}
+
+
 
 			LuaBaseObject* e = 0;
 			if(magic == ENCODE_MAGIC_NEW)
 			{
+			    if(report)
+				fprintf(report, "(%s:%04i) Decoding new object\n", __FILE__, __LINE__);
+
 				e = Factory_newItem(type);
+				b->encoded.push_back(e);
+
+				if(pos != (int)b->encoded.size()-1)
+				    fprintf(stderr, "(%s:%i) Type=`%s'. Encoded index mismatch. Expected %i, got %i\n", __FILE__, __LINE__, Factory_typename(type),  pos, (int)b->encoded.size()-1);
+
 				if(e)
 				{
 					e->L = L;
 					e->decode(b);
 					Factory_lua_pushItem(L, e, type);
-					b->encoded.push_back(e);
 				}
 				else
 				{
 					luaL_error(L, "Failed to create new type from factory\n");
 				}
+
+
 			}
 			if(magic == ENCODE_MAGIC_OLD)
 			{
+			    if(report)
+				fprintf(report, "(%s:%04i) Looking up old object\n", __FILE__, __LINE__);
+
+
 				if(pos < 0 || pos >= (int)b->encoded.size())
 				{
-					luaL_error(L, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);
+					luaL_error(L, "(%s:%04i)Malformed data stream\n", __FILE__, __LINE__);
 				}
 				else
 				{
 					e = (LuaBaseObject*)b->encoded[pos];
+					Factory_lua_pushItem(L, e, type);
 				}
 			}
 		}

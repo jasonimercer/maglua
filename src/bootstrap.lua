@@ -36,34 +36,35 @@ local cmd_line_max_memory = nil
 local do_error_trim = false
 local custom_load_module = {}
 local skip_startup_file = false
-
+delayed_execute = {}
 
 -- trim info about bootstrap from error messages
-debug["trim_error"] = function(msg)
-			  if do_error_trim == false then
-			      return msg
-			  end
-			  msg = msg or "error"
-			  local a, b, preStack, Stack, postStack = string.find(msg, "(.-)(stack traceback%:%s*)(.*)")
-
-			  if a == nil then
-			      return msg --don't know how to deal with it
-			  end
-			  
-			  -- need to trim error function from postStack
-			  local a, b, c = string.find(postStack, "%s*%[C%]%: in function %'error%'%s+(.*)")
-			  if a then
-			      postStack = c
-			  end
-			  
-			  -- need to trim bootstrap scope
-			  local a, b, c = string.find(postStack, "(.*)%s*%[C%]%: in function .dofile_original.%s.*")
-			  if a then
-			      postStack = c
-			  end
-			  
-			  return preStack .. Stack .. postStack
-		      end
+debug["trim_error"] = 
+    function(msg)
+	if do_error_trim == false then
+	    return msg
+	end
+	msg = msg or "error"
+	local a, b, preStack, Stack, postStack = string.find(msg, "(.-)(stack traceback%:%s*)(.*)")
+	
+	if a == nil then
+	    return msg --don't know how to deal with it
+	end
+	
+	-- need to trim error function from postStack
+	local a, b, c = string.find(postStack, "%s*%[C%]%: in function %'error%'%s+(.*)")
+	if a then
+	    postStack = c
+	end
+	
+	-- need to trim bootstrap scope
+	local a, b, c = string.find(postStack, "(.*)%s*%[C%]%: in function .dofile_original.%s.*")
+	if a then
+	    postStack = c
+	end
+	
+	return preStack .. Stack .. postStack
+    end
 
 
 
@@ -420,7 +421,7 @@ for k,v in pairs(mod) do
 end
 
 -- creating a closure for modules
-function make_modules()
+local function make_modules()
     local m = mod
     return function()
 	       return m
@@ -510,9 +511,28 @@ if be_quiet == nil then
     e(table.concat(t, ", "))
 end
 
+-- some mains may have put functions in delayed_execute so we'll do them now
+-- the reason they're done now is that all modules are loaded while
+-- in main they may not have been loaded
+for k,v in pairs(delayed_execute) do
+    v()
+end
 
+-- giving shutdown_now another change. 
+if shutdown_now then
+    return false
+end
+
+
+-- cleaning up the scope
+-- removing variables that are not needed
+delayed_execute = nil
 startup_dir_sep = nil
 do_error_trim = true
+startup_path_dir = nil
+escape = nil
+getModulesInDirectory = nil
+use_modules = nil
 
 if sub_process == nil then
     -- find first script in args
@@ -528,7 +548,12 @@ if sub_process == nil then
     end
     
     if first_script_index == nil then
-	e("Please supply a MagLua script (*.lua)")
+	if interactive then
+	    interactive("", {message=false, header=false})
+	    print() -- for the newline that ctrl+d doesn't give
+	else
+	    e("Please supply a MagLua script (*.lua)")
+	end
 	return false
     end
     
@@ -538,8 +563,9 @@ if sub_process == nil then
 	a[k - first_script_index] = v
     end
     arg = a
-    
-    dofile(a[0])
+    a = nil
+
+    dofile(arg[0])
 else
     sub_process = nil
 end

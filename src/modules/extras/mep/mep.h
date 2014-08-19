@@ -126,7 +126,7 @@ public:
 	
 	void setSiteSpin(lua_State* L, int set_index, int* site3, const double* mm);
 	void setSiteSpin(lua_State* L, int set_index, int* site3, const VectorCS& mm);
-	void setAllSpins(lua_State* L, int set_index, vector<VectorCS>& m);
+	void setAllSpins(lua_State* L, int set_index, const vector<VectorCS>& m);
 	void getAllSpins(lua_State* L, int get_index, vector<VectorCS>& m);
 
 	double problemScale();
@@ -181,6 +181,20 @@ public:
 	int uniqueSites(lua_State* L);
 	int slidePoint(lua_State* L);
 	int classifyPoint(lua_State* L);
+
+
+	int l_classifyPoint(lua_State* L, int base);
+
+	// get energies about a point
+	void pointNeighbourhood(const int point, lua_State* L, const int set_index, int get_index, int energy_index, const vector<double>& h, vector<double>& e);
+
+	// get energies about a state
+	void stateNeighbourhood(const vector<VectorCS>& state, lua_State* L, const int set_index, int get_index, int energy_index, const vector<double>& h, vector<double>& e);
+
+	// type: -1=min, 0=saddle, 1=max
+	double classifyNeighbourhood(int type, const vector<double>& eee_h);
+
+
 
 	int relax_direction_fail_max;
 

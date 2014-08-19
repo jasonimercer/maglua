@@ -50,9 +50,17 @@ CHECKPOINT_API const char* lib_name(lua_State* L)
 #endif
 }
 
+#include "checkpoint_main.h"
+
+
 CHECKPOINT_API int lib_main(lua_State* L)
 {
-	return 0;
+    if(luaL_dostring(L, __checkpoint_main()))
+    {
+	fprintf(stderr, "%s\n", lua_tostring(L, -1));
+	return luaL_error(L, lua_tostring(L, -1));
+    }
+    return 0;
 }
 
 #endif

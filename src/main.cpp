@@ -14,6 +14,7 @@
  #include <mpi.h>
 #endif
 #include "libMagLua.h"
+#include "shutdown.h"
 
 int main(int argc, char** argv)
 {
@@ -32,6 +33,12 @@ int main(int argc, char** argv)
 
 	lua_State *L = lua_open();
 	int ret = libMagLuaArgs(argc, argv, L, sub_process, force_quiet);
+
+	if(luaL_dostringn(L, __shutdown(), __shutdown_name()))
+	{
+	    fprintf(stderr, "%s\n", lua_tostring(L, -1));
+	}
+
 	lua_close(L);
 	
 #ifdef _MPI

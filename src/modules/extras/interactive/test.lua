@@ -1,3 +1,15 @@
+long_variable_1 = 5
+long_variable_2 = 6
+long_variable_3 = 7
+long_variable_4 = 8
+long_variable_5 = 9
+
+function gi(x)
+    for k,v in pairs(debug.getinfo(x)) do
+	print(k,v)
+    end
+end
+
 
 local a = 4
 

@@ -530,6 +530,11 @@ end
 		"1 Function: Each time the returned function is called it will return a table of 3 numbers. If a RNG object was supplied in the initial call, the values will be based on that random stream otherwise the built-in math.random will be used."
 	end
 
+	if x == math.vectorsIcosphere then
+	    return "Get vectors representing the points on triangular subdivisons of the faces of a tetrahedron. The 1st 4 vetors are the base tetrahedron, the next 4 are the centers of the original tetrahedon pushed out to the unit sphere, the next 12 are the centers of the new faces and so on. Providing input 4, 8, 20, 56, 164, ... will give equal distributions over a sphere.",
+	    "1 Integer: Number of vectors to return.",
+	    "1 Table of Tables of 3 Numbers: Vectors."
+	end
 	
 	if x == nil then
 		return help()

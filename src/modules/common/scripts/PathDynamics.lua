@@ -42,6 +42,7 @@
 --
 -- This file also provides the function AllPathDynamics(mep, minima, JSON) which will generate the all_paths input for the above function. The input is an MEP object, the return from mep:findMinima() and an optional JSON-style table with extra options. The keys that can be populated are:
 --<dl>
+--<dt>SymmetricLandscape</dt><dd>Assume landscape has phi-symmetry. This disables many checks.</dd>
 --<dt>MEPComputePoints</dt><dd>Number of points to use in the internal mep:compute(), default 30</dd>
 --<dt>MEPComputeSteps</dt><dd>Number of steps to use in the internal mep:compute(), default 40</dd>
 --<dt>MEPComputeReport</dt><dd>Function to provide as the mep:compute report function, default `function() end'. The print function could be used.</dd>
@@ -113,7 +114,6 @@ function PathDynamics(mepOrig, json)
 
     -- getting important points
     local mins, maxs, all = mep:criticalPoints()
-
 
     -- add common results to the return value
     local function ar(res) -- add inputted results, add text
@@ -275,6 +275,8 @@ function PathDynamics(mepOrig, json)
     local ESad = mep:energyAtPoint(saddlePoint)
     local E1 = mep:energyAtPoint(minimumEnergy1)
 
+    --interactive("Pre")
+
     -- Working on rate:
     local hessian = mep:hessianAtPoint(saddlePoint)
     hessian = hessian:cutX(1,4):cutY(1,4) -- cut radial terms
@@ -309,6 +311,12 @@ function PathDynamics(mepOrig, json)
     function metricCC_at(idx)
 	local _, _, p1 = mep:spinInCoordinateSystem(idx, 1, "Canonical")
 	local _, _, p2 = mep:spinInCoordinateSystem(idx, 2, "Canonical")
+
+	if (1-p1^2) == 0 or (1-p2^2) == 0 then
+	    if json.onNan then
+		json.onNan("This is a purely single grain rotation. p1 or p2 is exactly -1 or 1 at the saddle point.")
+	    end
+	end
 	
 	return makeDiagonal({
 				(MG/M1) * (1-p1^2)^(-1),
@@ -335,6 +343,7 @@ function PathDynamics(mepOrig, json)
     mep:setCoordinateSystem("CanonicalX") --rotated coord. system
     hessian = mep:hessianAtPoint(minimumEnergy1)
     hessian = hessian:cutX(1,4):cutY(1,4) -- cut radius terms
+    --interactive()
     local n1 = hessian:matEigen()
 
 
@@ -508,7 +517,18 @@ function GeneratePathDynamicsGraph(all_paths, MaxDegreesDifference, LowEnergy)
     while added_cluster_info do
 	cluster_iteration = cluster_iteration + 1
 	if cluster_iteration > 100 then
-	    interactive("cluster_iteration > 100")
+        -- doing full error reporting:
+	    local tmp = os.pid()
+	    local cp_file = "cluster_problem_" .. tmp .. ".dat"
+	    local er_file = "ERROR_" .. tmp .. ".txt"
+	    local f = io.open(er_file, "w")
+	    f:write("There was a problem combining clusters. The iteraction counter has exceeded 100, which is " ..
+		    "unreasonable. We are saving the input to this function into `" .. cp_file .. "'. Perhaps " ..
+		    "Jason can help.")
+	    f:close()
+	    checkpointSave(cp_file, all_paths, MaxDegreesDifference, LowEnergy)
+	    error("Cluster problem. See file `"..er_file.."' for details.")
+	    -- interactive("cluster_iteration > 100")
 	end
 
 	added_cluster_info = false
@@ -578,7 +598,7 @@ local function refine_mins(mep, mins)
 	-- never ever, ever refine the start and end points:
 	if v ~= 1 and v ~= np then
 	    local iterations = 0
-	    local ratio = mep:expensiveEnergyMinimizationAtPoint(v)
+	    local ratio = 1 --mep:expensiveEnergyMinimizationAtPoint(v)
 	    local h = 1e-8
 	    while ratio > 1/50 and iterations < 20 do 
 		-- we will continue to minimize until we hit the bottom
@@ -596,7 +616,7 @@ local function refine_maxs(mep, maxs)
 	-- never ever, ever refine the start and end points:
 	if v ~= 1 and v ~= np then
 	    local iterations = 0
-	    local ratio = mep:expensiveGradientMinimizationAtPoint(v)
+	    local ratio = 1 --mep:expensiveGradientMinimizationAtPoint(v)
 	    local h = 1e-8
 	    while ratio > 1/50 and iterations < 20 do 
 		-- we will continue to minimize until we hit the bottom
@@ -652,6 +672,7 @@ function AllPathDynamics(mep, minima, JSON)
     local MultipleHopRetries = JSON.MultipleHopRetries or 2
     local all_paths = {}
     local number_of_minima = table.maxn(minima)
+    local symmetricLandscape = JSON.SymmetricLandscape or false
     local f = coords
 
     for i=1,number_of_minima-1 do
@@ -664,21 +685,21 @@ function AllPathDynamics(mep, minima, JSON)
 	    mep2:compute(ComputeSteps, {report=computeReport}) -- run MEP
 	    -- local mep3 = mep2:copy() -- for debuging
 
-	    -- local np = mep2:numberOfPoints()
-	    if mep2:minCount() > 2 then 
-		attempt_simplify(mep2, SimplifyDegrees)
-	    else
-		local mins, maxs, all = mep2:criticalPoints()
-		refine_mins(mep2, mins)
-		refine_maxs(mep2, maxs)
-		mep2:reduceToPoints(all)
+	    if symmetricLandscape == false then -- we'll try to fix things
+		-- local np = mep2:numberOfPoints()
+		if mep2:minCount() > 2 then 
+		    attempt_simplify(mep2, SimplifyDegrees)
+		else
+		    local mins, maxs, all = mep2:criticalPoints()
+		    refine_mins(mep2, mins)
+		    refine_maxs(mep2, maxs)
+		    mep2:reduceToPoints(all)
+		end
+		
+		--if mep2:minCount() > 2 then 
+		--interactive("Multi-hop correction failed. Pre: mep3   post: mep2")
+		--end
 	    end
-
-	    --[[
-	    if mep2:minCount() > 2 then 
-		interactive("Multi-hop correction failed. Pre: mep3   post: mep2")
-	    end
-	    --]]
 
 	    report("Creating path between minimum points " .. i .. " and " .. j)
 	    local pd = PathDynamics(mep2,  {report=PathDynamicsReport, onNan=PathDynamicsOnNan, onMultipleHops=PathDynamicsOnMultipleHops})

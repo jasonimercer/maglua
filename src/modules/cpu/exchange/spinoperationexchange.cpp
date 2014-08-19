@@ -408,6 +408,40 @@ static int l_getPathsFrom(lua_State* L)
 }
 
 
+static int l_getPathsFromTo(lua_State* L)
+{
+	LUA_PREAMBLE(Exchange, ex, 1);
+	
+	int r1, r2;
+	int a[3], b[3];
+	
+	r1 = lua_getNint(L, 3, a, 2,    1);
+	if(r1<0)	return luaL_error(L, "invalid site");
+	r2 = lua_getNint(L, 3, b, 2+r1,    1);
+	if(r2<0)	return luaL_error(L, "invalid site");
+	
+	int idx1 = ex->getidx(a[0]-1, a[1]-1, a[2]-1);
+	int idx2 = ex->getidx(b[0]-1, b[1]-1, b[2]-1);
+
+	lua_newtable(L);
+	int j = 1;
+	for(int i=0; i<ex->numPaths(); i++)
+	{
+		if(ex->pathways[i].fromsite == idx1 && ex->pathways[i].tosite == idx2)
+		{
+			lua_pushinteger(L, j);
+			lua_pushinteger(L, i+1);
+			lua_settable(L, -3);
+			j++;
+		}
+	}
+	
+	return 1;
+}
+
+
+
+
 static int l_numberOfPaths(lua_State* L)
 {
 	LUA_PREAMBLE(Exchange, ex, 1);
@@ -536,6 +570,13 @@ int Exchange::help(lua_State* L)
 		lua_pushstring(L, "1 Tables: indices of paths that connect from the given site");
 		return 3;			
 	}
+	if(func == l_getPathsFromTo)
+	{
+		lua_pushstring(L, "Get all path indices that connect from the given site to the given site. This is the intersection of getPathsFrom and getPathsTo");
+		lua_pushstring(L, "2 *3Vector*: source site location and destination site location");
+		lua_pushstring(L, "1 Tables: indices of paths that connect from the given source site to the given destination site.");
+		return 3;			
+	}
 	if(func == l_mergepaths)
 	{
 		lua_pushstring(L, "Combine repeated to-from pairs into a single path with combined strength");
@@ -577,6 +618,7 @@ const luaL_Reg* Exchange::luaMethods()
 		{"path",         l_getPath},
 		{"pathsTo",      l_getPathsTo},
 		{"pathsFrom",    l_getPathsFrom},
+		{"pathsFromTo",  l_getPathsFromTo},
 		{"mergePaths",   l_mergepaths},
 		{"periodicXYZ", l_getpbc},
 		{"setPeriodicXYZ", l_setpbc},

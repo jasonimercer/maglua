@@ -105,3 +105,23 @@ int lua_loadfile(lua_State* L)
 	return 1;
 }
 
+
+
+
+
+
+int lua_unloadfile(lua_State* L)
+{
+    const string fullpath = lua_tostring(L, 1);
+    
+    lua_func lib_close    = import_function  <  lua_func>(fullpath, "lib_close");
+    
+    if(lib_close)
+    {
+	if(lib_close(L))
+	    return luaL_error(L, "lib_close failed in `%s'\n", fullpath.c_str());
+    }
+	
+    return 0;
+}
+

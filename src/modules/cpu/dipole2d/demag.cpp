@@ -33,11 +33,11 @@ double dipole2d_Nyx(const double rx, const double ry, const double rz)
 }
 double dipole2d_Nyy(const double rx, const double ry, const double rz)
 {
-	return dipole2d_Nxy(ry, rx, rz);
+	return dipole2d_Nxx(ry, rx, rz);
 }
 double dipole2d_Nyz(const double rx, const double ry, const double rz)
 {
-	return dipole2d_Nyz(ry, rz, rx);
+	return dipole2d_Nxy(ry, rz, rx);
 }
 
 

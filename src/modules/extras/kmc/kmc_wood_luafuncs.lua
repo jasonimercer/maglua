@@ -3,8 +3,8 @@
 
 
 -- here are the fallback functions we will extend
-parent_class_help = KMC.help
-parent_class_new = KMC.new
+local parent_class_help = KMC.help
+local parent_class_new = KMC.new
 
 KMC.Wood = {}
 KMC.Wood.metatable = KMC.metatable

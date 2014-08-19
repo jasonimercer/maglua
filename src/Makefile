@@ -19,7 +19,7 @@ CFLAGS=-O2 -g
 PKG=lua5.1 fftw3 fftw3f
 INCLUDEPATH=`pkg-config --cflags-only-I $(PKG)`
 LIBS=`pkg-config --libs $(PKG)` -lpthread -ldl 
-OBJECTS=help.lo dofile.lo bootstrap.lo libMagLua.o os_extensions.o loader.o modules.o
+OBJECTS=help.lo dofile.lo bootstrap.lo shutdown.lo libMagLua.o os_extensions.o loader.o modules.o
 LIBNAME=libMagLua.a
 EXTRA_CLEAN=help.h dofile.h help.cpp dofile.cpp bootstrap.h bootstrap.cpp
 BIN=maglua
@@ -33,7 +33,7 @@ $(BIN): $(LIBNAME) $(OBJECTS) main.o
 $(LIBNAME) : $(OBJECTS)
 	ar cqs $(LIBNAME) $(OBJECTS)
 
-%.o : %.cpp  %.h info.h Makefile bootstrap.h
+%.o : %.cpp  %.h info.h Makefile bootstrap.h 
 	$(CXX) -fPIC $(INCLUDEPATH) $(CFLAGS) -c $*.cpp -o $*.o 
 
 info.h:						#dev version
@@ -54,7 +54,7 @@ clean:
 	rm -f *~
 	rm -f *.o
 	rm -f $(LIBNAME) $(EXTRA_CLEAN) $(OBJECTS)
-	rm -f bootstrap.h maglua.html
+	rm -f bootstrap.h bootstrap.cpp shutdown.h shutdown.cpp maglua.html
 	rm -f $(BIN)
 
 pack:			#dev version

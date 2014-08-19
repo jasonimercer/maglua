@@ -4,6 +4,13 @@ extern "C" {
 #include <lauxlib.h>
 }
 
+
+#include <string.h>
+inline int luaL_dostringn(lua_State* L, const char* code, const char* name)
+{
+    return luaL_loadbuffer(L, code, strlen(code), name) || lua_pcall(L, 0, LUA_MULTRET, 0);
+}
+
 #ifdef WIN32
  #define strcasecmp(A,B) _stricmp(A,B)
  #define strncasecmp(A,B,C) _strnicmp(A,B,C)

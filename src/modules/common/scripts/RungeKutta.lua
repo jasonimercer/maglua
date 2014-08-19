@@ -194,25 +194,11 @@ function make_rk_step_function(a1,a2,a3,a4,a5,a6)
 		ss_k[1] = ss_input or ss -- can operate on default ss or a given system
 		dynamics(ss_k[1])
 		cff(ss_k[1]) -- calc field for base system
-		
--- 		if temp and not skip_temperature then
--- 			temp:apply(ss_k[1])
--- 			ss_k[1]:sumFields()
--- 		end
-		
 		for i = 1,nstep-1 do
 			ss_k[i+1]:setTimeStep(ss_k[1]:timeStep())
 			istep(ss_k[1], butcher[i], ss_k[i+1])
 			dynamics(ss_k[i+1])
 			cff(ss_k[i+1])
-			
--- 			if temp and not skip_temperature then
--- 				ss_k[i+1]:fieldArrayX("Thermal"):set( ss_k[1]:fieldArrayX("Thermal") )
--- 				ss_k[i+1]:fieldArrayY("Thermal"):set( ss_k[1]:fieldArrayY("Thermal") )
--- 				ss_k[i+1]:fieldArrayZ("Thermal"):set( ss_k[1]:fieldArrayZ("Thermal") )
--- 				ss_k[i+1]:setSlotUsed("Thermal", true)
--- 				ss_k[i+1]:sumFields()
--- 			end
 		end
 		istep(ss_k[1], butcher[nstep], ss_k[1])
 		

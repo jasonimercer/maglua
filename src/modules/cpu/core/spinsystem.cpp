@@ -21,6 +21,7 @@
 #include <string.h>
 #include <vector>
 #include "luamigrate.h"
+#include <limits>
 
 using namespace std;
 #define CLAMP(x, m) ((x<0)?0:(x>m?m:x))
@@ -31,10 +32,10 @@ SpinSystem::SpinSystem(const int NX, const int NY, const int NZ)
 		nx(NX), ny(NY), nz(NZ),
 		nslots(4), time(0)
 {
-	registerWS();
-	site_alpha = 0;
-	site_gamma = 0;
-	L = 0;
+    registerWS();
+    site_alpha = 0;
+    site_gamma = 0;
+    L = 0;
     init();
 	
 }
@@ -339,10 +340,13 @@ bool SpinSystem::copyFrom(lua_State* _L, SpinSystem* src)
 	dt = src->dt;
 	time = src->time;
 	
+	invalidateFourierData();
+	/*
 	fft_timeC[0] = time - 1.0;
 	fft_timeC[1] = time - 1.0;
 	fft_timeC[2] = time - 1.0;
-		
+	*/
+	
 	for(int i=0; i<nxyz; i++)
 	{
 		if(extra_data_size[i] && extra_data[i])
@@ -378,10 +382,13 @@ bool SpinSystem::copySpinsFrom(lua_State* _L, SpinSystem* src)
 	z->copyFrom(src->z);
 	ms->copyFrom(src->ms);
 	
+	invalidateFourierData();
+	/*
 	fft_timeC[0] = time - 1.0;
 	fft_timeC[1] = time - 1.0;
 	fft_timeC[2] = time - 1.0;
-	
+	*/
+
 	return true;
 }
 
@@ -401,9 +408,12 @@ bool SpinSystem::copyFieldFrom(lua_State* _L, SpinSystem* src, const char* slot_
 		hy[dst_slot]->copyFrom(src->hy[src_slot]);
 		hz[dst_slot]->copyFrom(src->hz[src_slot]);
 
+		invalidateFourierData();
+		/*
 		fft_timeC[0] = time - 1.0;
 		fft_timeC[1] = time - 1.0;
 		fft_timeC[2] = time - 1.0;
+		*/
 		return true;
 	}
 	return false;
@@ -524,11 +534,13 @@ void SpinSystem::init()
 	qx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	qy = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 	qz = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
-	
+
+	invalidateFourierData();
+	/*
 	fft_timeC[0] = -1;
 	fft_timeC[1] = -1;
 	fft_timeC[2] = -1;
-	
+	*/
 	register_slot_name("Total"); //will get slot 0
 }
 
@@ -815,6 +827,7 @@ int  SpinSystem::decode(buffer* b)
 
 
 
+// sumFields is being moved to spinsystem_luafuncs.lua to increase flexibility
 void SpinSystem::sumFields()
 {
 	const int SUM_SLOT = getSlot("Total");
@@ -886,10 +899,15 @@ int SpinSystem::getSlot(const char* name)
 
 void SpinSystem::invalidateFourierData()
 {
-	// should rethink this masterpiece 
-	fft_timeC[0] = -fft_timeC[0] -125978;
-	fft_timeC[1] = -fft_timeC[1] -125978;
-	fft_timeC[2] = -fft_timeC[2] -125978;
+    // should rethink this masterpiece 
+    // fft_timeC[0] = -fft_timeC[0] -125978;
+    // fft_timeC[1] = -fft_timeC[1] -125978;
+    // fft_timeC[2] = -fft_timeC[2] -125978;
+
+    // here's the rethought version:
+    fft_timeC[0] = std::numeric_limits<double>::quiet_NaN();
+    fft_timeC[1] = std::numeric_limits<double>::quiet_NaN();
+    fft_timeC[2] = std::numeric_limits<double>::quiet_NaN();
 }
 
 	
@@ -1565,6 +1583,8 @@ static int l_getfieldarrayz(lua_State* L)
 	return 1;
 }
 
+
+
 static int l_setfieldarrayx(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, ss, 1);
@@ -2220,7 +2240,7 @@ static int l_setslotused(lua_State* L)
 	if(slot < 0)                                       
 		return luaL_error(L, "Unknown field type`%s'", name); 
 	
-	if(!lua_isnone(L, 3))
+	if(lua_gettop(L) >= 3)
 		s->slot_used[slot] = lua_toboolean(L, 3);
 	else
 		s->slot_used[slot] = 1;
@@ -2446,7 +2466,7 @@ static int l_slots(lua_State* L)
 			j++;
 		}
 	}
-	s->invalidateFourierData();
+	s->invalidateFourierData(); // why is this here?!?
 	return 1;
 }
 
@@ -2578,7 +2598,9 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "1 Integer: Size of the third dimension.");
 		return 3;
 	}
-		
+
+// these are moving to the lua side for flexibility		
+#if 0
 	if(func == l_sumfields)
 	{
 		lua_pushstring(L, "Sum all the fields into a single effective field.");
@@ -2586,7 +2608,6 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
-	
 	if(func == l_zerofields)
 	{
 		lua_pushstring(L, "Zero all the fields.");
@@ -2594,6 +2615,7 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+#endif	
 	
 	if(func == l_settime)
 	{
@@ -2861,6 +2883,9 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+
+// Wrapping the following in a lua script so we can pass strings or operators rather than just strings
+#if 0
 	if(func == l_getfieldarrayx)
 	{
 		lua_pushstring(L, "Get the X components of the field vectors for a given type");
@@ -2912,6 +2937,7 @@ int SpinSystem::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+#endif
 	
 	if(func == l_getslotused)
 	{
@@ -3052,11 +3078,11 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"nx",           l_nx},
 		{"ny",           l_ny},
 		{"nz",           l_nz},
-		{"sumFields",    l_sumfields},
-		{"resetFields",  l_zerofields},
+		{"_sumFields",    l_sumfields},
+		{"_resetFields",  l_zerofields},
 		{"setTime",      l_settime},
 		{"time",         l_gettime},
-		{"field",        l_getfield},
+		{"_field",        l_getfield}, // wrapped
 // 		{"spinDotField", l_spindotfield},
 		{"inverseSpin",  l_getinversespin},
 		{"inverseSpinX",  l_getinversespinX},
@@ -3090,18 +3116,18 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"setSpinArrayZ",  l_setarrayz},
 		{"setSpinArrayM",  l_setarraym},
 
-		{"fieldArrayX",  l_getfieldarrayx},
-		{"fieldArrayY",  l_getfieldarrayy},
-		{"fieldArrayZ",  l_getfieldarrayz},
+		{"_fieldArrayX",  l_getfieldarrayx},
+		{"_fieldArrayY",  l_getfieldarrayy},
+		{"_fieldArrayZ",  l_getfieldarrayz},
 
-		{"setFieldArrayX",  l_setfieldarrayx},
-		{"setFieldArrayY",  l_setfieldarrayy},
-		{"setFieldArrayZ",  l_setfieldarrayz},
+		{"_setFieldArrayX",  l_setfieldarrayx},
+		{"_setFieldArrayY",  l_setfieldarrayy},
+		{"_setFieldArrayZ",  l_setfieldarrayz},
 		
 		{"slots", l_slots},
-		{"slotUsed", l_getslotused},
-		{"setSlotUsed", l_setslotused},
-		{"ensureSlotExists", l_ensureslotexists},
+		{"_slotUsed", l_getslotused},
+		{"_setSlotUsed", l_setslotused},
+		{"_ensureSlotExists", l_ensureslotexists},
 
 		// new site a, g
 		{"setSiteAlphaArray", l_setsitealphaarray},

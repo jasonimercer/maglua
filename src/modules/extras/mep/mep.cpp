@@ -201,6 +201,7 @@ int  MEP::decode(buffer* b) // decode from data stream
 	CoordinateSystem cs = (CoordinateSystem)decodeInteger(b);
 	state_path.push_back(VectorCS(v0,v1,v2,cs));
     }
+
     n = decodeInteger(b);
     for(int i=0; i<n; i++)
     {
@@ -1270,11 +1271,13 @@ void MEP::projForcePath(lua_State* L, int get_index, int set_index, int energy_i
 void MEP::saveConfiguration(lua_State* L, int get_index, vector<double>& buffer)
 {
     buffer.clear();
-    const int num_sites = numberOfSites();
+    const int ns = numberOfSites();
 	
-    for(int s=0; s<num_sites; s++)
+    for(int s=0; s<ns; s++)
     {
-	getSiteSpin(L, get_index, &sites[s*3+0], buffer);
+	int* site = &sites[s*3];
+	//printf(">> %i %i %i\n", site[0], site[1], site[2]);
+	getSiteSpin(L, get_index, site, buffer);
     }
 }
 
@@ -1298,9 +1301,9 @@ void MEP::getSiteSpin(lua_State* L, int get_index, int* site3, VectorCS& m3)
     double t[3];
 
     lua_pushvalue(L, get_index);
-    lua_pushinteger(L, sites[0]+1);
-    lua_pushinteger(L, sites[1]+1);
-    lua_pushinteger(L, sites[2]+1);
+    lua_pushinteger(L, site3[0]+1);
+    lua_pushinteger(L, site3[1]+1);
+    lua_pushinteger(L, site3[2]+1);
     lua_call(L, 3, 3);
 
     t[0] = lua_tonumber(L, -3);
@@ -1386,7 +1389,7 @@ void MEP::setSiteSpin(lua_State* L, int set_index, int* site3, const VectorCS& m
     lua_pop(L, 1);
 }
 
-void MEP::setAllSpins(lua_State* L, int set_index, vector<VectorCS>& m)
+void MEP::setAllSpins(lua_State* L, int set_index, const vector<VectorCS>& m)
 {
     int num_sites = numberOfSites();
     for(int s=0; s<num_sites; s++)
@@ -1414,22 +1417,19 @@ int MEP::calculateEnergies(lua_State* L, int get_index, int set_index, int energ
 {
     if(energy_ok)
 	return 0;
-    
     energies.clear();
-    const int num_sites = numberOfSites();
-    const int path_length = numberOfImages();
+    const int ns = numberOfSites();
+    const int np = numberOfImages();
 
     // back up old sites so we can restore after
     vector<double> cfg;
     saveConfiguration(L, get_index, cfg);
 
-
-    for(int p=0; p<path_length; p++)
+    for(int p=0; p<np; p++)
     {
-	double e = 0;
-	for(int s=0; s<num_sites; s++)
+	for(int s=0; s<ns; s++)
 	{
-	    setSiteSpin(L, set_index, &sites[s*3], state_path[p * num_sites + s]);
+	    setSiteSpin(L, set_index, &sites[s*3], state_path[p * ns + s]);
 	}
 
 	energies.push_back(getEnergy(L, energy_index));
@@ -1535,7 +1535,7 @@ int MEP::calculatePathEnergyNDeriv(lua_State* L, int get_index, int set_index, i
 
 
 
-static void vectorElementChange(vector<VectorCS>& vec, int c, double change, const bool fixedRadius)
+static bool vectorElementChange(vector<VectorCS>& vec, int c, double change, const bool fixedRadius)
 {
     int i = c % 3;
     int j = (c - i) / 3;
@@ -1544,10 +1544,11 @@ static void vectorElementChange(vector<VectorCS>& vec, int c, double change, con
     {
 	if(vec[j].isType(Spherical) || vec[j].isType(Canonical))
 	    if(i == 0) // zero element is R
-		return;
+		return false; // no change
     }
 
     vec[j].v[i] += change;
+    return true; // real change
 }
 
 
@@ -1987,22 +1988,25 @@ int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index,
 	{
 	    for(int d=0; d<2; d++) //direction
 	    {
+		bool change = false;
 		copyVectorTo(vec, vec2);
 		if(d == 0)
-		    vectorElementChange(vec2, qq, -h, fixedRadius);
+		    change = vectorElementChange(vec2, qq, -h, fixedRadius);
 		else
-		    vectorElementChange(vec2, qq,  h, fixedRadius);
+		    change = vectorElementChange(vec2, qq,  h, fixedRadius);
 
-		
-		setAllSpins(L, set_index, vec2);
-		double new_energy = getEnergy(L, energy_index);
-		
-		if(new_energy < current_energy)
+		if(change)
 		{
-		    current_energy = new_energy;
-		    improvement = true;
-
-		    copyVectorTo(vec2, vec);
+		    setAllSpins(L, set_index, vec2);
+		    double new_energy = getEnergy(L, energy_index);
+		    
+		    if(new_energy < current_energy)
+		    {
+			current_energy = new_energy;
+			improvement = true;
+			
+			copyVectorTo(vec2, vec);
+		    }
 		}
 	    }
 	}
@@ -2804,6 +2808,152 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
     return 0;
 }
 
+// get energies about a state
+void MEP::stateNeighbourhood(const vector<VectorCS>& _state, lua_State* L, const int set_index, int get_index, int energy_index, const vector<double>& h, vector<double>& eee_h)
+{
+    const int ns = numberOfSites();
+    const int np = numberOfImages();
+
+    // back up old sites so we can restore after
+    vector<double> cfg;
+    saveConfiguration(L, get_index, cfg);
+
+    vector<double> mags;
+    for(int i=0; i<ns; i++)
+	mags.push_back( _state[i].magnitude() );
+
+    setAllSpins(L, set_index, _state);
+    const double base_energy = getEnergy(L, energy_index);
+    double e1, e2;
+
+    for(int i=0; i<ns*3; i++)
+    {
+	bool change;
+	{
+	    vector<VectorCS> state(_state);
+	    change = vectorElementChange(state, i, -h[i], fixedRadius);
+	    rescale_vectors(state, mags);
+	    setAllSpins(L, set_index, state);
+	    e1 = getEnergy(L, energy_index);
+	}
+
+	{
+	    vector<VectorCS> state(_state);
+	    vectorElementChange(state, i,  h[i], fixedRadius);
+	    rescale_vectors(state, mags);
+	    setAllSpins(L, set_index, state);
+	    e2 = getEnergy(L, energy_index);
+	}
+
+	if(change)
+	{
+	    eee_h.push_back(e1);
+	    eee_h.push_back(base_energy);
+	    eee_h.push_back(e2);
+	    eee_h.push_back(h[i]);
+	}
+    }
+
+    loadConfiguration(L, set_index, cfg);
+}
+
+// get energies about a point
+void MEP::pointNeighbourhood(const int point, lua_State* L, const int set_index, int get_index, int energy_index, const vector<double>& h, vector<double>& eee_h)
+{
+    vector<VectorCS> state;
+    getPoint(point, state);
+
+    stateNeighbourhood(state, L, set_index, get_index, energy_index, h, eee_h);
+}
+
+int MEP::l_classifyPoint(lua_State* L, int base)
+{
+    int point = lua_tointeger(L, base)-1;
+    // int type = lua_tointeger(L, base+1);
+
+    vector<double> h;
+    for(int i=0; i<numberOfSites()*3; i++)
+    {
+	lua_pushinteger(L, i+1);
+	lua_gettable(L, base+1);
+	h.push_back( lua_tonumber(L, -1));
+	lua_pop(L, 1);
+    }
+
+    const int set_index = base + 2;
+    const int get_index = base + 3;
+    const int energy_index = base + 4;
+
+    vector<double> eee_h;
+
+    pointNeighbourhood(point, L, set_index, get_index, energy_index, h, eee_h);
+
+    for(int i=0; i<eee_h.size(); i+=4)
+    {
+	printf("%e %e %e %e\n", eee_h[i*4+0], eee_h[i*4+1], eee_h[i*4+2], eee_h[i*4+3]);
+    }
+
+    for(int type=-1; type<2; type++)
+    {
+	lua_pushnumber(L, classifyNeighbourhood(type, eee_h));
+    }
+    return 3;
+}
+
+
+// type: -1=min, 0=saddle, 1=max
+// The plan here is to quantify how much an energy neighbourhood resembles these features
+double MEP::classifyNeighbourhood(int type, const vector<double>& eee_h)
+{
+    vector<double> c2;
+    double sum = 0;
+    for(unsigned int i=0; i<eee_h.size(); i+=4)
+    {
+	const double a = eee_h[i*4+0];
+	const double b = eee_h[i*4+1];
+	const double c = eee_h[i*4+2];
+	const double x = eee_h[i*4+3];
+
+	if(x == 0)
+	    c2.push_back(0);
+	else
+	{
+	    const double v = (c - 2.0 * b + a) / (x*x);
+	    c2.push_back(v);
+	    sum += v;
+	}
+    }
+    
+    if(type == -1)
+    {
+	return sum;
+    }
+    if(type == 1)
+    {
+	return -sum;
+    }
+
+    // for a saddle point we want one negative curvature and the rest positive
+    // so we'll negate our most negative curvature and return the sum
+    int most_negative_index = 0;
+    for(unsigned int i=1; i<c2.size(); i++)
+    {
+	if(c2[i] < c2[most_negative_index])
+	    most_negative_index = i;
+    }
+
+    c2[most_negative_index] = -c2[most_negative_index];
+
+    sum = 0;
+    for(unsigned int i=0; i<c2.size(); i++)
+    {
+	sum += c2[i];
+    }
+    return sum;
+}
+
+
+
 int MEP::classifyPoint(lua_State* L)
 {
     const int num_sites = numberOfSites();
@@ -2817,10 +2967,17 @@ int MEP::classifyPoint(lua_State* L)
     if(p < 0 || p >= path_length)
 	return luaL_error(L, "Point index out of bounds");
 
+    vector<double> h;
 
-    double h = epsilon;
-    if(lua_isnumber(L, 6))
-	h = lua_tonumber(L, 6);
+    lua_pushnil(L);
+    while(lua_next(L, 6))
+    {
+	h.push_back(lua_tonumber(L, -1));
+	lua_pop(L, 1);
+    }
+
+    if(h.size() != num_sites * 3)
+	return luaL_error(L, "wrong number of step sizes");
 
     // back up old sites so we can restore after
     vector<double> cfg;
@@ -2843,46 +3000,39 @@ int MEP::classifyPoint(lua_State* L)
     int downs = 0;
     int equals = 0;
 	
+    lua_newtable(L);
     for(int i=0; i<num_sites*3; i++)
     {
+	lua_pushinteger(L, i+1);
+	lua_newtable(L);
+
 	getPoint(p, state);
-	vectorElementChange(state, i, -h, fixedRadius);
+	vectorElementChange(state, i, -h[i], fixedRadius);
 	rescale_vectors(state, mags);
 	setAllSpins(L, set_index, state);
 	const double e1 = getEnergy(L, energy_index);
 
 	getPoint(p, state);
-	vectorElementChange(state, i,  h, fixedRadius);
+	vectorElementChange(state, i,  h[i], fixedRadius);
 	rescale_vectors(state, mags);
 	setAllSpins(L, set_index, state);
 	const double e2 = getEnergy(L, energy_index);
 
-	if(e1 == base_energy && e1 == e2)
-	    equals++;
+	lua_pushinteger(L, 1);
+	lua_pushnumber(L, e1);
+	lua_settable(L, -3);
 
-	if(e1 > base_energy && e2 > base_energy)
-	{
-	    ups++;
-	}
-	if(e1 < base_energy && e2 < base_energy)
-	{
-	    downs++;
-	}
-    }
+	lua_pushinteger(L, 2);
+	lua_pushnumber(L, base_energy);
+	lua_settable(L, -3);
 
-    loadConfiguration(L, set_index, cfg);	
+	lua_pushinteger(L, 3);
+	lua_pushnumber(L, e2);
+	lua_settable(L, -3);
 
-    if(ups && (downs == 0))
-    {
-	lua_pushstring(L, "Minimum");
-	return 1;
+
+	lua_settable(L, -3);
     }
-    if(downs && (ups == 0))
-    {
-	lua_pushstring(L, "Maximum");
-	return 1;
-    }
-    lua_pushstring(L, "");
     return 1;
 }
 
@@ -3662,6 +3812,19 @@ static int _l_copy(lua_State* L)
     return mep->_copy(L, 2);
 }
 
+static int _l_classifypoint(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+    return mep->l_classifyPoint(L, 2);
+}
+
+
+#include "mep_bestpath.h"
+static int _l_bestpath(lua_State* L)
+{
+    return l_bestpath(L, 1);
+}
+
 
 int MEP::help(lua_State* L)
 {
@@ -3909,6 +4072,8 @@ const luaL_Reg* MEP::luaMethods()
 	    {"_angleBetweenPointSite", _l_angle_between_pointsite},
 	    {"_expensiveEnergyMinimization", _l_expensiveenergyminimization},
 	    {"_expensiveGradientMinimization", _l_expensivegradientminimization},
+	    {"_classifyPoint", _l_classifypoint},
+	    {"_findBestPath", _l_bestpath},
 	    {NULL, NULL}
 	};
     merge_luaL_Reg(m, _m);

@@ -1,14 +1,14 @@
 /******************************************************************************
-* Copyright (C) 2008-2011 Jason Mercer.  All rights reserved.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-******************************************************************************/
+ * Copyright (C) 2008-2011 Jason Mercer.  All rights reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
 
 #include "spinsystem.h"
 #include "info.h"
@@ -25,128 +25,131 @@
 #endif
 
 LongRange2D::LongRange2D(int nx, int ny, int nz, const int encode_tag)
-	: SpinOperation(nx, ny, nz, encode_tag)
+    : SpinOperation(nx, ny, nz, encode_tag)
 {
-	setSlotName("LongRange2D");
-	registerWS();
+    setSlotName("LongRange2D");
+    registerWS();
     qXX = 0;
     XX = 0;
-	ws1 = 0;
-	g = 0;
-
-	longrange_ref = LUA_REFNIL;
-	function_ref = LUA_REFNIL;
-
-	XX = 0;
-
-	compileRequired = true;
-	newDataRequired = true;
+    ws1 = 0;
+    g = 0;
+    
+    longrange_ref = LUA_REFNIL;
+    function_ref = LUA_REFNIL;
+    
+    XX = 0;
+    
+    compileRequired = true;
+    newDataRequired = true;
 }
 int LongRange2D::luaInit(lua_State* L)
 {
-	deinit();
-	SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
-	LongRange2D::init();
-	return 0;	
+    deinit();
+    SpinOperation::luaInit(L); //gets nx, ny, nz, nxyz
+    LongRange2D::init();
+    return 0;	
 }
 
 
 void LongRange2D::encode(buffer* b)
 {
-	ENCODE_PREAMBLE
-	SpinOperation::encode(b);
-	char version = 0;
-	encodeChar(version, b);
+    ENCODE_PREAMBLE;
+    SpinOperation::encode(b);
+    char version = 0;
+    encodeChar(version, b);
 	
 	
-	for(int i=0; i<nz; i++)
-	{
-		encodeDouble(g[i], b);
-	}
+    for(int i=0; i<nz; i++)
+    {
+	encodeDouble(g[i], b);
+    }
 	
-	int ref[2];
-	ref[0] = longrange_ref;
-	ref[1] = function_ref;
+    int ref[2];
+    ref[0] = longrange_ref;
+    ref[1] = function_ref;
 
-	for(int i=0; i<2; i++)
-	{
-		if(ref[i] != LUA_REFNIL)
-			lua_rawgeti(L, LUA_REGISTRYINDEX, ref[i]);
-		else
-			lua_pushnil(L);
+    for(int i=0; i<2; i++)
+    {
+	if(ref[i] != LUA_REFNIL)
+	    lua_rawgeti(L, LUA_REGISTRYINDEX, ref[i]);
+	else
+	    lua_pushnil(L);
 
-		_exportLuaVariable(L, lua_gettop(L), b);
-		lua_pop(L, 1);
-	}
+	_exportLuaVariable(L, lua_gettop(L), b);
+	lua_pop(L, 1);
+    }
 }
 
 int  LongRange2D::decode(buffer* b)
 {
-	SpinOperation::decode(b);
-	char version = decodeChar(b);
-	if(version == 0)
-	{
-		if(g)
-			delete [] g;
-		g = new double[nz];
+    SpinOperation::decode(b);
+    char version = decodeChar(b);
+    if(version == 0)
+    {
+	if(g)
+	    delete [] g;
+	g = new double[nz];
 		
-		for(int i=0; i<nz; i++)
-		{
-			g[i] = decodeDouble(b);
-		}
-		
-		int n = lua_gettop(L);
-
-
-		if(longrange_ref != LUA_REFNIL)
-			luaL_unref(L, LUA_REGISTRYINDEX, longrange_ref);
-		if(function_ref != LUA_REFNIL)
-			luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
-
-		_importLuaVariable(L, b);
-		longrange_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
-		_importLuaVariable(L, b);
-		function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
-		while(lua_gettop(L) > n)
-			lua_pop(L, 1);
-	}
-	else
+	for(int i=0; i<nz; i++)
 	{
-		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+	    g[i] = decodeDouble(b);
 	}
+		
+	int n = lua_gettop(L);
 
-	return 0;
+
+	if(longrange_ref != LUA_REFNIL)
+	    luaL_unref(L, LUA_REGISTRYINDEX, longrange_ref);
+	if(function_ref != LUA_REFNIL)
+	    luaL_unref(L, LUA_REGISTRYINDEX, function_ref);
+
+	_importLuaVariable(L, b);
+	longrange_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+	_importLuaVariable(L, b);
+	function_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+	while(lua_gettop(L) > n)
+	    lua_pop(L, 1);
+    }
+    else
+    {
+	fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+    }
+
+    return 0;
 }
 
 dArray* LongRange2D::getLAB(int layer_dest, int layer_src, const char* AB)
 {
-	if(layer_dest >= 0 || layer_dest < nz)
-		if(layer_src >= 0 || layer_src < nz)
-		{
-			if(strncasecmp(AB, "xx", 2) == 0)
-				return XX[layer_dest][layer_src];
-			if(strncasecmp(AB, "xy", 2) == 0)
-				return XY[layer_dest][layer_src];
-			if(strncasecmp(AB, "xz", 2) == 0)
-				return XZ[layer_dest][layer_src];
-
-			if(strncasecmp(AB, "yx", 2) == 0)
-				return YX[layer_dest][layer_src];
-			if(strncasecmp(AB, "yy", 2) == 0)
-				return YY[layer_dest][layer_src];
-			if(strncasecmp(AB, "yz", 2) == 0)
-				return YZ[layer_dest][layer_src];
-			
-			if(strncasecmp(AB, "zx", 2) == 0)
-				return ZX[layer_dest][layer_src];
-			if(strncasecmp(AB, "zy", 2) == 0)
-				return ZY[layer_dest][layer_src];
-			if(strncasecmp(AB, "zz", 2) == 0)
-				return ZZ[layer_dest][layer_src];
-		}
+    if(XX == 0)
 	return 0;
+
+    if(layer_dest >= 0 && layer_dest < nz)
+	if(layer_src >= 0 && layer_src < nz)
+	{
+	    if(strncasecmp(AB, "xx", 2) == 0)
+		return XX[layer_dest][layer_src];
+	    if(strncasecmp(AB, "xy", 2) == 0)
+		return XY[layer_dest][layer_src];
+	    if(strncasecmp(AB, "xz", 2) == 0)
+		return XZ[layer_dest][layer_src];
+	    
+	    if(strncasecmp(AB, "yx", 2) == 0)
+		return YX[layer_dest][layer_src];
+	    if(strncasecmp(AB, "yy", 2) == 0)
+		return YY[layer_dest][layer_src];
+	    if(strncasecmp(AB, "yz", 2) == 0)
+		return YZ[layer_dest][layer_src];
+			
+	    if(strncasecmp(AB, "zx", 2) == 0)
+		return ZX[layer_dest][layer_src];
+	    if(strncasecmp(AB, "zy", 2) == 0)
+		return ZY[layer_dest][layer_src];
+	    if(strncasecmp(AB, "zz", 2) == 0)
+		return ZZ[layer_dest][layer_src];
+	}
+    return 0;
 }
 
 void LongRange2D::setLAB(int layer_dest, int layer_src, const char* AB, dArray* newArray)
@@ -162,8 +165,8 @@ void LongRange2D::setLAB(int layer_dest, int layer_src, const char* AB, dArray* 
 		"ZX", "ZY", "ZZ"};
 		
 	luaT_inc<dArray>(newArray);
-	if(layer_dest >= 0 || layer_dest < nz)
-		if(layer_src >= 0 || layer_src < nz)
+	if(layer_dest >= 0 && layer_dest < nz)
+		if(layer_src >= 0 && layer_src < nz)
 		{
 			for(int i=0; i<9; i++)
 			{
@@ -180,17 +183,17 @@ void LongRange2D::setLAB(int layer_dest, int layer_src, const char* AB, dArray* 
 template <typename T>
 static T*** initAB(const int nx, const int ny, const int nz)
 {
-	T*** a = new T** [nz];
-	for(int i=0; i<nz; i++)
+    T*** a = new T** [nz];
+    for(int i=0; i<nz; i++)
+    {
+	a[i] = new T* [nz];
+	for(int j=0; j<nz; j++)
 	{
-		a[i] = new T* [nz];
-		for(int j=0; j<nz; j++)
-		{
-			a[i][j] = luaT_inc<T>(new T(nx,ny,1));
-			a[i][j]->zero();
-		}
+	    a[i][j] = luaT_inc<T>(new T(nx,ny,1));
+	    a[i][j]->zero();
 	}
-	return a;
+    }
+    return a;
 }
 
 void LongRange2D::init()

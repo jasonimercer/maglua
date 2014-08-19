@@ -49,9 +49,10 @@ int Wood::luaInit(lua_State* L)
 
 void Wood::init()
 {
-	DN = new double[nz];
-	grain_size = new double[nz];
-	energyBarriers = new dArray(nx,ny,nz);
+	DN 			= new double[nz];
+	grain_size 		= new double[nz];
+	energyBarriers_return 	= new dArray(nx,ny,nz);
+	energyBarriers 		= new dArray(nx,ny,nz);
 }
 
 void Wood::deinit()
@@ -65,7 +66,6 @@ void Wood::deinit()
 
 void Wood::encode(buffer* b)
 {
-	ENCODE_PREAMBLE
 	SpinOperation::encode(b); //nx,ny,nz,global_scale
 	char version = 0;
 	encodeChar(version, b);
@@ -157,11 +157,11 @@ void Wood::calcAllEnergyBarrier(SpinSystem* ss_src, Anisotropy* ani, Magnetostat
 		Cvctr M(mx, my, mz);
 		Cvctr K(kx*ks, ky*ks, kz*ks);
 	
-		double EDB = DU(H,K,M,DN[sitez]); 
-
-		//printf("SET EB %i %i %i %g  %g\n", sitex, sitey, sitez, EDB, CELL);
-		//printf("%g %g %g  %g %g %g  %g %g %g %g\n", kx,ky,kz, mx,my,mz,  hx,hy,hz);
-		energyBarriers->set(sitex, sitey, sitez, EDB*CELL);
+		double EDB 	= DU(		H,K,M,DN[sitez]);
+		double EDB_return 	= DU_return(	H,K,M,DN[sitez]);
+		
+		energyBarriers		->	set(sitex, sitey, sitez, EDB*CELL);
+		energyBarriers_return 	->	set(sitex, sitey, sitez, EDB_return*CELL);
 	}
 	
 }
@@ -361,12 +361,13 @@ static int l_geteb(lua_State* L)
 {
 	LUA_PREAMBLE(Wood, wood, 1);
 
-	int site[3];
-	int r1 = lua_getNint(L, 3, site, 2, 1);
-	const int x = site[0];
-	const int y = site[1];
-	const int z = site[2];
+	int x = lua_tointeger(L, 2);
+	int y = lua_tointeger(L, 3);
+	int z = lua_tointeger(L, 4);
 
+// 	printf("%i %i %i\n", x, y, z);
+// 	printf("%i %i %i\n", wood->nx, wood->ny,wood->nz);
+	
 	if(x < 1 || y < 1 || z < 1 || x > wood->nx || y > wood->ny || z > wood->nz)
 		return luaL_error(L, "Invalid site");
   
@@ -378,18 +379,51 @@ static int l_seteb(lua_State* L)
 {
 	LUA_PREAMBLE(Wood, wood, 1);
 
-	int site[3];
-	int r1 = lua_getNint(L, 3, site, 2, 1);
-	const int x = site[0];
-	const int y = site[1];
-	const int z = site[2];
+	int x = lua_tointeger(L, 2);
+	int y = lua_tointeger(L, 3);
+	int z = lua_tointeger(L, 4);
 
-	double v = lua_tonumber(L, 2+r1);
+	double v = lua_tonumber(L, 5);
 
 	if(x < 1 || y < 1 || z < 1 || x > wood->nx || y > wood->ny || z > wood->nz)
 		return luaL_error(L, "Invalid site");
   
 	wood->energyBarriers->set(x-1, y-1, z-1, v);
+	return 0;
+}
+
+static int l_getebr(lua_State* L)
+{
+	LUA_PREAMBLE(Wood, wood, 1);
+
+	int x = lua_tointeger(L, 2);
+	int y = lua_tointeger(L, 3);
+	int z = lua_tointeger(L, 4);
+
+// 	printf("%i %i %i\n", x, y, z);
+// 	printf("%i %i %i\n", wood->nx, wood->ny,wood->nz);
+	
+	if(x < 1 || y < 1 || z < 1 || x > wood->nx || y > wood->ny || z > wood->nz)
+		return luaL_error(L, "Invalid site");
+  
+	lua_pushnumber(L, wood->energyBarriers_return->get(x-1, y-1, z-1));
+	return 1;
+}
+
+static int l_setebr(lua_State* L)
+{
+	LUA_PREAMBLE(Wood, wood, 1);
+
+	int x = lua_tointeger(L, 2);
+	int y = lua_tointeger(L, 3);
+	int z = lua_tointeger(L, 4);
+
+	double v = lua_tonumber(L, 5);
+
+	if(x < 1 || y < 1 || z < 1 || x > wood->nx || y > wood->ny || z > wood->nz)
+		return luaL_error(L, "Invalid site");
+  
+	wood->energyBarriers_return->set(x-1, y-1, z-1, v);
 	return 0;
 }
 
@@ -494,6 +528,8 @@ const luaL_Reg* Wood::luaMethods()
 		{"calculateEnergyBarriers",l_energyBarrier},
 		{"energyBarrier", l_geteb},
 		{"setEnergyBarrier", l_seteb},
+		{"energyBarrier_return", l_getebr},
+		{"setEnergyBarrier_return", l_setebr},
 		{"adjustMagnetostatics", l_adj_mag},
 		{"getDemag", l_getdemag},
 		{"setDemag", l_setdemag},

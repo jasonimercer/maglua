@@ -60,6 +60,7 @@ public:
 	double* DN;
 	double* grain_size;
 	
+	dArray* energyBarriers_return; //EB calc for a return transition
 	dArray* energyBarriers; //EB calc at each site
 };
 

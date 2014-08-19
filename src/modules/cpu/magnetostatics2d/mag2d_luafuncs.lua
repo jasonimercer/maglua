@@ -136,6 +136,41 @@ local function truncation(mag)
 	return id.truncation, id.truncationX, id.truncationY, id.truncationZ
 end
 
+local indexToPosition = nil
+local function indexToPosition(mag, i,j,k)
+    if type(i) == type({}) then
+	local x,y,z = indexToPosition(mag, i[1], i[2], i[3])
+	return {x,y,z}
+    end
+
+    --[[
+    local id = initializeInternalData(mag, mag:internalData())
+    local ABC = id.ABC
+    local grainSize = id.grainSize
+    local nx, ny, nz = mag:nx(), mag:ny(), mag:nz()
+
+    --]]
+
+
+    local X,Y,Z = 0,0,0
+    for K=1,k-1 do
+	local A,B,C = mag:unitCell(k)
+	X,Y,Z = X+C[1],Y+C[2],Z+C[3]
+    end
+
+
+    local A,B,C = mag:unitCell(1)
+    X = X + (i-1)*A[1]
+    Y = Y + (i-1)*A[2]
+    Z = Z + (i-1)*A[3]
+
+    X = X + (j-1)*B[1]
+    Y = Y + (j-1)*B[2]
+    Z = Z + (j-1)*B[3]
+
+    return X,Y,Z
+end
+
 
 -- many of the next several functions are for automatically saving and loading tensor data
 local function write_tensor(f, array, name, d, s)
@@ -475,6 +510,7 @@ t.setGrainSize = setGrainSize
 t.grainSize    = grainSize
 t.setTruncation= setTruncation
 t.truncation   = truncation
+t.indexToPosition = indexToPosition
 --t.save         = mag2d_save
 --t.load         = mag2d_load
 
@@ -539,6 +575,13 @@ MODTAB.help = function(x)
 			"Integers: Radial truncation, truncation in X direction, truncation in Y, truncation in Z"
 	end	
 	
+	if x == indexToPosition then
+	    return
+	    "Using the stored information describing the unit cells, convert a lattice position to a real space position. In-plane lattice indices can be negative. The origin is {1,1,1}.",
+	    "1 Table or 3 Numbers: i,j,k index describing lattice position.",
+	    "1 Table or 3 Numbers: x,y,z position of lattice point using the unit cel information. If the input was a table then the output is a table, if the input was 3 numbers then the output is 3 numbers."
+	end
+
 	if x == nil then
 		return help()
 	end
@@ -609,12 +652,6 @@ local function makeData(mag)
 	
 	local max = mf(id.truncation, mf(id.truncationX, mf(id.truncationY, id.truncationZ)))
 	
-	local cumC = {{0,0,0}} --cumulative C vectors
-	
-	for i=1,nz do
-		cumC[i+1] = {cumC[i][1] + ABC[i][3][1],cumC[i][2] + ABC[i][3][2],cumC[i][3] + ABC[i][3][3]} 
-	end
-	
 	-- assuming all A and B vector are the same for all layers
 	local ax, ay, az = ABC[1][1][1], ABC[1][1][2], ABC[1][1][3]
 	local bx, by, bz = ABC[1][2][1], ABC[1][2][2], ABC[1][2][3]
@@ -622,7 +659,7 @@ local function makeData(mag)
 	for dest = 1,nz do
 		local dGrain = grainSize[dest]
 		local dcx, dcy, dcz = 0, 0, 0
-		for j=1,dest do
+		for j=1,dest-1 do -- note the -1
 			dcx = dcx + ABC[j][3][1]
 			dcy = dcy + ABC[j][3][2]
 			dcz = dcz + ABC[j][3][3]
@@ -630,7 +667,7 @@ local function makeData(mag)
 		for src = 1,nz do
 			local sGrain = grainSize[src]
 			local scx, scy, scz = 0, 0, 0
-			for j=1,src do
+			for j=1,src-1 do -- note the -1
 				scx = scx + ABC[j][3][1]
 				scy = scy + ABC[j][3][2]
 				scz = scz + ABC[j][3][3]

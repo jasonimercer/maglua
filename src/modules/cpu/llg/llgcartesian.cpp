@@ -129,7 +129,14 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 	const int nxyz = spinfrom->nxyz;
 //	#pragma omp parallel for shared(x, y, z)
 	
-
+	if(dt == 0)
+	{
+	    memcpy(x, sx, sizeof(double)*nxyz);
+	    memcpy(y, sy, sizeof(double)*nxyz);
+	    memcpy(z, sz, sizeof(double)*nxyz);
+	}
+	else
+	{
 	
 	if(thermalOnlyFirstTerm)
 	{
@@ -249,7 +256,7 @@ bool LLGCartesian::apply(SpinSystem* spinfrom, double scaledmdt, SpinSystem* dmd
 	}
 	if(advancetime)
 		spinto->time = spinfrom->time +  dt;
-	
+	}
 	
 	if(!disableRenormalization)
 	{

@@ -1,4 +1,4 @@
-# Copyright (C) 2012 Jason Mercer.  All rights reserved.
+# Copyright (C) 2014 Jason Mercer.  All rights reserved.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -9,12 +9,13 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=mep_bestpath.o mep_luafuncs.lo vec_cs.o mep.o
-LIBNAME=MEP
-CATEGORY=extra
+OBJECTS=shortrange_luafuncs.lo spinoperationshortrange.o
+LIBNAME=Shortrange
+CATEGORY=cpu
 
-DEPEND=luabaseobject
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core luabaseobject array
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 
-EXTRA_CLEAN=mep_luafuncs.cpp mep_luafuncs.h
+EXTRA_CLEAN=shortrange_luafuncs.h shortrange_luafuncs.cpp

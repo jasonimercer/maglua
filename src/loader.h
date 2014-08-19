@@ -5,3 +5,4 @@ extern "C" {
 }
 
 int lua_loadfile(lua_State* L);
+int lua_unloadfile(lua_State* L);

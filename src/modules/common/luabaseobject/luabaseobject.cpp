@@ -14,6 +14,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+//static FILE* report = stdout;
+#define report 0
+
 LuaBaseObject::LuaBaseObject(int t)
 {
 	type = t;
@@ -117,76 +120,115 @@ static void ensureSize(int add, buffer* b)
 	}
 }
 
+static void _encodeBuffer(const void* s, const int len, buffer* b)
+{
+    ensureSize(len, b);
+    memcpy(b->buf + b->pos, s, len);
+    b->pos += len;
+}
+
+
 void encodeBuffer(const void* s, const int len, buffer* b)
 {
-	ensureSize(len, b);
-	memcpy(b->buf + b->pos, s, len);
-	b->pos += len;
+    if(report)
+	fprintf(report, "(%s:%04i) Encoding Buffer: %d bytes\n", __FILE__, __LINE__, len);
+    _encodeBuffer(s, len, b);
 }
 
 void encodeDouble(const double d, buffer* b)
 {
 	// encodeBuffer("d", 1, b); // temp
-	encodeBuffer(&d, sizeof(d), b);
+    if(report)
+	fprintf(report, "(%s:%04i) Encoding Double %g\n", __FILE__, __LINE__, d);
+    _encodeBuffer(&d, sizeof(d), b);
 }
 
 void encodeInteger(const int i, buffer* b)
 {
 	// encodeBuffer("i", 1, b); // temp
-	encodeBuffer(&i, sizeof(i), b);
+    if(report)
+	fprintf(report, "(%s:%04i) Encoding Integer %d\n", __FILE__, __LINE__, i);
+    _encodeBuffer(&i, sizeof(i), b);
 }
 
 void encodeChar(const char c, buffer* b)
 {
+    if(report)
+	fprintf(report, "(%s:%04i) Encoding Char %c (0x%X)\n", __FILE__, __LINE__, c, (int)c);
 	// encodeBuffer("c", 1, b); // temp
-	encodeBuffer(&c, sizeof(char), b);
+    _encodeBuffer(&c, sizeof(char), b);
 }
 
 int  encodeContains(LuaBaseObject* o, buffer* b)
 {
-	for(int i=0; i< (int)b->encoded.size(); i++)
+    for(int i=0; i< (int)b->encoded.size(); i++)
+    {
+	if(b->encoded[i] == o)
 	{
-		if(b->encoded[i] == o)
-			return 1;
+	    if(report)
+		fprintf(report, "(%s:%04i) Buffer contains object\n", __FILE__, __LINE__);
+	    return 1;
 	}
-	return 0;
+    }
+    if(report)
+	fprintf(report, "(%s:%04i) Buffer does not contain object\n", __FILE__, __LINE__);
+    return 0;
 }
 
 void encodeOldThis (LuaBaseObject* o, buffer* b)
 {
-	int enc_idx = -1;
-	for(int i=0; i<(int)b->encoded.size() && enc_idx < 0; i++)
-	{
-		if(b->encoded[i] == o)
-			enc_idx = i;
-	}
-	encodeChar(ENCODE_MAGIC_OLD, b);
-	encodeInteger(enc_idx, b);
+    int enc_idx = -1;
+    for(int i=0; i<(int)b->encoded.size() && enc_idx < 0; i++)
+    {
+	if(b->encoded[i] == o)
+	    enc_idx = i;
+    }
+
+    if(report)
+    {
+	fprintf(report, "(%s:%04i) encodeOldThis, idx = %i\n", __FILE__, __LINE__, enc_idx);
+    }
+
+    encodeChar(ENCODE_MAGIC_OLD, b);
+    encodeInteger(enc_idx, b);
 }
 
 void encodeNewThis (LuaBaseObject* o, buffer* b)
 {
-	int enc_idx = b->encoded.size();
-	// printf("new encoded. idx = %i\n", enc_idx);
-	b->encoded.push_back(o);
-	encodeChar(ENCODE_MAGIC_NEW, b);
-	encodeInteger(enc_idx, b);
+    int enc_idx = b->encoded.size();
+
+    if(report)
+    {
+	fprintf(report, "(%s:%04i) encodeNewThis, idx = %i\n", __FILE__, __LINE__, enc_idx);
+    }
+    // printf("new encoded. idx = %i\n", enc_idx);
+    b->encoded.push_back(o);
+    encodeChar(ENCODE_MAGIC_NEW, b);
+    encodeInteger(enc_idx, b);
 }
 
 
 
 
+
+static void _decodeBuffer(void* dest, const int len, buffer* b)
+{
+    if(b->pos + len > b->size)
+    {
+	int* i = (int*)5;
+	*i = 5;
+    }
+    memcpy(dest, b->buf+b->pos, len);
+    b->pos += len;
+}
 
 void decodeBuffer(void* dest, const int len, buffer* b)
 {
-	if(b->pos + len > b->size)
-	{
-		int* i = (int*)5;
-		*i = 5;
-	}
-	memcpy(dest, b->buf+b->pos, len);
-	b->pos += len;
+    if(report)
+	fprintf(report, "(%s:%04i) Decoding Buffer: %d bytes\n", __FILE__, __LINE__, len);
+    _decodeBuffer(dest, len, b);
 }
+
 
 static int check_type(const char* t, buffer* b)
 {
@@ -201,24 +243,31 @@ static int check_type(const char* t, buffer* b)
 
 int decodeInteger(buffer* b)
 {
-	// check_type("i", b);
-	int i;
-	decodeBuffer(&i, sizeof(int), b);
-	return i;
+    // check_type("i", b);
+    int i;
+    _decodeBuffer(&i, sizeof(int), b);
+    if(report)
+	fprintf(report, "(%s:%04i) Decoding Integer %d\n", __FILE__, __LINE__, i);
+    
+    return i;
 }
 double decodeDouble(buffer* b)
 {
-	// check_type("d", b);
-	double d;
-	decodeBuffer(&d, sizeof(double), b);
-	return d;
+    // check_type("d", b);
+    double d;
+    _decodeBuffer(&d, sizeof(double), b);
+    if(report)
+	fprintf(report, "(%s:%04i) Decoding Double %g\n", __FILE__, __LINE__, d);
+    return d;
 }
 char decodeChar(buffer* b)
 {
-	// check_type("c", b);
-	char c;
-	decodeBuffer(&c, sizeof(char), b);
-	return c;
+    // check_type("c", b);
+    char c;
+    _decodeBuffer(&c, sizeof(char), b);
+    if(report)
+	fprintf(report, "(%s:%04i) Decoding Char %c (0x%02X)\n", __FILE__, __LINE__, c, (int)c);
+    return c;
 }
 
 
@@ -245,12 +294,15 @@ LuaBaseObject* decodeLuaBaseObject(lua_State* L, buffer* b)
 	{
 		fprintf(stderr, "(%s:%i) Expectd LUA_TUSERDATA(%i) in stream, got %i\n", __FILE__, __LINE__, LUA_TUSERDATA, TUSERDATA);
 		int* q = (int*)5;
-		*q = 5; // force tracable crash
+		*q = 5; // force traceable crash
 	}
 
 	int type = decodeInteger(b);
 	char magic = decodeChar(b);
 	int pos = decodeInteger(b);
+
+	if(report)
+	    fprintf(report, "(%s:%04i) Decoding `%s' (type=%d)\n", __FILE__, __LINE__, Factory_typename(type), type);
 
 	if((magic != ENCODE_MAGIC_NEW) && (magic != ENCODE_MAGIC_OLD))
 	{
@@ -263,7 +315,15 @@ LuaBaseObject* decodeLuaBaseObject(lua_State* L, buffer* b)
 	LuaBaseObject* e = 0;
 	if(magic == ENCODE_MAGIC_NEW)
 	{
-		e = Factory_newItem(type);
+	    if(report)
+		fprintf(report, "(%s:%04i) Decoding new object\n", __FILE__, __LINE__);
+
+	    e = Factory_newItem(type);
+	    b->encoded.push_back(e);
+
+	    if(pos != (int)b->encoded.size()-1)
+		fprintf(stderr, "(%s:%i) Type=`%s'. Encoded index mismatch. Expected %i, got %i\n", __FILE__, __LINE__, Factory_typename(type),  pos, (int)b->encoded.size()-1);
+
 		if(e)
 		{
 			e->L = L;
@@ -274,12 +334,12 @@ LuaBaseObject* decodeLuaBaseObject(lua_State* L, buffer* b)
 			fprintf(stderr, "Failed to create new type from factory\n");
 		}
 
-		b->encoded.push_back(e);
-		if(pos != (int)b->encoded.size())
-			fprintf(stderr, "(%s:%i)Encoded index mismatch. Expected %i, got %i\n", __FILE__, __LINE__, pos, (int)b->encoded.size());
 	}
 	if(magic == ENCODE_MAGIC_OLD)
 	{
+	    if(report)
+		fprintf(report, "(%s:%04i) Looking up old object\n", __FILE__, __LINE__);
+
 		if(pos < 0 || pos >= (int)b->encoded.size())
 		{
 			fprintf(stderr, "(%s:%i)Malformed data stream\n", __FILE__, __LINE__);

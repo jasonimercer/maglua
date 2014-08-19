@@ -16,5 +16,6 @@ CATEGORY=extra
 DEPEND=luabaseobject
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
+EXTRA_LIBS=-lreadline
 
 EXTRA_CLEAN=interactive_luafuncs.cpp interactive_luafuncs.h

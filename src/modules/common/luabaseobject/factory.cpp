@@ -24,6 +24,7 @@ public:
 	Factory() {}
 
 	LuaBaseObject* newItem(int id);
+	const char* getName(int id);
 	void lua_pushItem(lua_State* L, LuaBaseObject* item, int id);
 	int registerItem(int id, newFactoryFunction func, pushFunction Push, string name);
 	void cleanup();
@@ -85,6 +86,19 @@ LuaBaseObject* Factory::newItem(int id)
 	return 0;
 }
 
+const char* Factory::getName(int id)
+{
+	init();
+	for(unsigned int i=0; i<items->size(); i++)
+	{
+		if(items->at(i)->id == id)
+		{
+		    return items->at(i)->name.c_str();
+		}
+	}
+	return "Unknown";
+}
+
 void Factory::lua_pushItem(lua_State* L, LuaBaseObject* item, int id)
 {
 	init();
@@ -114,6 +128,12 @@ int hash32(const char* string)
 }
 
 
+
+
+const char* Factory_typename(int id)
+{
+	return theFactory.getName(id);
+}
 
 
 LuaBaseObject* Factory_newItem(int id)

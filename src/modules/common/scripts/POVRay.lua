@@ -338,6 +338,9 @@ function POVRay(filename, ss, custom)
 
 					if mm*POVRay_scale > 1e-8 then
 						local xx,yy,zz = pos(x,y,z)
+						if type(xx) == type({}) then
+						    xx,yy,zz = xx[1], xx[2], xx[3]
+						end
 						local r, g, b = color_func(sx, sy, sz) 
 						local draw_string = draw_func(ss, x,y,z, r,g,b, xx,zz,yy)
 						if draw_string == nil then

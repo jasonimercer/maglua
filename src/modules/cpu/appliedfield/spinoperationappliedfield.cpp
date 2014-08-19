@@ -207,6 +207,7 @@ APPLIEDFIELD_API int lib_main(lua_State* L);
 
 #include "appliedfield_luafuncs.h"
 #include "appliedfield_heterogeneous_luafuncs.h"
+#include "appliedfield_site_luafuncs.h"
 
 static int l_getmetatable(lua_State* L)
 {
@@ -217,24 +218,31 @@ static int l_getmetatable(lua_State* L)
 }
 
 #include "spinoperationappliedfield_heterogeneous.h"
+#include "spinoperationappliedfield_site.h"
 APPLIEDFIELD_API int lib_register(lua_State* L)
 {
 	luaT_register<AppliedField>(L);
 	luaT_register<AppliedField_Heterogeneous>(L);
+	luaT_register<AppliedField_Site>(L);
 	
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
 	
-	if(luaL_dostring(L, __appliedfield_luafuncs()))
+	if(luaL_dostringn(L, __appliedfield_luafuncs(), "appliedfield_luafuncs.lua"))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 		return luaL_error(L, lua_tostring(L, -1));
 	}
 
-	if(luaL_dostring(L, __appliedfield_heterogeneous_luafuncs()))
+	if(luaL_dostringn(L, __appliedfield_heterogeneous_luafuncs(), "appliedfield_heterogeneous_luafuncs.lua"))
 	{
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		fprintf(stderr, "%s\n", AppliedField_Heterogeneous::typeName());
+		return luaL_error(L, lua_tostring(L, -1));
+	}
+
+	if(luaL_dostringn(L, __appliedfield_site_luafuncs(), "appliedfield_site_luafuncs.lua"))
+	{
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 		return luaL_error(L, lua_tostring(L, -1));
 	}
 
