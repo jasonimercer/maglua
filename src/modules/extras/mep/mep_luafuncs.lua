@@ -299,6 +299,44 @@ methods["resamplePath"] =
     end
 }
 
+
+local setNumberOfPathPoints_warning = true
+methods["setNumberOfPathPoints"] =
+    {
+    "Backward compatibility method. Gives a warning and calls :resamplePath()",
+    "1 Integer: New number of path points",
+    "",
+    function(mep, _np)
+	if setNumberOfPathPoints_warning then
+	    setNumberOfPathPoints_warning = false
+	    local level = 2
+	    local trace = {}
+	    local env = debug.getinfo(level)
+
+	    while env do
+		table.insert(trace, (env.short_src or "") .. ":" .. (env.currentline or 0))
+		level = level + 1
+		env = debug.getinfo(level)
+	    end
+
+	    -- not showing trace of bootstrap
+	    for i=1,4 do
+		table.remove(trace)
+	    end
+
+	    trace[1] = trace[1] or "Unknown"
+
+	    local warning = "WARNING: This script is using the obsolete method `:setNumberOfPathPoints(x)' at: (" .. trace[1] .. ")"
+	    warning = warning .. "\nWARNING: Please replace `:setNumberOfPathPoints(x)' with `:resamplePath(x)'."
+
+	    io.stderr:write(warning .. "\n")
+	end
+
+	return mep:resamplePath(_np)
+    end
+}
+
+
 methods["equalPoints"] =
 {
 "Test if two points are equal. Equality is determined by having angles between all points less than a given tolerance (in radians)",
