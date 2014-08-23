@@ -103,6 +103,7 @@ private:
 	void fix(); // fix ranges so they look good 
 };
 
+
 CoordinateSystem baseType(CoordinateSystem cs);
 
 VectorCS lua_toVectorCS(lua_State* L, int base);
@@ -120,3 +121,4 @@ void print_vec(const VectorCS& v);
 void print_vecv(std::vector<VectorCS>& vv);
 
 #endif
+

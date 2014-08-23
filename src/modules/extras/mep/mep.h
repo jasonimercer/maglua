@@ -88,6 +88,10 @@ public:
 	double distanceBetweenHyperPoints(int p1, int p2);
 	double distanceBetweenPoints(int p1, int p2, int site);
 	
+	void interpolateVectorCS(const VectorCS& v1, const VectorCS& v2, const double ratio, VectorCS& dest);
+	void interpolateVectorCS(const vector<VectorCS>& v1, const vector<VectorCS>& v2, const double ratio, vector<VectorCS>& dest);
+
+
 	void interpolatePoints(const int p1, const int p2, const int site, const double ratio, vector<VectorCS>& dest, const double jitter);
 	void interpolateHyperPoints(const int p1, const int p2, const double ratio, vector<VectorCS>& dest, const double jitter);
 

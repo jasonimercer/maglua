@@ -502,6 +502,73 @@ double MEP::distanceBetweenHyperPoints(int p1, int p2)
     return d;
 }
 
+void MEP::interpolateVectorCS(const vector<VectorCS>& v1, const vector<VectorCS>& v2, const double ratio, vector<VectorCS>& dest)
+{
+    for(unsigned int i=0; i<v1.size(); i++)
+    {
+	VectorCS t;
+	interpolateVectorCS(v1[i], v2[i], ratio, t);
+	dest.push_back(t);
+    }
+}
+
+void MEP::interpolateVectorCS(const VectorCS& v1, const VectorCS& v2, const double ratio, VectorCS& dest)
+{
+    VectorCS nv1 = v1.normalizedTo(1).convertedToCoordinateSystem(Cartesian);
+    VectorCS nv2 = v2.normalizedTo(1).convertedToCoordinateSystem(Cartesian);
+
+    double a = VectorCS::angleBetween(nv1, nv2);
+
+    if(ratio == 0) //then no need to interpolate
+    {
+	dest = v1;
+	return;
+    }
+    if(ratio == 1) 
+    {
+	dest = v2;
+	return;
+    }
+	
+    VectorCS norm;
+
+    if(fabs(a - 3.1415926538979) < 1e-8) //then colinear, need a random ortho vector
+    {
+	// notice the coord twiddle
+	VectorCS t(-nv2.v[2], -nv2.v[0], nv2.v[1], Cartesian);
+
+	norm = VectorCS::cross(nv1, t);
+
+	// bad luck case:
+	if(norm.magnitude() == 0) // then
+	{
+	    double* tt = t.v;
+	    tt[0] = myrandf()*2.0-1.0;
+	    tt[1] = myrandf()*2.0-1.0;
+	    tt[2] = myrandf()*2.0-1.0;
+	    norm = VectorCS::cross(nv1, t);
+	}
+    }
+    else
+    {
+	norm = VectorCS::cross(nv1, nv2);
+    }
+
+    norm.setMagnitude(1);
+	
+
+    VectorCS res = nv1.rotatedAboutBy(norm, -a*ratio);
+    res.setMagnitude( v1.magnitude() );
+
+    if(ratio < 0.5)
+	res.convertToCoordinateSystem(v1.cs);
+    else
+	res.convertToCoordinateSystem(v2.cs);
+	
+    dest = res;
+}
+
+
 void MEP::interpolatePoints(const int p1, const int p2, const int site, const double _ratio, vector<VectorCS>& dest, const double rjitter)
 {
     const int num_sites = numberOfSites();
@@ -3446,8 +3513,16 @@ static int l_getsite(lua_State* L)
     {
 	return luaL_error(L, "Path Point or site is out of bounds. {Point,Site} = {%d,%d}. Upper Bound = {%d,%d}", p+1,s+1,mep->numberOfImages(), mep->numberOfSites());
     }
+
+    VectorCS cc = mep->getPointSite(p,s).convertedToCoordinateSystem(Cartesian);
+
+    for(int i=0; i<3; i++)
+	lua_pushnumber(L, cc.v[i]);
+
+    lua_pushnumber(L, cc.magnitude());
+    return 4;
 	
-    return lua_pushVectorCS(L, mep->getPointSite(p,s).convertedToCoordinateSystem(Cartesian), VCSF_CSDESC);
+    //return lua_pushVectorCS(L, mep->getPointSite(p,s).convertedToCoordinateSystem(Cartesian), VCSF_CSDESC);
 }
 
 
@@ -3818,6 +3893,43 @@ static int _l_classifypoint(lua_State* L)
     return mep->l_classifyPoint(L, 2);
 }
 
+static int _l_int_cp(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+
+    vector<VectorCS> v1;
+    vector<VectorCS> v2;
+    vector<VectorCS> v3;
+
+    lua_pushnil(L);
+    while(lua_next(L, 2))
+    {
+	v1.push_back( lua_toVectorCS(L, lua_gettop(L) ) );
+	lua_pop(L, 1);
+    }
+
+    lua_pushnil(L);
+    while(lua_next(L, 3))
+    {
+	v2.push_back( lua_toVectorCS(L, lua_gettop(L) ) );
+	lua_pop(L, 1);
+    }
+
+    double ratio = lua_tonumber(L, 4);
+
+    mep->interpolateVectorCS(v1, v2, ratio, v3);
+
+
+    lua_newtable(L);
+    for(int i=0; i<v3.size(); i++)
+    {
+	lua_pushinteger(L, i+1);
+	lua_pushVectorCS(L, v3[i], VCSF_ASTABLE | VCSF_CSDESC);
+	lua_settable(L, -3);
+    }
+    return 1;
+}
+
 
 #include "mep_bestpath.h"
 static int _l_bestpath(lua_State* L)
@@ -3865,7 +3977,7 @@ int MEP::help(lua_State* L)
     {
 	lua_pushstring(L, "Get site as Cartesian Coordinates");
 	lua_pushstring(L, "2 Integers: 1st integer is path index, 2nd integer is site index. Positive values count from the start, negative values count from the end.");
-	lua_pushstring(L, "3 Numbers, 1 String: Coordinates and Coordinate system name at point p and site s.");
+	lua_pushstring(L, "4 Numbers: Cartesian coordinates and magnitude at point p and site s.");
 	return 3;
     }
     if(func == &(l_setsite))
@@ -4074,6 +4186,7 @@ const luaL_Reg* MEP::luaMethods()
 	    {"_expensiveGradientMinimization", _l_expensivegradientminimization},
 	    {"_classifyPoint", _l_classifypoint},
 	    {"_findBestPath", _l_bestpath},
+	    {"_interpolateBetweenCustomPoints", _l_int_cp},
 	    {NULL, NULL}
 	};
     merge_luaL_Reg(m, _m);

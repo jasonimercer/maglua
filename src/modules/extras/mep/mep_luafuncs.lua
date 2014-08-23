@@ -1094,6 +1094,156 @@ methods["minimizeEnergyOfCustomConfiguration"] =
 
 }
 
+methods["energyOfCustomConfiguration"] =
+    {
+    "Compute the energy of the custom given configuration",
+    "1 Table of Tables: Custom orientations for the sites, each vector is a table of 3 numbers and 1 optional Coordinate System name (Default Cartesian).",
+    "1 Number: energy of custom configuration.",
+    function(_mep, cfg)
+	local mep = _mep:copy()
+	mep:setInitialPath({cfg,cfg})
+	return mep:energyAtPoint(1)
+    end
+}
+
+
+methods["interpolateBetweenCustomPoints"] =
+    {
+    "Interpolate between two custom points.",
+    "2 Tables of Vectors, 1 Number: Each Vector is defined as 3 numbers and 1 optional string stating the coordinate system (Default Cartesian). The number is a ratio ideally between 0 and 1 which interpolates between the two input.",
+    "1 Table of Vectors: The interpolated point.",
+    function(mep, p1, p2, r)
+	return mep:_interpolateBetweenCustomPoints(p1, p2, r)
+    end
+}
+
+
+
+local phi = (1 + math.sqrt(5)) / 2
+local resphi = 2 - phi
+
+local goldenSectionSearch = nil
+local function goldenSectionSearch(a,b,c, fa,fb,fc, tau, f)
+    local x
+    if (c - b) > (b - a) then
+	x = b + resphi * (c - b)
+    else
+	x = b - resphi * (b - a)
+    end
+
+    if (math.abs(c - a) < tau * (math.abs(b) + math.abs(x))) then
+	return (c + a) / 2
+    end
+
+    local fx = f(x)
+    
+    --assert(f(x) != f(b));
+    if (fx < fb) then 
+	if (c - b > b - a) then
+	    return goldenSectionSearch(b,x,c, fb,fx,fc, tau, f)
+	else 
+	    return goldenSectionSearch(a,x,b, fa,fx,fb, tau, f)
+	end
+    else 
+	if (c - b > b - a) then
+	    return goldenSectionSearch(a,b,x, fa,fb,fx, tau, f)
+	else
+	    return goldenSectionSearch(x,b,c, fx,fb,fc, tau, f)
+	end
+    end
+end
+
+
+local function boundingMin(mep, i, scale)
+    scale = scale or 1
+    local e = mep:energyAtPoint(i) * scale
+
+    if i > 1 then
+	if i < mep:numberOfPoints() then
+	    if mep:energyAtPoint(i-1)*scale < e then
+		return i-1,i
+	    else
+		return i,i+1
+	    end
+	else
+	    return i-1,i
+	end
+    else
+	return i,i+1
+    end
+end
+local function boundingMax(mep,i)
+    return boundingMin(mep,i,-1)
+end
+
+methods["interpolatedCriticalPoints"] =
+{
+"Use :interpolateBetweenCustomPoints() and a golden ratio search to find critical points along the path",
+"1 Optional numbers: Tolerance, tau as defined in the golder search wikipedia page. Default 1e-8",
+"3 Tables of Numbers: Tables of non-integer point along path corresponding to each interpolated set of minimum point, . These Non-integer points can be transformed into points with the :interpolatePoint() method.",
+function(mep, tol, steps)
+    tol = tol or 1e-8
+    steps = steps or 10
+    local mins, maxs, all = mep:criticalPoints()
+    local imins, imaxs, iall = {}, {}, {}
+
+    local function min_func(x)
+	return mep:energyOfCustomConfiguration( mep:interpolatePoint(x ))
+    end
+    local function max_func(x)
+	return mep:energyOfCustomConfiguration( mep:interpolatePoint(x )) * -1
+    end
+    local tau = tol
+
+    for i,v in pairs(mins) do
+	local x1,x3 = boundingMax(mep, v)
+	local f = min_func
+	local x2 = (x1+x3)/2
+	local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f)
+	imins[i] = x2
+	table.insert(iall, x2)
+    end
+
+    for i,v in pairs(maxs) do
+	local x1,x3 = boundingMax(mep, v)
+	local f = max_func
+	local x2 = (x1+x3)/2
+	local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f)
+	imaxs[i] = x2
+	table.insert(iall, x2)
+    end
+
+    table.sort(iall)
+    return imins, imaxs, iall
+end
+}
+
+methods["interpolatePoint"] =
+{
+"Interpolate to get point at non-integer point index",
+"1 Number: point location along path from 1 to mep:numberOfPoints()",
+"1 Table of Vectors: interpolated configuration",
+function(mep, p)
+    local f = math.floor(p)
+
+    if f == p then
+	return mep:point(p)
+    end
+
+    if f+1 > mep:numberOfPoints() then
+	error("Out of range [1:".. mep:numberOfPoints() .."]")
+    end
+
+    local r = p-f
+
+    local cfg1 = mep:point(f)
+    local cfg2 = mep:point(f+1)
+
+    return mep:interpolateBetweenCustomPoints(cfg1, cfg2, r)
+end
+}
+
+
 methods["expensiveGradientMinimizationAtPoint"] = 
     {
     "Attempt to minimize the energy gradient at a point using inefficient methods",

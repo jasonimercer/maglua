@@ -34,7 +34,7 @@ using namespace std;
 class MAGNETOSTATICS2D_API Magnetostatics2D : public LongRange2D
 {
 public:
-	Magnetostatics2D(int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange2D"));
+	Magnetostatics2D(int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("Magnetostatics2D"));
 	virtual ~Magnetostatics2D();
 	
 	LINEAGE3("Magnetostatics2D", "LongRange2D", "SpinOperation")

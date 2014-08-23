@@ -893,13 +893,18 @@ VectorCS VectorCS::axpy(const double alpha, const VectorCS& x, const VectorCS& _
 
 
 
-VectorCS lua_toVectorCS(lua_State* L, int base, int& consume)
+VectorCS lua_toVectorCS(lua_State* L, int _base, int& consume)
 {
-	CoordinateSystem cs = Cartesian;
-	CoordinateSystem _cs = Undefined;
-	double x[3] = {0,0,0};	
-	int j = 0;
-	consume = 0;
+    int base = _base;
+
+    if(_base < 0)
+	base = lua_gettop(L) + _base + 1;
+
+    CoordinateSystem cs = Cartesian;
+    CoordinateSystem _cs = Undefined;
+    double x[3] = {0,0,0};	
+    int j = 0;
+    consume = 0;
 
 	if(lua_istable(L, base))
 	{

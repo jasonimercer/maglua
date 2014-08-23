@@ -57,11 +57,28 @@ void LongRange2D::encode(buffer* b)
     SpinOperation::encode(b);
     char version = 0;
     encodeChar(version, b);
-	
-	
+		
     for(int i=0; i<nz; i++)
     {
 	encodeDouble(g[i], b);
+    }
+
+    for(int z1=0; z1<nz; z1++)
+    {
+	for(int z2=0; z2<nz; z2++)
+	{
+	    encodeT<dArray>(XX[z1][z2], b);
+	    encodeT<dArray>(XY[z1][z2], b);
+	    encodeT<dArray>(XZ[z1][z2], b);
+
+	    encodeT<dArray>(YX[z1][z2], b);
+	    encodeT<dArray>(YY[z1][z2], b);
+	    encodeT<dArray>(YZ[z1][z2], b);
+
+	    encodeT<dArray>(ZX[z1][z2], b);
+	    encodeT<dArray>(ZY[z1][z2], b);
+	    encodeT<dArray>(ZZ[z1][z2], b);
+	}
     }
 	
     int ref[2];
@@ -95,8 +112,28 @@ int  LongRange2D::decode(buffer* b)
 	    g[i] = decodeDouble(b);
 	}
 		
+	deinit();
+	init();
+
 	int n = lua_gettop(L);
 
+	for(int z1=0; z1<nz; z1++)
+	{
+	    for(int z2=0; z2<nz; z2++)
+	    {
+		luaT_set(& XX[z1][z2], decodeT<dArray>(L, b));
+		luaT_set(& XY[z1][z2], decodeT<dArray>(L, b));
+		luaT_set(& XZ[z1][z2], decodeT<dArray>(L, b));
+
+		luaT_set(& YX[z1][z2], decodeT<dArray>(L, b));
+		luaT_set(& YY[z1][z2], decodeT<dArray>(L, b));
+		luaT_set(& YZ[z1][z2], decodeT<dArray>(L, b));
+
+		luaT_set(& ZX[z1][z2], decodeT<dArray>(L, b));
+		luaT_set(& ZY[z1][z2], decodeT<dArray>(L, b));
+		luaT_set(& ZZ[z1][z2], decodeT<dArray>(L, b));
+	    }
+	}
 
 	if(longrange_ref != LUA_REFNIL)
 	    luaL_unref(L, LUA_REGISTRYINDEX, longrange_ref);
@@ -116,6 +153,8 @@ int  LongRange2D::decode(buffer* b)
     {
 	fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
     }
+
+
 
     return 0;
 }

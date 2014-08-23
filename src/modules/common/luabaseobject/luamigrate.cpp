@@ -278,7 +278,10 @@ void _exportLuaVariable(lua_State* L, int index, buffer* b)
 			luaL_error(L, "Cannot export THREAD");
 		break;
 		default:
-			luaL_error(L, "unknown type: %i", t);
+		{
+		    // fprintf(stderr, "Unknown type: %d\n", t);
+		    luaL_error(L, "unknown type: %d", t);
+		}
 	}
 }
 
@@ -499,7 +502,7 @@ int _importLuaVariable(lua_State* L, buffer* b)
 		break;
 		default:
 		{
-			luaL_error(L, "unknown import type: %i", t);
+			luaL_error(L, "unknown import type: %d", t);
 		}
 	}
 
