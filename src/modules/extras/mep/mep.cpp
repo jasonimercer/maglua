@@ -2003,19 +2003,21 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_i
 	for(int qq=0; qq<num_sites*3; qq++)
 	{
 	    copyVectorTo(vec, vec2);
-	    vectorElementChange(vec2, qq, h, fixedRadius);
-	    rescale_vectors(vec2, mags);
+	    if(vectorElementChange(vec2, qq, h, fixedRadius))
+            {
+                rescale_vectors(vec2, mags);
 
-	    computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
-	    const double new_grad = sqrt(cart_norm2(grad));
+                computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+                const double new_grad = sqrt(cart_norm2(grad));
 
-	    if(new_grad <= current_grad)
-	    {
-		copyVectorTo(vec2, vec);
-		current_grad = new_grad;
-		good_steps++;
-	    }
-	}
+                if(new_grad <= current_grad)
+                {
+                    copyVectorTo(vec2, vec);
+                    current_grad = new_grad;
+                    good_steps++;
+                }
+            }
+        }
     }
 
 
@@ -2089,12 +2091,8 @@ int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index,
 	}
     }
 
-
-
     setPoint(point, vec);
-
     energy_ok = false;
-
     loadConfiguration(L, set_index, cfg);
 
     lua_pushinteger(L, good_steps);
@@ -2134,23 +2132,27 @@ int MEP::expensiveGradientMinimization(lua_State* L, int get_index, int set_inde
 	{
 	    for(int d=0; d<2; d++) //direction
 	    {
+                bool change = true;
 		copyVectorTo(vec, vec2);
 		if(d == 0)
-		    vectorElementChange(vec2, qq, -h, fixedRadius);
+		    change = vectorElementChange(vec2, qq, -h, fixedRadius);
 		else
-		    vectorElementChange(vec2, qq,  h, fixedRadius);
+		    change = vectorElementChange(vec2, qq,  h, fixedRadius);
 
-		computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
-		double new_grad2 = cart_norm2(grad);
-		
-		if(new_grad2 < current_grad2)
-		{
-		    current_grad2  = new_grad2;
-		    improvement = true;
-
-		    copyVectorTo(vec2, vec);
-		}
-	    }
+                if(change)
+                {
+                    computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+                    double new_grad2 = cart_norm2(grad);
+                    
+                    if(new_grad2 < current_grad2)
+                    {
+                        current_grad2  = new_grad2;
+                        improvement = true;
+                        
+                        copyVectorTo(vec2, vec);
+                    }
+                }
+            }
 	}
 
 	if(improvement)
@@ -2254,21 +2256,28 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
     for(int qq=0; qq<num_sites*3; qq++)
     {
 	getPoint(p, vec2);
-	vectorElementChange(vec2, qq, -h, fixedRadius);
-	computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
-	for(int i=0; i<num_sites; i++)
-	    grad[i].zeroRadialComponent(vec2[i]);
-	double x_minus_h = sqrt(cart_norm2(grad));
+	bool change = vectorElementChange(vec2, qq, -h, fixedRadius);
+        if(change)
+        {
+            computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+            for(int i=0; i<num_sites; i++)
+                grad[i].zeroRadialComponent(vec2[i]);
+            double x_minus_h = sqrt(cart_norm2(grad));
+            
+            
+            getPoint(p, vec2);
+            vectorElementChange(vec2, qq,  h, fixedRadius);
+            computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+            for(int i=0; i<num_sites; i++)
+                grad[i].zeroRadialComponent(vec2[i]);
+            double x_plus_h = sqrt(cart_norm2(grad));
 
-
-	getPoint(p, vec2);
-	vectorElementChange(vec2, qq,  h, fixedRadius);
-	computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
-	for(int i=0; i<num_sites; i++)
-	    grad[i].zeroRadialComponent(vec2[i]);
-	double x_plus_h = sqrt(cart_norm2(grad));
-
-	_grad_grad[qq] = (x_plus_h - x_minus_h) / (2.0 * h);
+            _grad_grad[qq] = (x_plus_h - x_minus_h) / (2.0 * h);
+        }
+        else
+        {
+            _grad_grad[qq] = 0;
+        }
     }
 
     vector<VectorCS> grad_grad;
@@ -3197,11 +3206,6 @@ static int l_addstatexyz(lua_State* L)
     LUA_PREAMBLE(MEP, mep, 1);
     mep->state_path.push_back( lua_toVectorCS(L, 2) );
     mep->energy_ok = false;
-/*
-  VectorCS v = mep->state_path.back();
-  printf("%i  %g %g %g\n", (int)mep->state_path.size(), v.v[0], v.v[1], v.v[2]);
-  printf("ns: %i    np: %i\n", mep->numberOfSites(), mep->numberOfImages());
-*/
 
     return 0;
 }

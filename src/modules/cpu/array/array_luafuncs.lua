@@ -58,46 +58,48 @@ Array._registerws = nil
 methods = {}
 
 local function getCutsAndDest(a, arg, dir)
-	local cutplanes = {}
-	if type(arg[1]) == type({}) then
-		-- we have a table of planes to cut
-		cutplanes = arg[1]
-	else
-		-- else we have a list of cuts
-		for i=1,table.maxn(arg) do
-			if type(arg[i]) == type(1) then
-				table.insert(cutplanes, arg[i])
-			end
-		end
-	end
-	
-	local dest = nil
-	for i=1,table.maxn(arg) do
-		if type(arg[i]) == type(a) then
-			-- we hope it's an array
-			dest = arg[i]
-		end
-	end
-
-	table.sort(cutplanes)
-	local num_cuts = table.maxn(cutplanes)
-
-	local tx, ty, tz -- target size 
-	
-	local x,y,z = a:nx(), a:ny(), a:nz()
-	if dir == "x" then 	tx, ty, tz = x - num_cuts, y, z  end
-	if dir == "y" then 	tx, ty, tz = x, y - num_cuts, z  end
-	if dir == "z" then 	tx, ty, tz = x, y, z - num_cuts  end
-	
-	if dest == nil then
-		dest = a:slice({{1,1,1}, {tx,ty,tz}})
-	end
-
-	if dest:nx() ~= tx or dest:ny() ~= ty or dest:nz() ~= tz then
-		error("Destination array is wrong dimension", 3)
-	end
-
-	return cutplanes, num_cuts, dest
+    local cutplanes = {}
+    if type(arg[1]) == type({}) then
+        -- we have a table of planes to cut
+        for k,v in pairs(arg[1]) do
+            cutplanes[k] = v
+        end
+    else
+        -- else we have a list of cuts
+        for i=1,table.maxn(arg) do
+            if type(arg[i]) == type(1) then
+                table.insert(cutplanes, arg[i])
+            end
+        end
+    end
+    
+    local dest = nil
+    for i=1,table.maxn(arg) do
+        if type(arg[i]) == type(a) then
+            -- we hope it's an array
+            dest = arg[i]
+        end
+    end
+    
+    table.sort(cutplanes)
+    local num_cuts = table.maxn(cutplanes)
+    
+    local tx, ty, tz -- target size 
+    
+    local x,y,z = a:nx(), a:ny(), a:nz()
+    if dir == "x" then 	tx, ty, tz = x - num_cuts, y, z  end
+    if dir == "y" then 	tx, ty, tz = x, y - num_cuts, z  end
+    if dir == "z" then 	tx, ty, tz = x, y, z - num_cuts  end
+    
+    if dest == nil then
+        dest = a:slice({{1,1,1}, {tx,ty,tz}})
+    end
+    
+    if dest:nx() ~= tx or dest:ny() ~= ty or dest:nz() ~= tz then
+        error("Destination array is wrong dimension", 3)
+    end
+    
+    return cutplanes, num_cuts, dest
 end
 
 methods["cutX"] =
@@ -106,28 +108,28 @@ methods["cutX"] =
     "0 or more Integers or a table of Integers, 1 Optional Array: Indices to be removed (In a 2D matrix these would be columns). If an array is provided and is the correct size, it will receive the copy.",
     "1 Array: Result of cut",
     function(a, ...)
-		local x,y,z = a:nx(), a:ny(), a:nz()
-		local cutplanes, num_cuts, dest = getCutsAndDest(a, arg, "x")
-
-		if num_cuts == 0 then
-			a:slice({{1,1,1}, {x,y,z}}, dest)
-			return dest
-		end
-
-		table.insert(cutplanes, x+1) -- add cut after end
-
-		local s1,s2,d1,d2
-
-		s2, d2 = -1, 0
-		for i=1,num_cuts+1 do
-			s1, s2 = s2+2, cutplanes[i]-1
-			d1, d2 = d2+1, d2+1 + (s2-s1)
-			
-			if s1 <= s2 then
-				a:slice({{s1,1,1}, {s2,y,z}}, dest, {{d1,1,1}, {d2,y,z}})
-			end
-		end
-		return dest
+	local x,y,z = a:nx(), a:ny(), a:nz()
+	local cutplanes, num_cuts, dest = getCutsAndDest(a, arg, "x")
+	
+	if num_cuts == 0 then
+	    a:slice({{1,1,1}, {x,y,z}}, dest)
+	    return dest
+	end
+	
+	table.insert(cutplanes, x+1) -- add cut after end
+	
+	local s1,s2,d1,d2
+	
+	s2, d2 = -1, 0
+	for i=1,num_cuts+1 do
+	    s1, s2 = s2+2, cutplanes[i]-1
+	    d1, d2 = d2+1, d2+1 + (s2-s1)
+	    
+	    if s1 <= s2 then
+		a:slice({{s1,1,1}, {s2,y,z}}, dest, {{d1,1,1}, {d2,y,z}})
+	    end
+	end
+	return dest
     end
 }
 
@@ -138,28 +140,28 @@ methods["cutY"] =
     "0 or more Integers or a table of Integers, 1 Optional Array: Indices to be removed (In a 2D matrix these would be rows). If an array is provided and is the correct size, it will receive the copy.",
     "1 Array: Result of cut",
     function(a, ...)
-		local x,y,z = a:nx(), a:ny(), a:nz()
-		local cutplanes, num_cuts, dest = getCutsAndDest(a, arg, "y")
-
-		if num_cuts == 0 then
-			a:slice({{1,1,1}, {x,y,z}}, dest)
-			return dest
-		end
-
-		table.insert(cutplanes, y+1) -- add cut after end
-
-		local s1,s2,d1,d2
-
-		s2, d2 = -1, 0
-		for i=1,num_cuts+1 do
-			s1, s2 = s2+2, cutplanes[i]-1
-			d1, d2 = d2+1, d2+1 + (s2-s1)
-			
-			if s1 <= s2 then
-				a:slice({{1,s1,1}, {x,s2,z}}, dest, {{1,d1,1}, {x,d2,z}})
-			end
-		end
-		return dest
+	local x,y,z = a:nx(), a:ny(), a:nz()
+	local cutplanes, num_cuts, dest = getCutsAndDest(a, arg, "y")
+	
+	if num_cuts == 0 then
+	    a:slice({{1,1,1}, {x,y,z}}, dest)
+	    return dest
+	end
+	
+	table.insert(cutplanes, y+1) -- add cut after end
+	
+	local s1,s2,d1,d2
+	
+	s2, d2 = -1, 0
+	for i=1,num_cuts+1 do
+	    s1, s2 = s2+2, cutplanes[i]-1
+	    d1, d2 = d2+1, d2+1 + (s2-s1)
+	    
+	    if s1 <= s2 then
+		a:slice({{1,s1,1}, {x,s2,z}}, dest, {{1,d1,1}, {x,d2,z}})
+	    end
+	end
+	return dest
     end
 }
 
@@ -169,28 +171,28 @@ methods["cutZ"] =
     "0 or more Integers or a table of Integers, 1 Optional Array: Indices to be removed. If an array is provided and is the correct size, it will receive the copy.",
     "1 Array: Result of cut",
     function(a, ...)
-		local x,y,z = a:nx(), a:ny(), a:nz()
-		local cutplanes, num_cuts, dest = getCutsAndDest(a, arg, "z")
-
-		if num_cuts == 0 then
-			a:slice({{1,1,1}, {x,y,z}}, dest)
-			return dest
-		end
-
-		table.insert(cutplanes, z+1) -- add cut after end
-
-		local s1,s2,d1,d2
-
-		s2, d2 = -1, 0
-		for i=1,num_cuts+1 do
-			s1, s2 = s2+2, cutplanes[i]-1
-			d1, d2 = d2+1, d2+1 + (s2-s1)
-			
-			if s1 <= s2 then
-				a:slice({{1,1,s1}, {x,y,s2}}, dest, {{1,1,d1}, {x,y,d2}})
-			end
-		end
-		return dest
+	local x,y,z = a:nx(), a:ny(), a:nz()
+	local cutplanes, num_cuts, dest = getCutsAndDest(a, arg, "z")
+	
+	if num_cuts == 0 then
+	    a:slice({{1,1,1}, {x,y,z}}, dest)
+	    return dest
+	end
+	
+	table.insert(cutplanes, z+1) -- add cut after end
+	
+	local s1,s2,d1,d2
+	
+	s2, d2 = -1, 0
+	for i=1,num_cuts+1 do
+	    s1, s2 = s2+2, cutplanes[i]-1
+	    d1, d2 = d2+1, d2+1 + (s2-s1)
+	    
+	    if s1 <= s2 then
+		a:slice({{1,1,s1}, {x,y,s2}}, dest, {{1,1,d1}, {x,y,d2}})
+	    end
+	end
+	return dest
     end
 }
 

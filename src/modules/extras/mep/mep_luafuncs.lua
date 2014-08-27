@@ -511,6 +511,7 @@ methods["describePoint"] =
 }
 --]]
 
+
 methods["reverse"] =
     {
     "Reverse the path",
@@ -651,8 +652,6 @@ methods["resize"] =
 	ns = ns or mep:numberOfSites()
 
 	mep:_resize(npp, ns)
-
-	-- mep:setNumberOfPathPoints(npp)
     end
 }
 
@@ -736,11 +735,9 @@ methods["keepPoints"] =
 	local keepers = arg
 	table.sort(keepers)
 	
-	local old_path = mep:path()
-
 	local new_path = {}
-	for i=1,table.maxn(keepers) do
-	    table.insert(new_path, old_path[keepers[i]])
+	for i,p in ipairs(keepers) do
+            new_path[i] = mep:interpolatePoint(p)
 	end
 	
 	mep:setInitialPath(new_path)
@@ -947,7 +944,7 @@ methods["setInitialPath"] =
 		    c = pp[p][s][4] or "Cartesian"
 		    mep:_setImageSiteMobility(p, s, mobility)
 		end
-		mep:_addStateXYZ(x,y,z,c)
+		mep:_addStateXYZ({x,y,z,c})
 	    end
 	end
     end
@@ -1179,11 +1176,13 @@ end
 methods["interpolatedCriticalPoints"] =
 {
 "Use :interpolateBetweenCustomPoints() and a golden ratio search to find critical points along the path",
-"1 Optional numbers: Tolerance, tau as defined in the golder search wikipedia page. Default 1e-8",
+"1 Optional JSON style table: Keys are: \"Tolerance\", tau as defined in the golden search wikipedia page (Default 1e-8), \"InterpolateEndPoints\", boolean to interpolate end points (default true).",
 "3 Tables of Numbers: Tables of non-integer point along path corresponding to each interpolated set of minimum point, . These Non-integer points can be transformed into points with the :interpolatePoint() method.",
-function(mep, tol, steps)
-    tol = tol or 1e-8
-    steps = steps or 10
+function(mep, json)
+    json = json or {}
+    local tol = json.Tolerance or 1e-8
+    local endpts = json.interpolateEndPoints or true
+
     local mins, maxs, all = mep:criticalPoints()
     local imins, imaxs, iall = {}, {}, {}
 
@@ -1194,23 +1193,34 @@ function(mep, tol, steps)
 	return mep:energyOfCustomConfiguration( mep:interpolatePoint(x )) * -1
     end
     local tau = tol
+    local np = mep:numberOfPoints()
 
     for i,v in pairs(mins) do
-	local x1,x3 = boundingMax(mep, v)
-	local f = min_func
-	local x2 = (x1+x3)/2
-	local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f)
-	imins[i] = x2
-	table.insert(iall, x2)
+        if (v == 1 or v == np) and (endpts == false) then
+            imins[i] = v
+            table.insert(iall, v)
+        else
+            local x1,x3 = boundingMin(mep, v)
+            local f = min_func
+            local x2 = (x1+x3)/2
+            local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f)
+            imins[i] = x2
+            table.insert(iall, x2)
+        end
     end
 
     for i,v in pairs(maxs) do
-	local x1,x3 = boundingMax(mep, v)
-	local f = max_func
-	local x2 = (x1+x3)/2
-	local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f)
-	imaxs[i] = x2
-	table.insert(iall, x2)
+        if (v == 1 or v == np) and (endpts == false) then
+            imaxs[i] = v
+            table.insert(iall, v)
+        else
+            local x1,x3 = boundingMax(mep, v)
+            local f = max_func
+            local x2 = (x1+x3)/2
+            local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f)
+            imaxs[i] = x2
+            table.insert(iall, x2)
+        end
     end
 
     table.sort(iall)
@@ -1239,7 +1249,8 @@ function(mep, p)
     local cfg1 = mep:point(f)
     local cfg2 = mep:point(f+1)
 
-    return mep:interpolateBetweenCustomPoints(cfg1, cfg2, r)
+    local icp = mep:interpolateBetweenCustomPoints(cfg1, cfg2, r)
+    return icp
 end
 }
 
@@ -1502,15 +1513,9 @@ methods["reduceToPoints"] = methods["keepPoints"]
 	    arg = arg[1]
 	end
 	local new_initial_path = {}
-	local n = 0
+
 	for i,v in pairs(arg) do
-	    local t = {}
-	    for j=1,mep:numberOfSites() do
-		local x1, x2, x3, cs = mep:_nativeSpin(v,j)
-		t[j] = {x1,x2,x3,cs}
-	    end
-	    new_initial_path[i] = t
-	    n = n + 1
+	    new_initial_path[i] = mep:interpolatePoint(v)
 	end
 
 	mep:setInitialPath(new_initial_path)
@@ -1527,6 +1532,17 @@ methods["reduceToCriticalPoints"] =
     function(mep)
 	local _, _, cps = mep:criticalPoints()
 	mep:reduceToPoints(cps)
+    end
+}
+
+methods["reduceToInterpolatedCriticalPoints"] = 
+    {
+    "Reduce the path to the points returned from the :interpolateCriticalPoints() method. The points between the critical points will be discarded and the total number of points will be reduced to the number of critical points.",
+    "1 optional JSON style table: same as JSON table to be passed to MEP:interpolatedCriticalPoints()",
+    "",
+    function(mep, json)
+	local _, _, icps = mep:interpolatedCriticalPoints(json)
+	mep:reduceToPoints(icps)
     end
 }
 

@@ -249,20 +249,26 @@ return false
 end
 
 if print_module_path then
-    dofile(startup_path_file)
-    local mp = module_path[print_module_path]
-    if mp then
-	print(mp)
-	return false
-    end
+    if skip_startup_file == false then
+        dofile(startup_path_file)
+
+        local mp = module_path[print_module_path]
+        if mp then
+            print(mp)
+            return false
+        end
+        
+        local cats = {}
+        for k,v in pairs(module_path) do
+            table.insert(cats, k)
+        end
     
-    local cats = {}
-    for k,v in pairs(startup_path) do
-	table.insert(cats, k)
+        io.stderr:write("Failed to lookup module category\n")
+        io.stderr:write("Must specify a module category (" .. table.concat(cats, ", ") .. ")\n")
+    else
+        error("No categories defined with startup file skipped")
     end
-    
-    io.stderr:write("Failed to lookup module category\n")
-    error("Must specify a module category (" .. table.concat(cats, ", ") .. ")", 0)
+    return false
 end
 
 if print_startup_path_file then
@@ -275,7 +281,6 @@ if print_version then
     return false -- stop here
 end
 end 
-
 
 
 -- a module may have inserted help args
@@ -338,8 +343,6 @@ maxMemoryGB = nil
 setrlimit = nil
 getrlimit = nil
 RLIMIT = nil
-
-
 
 
 -- test for "-q"
@@ -565,7 +568,59 @@ if sub_process == nil then
     arg = a
     a = nil
 
-    dofile(arg[0])
+    local function bt(level, exclude_last, msg) -- backtrace
+        local function where(env)
+            if env.what == "C" then
+                return "in C"
+            end
+            if env.what == "Lua" then
+                if env.name then
+                    return "in function '"..env.name .. "'"
+                else
+                    return ""
+                end
+            end
+            if env.what == "main" then
+                return "in main chunk"
+            end
+            return "in " .. (env.what or "unknown")
+        end
+        level = level or 1
+        local trace = {}
+        local env = debug.getinfo(level)
+        
+        print(msg)
+
+        while env do
+            table.insert(trace, (env.short_src or "") .. ":" .. (env.currentline or 0) .. ": " .. where(env))
+            level = level + 1
+            env = debug.getinfo(level)
+        end
+        
+        -- peel off last X trace levels as it's MagLua botstrap and startup
+        for i=1,exclude_last do
+            table.remove(trace)
+        end
+
+        print("stack traceback:")
+        for k,v in pairs(trace) do
+            print("\t" .. v)
+        end
+    end
+
+    local function err(msg)
+        bt(4, 6, msg)
+    end
+
+    local function run()
+        dofile(arg[0])
+    end
+
+    if _custom_error_handler then
+        xpcall(run, _custom_error_handler)
+    else
+        xpcall(run, err)
+    end
 else
     sub_process = nil
 end
@@ -573,3 +628,46 @@ end
 
 
 
+
+
+
+
+    local function bt(level, exclude_last, msg) -- backtrace
+        local function where(env)
+            if env.what == "C" then
+                return "in C"
+            end
+            if env.what == "Lua" then
+                if env.name then
+                    return "in function '"..env.name .. "'"
+                else
+                    return ""
+                end
+            end
+            if env.what == "main" then
+                return "in main chunk"
+            end
+            return "in " .. (env.what or "unknown")
+        end
+        level = level or 1
+        local trace = {}
+        local env = debug.getinfo(level)
+        
+        print(msg)
+
+        while env do
+            table.insert(trace, (env.short_src or "") .. ":" .. (env.currentline or 0) .. ": " .. where(env))
+            level = level + 1
+            env = debug.getinfo(level)
+        end
+        
+        -- peel off last X trace levels as it's MagLua botstrap and startup
+        for i=1,exclude_last do
+            table.remove(trace)
+        end
+
+        print("stack traceback:")
+        for k,v in pairs(trace) do
+            print("\t" .. v)
+        end
+    end

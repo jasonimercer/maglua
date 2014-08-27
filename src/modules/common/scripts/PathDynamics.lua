@@ -279,9 +279,15 @@ function PathDynamics(mepOrig, json)
 
     -- Working on rate:
     local hessian = mep:hessianAtPoint(saddlePoint)
-    hessian = hessian:cutX(1,4):cutY(1,4) -- cut radial terms
+    -- hessian = hessian:cutX(1,4):cutY(1,4) -- cut radial terms
+
+    local radial_terms = {}
+    for i=1,ns do
+	radial_terms[i] = (i-1)*3+1
+    end
+    hessian = hessian:cutX(radial_terms):cutY(radial_terms) -- cut radial terms
     local evals, evecs = hessian:matEigen()
-    local evalsSad = evals:copy()
+    local evalsSad = evals:copy() -- saddle point data
     local evecsSad = evecs:copy()
 
 
@@ -289,10 +295,10 @@ function PathDynamics(mepOrig, json)
 
     -- find zero eigen value
     min_val, min_idx = evals[1], 1
-    for i=2,4 do
-	if math.abs(evals[i]) < math.abs(min_val) then
-	    min_val = evals[i]
-	    min_idx = i
+    for s=2,ns*2 do
+	if math.abs(evals[s]) < math.abs(min_val) then
+	    min_val = evals[s]
+	    min_idx = s
 	end
     end
 
@@ -302,36 +308,57 @@ function PathDynamics(mepOrig, json)
     
     local V = evecs:cutY(min_idx) -- cut zero direction
 
-    local M1 = mep:spinInCoordinateSystem(1,1,"Canonical") -- r is first return value
-    local M2 = mep:spinInCoordinateSystem(1,2,"Canonical") 
-
-    local MG = M1 + M2
+    local M = {}
+    local MG = 0
+    for s=1,ns do
+	M[s] = mep:spinInCoordinateSystem(1,s,"Canonical") -- r is first return value
+	MG = MG + M[s] 
+    end
+    -- local M2 = mep:spinInCoordinateSystem(1,2,"Canonical") 
+    -- local MG = M1 + M2
 
     
     function metricCC_at(idx)
-	local _, _, p1 = mep:spinInCoordinateSystem(idx, 1, "Canonical")
-	local _, _, p2 = mep:spinInCoordinateSystem(idx, 2, "Canonical")
+	local p = {}
+	for s=1,ns do
+	    local _, _, ps = mep:spinInCoordinateSystem(idx, s, "Canonical")
+	    p[s] = ps
 
-	if (1-p1^2) == 0 or (1-p2^2) == 0 then
-	    if json.onNan then
-		json.onNan("This is a purely single grain rotation. p1 or p2 is exactly -1 or 1 at the saddle point.")
+	    if (1-ps^2) == 0 then
+		if json.onNan then
+		    json.onNan("This rotation has a fixed coordinate, p" .. s .. " = " .. ps .. " at saddle point")
+		end
 	    end
 	end
+
+	local diag = {}
 	
-	return makeDiagonal({
-				(MG/M1) * (1-p1^2)^(-1),
-				(MG/M1) * (1-p1^2)^( 1), 
-				(MG/M2) * (1-p2^2)^(-1),
-				(MG/M2) * (1-p2^2)^( 1) })
+	for s=1,ns do
+	    table.insert(diag, (MG/M[s]) * (1-p[s]^2)^(-1))
+	    table.insert(diag, (MG/M[s]) * (1-p[s]^2)^( 1))
+	end
+	
+	return makeDiagonal(diag)
     end
     
     local metricCC = metricCC_at(saddlePoint)
-    
+
+    --[[
     local Gamma = Array.Double.new(4, 4, {
 				       0,  MG/M1,     0,     0,
 				  -MG/M1,      0,     0,     0,
 				       0,      0,     0,     MG/M2,
 				       0,      0,    -MG/M2, 0     })
+    --]]
+    local Gamma = Array.Double.new(ns*2, ns*2, 1)
+    Gamma:zero()
+    for s=1,ns do
+        local x, y = (s-1)*2+1, (s-1)*2+1
+        -- setting zeros are not needed but help reveal what is going on:
+        Gamma:set({x,y  }, 0)        Gamma:set({x+1,y},   MG/M[s])
+        Gamma:set({x,y+1}, -MG/M[s]) Gamma:set({x+1,y+1}, 0      )
+    end
+
 
     local Tmatrix = Gamma:pairwiseScaleAdd(alpha, metricCC)
 
@@ -342,7 +369,7 @@ function PathDynamics(mepOrig, json)
 
     mep:setCoordinateSystem("CanonicalX") --rotated coord. system
     hessian = mep:hessianAtPoint(minimumEnergy1)
-    hessian = hessian:cutX(1,4):cutY(1,4) -- cut radius terms
+    hessian = hessian:cutX(radial_terms):cutY(radial_terms)
     --interactive()
     local n1 = hessian:matEigen()
 
@@ -387,7 +414,7 @@ function GeneratePathDynamicsGraph(all_paths, MaxDegreesDifference, LowEnergy)
 	error("Second argument must provide the Maximum number of average degrees between vector groups to decide equality (try 5)")
     end
 
-    LowEnergy = LowEnergy or nil
+    LowEnergy = LowEnergy or 0
 
     -- we will look at the InitialConfigurations to figure out how many start points we have
     local InitialConfiguration = {}
@@ -633,7 +660,8 @@ local function attempt_simplify(mep, equal_degrees)
     -- and maxs to their minimum gradient
     -- goal is to have points line up so we can identify similar points
     local np = mep:numberOfPoints()
-    mep:reduceToCriticalPoints() -- this is new: reducing to crit pts so simplify works better
+    mep:reduceToCriticalPoints()
+
     local mins, maxs = mep:criticalPoints()
 
     refine_mins(mep, mins)
@@ -647,16 +675,6 @@ local function attempt_simplify(mep, equal_degrees)
     --return cut_points
 end
 
-local function coords(mep, filename)
-    local g = io.open(filename, "w")
-    for i=1,mep:numberOfPoints() do
-	local x1,x2,x3,xc = mep:spinInCoordinateSystem(i,1)
-	local y1,y2,y3,yc = mep:spinInCoordinateSystem(i,2)
-
-	g:write(string.format("% 4g  % 4g   %e\n", x3, y3, mep:energyAtPoint(i)))
-    end
-    g:close()
-end
 
 function AllPathDynamics(mep, minima, JSON)
     JSON = JSON or {}
@@ -673,42 +691,54 @@ function AllPathDynamics(mep, minima, JSON)
     local all_paths = {}
     local number_of_minima = table.maxn(minima)
     local symmetricLandscape = JSON.SymmetricLandscape or false
-    local f = coords
 
     for i=1,number_of_minima-1 do
-	for j=i+1,number_of_minima do
+        for j=i+1,number_of_minima do
 	    local mep2 = mep:copy()
 
-	    mep2:setInitialPath({minima[i], minima[j]})
-	    mep2:resamplePath(ComputePoints)
+            mep2:setInitialPath({minima[i], minima[j]})
+            mep2:resamplePath(ComputePoints)
 
-	    mep2:compute(ComputeSteps, {report=computeReport}) -- run MEP
-	    -- local mep3 = mep2:copy() -- for debuging
+            mep2:compute(ComputeSteps, {report=computeReport}) -- run MEP
 
-	    if symmetricLandscape == false then -- we'll try to fix things
-		-- local np = mep2:numberOfPoints()
-		if mep2:minCount() > 2 then 
-		    attempt_simplify(mep2, SimplifyDegrees)
-		else
-		    local mins, maxs, all = mep2:criticalPoints()
-		    refine_mins(mep2, mins)
-		    refine_maxs(mep2, maxs)
-		    mep2:reduceToPoints(all)
+            if symmetricLandscape == false then -- we'll try to fix things
+                -- local np = mep2:numberOfPoints()
+                if mep2:minCount() > 2 then 
+                    attempt_simplify(mep2, SimplifyDegrees)
+
+                    -- using interpolation methods as poor man's saddle point finder
+                    mep2:resamplePath(ComputePoints)
+                    mep2:reduceToInterpolatedCriticalPoints({InterpolateEndPoints=false})
+                else
+                    mep2:reduceToInterpolatedCriticalPoints({InterpolateEndPoints=false}) 
+		    
+                    -- NOTE: not refining maxs until we have a good method
+                    -- of refining saddle points
+
+                    --local mins, maxs, all = mep2:criticalPoints()
+		    --refine_mins(mep2, mins)
+		    --refine_maxs(mep2, maxs)
+		    --mep2:reduceToPoints(all)
 		end
-		
 		--if mep2:minCount() > 2 then 
 		--interactive("Multi-hop correction failed. Pre: mep3   post: mep2")
 		--end
 	    end
 
+            local pd_opts = {
+                report=PathDynamicsReport, 
+                onNan=PathDynamicsOnNan, 
+                onMultipleHops=PathDynamicsOnMultipleHops
+            }
+
 	    report("Creating path between minimum points " .. i .. " and " .. j)
-	    local pd = PathDynamics(mep2,  {report=PathDynamicsReport, onNan=PathDynamicsOnNan, onMultipleHops=PathDynamicsOnMultipleHops})
+	    local pd = PathDynamics(mep2, pd_opts)
 	    table.insert(all_paths, pd)
 	    report("")
 
 	    mep2:reverse()
 	    report("Creating path between minimum points " .. j .. " and " .. i)
-	    local pd = PathDynamics(mep2,  {report=PathDynamicsReport, onNan=PathDynamicsOnNan})
+	    local pd = PathDynamics(mep2, pd_opts)
 	    table.insert(all_paths, pd)
 	    report("")
 	    
@@ -717,4 +747,3 @@ function AllPathDynamics(mep, minima, JSON)
 
     return all_paths
 end
-

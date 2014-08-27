@@ -971,30 +971,36 @@ VectorCS lua_toVectorCS(lua_State* L, int base)
 
 int lua_pushVectorCS(lua_State* L, const VectorCS& v, const int flags)
 {
-	if(flags & VCSF_ASTABLE)
-	{
-		lua_newtable(L);
-		for(int i=0; i<3; i++)
-		{
-			lua_pushinteger(L, i+1);
-			lua_pushnumber(L, v.v[i]);
-			lua_settable(L, -3);
-		}
+    if(flags & VCSF_ASTABLE)
+    {
+        lua_newtable(L);
+        for(int i=0; i<3; i++)
+        {
+            lua_pushinteger(L, i+1);
+            lua_pushnumber(L, v.v[i]);
+            lua_settable(L, -3);
+        }
+        
+        if(flags & VCSF_CSDESC)
+        {
+            lua_pushinteger(L, 4);
+            lua_pushstring(L, nameOfCoordinateSystem(v.cs));
+            lua_settable(L, -3);
+        }
 
+        return 1;
+    }
 
-		return 1;
-	}
-
-	lua_pushnumber(L, v.v[0]);
-	lua_pushnumber(L, v.v[1]);
-	lua_pushnumber(L, v.v[2]);
-
-	if(flags & VCSF_CSDESC)
-	{
-		lua_pushstring(L, nameOfCoordinateSystem(v.cs));
-		return 4;
-	}
-	return 3;
+    lua_pushnumber(L, v.v[0]);
+    lua_pushnumber(L, v.v[1]);
+    lua_pushnumber(L, v.v[2]);
+    
+    if(flags & VCSF_CSDESC)
+    {
+        lua_pushstring(L, nameOfCoordinateSystem(v.cs));
+        return 4;
+    }
+    return 3;
 }
 
 

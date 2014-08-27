@@ -1,42 +1,9 @@
 local prompt = "> "
+local levels_of_bootstrap = 6
+    
 
--- this dumb name will be overwritten with setValue in the interactive state
-local function interactive_set_value(name, value)
-    print("isv", name, value)
-    local level = 4
-    local locals = {}
-    local env = debug.getinfo(level)
 
-    while env do
- 	local i,k,v = 1,debug.getlocal(level, 1)
-
-	while k do
-	    if k == name then
-		debug.setlocal(level, i, value)
-		return
-	    end
-	    i,k,v = i+1,debug.getlocal(level, i+1)
-	end
-
-	if env.func then
-	    i,k,v = 1,debug.getupvalue(env.func, 1)
-	    while k do
-		if k == name then
-		    debug.setupvalue(env.func, i, value)
-		    return
-		end
-		i,k,v = i+1,debug.getupvalue(env.func, i+1)
-	    end
-	end
-
-	level = level + 1
-	env = debug.getinfo(level)
-    end
-end
-
--- build an environment that allows the reading of globals, locals and upvalues
--- globals can be written to as normal
--- upvalues and locals must be set using the function setValue("name", value)
+-- build an environment
 local function get_local_env(level)
     local locals = {}
     local vars = {}
@@ -47,8 +14,6 @@ local function get_local_env(level)
     while debug.getinfo(max_level+1) do
 	max_level = max_level + 1
     end
-
-    local levels_of_bootstrap = 4
 
     while env and level <= max_level - levels_of_bootstrap do
  	local i,k,v = 1,debug.getlocal(level, 1)
@@ -319,35 +284,56 @@ local function loadline()
     return function() end
 end
 
-local function bt(level) -- backtrace
+local function bt(level, exclude_last, msg) -- backtrace
+    local function where(env)
+        if env.what == "C" then
+            return "in C"
+        end
+        if env.what == "Lua" then
+            if env.name then
+                return "in function '"..env.name .. "'"
+            else
+                return ""
+            end
+        end
+        if env.what == "main" then
+            return "in main chunk"
+        end
+        return "in " .. (env.what or "unknown")
+    end
     level = level or 1
     local trace = {}
     local env = debug.getinfo(level)
-
-    while env do
-	table.insert(trace, (env.short_src or "") .. ":" .. (env.currentline or 0))
-	level = level + 1
-	env = debug.getinfo(level)
-    end
-
-
-    -- peel off last 4 trace levels as it's MagLua botstrap and startup
-    for i=1,4 do
-	table.remove(trace)
-    end
-
-    for k,v in pairs(trace) do
-	print(table.maxn(trace) - k + 1,v)
+    
+    if msg then
+        print(msg)
     end
     
+    while env do
+        table.insert(trace, (env.short_src or "") .. ":" .. (env.currentline or 0) .. ": " .. where(env))
+        level = level + 1
+        env = debug.getinfo(level)
+    end
+    
+    -- peel off last X trace levels as it's MagLua botstrap and startup
+    for i=1,exclude_last do
+        table.remove(trace)
+    end
+    
+    print("stack traceback:")
+    for k,v in pairs(trace) do
+        print("\t" .. v)
+    end
 end
 
+
 function interactive(msg, json)
-    local caller = debug.getinfo(2)
+    json = json or {}
+    local level_offset = json.level_offset or 0
+    local caller = debug.getinfo(2 + level_offset)
     local src = caller.short_src or ""
     local line = caller.currentline or "0"
 
-    json = json or {}
     local header = json.header
     if json.header == nil then
 	header = true
@@ -359,8 +345,7 @@ function interactive(msg, json)
 
     if header then
 	print("Interactive environment initiated from (" .. src .. ":" .. line .. ")")
-	print("Call Stack:")
-	bt(3)
+	bt(3 + level_offset, levels_of_bootstrap)
 	print("Continue script with Ctrl+d")
     end
     if printmsg then
@@ -396,7 +381,7 @@ function help(x)
     if x == interactive then
 	return 
 	"Function to enter an interactive mode, mainly used in debugging. This function builds a local environment that includes not only globals but all locals and upvalues from the chain of calling scopes.",
-	"1 Optional String, 1 Optional table: Message to print on entering the interactive environment, JSON style table with keys header and message to control the printing of the standard header and message. A blank terminal would be created with <pre>interactive(\"\", {message=false, header=false})</pre>",
+	"1 Optional String, 1 Optional table: Message to print on entering the interactive environment, JSON style table with keys header and message to control the printing of the standard header and message. A blank terminal would be created with <pre>interactive(\"\", {message=false, header=false})</pre> An additional key of level_offset with a value of an integer will change the top of the reported stack trace.",
 	""
     end
 
@@ -409,11 +394,27 @@ end
 
 
 
-
-
-
-
-
-
 _interactive_setHistoryFile( os.getenv("HOME") .. "/.maglua.d/history" )
 _interactive_setHistoryFile = nil
+
+
+
+local function error_interactive(msg)
+    interactive(msg, {level_offset=2})
+end
+
+
+for k,v in pairs(arg) do
+    if v == "--interactive-on-error" then
+        table.remove(arg, k)
+        _custom_error_handler = error_interactive
+    end
+end
+
+-- command line help switches
+
+help_args = help_args or {}
+
+table.insert(help_args, {"",""})
+table.insert(help_args, {"Interactive Related:",""})
+table.insert(help_args, {"--interactive-on-error", "Call the interactive function on error."})
