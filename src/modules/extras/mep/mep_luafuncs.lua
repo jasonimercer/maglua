@@ -725,7 +725,7 @@ methods["path"] =
 methods["keepPoints"] =
     {
     "Compliment of deletePoints. Delete points not provided. Synonym for reduceToPoints",
-    "N Integers or 1 Table of integers: The points to leep while deleting the others.",
+    "N Integers or 1 Table of integers: The points to keep while deleting the others.",
     "",
     function(mep, ...)
 	if type(arg[1]) == type({}) then -- we were given a table
@@ -913,7 +913,7 @@ methods["setInitialPath"] =
     function(mep, pp)
 	local ss = mep:spinSystem() or error("SpinSystem must be set before :setInitialPath()")
 	
-	local msg = "setInitialPath requires a Table of Tables of site orientations"
+	local msg = "setInitialPath requires a Table of Tables of site orientations."
 	local tableType = type({})
 	if type(pp) ~= tableType then
 	    error(msg)
@@ -929,7 +929,7 @@ methods["setInitialPath"] =
 	    end
 	    
 	    if type(pp[p]) ~= tableType then
-		error(msg)
+		error(msg .. " type(input[" .. p .. "]) = " .. type(pp[p]))
 	    end
 	    
 	    for s=1,numSites do
@@ -2179,25 +2179,28 @@ local function ors_build(base, current, n, pop)
 end
 
 
-methods["findBestPath"] =
+methods["floodFillPath"] =
 {
-"Find best path. JSON = {orientationsPerSite=n(default 20)}}",
-"Optional JSON style table",
-"",
-function(_mep, JSON)
+"Use a flood-fill style algorithm to find the best low-resolution path between the starting point and the ending point. If the MEP object has more then 2 points the inner points will be deleted. The final path will be stored in the MEP object and the simplifyPath method will be run on the results.",
+"Optional JSON style table: Key \"OrientationsPerSite\" default 20. Key \"ConnectivityDegree\" default 6. Key \"SimplifyPathAngle\" defaily 5*pi/180.",
+"Final JSON table: ConnectivityDegree may be larger that the input value if no path was found between the start and end point resulting in an increase in connectivity.",
+function(mep, JSON)
     JSON = JSON or {}
-    local orientationsPerSite = JSON.orientationsPerSite or 20
+    local orientationsPerSite = JSON.OrientationsPerSite or 20
+    local connectivityDegree = JSON.ConnectivityDegree or 6
+    local simplifyPathAngle = JSON.SimplifyPathAngle or 5*math.pi/180
 
-
-    if _mep:numberOfPoints() ~= 2 then
-	error("Require exactly 2 points in mep object.")
+    if mep:numberOfPoints() ~= 2 then
+        mep:keepPoints({1, mep:numberOfPoints()})
     end
 
-    local mep = _mep:copy()
+    local _start = mep:pointInCoordinateSystem(1)
+    local _end = mep:pointInCoordinateSystem(2)
 
     local ns = mep:numberOfSites()
 
-    local ors = math.vectorIcosphere(orientationsPerSite)
+    local ors = pointsOnSphere(mep, orientationsPerSite, 1, "Cartesian")
+
 
     local ors_combinations = {}
 
@@ -2207,11 +2210,46 @@ function(_mep, JSON)
 
     local pe = mep:pathEnergy()
     
-    mep:_findBestPath(ors_combinations, pe, _mep:pointInCoordinateSystem(1, "Cartesian"), _mep:pointInCoordinateSystem(2, "Cartesian"))
+    local p = mep:_findBestPath(ors_combinations, 
+                             pe, 
+                             _start, 
+                             _end,
+                             connectivityDegree)
 
+    --interactive()
+    if p ~= false then
+        local t = {}
+        local n = table.maxn(p)
+        t[1] = mep:pointInCoordinateSystem(1)
+        for i=1,n do
+            t[i+1] = ors_combinations[ p[i] ]
+        end
+        t[n+1] = mep:pointInCoordinateSystem(2)
+        -- interactive()
+        mep:setInitialPath(t)
+        mep:simplifyPath(simplifyPathAngle)
+
+        local JSON = {}
+        JSON.OrientationsPerSite = orientationsPerSite
+        JSON.ConnectivityDegree = connectivityDegree
+        JSON.SimplifyPathAngle = simplifyPathAngle 
+        return JSON
+    else
+        -- error("Failed to find path.")
+        local j = {}
+        for k,v in pairs(JSON) do
+            j[k] = v
+        end
+
+        mep:keepPoints({1,mep:numberOfPoints()})
+
+        j.ConnectivityDegree = connectivityDegree + 1
+        return mep:findBestPath(j)
+    end
 end
 }
-methods["findBestPath"] = nil -- disabling until after ising-like approx 
+
+-- methods["findBestPath"] = nil -- disabling until after ising-like approx 
 
 
 
