@@ -69,7 +69,7 @@ f_cobalt()
 f_orcinus()
 {
 	CXX="icc";
-	MPICC="mpic++";
+	MPICC="mpiCC";
 	f_PrintCurrent;
 	f_Write;
 	echo "Please run 'module load intel' before you compile"
