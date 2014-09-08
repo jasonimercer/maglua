@@ -24,6 +24,7 @@ template<> const luaL_Reg* get_base_methods_matrix<doubleComplex>() {return get_
 
 
 #include <iostream>
+#include <vector>
 using namespace std;
 
 template<typename T>
@@ -343,6 +344,119 @@ static int l_chop(lua_State* L)
 }
 
 
+
+
+
+template<typename T>
+static int l_tally_(lua_State* L)
+{
+    LUA_PREAMBLE(Array<T>, a, 1);
+    
+    const int table_pos = 2;
+    const int min_pos = 3;
+    const int max_pos = 4;
+
+    vector<double> divs;
+    vector<int> count;
+
+    double min_val = lua_tonumber(L, min_pos)-1;
+    double max_val = lua_tonumber(L, max_pos)+1;
+
+    divs.push_back(min_val);
+
+    if(!lua_istable(L, table_pos))
+        return luaL_error(L, "Table expected");
+
+    bool loop = true;
+    for(int i=1; loop; i++)
+    {
+        lua_pushinteger(L, i);
+        lua_gettable(L, table_pos);
+
+        if(lua_isnumber(L, -1))
+        {
+            divs.push_back(lua_tonumber(L, -1));
+        }
+        else
+        {
+            loop = false;
+        }
+        lua_pop(L, 1);
+    }
+    divs.push_back(max_val);
+    
+    for(int i=0; i<divs.size()-1; i++)
+    {
+        count.push_back(0);
+    }
+
+    const T* data = a->data();
+    for(int i=0; i<a->nxyz; i++)
+    { 
+        const T v = data[i];
+        for(int j=0; j<count.size(); j++)
+        {
+            const double low  = divs[j];
+            const double high = divs[j+1];
+            if((low < v) && (v <= high))
+            {
+                count[j]++;
+            }
+        }
+    }
+
+    lua_newtable(L);
+    for(int i=0; i<count.size(); i++)
+    {
+        lua_pushinteger(L, i+1);
+        lua_pushinteger(L, count[i]);
+        lua_settable(L, -3);
+    }
+
+    return 1;
+}
+
+template<typename T> int l_tally(lua_State* L) {return luaL_error(L, "Unimplemented");}
+template<> int l_tally<int>(lua_State* L) {return l_tally_<int>(L);}
+template<> int l_tally<float>(lua_State* L) {return l_tally_<float>(L);}
+template<> int l_tally<double>(lua_State* L) {return l_tally_<double>(L);}
+
+
+
+
+
+template<typename T>
+static int l_stddev_(lua_State* L)
+{
+    LUA_PREAMBLE(Array<T>, a, 1);
+    
+    double mean = 0;
+    T* d = a->data();
+    for(int i=0; i<a->nxyz; i++)
+    {
+        mean += d[i];
+    }
+    mean /= (double)(a->nxyz);
+
+    double stddev = 0;
+    for(int i=0; i<a->nxyz; i++)
+    {
+        stddev += pow(d[i]-mean, 2);
+    }
+    stddev /= (double)(a->nxyz);
+
+    stddev = sqrt(stddev);
+    
+    lua_pushnumber(L, stddev);
+
+    return 1;
+}
+
+template<typename T> int l_stddev(lua_State* L) {return luaL_error(L, "Unimplemented");}
+template<> int l_stddev<int>(lua_State* L) {return l_stddev_<int>(L);}
+template<> int l_stddev<float>(lua_State* L) {return l_stddev_<float>(L);}
+template<> int l_stddev<double>(lua_State* L) {return l_stddev_<double>(L);}
+
 template<typename T>
 static int l_totable(lua_State* L)
 {
@@ -609,6 +723,8 @@ static const luaL_Reg* get_base_methods()
 		{"scale",   l_scale<T>},
 		{"toTable", l_totable<T>},
 		{"chop",    l_chop<T>},
+		{"_tally",    l_tally<T>},
+		{"standardDeviation",    l_stddev<T>},
 
 		{"slice",    l_manip_region<T>},
 
@@ -1152,6 +1268,14 @@ static int Array_help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}
+	lua_CFunction f123x = l_stddev<T>;
+	if(func == f123x)
+	{
+            lua_pushstring(L, "Compute standard deviation");
+            lua_pushstring(L, "");
+            lua_pushstring(L, "1 Number: Standard deviation");
+            return 3;
+	}
 	lua_CFunction f16b = l_totable<T>;
 	if(func == f16b)
 	{
@@ -1264,50 +1388,34 @@ template<typename T>
 static int l_init( Array<T>* a, lua_State* L)
 {
 	int c[3] = {1,1,1};
+        int data_start = 1;
 
-	if(lua_istable(L, 1))
-	{
-		for(int i=0; i<3; i++)
-		{
-			lua_pushinteger(L, i+1);
-			lua_gettable(L, 1);
-			c[i] = lua_tointeger(L, -1);
-			lua_pop(L, 1);
-		}
-	}
-	else
-	{
-		for(int i=0; i<3; i++)
-			if(lua_isnumber(L, i+1))
-				c[i] = lua_tonumber(L, i+1);
-	}
+        for(int i=0; i<3; i++)
+            if(lua_isnumber(L, i+1))
+            {
+                c[i] = lua_tonumber(L, i+1);
+                data_start = i+2;
+            }
 
 	for(int i=0; i<3; i++)
-		if(c[i] < 0) c[i] = 0;
+            if(c[i] < 0) 
+                c[i] = 0;
 	
 	a->setSize(c[0], c[1], c[2]);
 
-
 	// looking for a table with initial values
 	int n = c[0]  * c[1] * c[2];
-	for(int i=2; i<=lua_gettop(L); i++)
-	{
-		if(lua_istable(L, i))
-		{
-			int idx = 0;
-			lua_pushnil(L);
-			while(lua_next(L, i))
-			{
-				if(idx < n)
-				{
-					a->data()[idx] = luaT<T>::to(L, -1);
-					idx++;
-				}
-				lua_pop(L, 1);
-			}
-			return 0;
-		}
-	}
+        if(lua_istable(L, data_start))
+        {
+            int idx = 0;
+            for(int i=0; i<n; i++)
+            {
+                lua_pushinteger(L, i+1);
+                lua_gettable(L, data_start);
+                a->data()[i] = luaT<T>::to(L, -1);
+                lua_pop(L, 1);
+            }
+        }
 
 	return 0;
 }

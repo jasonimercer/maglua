@@ -246,6 +246,42 @@ methods["swappedZ"] =
 	end
 }
 
+methods["tally"] =
+{
+"Count the number of elements that fall in given ranges.",
+"N Numbers or 1 Table of N Numbers: The division points in the ranges. There is an implicit division point at :min()-1 and :max()+1 at the beginnign and end of the list of numbers.",
+"N+1 Integers or 1 Table of N+1 Integers: The count of elements e that satisfy the expression div[i] < e <= div[i+1].",
+function(a,...)
+    local input_as_table = nil
+    if type(arg[1]) == type({}) then
+        input_as_table = arg[1]
+    else
+        input_as_table = arg
+    end
+
+    local min = a:min()-1
+    local max = a:max()+1
+    local res_as_table = a:_tally(input_as_table, min,max)
+
+    if type(arg[1]) == type({}) then
+        return res_as_table
+    end
+
+    local unwrap_table = nil
+    unwrap_table = function(t)
+                       if t[1] == nil then
+                           return 
+                       end
+                       local v = t[1]
+                       table.remove(t, 1)
+                       return v, unwrap_table(t)
+                   end
+    
+    return unwrap_table(res_as_table)
+    
+end
+}
+
 
 methods["matPrint"] =
 {
@@ -312,5 +348,69 @@ for _,name in pairs({"Array.Double", "Array.Float", "Array.DoubleComplex", "Arra
 		
 		return help(x)
 	end
+end
+
+local function ND_to_flat(t)
+    local d1 = table.maxn(t)
+    local flat_list = {}
+
+    if type(t[1]) == type({}) then
+        local d2 = table.maxn(t[1])
+        if type(t[1][1]) == type({}) then
+            
+            local d3 = table.maxn(t[1][1])
+            if type(t[1][1][1]) == type({}) then
+                
+                for k1=1,d1 do
+                    for k2=1,d2 do
+                        for k3=1,d3 do
+                            table.insert(flat_list, t[k1][k2][k3])
+                        end
+                    end
+                end
+                return d3,d2,d1, flat_list
+            end
+        else
+            for k1=1,d1 do
+                for k2=1,d2 do
+                    table.insert(flat_list, t[k1][k2])
+                end
+            end
+            return d2,d1,1,flat_list
+        end
+    else
+        for k1=1,d1 do
+            table.insert(flat_list, t[k1])
+        end
+        return d1,1,1,flat_list
+    end
+end
+
+-- augmenting constructors to deal with tables
+-- internal constructor will take up to 3 numbers for array size
+-- and a flat list with data. This augmented c'tor will accept an array
+-- size as a list of numbers. If the sizes are missing
+-- they can be inferred from he table of data.
+for _,arr in pairs({Array.Double, Array.Float, Array.Integer}) do
+    local new = arr.new
+
+    function arr.new(a,b,c,d)
+        local n = {a,b,c}
+        for i=1,3 do
+            if type(n[i]) == type({}) then
+                n[i] = 1
+            end
+            n[i] = n[i] or 1
+        end
+
+        if type(a) == type({}) then -- need to infer sizes
+            local nx,ny,nz,data =  ND_to_flat(a)
+            return new(nx,ny,nz,data)
+        else
+            return new(a,b,c,d)
+        end
+    end
+
+
 end
 

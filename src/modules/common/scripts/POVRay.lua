@@ -335,7 +335,6 @@ function POVRay(filename, ss, custom)
 			for y=1,ny do
 				for x=1,nx do
 					local sx, sy, sz, mm = ss:spin(x,y,z)
-
 					if mm*POVRay_scale > 1e-8 then
 						local xx,yy,zz = pos(x,y,z)
 						if type(xx) == type({}) then
