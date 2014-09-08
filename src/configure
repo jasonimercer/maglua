@@ -99,7 +99,7 @@ f_torngat()
 f_WDC()
 {
 	CXX="icc"
-	MPICC="/home/cwolf/MPICH2/mpich2-1.4.1p1/bin/mpicxx"
+	MPICC="mpiCC"
 	f_PrintCurrent;
 	f_Write;
 	exit;
