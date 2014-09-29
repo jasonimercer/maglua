@@ -583,6 +583,9 @@ int luaT_help(lua_State* L)
 	return T::help(L);
 }
 
+#define LUA_MAKEFUNCTIONHELP(cond, desc, input, output) \
+    if(cond) {lua_pushstring(L, desc); lua_pushstring(L, input); lua_pushstring(L, output); return 3; }
+
 template<class T>
 int luaT_lineage(lua_State* L)
 {

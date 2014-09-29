@@ -20,6 +20,11 @@
 #include <algorithm>
 #include <string.h>
 
+#ifndef _UNDERSTAND_EXCHANGE_CHANGE
+// warn about changes. Continue warning until 385
+static int _do_warning = 1;
+#endif
+
 Exchange::Exchange(int nx, int ny, int nz)
 	: SpinOperation(nx, ny, nz, hash32(Exchange::typeName()))
 {
@@ -30,7 +35,7 @@ Exchange::Exchange(int nx, int ny, int nz)
 	pbc[0] = 1;
 	pbc[1] = 1;
 	pbc[2] = 1;
-
+        normalizeMoments = true;
 }
 
 int Exchange::luaInit(lua_State* L)
@@ -48,9 +53,10 @@ void Exchange::encode(buffer* b)
 {
 	ENCODE_PREAMBLE
 	SpinOperation::encode(b);
-	char version = 0;
+	char version = 1;
 	encodeChar(version, b);
-	
+
+	encodeInteger(normalizeMoments, b);
 	encodeInteger(pbc[0], b);
 	encodeInteger(pbc[1], b);
 	encodeInteger(pbc[2], b);
@@ -71,7 +77,15 @@ int  Exchange::decode(buffer* b)
 
 	SpinOperation::decode(b);
 	char version = decodeChar(b);
-	if(version == 0)
+        if(version >= 1)
+        {
+            normalizeMoments = decodeInteger(b);
+        }
+        else
+        {
+            normalizeMoments = false; // old style exchange
+        }
+	if(version >= 0)
 	{
 		pbc[0] = decodeInteger(b);
 		pbc[1] = decodeInteger(b);
@@ -130,36 +144,71 @@ bool Exchange::apply(SpinSystem* ss)
 	dArray& sz = (*ss->z);
 	dArray& mm = (*ss->ms);
 
-	#pragma omp parallel for shared(hx,sx)
-	for(int i=0; i<num; i++)
-	{
+        if(normalizeMoments == false)
+        {
+            for(int i=0; i<num; i++)
+            {
 		const int t    = pathways[i].tosite;
 		const int f    = pathways[i].fromsite;
 		const double s = pathways[i].strength;
 		
 		if(mm[f])
-			hx[t] += sx[f] * s * global_scale / mm[f];
-	}
-	#pragma omp parallel for shared(hy,sy)
-	for(int i=0; i<num; i++)
-	{
+                    hx[t] += sx[f] * s * global_scale / mm[f];
+            }
+            
+            for(int i=0; i<num; i++)
+            {
 		const int t    = pathways[i].tosite;
 		const int f    = pathways[i].fromsite;
 		const double s = pathways[i].strength;
 		
 		if(mm[f])
-			hy[t] += sy[f] * s * global_scale / mm[f];
-	}
-	#pragma omp parallel for shared(hz,sz)
-	for(int i=0; i<num; i++)
-	{
+                    hy[t] += sy[f] * s * global_scale / mm[f];
+            }
+
+            for(int i=0; i<num; i++)
+            {
 		const int t    = pathways[i].tosite;
 		const int f    = pathways[i].fromsite;
 		const double s = pathways[i].strength;
 		
 		if(mm[f])
-			hz[t] += sz[f] * s * global_scale / mm[f];
-	}
+                    hz[t] += sz[f] * s * global_scale / mm[f];
+            }
+        }
+        else
+        {
+            for(int i=0; i<num; i++)
+            {
+		const int t    = pathways[i].tosite;
+		const int f    = pathways[i].fromsite;
+		const double s = pathways[i].strength;
+		
+		if(mm[f])
+                    hx[t] += sx[f] * s * global_scale / (mm[f] * mm[t]);
+            }
+            
+            for(int i=0; i<num; i++)
+            {
+		const int t    = pathways[i].tosite;
+		const int f    = pathways[i].fromsite;
+		const double s = pathways[i].strength;
+		
+		if(mm[f])
+                    hy[t] += sy[f] * s * global_scale / (mm[f] * mm[t]);
+            }
+
+            for(int i=0; i<num; i++)
+            {
+		const int t    = pathways[i].tosite;
+		const int f    = pathways[i].fromsite;
+		const double s = pathways[i].strength;
+		
+		if(mm[f])
+                    hz[t] += sz[f] * s * global_scale / (mm[f] * mm[t]);
+            }
+
+        }
 	return true;
 }
 
@@ -202,6 +251,31 @@ void Exchange::opt()
 
 void Exchange::addPath(int site1, int site2, double str)
 {
+#ifndef _UNDERSTAND_EXCHANGE_CHANGE
+    if(_do_warning)
+    {
+        _do_warning = 0;
+
+        fprintf(stderr, "Reminder: Exchange strength has changed. See 'README_Exchange.txt' for details\n");
+
+        const char* message = "The strength of the exchange interaction has changed. Previously there was the\nrequirement to include a scale factor in your exchange strength to convert\nfrom magnetic moments to unit vectors. We had terms like this in our MagLua\nscripts:\n\nJz =  I/(az * Ms)\n\nwhich can be rewritten in the more obvious form:\n\nJz =  ax*ay*I/(Ms * cell)\n\nOn it's own this was ugly but when there are magnetic moments of different\nmagnitudes interacting it puts pressure on the user to understand the ex:add\nconventions in terms of source and destination sites.\n\nNow the C++ code normalizes the moment. This removes the need for the\n1/(Ms*cell) term and removes the need for the user to do mental record-keeping\nin terms of knowing the source and destination conventions in ex:add.\n\nIt is important that you, as a user, understands this change as it breaks\nbackward compatibility with scripts written for MagLua-r374 and before.\n\nThere are ways that you can make MagLua's Exchange operator work in the old\nstyle. See the documentation for Exchange:normalizeMoments() for details on how\nto make changes either at the user-level, process-level or individual operator\nlevel.\n\nUnderstanding the impact of this change is important so this warning will\npersist for many MagLua versions. You can disable this message by using any of\nthe documented methods to explicitly set the normalization flag or by editing\nmodules/cpu/exchange/Makefile and uncommenting the following line:\n\n# EXTRA_CFLAGS=-D_UNDERSTAND_EXCHANGE_CHANGE\n\nand recompiling either the module or MagLua. Uncommenting this line if you\nunderstand the implications before you compile a new version would be easiest.\n\n";
+
+
+        FILE* f = fopen("README_Exchange.txt", "w");
+        if(f == 0)
+        {
+            fprintf(stderr, "Failed to open 'README_Exchange.txt' for writing. Printing contents to stderr:\n");
+            fprintf(stderr, "%s\n", message);
+        }
+        else
+        {
+            fprintf(f, "%s\n", message);
+            fclose(f);
+        }
+
+    }
+#endif
+
 	if(str != 0)
 	{
 		if(num + 1 >= size)
@@ -279,6 +353,16 @@ int Exchange::mergePaths()
 	return delta;
 }
 
+static int l_normm(lua_State* L)
+{
+    LUA_PREAMBLE(Exchange,ex,1);
+    if(lua_isboolean(L, 2))
+    {
+        ex->normalizeMoments = lua_toboolean(L, 2);
+    }
+    lua_pushboolean(L, ex->normalizeMoments);
+    return 1;
+}
 
 
 static int l_addpath(lua_State* L)
@@ -502,6 +586,14 @@ static int l_setpbc(lua_State* L)
 	return 0;
 }
 
+static int l_disable_warning(lua_State* L)
+{
+#ifndef _UNDERSTAND_EXCHANGE_CHANGE
+    _do_warning = 0;
+#endif
+    return 0;
+}
+
 int Exchange::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -510,16 +602,6 @@ int Exchange::help(lua_State* L)
 		lua_pushstring(L, "1 *3Vector* or *SpinSystem*: System Size"); 
 		lua_pushstring(L, ""); //output, empty
 		return 3;
-	}
-	
-	if(lua_istable(L, 1))
-	{
-		return 0;
-	}
-	
-	if(!lua_iscfunction(L, 1))
-	{
-		return luaL_error(L, "help expect zero arguments or 1 function.");
 	}
 	
 	lua_CFunction func = lua_tocfunction(L, 1);
@@ -599,6 +681,14 @@ int Exchange::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;			
 	}
+
+        if(func == l_normm)
+        {
+            lua_pushstring(L, "Set or get the moment normalization flag. Before version 375 moment normalization was left to the user via the strength of the interaction. Now the default action is to normalize the moment removing the need for terms such as 1/Ms*cell in the interaction strength. Adding the following to ~/.maglua.d/startup.lua will set the default action to false: <pre>Exchange = Exchange or {}\nExchange.defaultMomentNormalization = false</pre>The default action can also be set via the command line with --exchange-set-normalization X where X will be evaluated as a boolean statement. The command line argument will override the startup file and setting the normalization flag in a script will override both.");
+            lua_pushstring(L, "1 Optional Boolean: Set value. Without a value nothing will be changed.");
+            lua_pushstring(L, "1 Boolean: New or existing value.");
+            return 3;
+        }
 	
 	return SpinOperation::help(L);
 }
@@ -622,6 +712,8 @@ const luaL_Reg* Exchange::luaMethods()
 		{"mergePaths",   l_mergepaths},
 		{"periodicXYZ", l_getpbc},
 		{"setPeriodicXYZ", l_setpbc},
+                {"normalizeMoments", l_normm},
+                {"_disable_warning", l_disable_warning},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);
@@ -640,10 +732,31 @@ EXCHANGE_API const char* lib_name(lua_State* L);
 EXCHANGE_API int lib_main(lua_State* L);
 }
 
+#include "exchange_luafuncs.h"
+
+static int l_getmetatable(lua_State* L)
+{
+    if(!lua_isstring(L, 1))
+        return luaL_error(L, "First argument must be a metatable name");
+    luaL_getmetatable(L, lua_tostring(L, 1));
+    return 1;
+}
+
 EXCHANGE_API int lib_register(lua_State* L)
 {
-	luaT_register<Exchange>(L);
-	return 0;
+    luaT_register<Exchange>(L);
+    lua_pushcfunction(L, l_getmetatable);
+    lua_setglobal(L, "maglua_getmetatable");
+
+    if(luaL_dostringn(L, __exchange_luafuncs(), "exchange_luafuncs.lua"))
+    {
+        fprintf(stderr, "%s\n", lua_tostring(L, -1));
+        return luaL_error(L, lua_tostring(L, -1));
+    }
+
+    lua_pushnil(L);
+    lua_setglobal(L, "maglua_getmetatable");
+    return 0;
 }
 
 EXCHANGE_API int lib_version(lua_State* L)
@@ -660,10 +773,15 @@ EXCHANGE_API const char* lib_name(lua_State* L)
 #endif
 }
 
+#include "exchange_main.h"
 EXCHANGE_API int lib_main(lua_State* L)
 {
-	return 0;
+    if(luaL_dostringn(L, __exchange_main(), "exchange_main.lua"))
+    {
+        fprintf(stderr, "%s\n", lua_tostring(L, -1));
+        return luaL_error(L, lua_tostring(L, -1));
+    }
+
+    return 0;
 }
-
-
 

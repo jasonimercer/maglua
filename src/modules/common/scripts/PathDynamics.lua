@@ -52,6 +52,8 @@
 --<dt>PathDynamicsOnNan</dt><dd>Function to provide the PathDynamics function's OnNan option, default `error'.</dd>
 --<dt>PathDynamicsOnMultipleHops</dt><dd>Passed to PathDynamic's onMultipleHops</dd>
 --<dt>PathDynamicsReport</dt><dd>Function to provide the PathDynamics function's Report option, default `function() end'.</dd>
+--<dt>PathDynamicsRotationAxis</dt><dd>Custom axis to rotate path about. Can help to recover from paths over ridges.</dd>
+--<dt>PathDynamicsRotationAngle</dt><dd>Custom angle (radians) to rotate path about. Can help to recover from paths over ridges.</dd>
 --</dl>
 
 
@@ -691,6 +693,9 @@ function AllPathDynamics(mep, minima, JSON)
     local all_paths = {}
     local number_of_minima = table.maxn(minima)
     local symmetricLandscape = JSON.SymmetricLandscape or false
+    local PathDynamicsRotationAxis = JSON.PathDynamicsRotationAxis or {0,0,1}
+    local PathDynamicsRotationRadians = JSON.PathDynamicsRotationAngle or 0
+
 
     for i=1,number_of_minima-1 do
         for j=i+1,number_of_minima do
@@ -698,6 +703,10 @@ function AllPathDynamics(mep, minima, JSON)
 
             mep2:setInitialPath({minima[i], minima[j]})
             mep2:resamplePath(ComputePoints)
+            
+            if PathDynamicsRotationRadians ~= 0 then
+                mep2:rotatePathAboutBy(PathDynamicsRotationAxis, PathDynamicsRotationRadians)
+            end
 
             mep2:compute(ComputeSteps, {report=computeReport}) -- run MEP
 

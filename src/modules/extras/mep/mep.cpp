@@ -420,6 +420,42 @@ int MEP::l_getCoordinateSystem(lua_State* L)
     return 0;
 }
 
+void MEP::rotatePathAboutBy(const VectorCS& v, const double rad)
+{
+    VectorCS temp;
+    VectorCS nv = v.convertedToCoordinateSystem(Cartesian).normalizedTo(1);
+
+    const int np = numberOfImages();
+    const int ns = numberOfSites();
+
+    for(int p=0; p<np; p++)
+    {
+        for(int s=0; s<ns; s++)
+        {
+            getPointSite(p,s,temp);
+            setPointSite(p,s,temp.rotatedAboutBy(nv, rad));
+        }
+    }
+}
+
+int  MEP::l_rotatePathAboutBy(lua_State* L, int base)
+{
+    double x1 = lua_tonumber(L, base+0);
+    double x2 = lua_tonumber(L, base+1);
+    double x3 = lua_tonumber(L, base+2);
+    const char* cs_name = lua_tostring(L, base+3);
+    double rad = lua_tonumber(L, base+4);
+
+    VectorCS v(x1,x2,x3, coordinateSystemByName(cs_name));
+
+    rotatePathAboutBy(v, rad);
+
+    return 0;
+}
+
+
+
+
 
 double MEP::absoluteDifference(MEP* other, int point, double& max_diff, int& max_idx)
 {
@@ -1269,6 +1305,7 @@ void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int ener
 	print_vec(force_vector[k]);
 	// force_vector[k].zeroRadialComponent();
     }
+    if(false)
     {
 	int* i = (int*)5;
 	*i = 5; //crash
@@ -1661,32 +1698,44 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, i
 	dx2 = _dc2;
 
     // calc upper deriv energies
-    vectorElementChange(vec, c1, dx1, fixedRadius);
-    vectorElementChange(vec, c2, dx2, fixedRadius);
-    setAllSpins(L, set_index, vec);
-    getPoint(p, vec);
-    e1 = getEnergy(L, energy_index);
+    e1 = 0;
+    if(vectorElementChange(vec, c1, dx1, fixedRadius) &&
+       vectorElementChange(vec, c2, dx2, fixedRadius) )
+    {
+        setAllSpins(L, set_index, vec);
+        getPoint(p, vec);
+        e1 = getEnergy(L, energy_index);
+    }
 
 	
-    vectorElementChange(vec, c1, dx1, fixedRadius);
-    vectorElementChange(vec, c2,-dx2, fixedRadius);
-    setAllSpins(L, set_index, vec);
-    getPoint(p, vec);
-    e2 = getEnergy(L, energy_index);
-		
+    e2 = 0;
+    if(vectorElementChange(vec, c1, dx1, fixedRadius) &&
+       vectorElementChange(vec, c2,-dx2, fixedRadius) )
+    {
+        setAllSpins(L, set_index, vec);
+        getPoint(p, vec);
+        e2 = getEnergy(L, energy_index);
+    }
+
     // calc lower deriv energies
-    vectorElementChange(vec, c1,-dx1, fixedRadius);
-    vectorElementChange(vec, c2, dx2, fixedRadius);
-    setAllSpins(L, set_index, vec);
-    getPoint(p, vec);
-    e3 = getEnergy(L, energy_index);
-	
-    vectorElementChange(vec, c1,-dx1, fixedRadius);
-    vectorElementChange(vec, c2,-dx2, fixedRadius);
-    setAllSpins(L, set_index, vec);
-    getPoint(p, vec);
-    e4 = getEnergy(L, energy_index);
-	
+    e3 = 0;
+    if(vectorElementChange(vec, c1,-dx1, fixedRadius) &&
+       vectorElementChange(vec, c2, dx2, fixedRadius))
+    {
+        setAllSpins(L, set_index, vec);
+        getPoint(p, vec);
+        e3 = getEnergy(L, energy_index);
+    }
+
+    e4 = 0;
+    if(vectorElementChange(vec, c1,-dx1, fixedRadius) &&
+       vectorElementChange(vec, c2,-dx2, fixedRadius))
+    {
+        setAllSpins(L, set_index, vec);
+        getPoint(p, vec);
+        e4 = getEnergy(L, energy_index);
+    }
+
     double diff_e1_e2 = (e1 - e2);
     double diff_e3_e4 = (e3 - e4);
 
@@ -3891,6 +3940,12 @@ static int _l_copy(lua_State* L)
     return mep->_copy(L, 2);
 }
 
+static int _l_rpab(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+    return mep->l_rotatePathAboutBy(L, 2);
+}
+
 static int _l_classifypoint(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
@@ -4191,6 +4246,7 @@ const luaL_Reg* MEP::luaMethods()
 	    {"_classifyPoint", _l_classifypoint},
 	    {"_findBestPath", _l_bestpath},
 	    {"_interpolateBetweenCustomPoints", _l_int_cp},
+            {"_rotatePathAboutBy", _l_rpab},
 	    {NULL, NULL}
 	};
     merge_luaL_Reg(m, _m);

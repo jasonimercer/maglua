@@ -26,3 +26,12 @@ kB = 1.3806488e-16 * erg/Kelvin
 
 gamma     = 17.608597e6 / (s * Gauss)
 gamma_cgs = 17.608597e6 / (s * Gauss)
+
+ms = s/1000
+second = s
+minute = 60*second
+hour = 60*minute
+day = 24*hour
+year = 365.25*day
+
+kOe = 1000*Oe

@@ -611,7 +611,7 @@ methods["compute"] =
 		--print("step_mod = ", step_mod)
 		if good_step then
 		    d.small_step:internalCopyTo(mep)
-		    mep:resampleStateXYZPath(np)
+		    mep:resamplePath(np)
 		    successful_steps = successful_steps + 1
 		end
 		mep:setBeta(step_mod * current_beta)
@@ -619,8 +619,8 @@ methods["compute"] =
 		successful_steps = successful_steps + 1
 		d.big_step:internalCopyTo(mep)
 	    end
-	    
-	    mep:resampleStateXYZPath(np)
+ 
+	    mep:resamplePath(np)
 	    report(string.format("step %3d of %3d, step size: %e, energy barrier: %e", i, n, mep:beta(), mep:energyBarrier()))
 	end
 	
@@ -703,9 +703,167 @@ methods["setPoint"] =
 
 	for s=1,mep:numberOfSites() do
 	    local x1,x2,x3,c = pt[s][1], pt[s][2], pt[s][3], pt[s][4] or "Cartesian"
-	    mep:setSpinInCoordinateSystem(x1,x2,x3,c)
+	    mep:setSpinInCoordinateSystem(p,s,x1,x2,x3,c)
 	end
     end
+}
+
+-- need sorted input
+local function optCurveScore(x, goal)
+    local score = 0
+    local dscore = 0
+    local matches = 0
+    for k,v in pairs(x) do
+        if goal[k] == 0 then
+            dscore = - math.abs(x[k])
+        else
+            dscore = goal[k] * x[k]
+            if dscore > 0 then
+                matches = matches + 1
+            end
+        end
+        -- print(goal[k], x[k], dscore)
+        score = score + dscore
+    end
+    return score, matches
+end
+
+local function makeBasis(i, ns)
+    local b = {}
+    for j=1,ns do
+        b[j] = {0,0,0}
+    end
+
+    local k = 1
+    while i > 3 do
+        k = k + 1
+        i = i - 3
+    end
+
+    b[k][i] = 1
+    return b
+end
+
+local function scaleAddCfg(cfg, delta, scale)
+    local result = {}
+    for i=1,table.maxn(cfg) do
+        result[i] = {}
+        result[i][1] = cfg[i][1] + delta[i][1] * scale
+        result[i][2] = cfg[i][2] + delta[i][2] * scale
+        result[i][3] = cfg[i][3] + delta[i][3] * scale
+        result[i][4] = cfg[i][4]
+    end
+    return result
+end
+
+methods["optimizeCurvatureAtPoint"] =
+    {
+    "Move the given point so that the eigenvalues of the hessian match the (unordered) signs in the goal. Example:"..
+        "<pre>mep:optimizeCurvatureAtPoint(1, {-1, 0, 0, 0, 1, 1})</pre>",
+    "1 Integer, 1 Table of Numbers, Optional JSON options: Point Index, signs of the terms in the eigenvalues. JSON options: \"basis\" = table of tables of tables of numbers representing directions to consider, example: b1 = {{1,0,0}, {0,0,0}} b2 = {{0,1,0}, {0,0,0}} ... basis = {b1,b2,...} (default unit vectors aligned with each coordinate). \"scale\" = Table of Numbers, initial scale for each basis vector (default Table of 1e-3). \"steps\" = number of iterations (default 10). \"report\" = reporting function (default nil)",
+    "",
+    function(mep, p, _goal, JSON)
+        JSON = JSON or {}
+        local steps = JSON.steps or 10
+        local basis = JSON.basis
+        local report = JSON.report or function()end
+        local skip = JSON.skip or 0
+        if basis == nil then
+            basis = {}
+            for i=1,mep:numberOfSites()*3 do
+                basis[i] = makeBasis(i, mep:numberOfSites())
+            end
+        end
+
+        local scale = JSON.scale
+        if scale == nil then
+            scale = {}
+        end
+        for i=1,table.maxn(basis) do
+            scale[i] = scale[i] or 1e-3
+        end
+
+        local goal = {}
+        for k,v in pairs(_goal) do
+            goal[k] = v
+        end
+        table.sort(goal)
+
+
+        local function score(pt)
+            local hessian = mep:hessianAtCustomConfiguration(pt)
+
+            local cuts = {}
+            for i=1,mep:numberOfSites() do
+                cuts[i] = (i-1)*3+1
+            end
+            -- for 2 sites cuts = {1,}
+
+            -- assuming spherical or canonical
+            hessian =  hessian:cutX(cuts):cutY(cuts)
+
+            local evals, evecs = hessian:matEigen()
+
+            local negs = 0
+
+            local ev = {}
+            for i=1,evals:nx() do
+                ev[i] = evals:get(i)
+            end
+
+            table.sort(ev, function(a,b) return math.abs(a) < math.abs(b) end)
+            local prod = 1
+            for i=1+skip,table.maxn(ev) do
+                if ev[i] < 0 then
+                    negs = negs + 1
+                end
+                prod = prod * math.abs(ev[i])
+            end
+
+            if negs ~= 1 then
+                prod = -prod
+            end
+
+            return prod, evals, evecs
+        end
+
+        local best_pt = mep:point(p)
+        local best_score = score(best_pt)
+
+        for i=1,steps do
+            for b=1,table.maxn(basis) do
+                local consider_pt = scaleAddCfg(best_pt, basis[b], scale[b])
+                local consider_score, evals, evecs = score(consider_pt)
+
+                if consider_score > best_score then
+                    scale[b] = scale[b] * 2
+                    best_score = consider_score
+                    best_pt = consider_pt
+                    print(best_score)
+                    evals:matPrint("evals")
+                    evecs:matPrint("evecs")
+                    for q=1,2 do
+                        print(table.concat(best_pt[q], "\t"))
+                    end
+                    print()
+
+                    --[[
+                    local path = mep:path()
+                    table.insert(path, best_pt)
+                    mep:setInitialPath(path)
+                    --]]
+                else
+                    scale[b] = -0.75 * scale[b]
+                end
+            end
+        end
+
+        mep:setPoint(p, best_pt)
+        
+        -- interactive()
+
+    end
+
 }
 
 methods["path"] =
@@ -1255,6 +1413,72 @@ end
 }
 
 
+methods["mainVectorBetweenPoints"] =
+    {
+    "Return the most dominant Cartesian vector between two sets of points. This is done by combuting the cartesian difference between each pair of elements in the points and selecting the longest vector.",
+    "2 Integers: Indices in calling MEP.",
+    "1 Vector: The largest difference between the points.",
+    function(mep,p1,p2)
+        return mep:mainVectorBetweenCustomPoints(
+            mep:point(p1),
+            mep:point(p2))
+    end
+}
+
+methods["mainVectorBetweenCustomPoints"] =
+    {
+    "Return the most dominant Cartesian vector between two sets of points. This is done by combuting the cartesian difference between each pair of elements in the points and selecting the longest vector.",
+    "2 Tables of Vectors: Each Vector is defined as 3 numbers and 1 optional string stating the coordinate system (Default Cartesian).",
+    "1 Vector: The largest difference between the points.",
+    function(mep, p1, p2)
+        if table.maxn(p1) ~= table.maxn(p2) then
+            error("points are not comprised of same number of vectors")
+        end
+        local d = {}
+        for i=1,table.maxn(p1) do
+
+            local x1,x2,x3 = mep:convertCoordinateSystem(p1[i][1],p1[i][2],p1[i][3],p1[i][4] or "Cartesian", "Cartesian")
+            local y1,y2,y3 = mep:convertCoordinateSystem(p2[i][1],p2[i][2],p2[i][3],p2[i][4] or "Cartesian", "Cartesian")
+            d[i] = {y1-x1, y2-x2, y3-x3}
+        end
+
+        local function n2(x)
+            return x[1]*x[1] + x[2]*x[2] + x[3]*x[3]
+        end
+
+        local maxi = 1
+        local maxv = n2(d[1])
+
+        for i=2,table.maxn(p1) do
+            local herev = n2(d[i])
+            if herev > maxv then
+                maxv = herev
+                maxi = i
+            end
+        end
+
+        return {d[maxi][1], d[maxi][2], d[maxi][3], "Cartesian"}
+    end
+}
+
+methods["rotatePathAboutBy"] =
+    {
+    "Rotate all vectors in the path about the given vector by the given number of radians",
+    "1 Vector, 1 Number: Vector is 1 table of 3 numbers and 1 optional string or 3 numbers and 1 optional string. Numbers repesent coordinates, string is coordinate system (default Cartesian). Last number is the angle to rotate about by (radians)",
+    "",
+    function(mep, a,b,c,d,e)
+        if type(a) == type({}) then
+            return mep:_rotatePathAboutBy(a[1], a[2], a[3], a[4] or "Cartesian", b)
+        end
+
+        if type(d) == type("") then
+            return mep:_rotatePathAboutBy(a,b,c,d,e)
+        end
+
+        return mep:_rotatePathAboutBy(a,b,c,"Cartesian", d)
+    end
+}
+
 methods["expensiveGradientMinimizationAtPoint"] = 
     {
     "Attempt to minimize the energy gradient at a point using inefficient methods",
@@ -1418,7 +1642,10 @@ methods["hessianAtPoint"] = {
 	    destArray = Array.Double.new(c*3, c*3)
 	end
 	
+        --local ep = mep:epsilon()
+        --mep:setEpsilon(ep*0.01)
 	local t = mep:_hessianAtPoint(pointNum, get_site_ss, set_site_ss, get_energy_ss)
+        --mep:setEpsilon(ep)
 	
 	for x=0,c*3-1 do
 	    for y=0,c*3-1 do
@@ -1426,6 +1653,25 @@ methods["hessianAtPoint"] = {
 	    end
 	end		
 	return destArray
+    end
+}
+
+methods["hessianAtCustomConfiguration"] = {
+    "Compute the 2nd order partial derivative at a given custom configuration.",
+    "1 Table of Sites, 1 Optional Array: Point to calculate 2nd derivative about. If no array is provided one will be created",
+    "1 Array: Derivatives",
+    function(mep, cfg, res)
+        if mep:numberOfPoints() == 0 then
+            error("MEP must have at least 1 point (to be used as a buffer)")
+        end
+        local p = mep:point(1)
+
+        mep:setPoint(1, cfg)
+        res = mep:hessianAtPoint(1, res)
+
+        mep:setPoint(1, p) -- restore
+
+        return res
     end
 }
 
@@ -1703,7 +1949,7 @@ methods["merge"] =
 methods["convertCoordinateSystem"] =
     {
     "Convert a vector from a source coordinate system to a destination coordinate system",
-    "1 Table of 3 Numbers or 3 Numbers, 2 Strings: A vector given either as a table of nubmers or as 3 numbers and Source and Destination Coordinate System names (must match one" ..
+    "1 Table of 3 Numbers or 3 Numbers, 2 Strings: A vector given either as a table of numbers or as 3 numbers and Source and Destination Coordinate System names (must match one" ..
 	"of the return values from MEP:coordinateSystems() ).",
     "1 Table of 3 Numbers or 3 Numbers and 1 String: The return transformed vector will be returned in the same format as the input vector and the name of the new coordinate system will be returned as the last argument",
 

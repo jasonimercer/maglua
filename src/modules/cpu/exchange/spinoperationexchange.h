@@ -48,6 +48,7 @@ public:
 	virtual int  decode(buffer* b);
 	void opt();
 
+        bool normalizeMoments;
 	typedef struct sss
 	{
 		int fromsite;

@@ -1264,7 +1264,7 @@ static int Array_help(lua_State* L)
 	if(func == f123)
 	{
 		lua_pushstring(L, "Make small values equal to zero. Similar to Mathematica's Chop function.");
-		lua_pushstring(L, "1 Value: The tolerance, values with smaller norms than this tolerance's norm will be ser to zero.");
+		lua_pushstring(L, "1 Value: The tolerance, values with smaller norms than this tolerance's norm will be set to zero.");
 		lua_pushstring(L, "");
 		return 3;
 	}

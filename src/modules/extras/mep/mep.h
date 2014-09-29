@@ -198,6 +198,9 @@ public:
 	// type: -1=min, 0=saddle, 1=max
 	double classifyNeighbourhood(int type, const vector<double>& eee_h);
 
+        void rotatePathAboutBy(const VectorCS& n, const double rad);
+        int  l_rotatePathAboutBy(lua_State* L, int base);
+
 
 
 	int relax_direction_fail_max;

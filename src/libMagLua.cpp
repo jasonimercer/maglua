@@ -186,7 +186,6 @@ static void lua_setupPreamble(lua_State* L, int sub_process)
 	lua_pushstring(L, __help());
 	lua_call(L, 2, 0);
 
-		
 	vector<string> _args = args;
 	if(sub_process)
 		_args.push_back("-q");
@@ -228,78 +227,18 @@ static void lua_setupPreamble(lua_State* L, int sub_process)
 	
 	lua_pushstring(L, __info);
 	lua_setglobal(L, "__info"); //make info(x) in bootstrap
-}
-
-static int pushtraceback(lua_State* L)
-{
-	lua_getglobal(L, "debug");
-	if (!lua_istable(L, -1)) {
-		lua_pop(L, 1);
-		return 1;
-	}
-	lua_getfield(L, -1, "traceback");
-	if (!lua_isfunction(L, -1)) {
-		lua_pop(L, 2);
-		return 1;
-	}
-	lua_remove(L, 1); //remove debug table
-	return 0;
-}
-
-static void trim_err(const char* e, char* b)
-{
-	int n = strlen(e)+1;
-	if(n > 2048)
-		n = 2048;
-	
-	memcpy(b, e, n);
-	b[2048] = 0;
-	for(int i=n-1; i>0; i--)
-	{
-		if(strncmp(b+i, "\t[C]: in function 'dofile'", 26) == 0)
-		{
-			b[i] = 0;
-			if(i && b[i-1] == '\n')
-				b[i-1] = 0;
-			return;
-		}
-	}
-	
-}
-	
+}	
 
 int libMagLua(lua_State* L, int sub_process, int force_quiet)
 {
-	int ret = 0;
 	lua_setupPreamble(L, sub_process);
-	
-	pushtraceback(L);
 
-	if(luaL_loadbuffer(L, __bootstrap(), strlen(__bootstrap()), __bootstrap_name()))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return 2;
-	}
-	
-	if(lua_pcall(L, 0, 0, -2))
-	{
-		const char* err = lua_tostring(L, -1);
-		lua_getglobal(L, "debug");
-		lua_getfield(L, -1, "trim_error");
-		lua_pushstring(L, err);
-
-		if(lua_pcall(L, 1, 1, 0))
-		{
-			fprintf(stderr, "Error in error handler: %s\n", lua_tostring(L, -1));
-			fprintf(stderr, "Original error: %s\n", err);
-		}
-		else
-		{
-			fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		}
-		ret = 1;
-	}
-	return ret;
+        if(luaL_dostringn(L, __bootstrap(), __bootstrap_name()))
+        {
+            fprintf(stderr, "%s\n", lua_tostring(L, -1));
+            return 1; //luaL_error(L, lua_tostring(L, -1));
+        }
+	return 0;
 }
 
 int libMagLuaArgs(int argc, char** argv, lua_State* L, int sub_process, int force_quiet)
