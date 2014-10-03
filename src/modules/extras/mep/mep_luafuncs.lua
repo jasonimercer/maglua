@@ -555,18 +555,19 @@ end
 
 methods["compute"] =
     {
-    "Run several relaxation steps of the Minimum Energy Pathway method",
-    "1 Optional Integer, 1 Optional Number: Number of steps, default 50. Tolerance different than tolerance specified. Optional JSON-style table: report key with a print function.",
+    "Run several relaxation steps of the Minimum Energy Pathway method. NOTE: this is the older method. New development is now done on :execute() but this is left for backward compatibility reasons.",
+    "1 Optional Integer, 1 Optional Number: Number of steps, default 50. Tolerance different than tolerance specified. Optional JSON-style table: \"report\" key with a print function (default nil), \"resamplePath\" key with a boolean value (default true).",
     "1 Number: Number of successful steps taken, for tol > 0 this may be less than number of steps requested",
     function(mep, ...)
 	local results = filter_arg(arg)
 
 	local n    = results[ type(1) ][1] or 50 
 	local tol  = results[ type(1) ][2] or mep:tolerance()
-	
-	local first_tab = results[ type({}) ][1] or {}
 
-	local report = first_tab["report"] or function() end
+	local json = results[ type({}) ][1] or {}
+
+        local _do_resample = json.resamplePath or true
+	local report = json.report or function() end
 	
 	local d = get_mep_data(mep)
 	local ss = mep:spinSystem()
@@ -620,13 +621,152 @@ methods["compute"] =
 		d.big_step:internalCopyTo(mep)
 	    end
  
-	    mep:resamplePath(np)
+            if _do_resample then
+                mep:resamplePath(np)
+            end
 	    report(string.format("step %3d of %3d, step size: %e, energy barrier: %e", i, n, mep:beta(), mep:energyBarrier()))
 	end
 	
 	return successful_steps
     end
 }
+
+methods["execute"] =
+    {
+    "Run several relaxation steps of the Minimum Energy Pathway method with the ability to run until goals are met using constant steps and tolerances or a list of step counts and tolerances.",
+    "1 Optional JSON-style table: Key \"steps\" is an integer or table of integers and give the number of steps to run, default 10. Key \"tolerance\" can be a single value or a table of values, default mep:tolerance(). Key \"report\" defines a print function, default nil. Key \"resamplePath\" with a boolean value, default true. Key \"goal\" is a number or a table of numbers and defines a goal average change in energy barrier after a given number of steps, if the goal is not met the MEP will loop, this can result in an infinite loop, default nil. ",
+    "",
+    function(mep, json)
+        json = json or {}
+	local n    = json.steps or 10
+	local tol  = json.tolerance or mep:tolerance()
+        local _do_resample = json.resamplePath or true
+	local report = json.report or function() end
+	local goal = json.goal or nil
+
+	local d = get_mep_data(mep)
+	local ss = mep:spinSystem()
+	local np = mep:numberOfPathPoints()
+	local energy_function = d.energy_function
+	
+	if ss == nil then
+	    error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
+	end
+	
+	if energy_function == nil then
+	    error("Energy function is nil. Set an energy function with :setEnergyFunction")
+	end
+	
+	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
+	
+	mep:initialize()
+
+	local function run_round(n, tol)
+            report("Running " .. n .. " steps at tol = " .. tol)
+
+            --for i = 1,n do
+            local successful_steps = 0
+            while successful_steps < n do
+                local current_beta = mep:beta()
+                
+                -- first bool below is for "do_big" second is for "do_small"
+                copy_to_children(mep, true, tol>=0)
+                
+                d.big_step:setBeta(current_beta)
+                single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss)
+                
+                if tol > 0 then -- negative tolerance will indicate no adaptive steps
+                    d.small_step:setBeta(current_beta/2)
+                    
+                    single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
+                    single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
+                    
+                    local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
+                    local aDiffAvrg = aDiff / np
+                    
+                    local step_mod, good_step = getStepMod(tol, maxDiff)
+                    if good_step then
+                        d.small_step:internalCopyTo(mep)
+                        mep:resamplePath(np)
+                        successful_steps = successful_steps + 1
+                    end
+                    mep:setBeta(step_mod * current_beta)
+                else -- negative or zero tolerance: no adaptive step
+                    successful_steps = successful_steps + 1
+                    d.big_step:internalCopyTo(mep)
+                end
+                
+                if _do_resample then
+                    mep:resamplePath(np)
+                end
+            end
+            
+            return successful_steps
+        end -- run_round
+
+        local function getat(a, i)
+            if type(a) == type({}) then
+                return a[i]
+            end
+            return a
+        end
+        local function max(a,b)
+            if a>b then return a end
+            return b
+        end
+        local function size(t)
+            if type(t) == type({}) then
+                return table.maxn(t)
+            end
+            return 1
+        end
+
+        local function _eb()
+            local path = mep:path()
+            mep:reduceToInterpolatedCriticalPoints()
+            local eb = mep:energyBarrier()
+            mep:setInitialPath(path)
+            return eb
+        end
+            
+
+        if goal == nil then
+            local m = max(size(n), size(tol))
+            for i=1,m do
+                local _t = getat(tol, i)
+                local _n = getat(n, i)
+                if _t and _n then
+                    run_round(_n, _t)
+                end
+            end
+        else
+            local old_eb = _eb()
+            for g=1,size(goal) do
+                local over_goal = true
+                while over_goal do
+                    local _t = getat(tol, g)
+                    local _n = getat(n, g)
+                    if _t and _n then
+                        run_round(_n, _t)
+                        local new_eb = _eb()
+                        local diff = math.abs(old_eb - new_eb)/_n
+                        local target = getat(goal, g)
+                        report("diff = " .. diff .. ", target = " .. target)
+                        if diff < target then
+                            over_goal = false
+                        end
+                        old_eb = new_eb
+                    else
+                        over_goal = false
+                    end
+                end
+            end
+            
+        end
+    end
+}
+
+
 
 methods["setSpinSystem"] =
     {
@@ -1278,7 +1418,7 @@ local phi = (1 + math.sqrt(5)) / 2
 local resphi = 2 - phi
 
 local goldenSectionSearch = nil
-local function goldenSectionSearch(a,b,c, fa,fb,fc, tau, f)
+local function goldenSectionSearch(a,b,c, fa,fb,fc, tau, f, n)
     local x
     if (c - b) > (b - a) then
 	x = b + resphi * (c - b)
@@ -1286,8 +1426,12 @@ local function goldenSectionSearch(a,b,c, fa,fb,fc, tau, f)
 	x = b - resphi * (b - a)
     end
 
-    if (math.abs(c - a) < tau * (math.abs(b) + math.abs(x))) then
-	return (c + a) / 2
+    if (math.abs(c - a) < tau * (math.abs(b) + math.abs(x))) or n <= 0 then
+	-- return (c + a) / 2 -- this return misses minimums at boundaries
+        if c < a then
+            return c
+        end
+        return a
     end
 
     local fx = f(x)
@@ -1295,15 +1439,15 @@ local function goldenSectionSearch(a,b,c, fa,fb,fc, tau, f)
     --assert(f(x) != f(b));
     if (fx < fb) then 
 	if (c - b > b - a) then
-	    return goldenSectionSearch(b,x,c, fb,fx,fc, tau, f)
+	    return goldenSectionSearch(b,x,c, fb,fx,fc, tau, f, n-1)
 	else 
-	    return goldenSectionSearch(a,x,b, fa,fx,fb, tau, f)
+	    return goldenSectionSearch(a,x,b, fa,fx,fb, tau, f, n-1)
 	end
     else 
 	if (c - b > b - a) then
-	    return goldenSectionSearch(a,b,x, fa,fb,fx, tau, f)
+	    return goldenSectionSearch(a,b,x, fa,fb,fx, tau, f, n-1)
 	else
-	    return goldenSectionSearch(x,b,c, fx,fb,fc, tau, f)
+	    return goldenSectionSearch(x,b,c, fx,fb,fc, tau, f, n-1)
 	end
     end
 end
@@ -1334,12 +1478,13 @@ end
 methods["interpolatedCriticalPoints"] =
 {
 "Use :interpolateBetweenCustomPoints() and a golden ratio search to find critical points along the path",
-"1 Optional JSON style table: Keys are: \"Tolerance\", tau as defined in the golden search wikipedia page (Default 1e-8), \"InterpolateEndPoints\", boolean to interpolate end points (default true).",
+"1 Optional JSON style table: Keys are: \"Tolerance\", tau as defined in the golden search wikipedia page (Default 1e-8), \"InterpolateEndPoints\", boolean to interpolate end points (default true). \"MaxIterations\", default 16. JSON table can also contain the keys \"addMinPadding\", \"addMaxPadding\" and \"addPadding\" with values of numbers. These values are interpreted as ratios of the distance between a point and it's previous and next critical point. These distances will determine how close padding points will be added encompasing minimums, maximums or all interpolated critical points. Padding is not added before the first point or after the last point. The value of the \"addPadding\" key overides the other Paddings.",
 "3 Tables of Numbers: Tables of non-integer point along path corresponding to each interpolated set of minimum point, . These Non-integer points can be transformed into points with the :interpolatePoint() method.",
 function(mep, json)
     json = json or {}
     local tol = json.Tolerance or 1e-8
-    local endpts = json.interpolateEndPoints or true
+    local endpts = json.InterpolateEndPoints or true
+    local maxi = json.MaxIterations or 16
 
     local mins, maxs, all = mep:criticalPoints()
     local imins, imaxs, iall = {}, {}, {}
@@ -1348,7 +1493,7 @@ function(mep, json)
 	return mep:energyOfCustomConfiguration( mep:interpolatePoint(x ))
     end
     local function max_func(x)
-	return mep:energyOfCustomConfiguration( mep:interpolatePoint(x )) * -1
+	return -min_func(x)
     end
     local tau = tol
     local np = mep:numberOfPoints()
@@ -1361,7 +1506,7 @@ function(mep, json)
             local x1,x3 = boundingMin(mep, v)
             local f = min_func
             local x2 = (x1+x3)/2
-            local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f)
+            local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f, maxi)
             imins[i] = x2
             table.insert(iall, x2)
         end
@@ -1375,13 +1520,77 @@ function(mep, json)
             local x1,x3 = boundingMax(mep, v)
             local f = max_func
             local x2 = (x1+x3)/2
-            local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f)
+            local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f, maxi)
             imaxs[i] = x2
             table.insert(iall, x2)
         end
     end
 
     table.sort(iall)
+    local imins_n = table.maxn(imins)
+    local imaxs_n = table.maxn(imaxs)
+    local iall_n = table.maxn(iall)
+
+    local function before_dist(value)
+        for i=2,iall_n do
+            if iall[i] == value then
+                return iall[i] - iall[i-1]
+            end
+        end
+    end
+    local function after_dist(value)
+        for i=1,iall_n-1 do
+            if iall[i] == value then
+                return iall[i+1] - iall[i]
+            end
+        end
+    end
+
+    if json.addPadding then
+        json.addMinPadding = json.addPadding
+        json.addMaxPadding = json.addPadding
+    end
+
+    if json.addMinPadding then 
+        local n = table.maxn(imins)
+        local r = json.addMinPadding
+        for i=1,n do
+            local d = before_dist(imins[i])
+            if d then
+                table.insert(imins, imins[i] - d*r)
+                table.insert(iall, imins[i] - d*r)
+            end
+
+            d = after_dist(imins[i])
+            if d then
+                table.insert(imins, imins[i] + d*r)
+                table.insert(iall, imins[i] + d*r)
+            end
+        end
+    end
+
+    if json.addMaxPadding then 
+        local n = table.maxn(imaxs)
+        local r = json.addMaxPadding
+        for i=1,n do
+            local d = before_dist(imaxs[i])
+            if d then
+                table.insert(imaxs, imaxs[i] - d*r)
+                table.insert(iall, imaxs[i] - d*r)
+            end
+
+            d = after_dist(imaxs[i])
+            if d then
+                table.insert(imaxs, imaxs[i] + d*r)
+                table.insert(iall, imaxs[i] + d*r)
+            end
+        end
+    end
+
+    table.sort(imins)
+    table.sort(imaxs)
+    table.sort(iall)
+
     return imins, imaxs, iall
 end
 }
@@ -1784,10 +1993,14 @@ methods["reduceToCriticalPoints"] =
 methods["reduceToInterpolatedCriticalPoints"] = 
     {
     "Reduce the path to the points returned from the :interpolateCriticalPoints() method. The points between the critical points will be discarded and the total number of points will be reduced to the number of critical points.",
-    "1 optional JSON style table: same as JSON table to be passed to MEP:interpolatedCriticalPoints()",
+    "1 optional JSON style table: same as JSON table to be passed to MEP:interpolatedCriticalPoints(). ",
     "",
     function(mep, json)
+        json = json or {}
 	local _, _, icps = mep:interpolatedCriticalPoints(json)
+        -- > print(table.concat(icps, ","))   ABC
+        -- 1.000000022465,6.3220078306327,10.999999916953
+
 	mep:reduceToPoints(icps)
     end
 }

@@ -1210,6 +1210,9 @@ void MEP::computeTangent(const int p1, const int p2, const int dest)
 // from that we can do the proper vector rejection and move that back into the force
 void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int energy_index) 
 {
+    //for(int k=0; k<state_path.size(); k++)
+    //    print_vec("before", force_vector[k]);
+
     path_tangent.clear();
     path_tangent.resize(state_path.size());
 
@@ -1296,15 +1299,29 @@ void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int ener
     delete [] a;
     delete [] b;
 
-
-    // now to convert cart_diff back to force_vector
+    // now we add the rejected cart diff to the initial point to get a rejected new point
+    new_state.clear();
     for(int k=0; k<state_path.size(); k++)
     {
-	cart_diff[k].scale(1/beta);
-	force_vector[k] = cart_diff[k].convertedToCoordinateSystem(force_vector[k].cs);
-	print_vec(force_vector[k]);
-	// force_vector[k].zeroRadialComponent();
+	const double mag = state_path[k].magnitude();
+	VectorCS v = VectorCS::axpy(1, 
+                                    cart_diff[k], 
+                                    state_path[k].convertedToCoordinateSystem(Cartesian));
+	v.setMagnitude(mag);
+	new_state.push_back(v.convertedToCoordinateSystem(state_path[k].cs));
     }
+
+    // the difference between the new point and the current point is beta * force
+    force_vector.clear();
+    for(int k=0; k<state_path.size(); k++)
+    {
+        force_vector.push_back(VectorCS::axpy(-1, new_state[k], state_path[k]));
+        force_vector[k].scale(1/beta);
+    }
+
+    //for(int k=0; k<state_path.size(); k++)
+    //    print_vec("after", force_vector[k]);
+
     if(false)
     {
 	int* i = (int*)5;
