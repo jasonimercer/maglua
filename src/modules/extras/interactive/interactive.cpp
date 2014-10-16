@@ -82,10 +82,15 @@ static char** my_completion( const char * text , int start,  int end)
 /* A static variable for holding the line. */
 static char *line_read = (char *)NULL;
 
+static char *last_line_read = (char *)NULL;
+
+
 char* rl_gets (const char* prompt=0)
 {
     rl_bind_key('\t',rl_complete);
 
+
+#if 0
     /* If the buffer has already been allocated, return the memory
        to the free pool. */
     if (line_read)
@@ -93,13 +98,47 @@ char* rl_gets (const char* prompt=0)
 	free (line_read);
 	line_read = (char *)NULL;
     }
+#endif
+
+    if (last_line_read)
+    {
+	free(last_line_read);
+	last_line_read = (char *)NULL;
+    }
+
+    last_line_read = line_read;
 
     /* Get a line from the user. */
     line_read = readline (prompt?prompt:"");
 
     /* If the line has any text in it, save it on the history. */
     if (line_read && *line_read)
-	add_history (line_read);
+    {
+        int add_to_history = 0;
+
+        if(last_line_read == 0)
+        {
+            add_to_history = 1;
+        }
+        else
+        {
+            // not strncmp. trusting readline()
+            if(strcmp(last_line_read, line_read) != 0)
+            {
+                add_to_history = 1;
+            }
+        }
+
+
+
+	if(add_to_history)
+            add_history (line_read);
+
+        if(history_file) // writing to file every line since many interactive scripts end with ctrl+c
+        {
+            write_history(history_file);
+        }
+    }
 
     return (line_read);
 }

@@ -46,7 +46,7 @@ end
 
 -- build an environment that allows the reading of globals, locals and upvalues
 -- globals can be written to as normal
-local function add_local_env(cmd, level)
+local function add_local_env(cmd, level, extra_cmd)
     local locals = get_local_env(level+1)
 
     local f = loadstring(cmd)
@@ -86,6 +86,11 @@ local function add_local_env(cmd, level)
 	end
 
 	local env = {}
+        if extra_cmd then
+            for k,v in pairs(extra_cmd) do
+                env[k] = v
+            end
+        end
         setmetatable(env, { __index = index, __newindex=newindex })
         setfenv(f, env)
         return f
@@ -257,7 +262,7 @@ local function autocomplete(text, state)
     return autocomplete_env(text, 5, state)
 end
 
-local function loadline()
+local function loadline(extra_cmd)
     local line = {}
     local chunk,err
     local keep_going = true
@@ -276,7 +281,7 @@ local function loadline()
 	if err then
 	    keep_going = string.sub(err, -6) == "<eof>'"
 	else
-	    return add_local_env(table.concat(line, "\n"), 4)
+	    return add_local_env(table.concat(line, "\n"), 4, extra_cmd)
 	end
     end
 
@@ -285,6 +290,7 @@ local function loadline()
 end
 
 local function bt(level, exclude_last, msg) -- backtrace
+    local result = {}
     local function where(env)
         if env.what == "C" then
             return "in C"
@@ -306,7 +312,8 @@ local function bt(level, exclude_last, msg) -- backtrace
     local env = debug.getinfo(level)
     
     if msg then
-        print(msg)
+        table.insert(result, msg)
+        -- print(msg)
     end
     
     while env do
@@ -320,10 +327,12 @@ local function bt(level, exclude_last, msg) -- backtrace
         table.remove(trace)
     end
     
-    print("stack traceback:")
+    table.insert(result, "stack traceback:")
     for k,v in pairs(trace) do
-        print("\t" .. v)
+        table.insert(result, "\t" .. v)
+        -- print("\t" .. v)
     end
+    return table.concat(result, "\n")
 end
 
 
@@ -343,10 +352,16 @@ function interactive(msg, json)
 	printmsg = true
     end
 
+    local bt_txt = bt(3 + level_offset, levels_of_bootstrap)
+	
+    local function bt_()
+        print(bt_txt)
+    end
+
     if header then
 	print("Interactive environment initiated from (" .. src .. ":" .. line .. ")")
-	bt(3 + level_offset, levels_of_bootstrap)
-	print("Continue script with Ctrl+d")
+	print(bt_txt)
+        print("Continue script with Ctrl+d")
     end
     if printmsg then
 	if msg then
@@ -355,7 +370,7 @@ function interactive(msg, json)
     end
 
     while true do
-	local interactive_statement = loadline()
+	local interactive_statement = loadline({bt=bt_})
 	if interactive_statement == false then
 	    print() -- newline for ctrl+D
 	    return

@@ -634,7 +634,7 @@ methods["compute"] =
 methods["execute"] =
     {
     "Run several relaxation steps of the Minimum Energy Pathway method with the ability to run until goals are met using constant steps and tolerances or a list of step counts and tolerances.",
-    "1 Optional JSON-style table: Key \"steps\" is an integer or table of integers and give the number of steps to run, default 10. Key \"tolerance\" can be a single value or a table of values, default mep:tolerance(). Key \"report\" defines a print function, default nil. Key \"resamplePath\" with a boolean value, default true. Key \"goal\" is a number or a table of numbers and defines a goal average change in energy barrier after a given number of steps, if the goal is not met the MEP will loop, this can result in an infinite loop, default nil. ",
+    "1 Optional JSON-style table: Key \"steps\" is an integer or table of integers and give the number of steps to run, default 10. Key \"tolerance\" can be a single value or a table of values, default mep:tolerance(). Key \"report\" defines a print function, default nil. Key \"resamplePath\" with a boolean value, default true. Key \"goal\" is a number or a table of numbers and defines a goal average change in energy barrier after a given number of steps, if the goal is not met the MEP will loop, this can result in an infinite loop, default nil. Key \"maxIterations\" to limit the total number of iterations, default math.huge .",
     "",
     function(mep, json)
         json = json or {}
@@ -643,12 +643,14 @@ methods["execute"] =
         local _do_resample = json.resamplePath or true
 	local report = json.report or function() end
 	local goal = json.goal or nil
+        local maxIteration = json.maxIterations or math.huge
 
 	local d = get_mep_data(mep)
 	local ss = mep:spinSystem()
 	local np = mep:numberOfPathPoints()
 	local energy_function = d.energy_function
-	
+	local currentIteration = 0
+
 	if ss == nil then
 	    error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
 	end
@@ -666,8 +668,10 @@ methods["execute"] =
 
             --for i = 1,n do
             local successful_steps = 0
-            while successful_steps < n do
+            while successful_steps < n and currentIteration < maxIteration do
+                currentIteration = currentIteration + 1
                 local current_beta = mep:beta()
+                local last_successful_steps = successful_steps
                 
                 -- first bool below is for "do_big" second is for "do_small"
                 copy_to_children(mep, true, tol>=0)
@@ -687,7 +691,7 @@ methods["execute"] =
                     local step_mod, good_step = getStepMod(tol, maxDiff)
                     if good_step then
                         d.small_step:internalCopyTo(mep)
-                        mep:resamplePath(np)
+                        -- mep:resamplePath(np)
                         successful_steps = successful_steps + 1
                     end
                     mep:setBeta(step_mod * current_beta)
@@ -697,7 +701,9 @@ methods["execute"] =
                 end
                 
                 if _do_resample then
-                    mep:resamplePath(np)
+                    if last_successful_steps ~= successful_steps then
+                        mep:resamplePath(np)
+                    end
                 end
             end
             
@@ -721,12 +727,40 @@ methods["execute"] =
             return 1
         end
 
-        local function _eb()
+        local function _cpe() -- critical point energies
             local path = mep:path()
             mep:reduceToInterpolatedCriticalPoints()
-            local eb = mep:energyBarrier()
+            local cpe = mep:pathEnergy()
             mep:setInitialPath(path)
-            return eb
+            return cpe
+        end
+
+        local function sameCPE(a,b,tol)
+            local na, nb = table.maxn(a), table.maxn(b)
+            if na ~= nb then
+                return false, 0, -1
+            end
+
+            local diffs = {}
+
+            --[[
+            report("Comparing:")
+            report(table.concat(a, "\t"))
+            report(table.concat(b, "\t"))
+            --]]
+
+            for i=1,na do
+                diffs[i] = math.abs(a[i] - b[i])
+            end
+
+            local maxi = 1
+            for i=2,na do
+                if diffs[i] > diffs[maxi] then
+                    maxi = i
+                end
+            end
+
+            return diffs[maxi] <= tol, diffs[maxi], maxi
         end
             
 
@@ -740,22 +774,27 @@ methods["execute"] =
                 end
             end
         else
-            local old_eb = _eb()
+            local old_cpe = _cpe()
             for g=1,size(goal) do
                 local over_goal = true
-                while over_goal do
+                while over_goal and currentIteration < maxIteration do
                     local _t = getat(tol, g)
                     local _n = getat(n, g)
                     if _t and _n then
                         run_round(_n, _t)
-                        local new_eb = _eb()
-                        local diff = math.abs(old_eb - new_eb)/_n
-                        local target = getat(goal, g)
-                        report("diff = " .. diff .. ", target = " .. target)
-                        if diff < target then
+                        local new_cpe = _cpe()
+                        local target = getat(goal, g) * _n
+                        local same, off, idx = sameCPE(old_cpe, new_cpe, target)
+                        if idx < 0 then
+                            report("Critical point count mismatch")
+                        else
+                            report(string.format("target(%6e) diff(%6e) iteration(%d)", target, off, currentIteration))
+                        end
+
+                        if same then
                             over_goal = false
                         end
-                        old_eb = new_eb
+                        old_cpe = new_cpe
                     else
                         over_goal = false
                     end
@@ -1479,7 +1518,7 @@ methods["interpolatedCriticalPoints"] =
 {
 "Use :interpolateBetweenCustomPoints() and a golden ratio search to find critical points along the path",
 "1 Optional JSON style table: Keys are: \"Tolerance\", tau as defined in the golden search wikipedia page (Default 1e-8), \"InterpolateEndPoints\", boolean to interpolate end points (default true). \"MaxIterations\", default 16. JSON table can also contain the keys \"addMinPadding\", \"addMaxPadding\" and \"addPadding\" with values of numbers. These values are interpreted as ratios of the distance between a point and it's previous and next critical point. These distances will determine how close padding points will be added encompasing minimums, maximums or all interpolated critical points. Padding is not added before the first point or after the last point. The value of the \"addPadding\" key overides the other Paddings.",
-"3 Tables of Numbers: Tables of non-integer point along path corresponding to each interpolated set of minimum point, . These Non-integer points can be transformed into points with the :interpolatePoint() method.",
+"4 Tables of Numbers: Tables of non-integer point along path corresponding to each interpolated set of minimum points, maximum points ad all points. These Non-integer points can be transformed into points with the :interpolatePoint() method. The last table of ordered numbers includes the original points minus the integer points closest to the interpolated points.",
 function(mep, json)
     json = json or {}
     local tol = json.Tolerance or 1e-8
@@ -1501,30 +1540,60 @@ function(mep, json)
     for i,v in pairs(mins) do
         if (v == 1 or v == np) and (endpts == false) then
             imins[i] = v
-            table.insert(iall, v)
         else
             local x1,x3 = boundingMin(mep, v)
             local f = min_func
+
+            local fx1, fx3 = f(x1), f(x3)
             local x2 = (x1+x3)/2
-            local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f, maxi)
+            local x2 = goldenSectionSearch(x1,x2,x3, fx1,f(x2),fx3, tau, f, maxi)
+            local fx2 = f(x2)
+            if fx1 < fx2 then
+                x2 = x1
+                fx2 = fx1
+            end
+            if fx3 < fx2 then
+                x2 = x3
+                fx2 = fx3
+            end
+            
             imins[i] = x2
-            table.insert(iall, x2)
         end
     end
 
     for i,v in pairs(maxs) do
         if (v == 1 or v == np) and (endpts == false) then
             imaxs[i] = v
-            table.insert(iall, v)
         else
             local x1,x3 = boundingMax(mep, v)
             local f = max_func
+            local fx1, fx3 = f(x1), f(x3)
             local x2 = (x1+x3)/2
-            local x2 = goldenSectionSearch(x1,x2,x3, f(x1),f(x2),f(x3), tau, f, maxi)
+            local x2 = goldenSectionSearch(x1,x2,x3, fx1,f(x2),fx3, tau, f, maxi)
+            local fx2 = f(x2)
+
+            if fx1 < fx2 then -- these "less than"s are right, max_func negates values
+                x2 = x1
+                fx2 = fx1
+            end
+            if fx3 < fx2 then
+                x2 = x3
+                fx2 = fx3
+            end
+            
             imaxs[i] = x2
-            table.insert(iall, x2)
         end
     end
+
+
+    for k,v in pairs(imins) do
+        table.insert(iall, v)
+    end
+
+    for k,v in pairs(imaxs) do
+        table.insert(iall, v)
+    end
+
 
     table.sort(iall)
     local imins_n = table.maxn(imins)
@@ -1591,7 +1660,28 @@ function(mep, json)
     table.sort(imaxs)
     table.sort(iall)
 
-    return imins, imaxs, iall
+
+    local icomplete = {}
+    
+    for i=1,mep:numberOfPoints() do
+        icomplete[i] = i
+    end
+
+    local function round(x)
+        local decimal = math.fmod(x, 1)
+        if decimal > 0.5 then
+            return math.floor(x) + 1
+        else
+            return math.floor(x)
+        end
+    end
+
+    for k,v in pairs(iall) do
+        local r = round(v)
+        icomplete[r] = v
+    end
+
+    return imins, imaxs, iall, icomplete
 end
 }
 
@@ -2362,6 +2452,46 @@ methods["printPath"] =
     end
 }
 
+methods["plot"] =
+    {
+    "Use gnuplot to plot the path",
+    "",
+    "",
+    function(mep)
+        local DISPLAY = os.getenv("DISPLAY") or ""
+   
+        local datafile = os.tmpname()
+        local cmdfile = os.tmpname()
+
+        local f = io.open(datafile, "w")
+        local pe = mep:pathEnergy()
+
+        for k,v in pairs(pe) do
+            f:write(string.format("%d %e\n", k, v))
+        end
+        f:close()
+
+        f = io.open(cmdfile, "w")
+        
+        if DISPLAY == "" then
+            f:write("set term dumb\n")
+        else
+        end
+
+        f:write("plot \"" .. datafile .. "\" w lp title \"\"\n")
+        f:close()
+
+        if DISPLAY == "" then
+            os.execute("gnuplot " .. cmdfile)
+        else
+            os.execute("gnuplot -p " .. cmdfile .. " && sleep 1")
+        end
+
+        os.execute("rm -f " .. cmdfile .. " " .. datafile)
+
+    end
+}
+
 methods["findMinima"] =
     {
     "Find the coordinates of minima in the energy landscape",
@@ -2379,6 +2509,8 @@ methods["findMinima"] =
 
 	    mep:setInitialPath(n)
 
+            -- mep:execute({steps=10, tolerance={0.75, 0.5, 0.1}, goal={1e-12, 1e-16, 1e-20}})
+            -- ABC
 	    -- adding hint like this so we don't pollute the input
 	    if hints then
 		local p = mep:path() 
@@ -2394,11 +2526,11 @@ methods["findMinima"] =
 
 	    local default_plan = {
 		-- steps, relax step,  relax steps, equal test
-		{      9,      1e-2,           40,     0.0001},
-		{      3,      1e-2,           40,     0.0002},
-		{      3,      1e-2,           40,     0.005},
- 		{      3,      1e-2,           40,     0.3},
- 		{      3,      1e-2,          100,     0.2}
+		{      9,      1e-4,           40,     0.0001},
+		{      3,      1e-4,           40,     0.0002},
+		{      3,      1e-4,           40,     0.005},
+ 		{      3,      1e-4,           40,     0.3},
+ 		{      3,      1e-4,          100,     0.2}
  		--{      1,      1e-6,          100,     0.1},
 	    }
 	    

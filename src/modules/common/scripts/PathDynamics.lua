@@ -1,7 +1,7 @@
 -- This file provides the function PathDynamics(mep) which, when given an MEP object containing only 1 maximum, will return a calculated description of the dynamics associated with the path in a table.  An optional second argument can be given to the function with a JSON style table. The following lists the keys that can be set for the JSON table:
 --<dl>
 --<dt>report</dt><dd>Function used to report internal progress of the algorithms, generally `print'</dd>
---<dt>onNan</dt> <dd>Function called when a nan is detected in the final stages of the calculation, generally `interactive' or `error'</dd>
+--<dt>onNan</dt> <dd>Function called when a nan is detected in the final stages of the calculation, generally `interactive' or `error'. The return value from this function will be assigned to the attempt frequency so we can recover when we hit bad cases.</dd>
 --<dt>onMultipleHops</dt><dd>Function to call when multiple hops are detected</dd>
 --<dt>EnergyMinimizationSteps</dt><dd>Number of steps to take to refine minima, default 100</dd>
 --<dt>GradientMinimizationSteps</dt><dd>Number of steps to take to refine saddle point, default 100</dd>
@@ -42,18 +42,13 @@
 --
 -- This file also provides the function AllPathDynamics(mep, minima, JSON) which will generate the all_paths input for the above function. The input is an MEP object, the return from mep:findMinima() and an optional JSON-style table with extra options. The keys that can be populated are:
 --<dl>
---<dt>SymmetricLandscape</dt><dd>Assume landscape has phi-symmetry. This disables many checks.</dd>
---<dt>MEPComputePoints</dt><dd>Number of points to use in the internal mep:compute(), default 30</dd>
---<dt>MEPComputeSteps</dt><dd>Number of steps to use in the internal mep:compute(), default 40</dd>
---<dt>MEPComputeReport</dt><dd>Function to provide as the mep:compute report function, default `function() end'. The print function could be used.</dd>
 --<dt>Report</dt><dd>Functon to use as the internal report function, default `function() end'. The print function could be used.</dd>
 --<dt>SimplifyDegrees</dt><dd>Number of degrees to use for equality testing in the loop finding code, default 5.</dd>
 --<dt>MultipleHopRetries</dt><dd>Number of times to attempt to re-refine a multiple hop path in the event that one of the extra minimum points is due to some noise. Default 2</dd>
---<dt>PathDynamicsOnNan</dt><dd>Function to provide the PathDynamics function's OnNan option, default `error'.</dd>
+--<dt>PathDynamicsOnNan</dt><dd>Function to provide the PathDynamics function's OnNan option, default `error'. If this function returns, it will be assigned to the attempt frequency. This allows us to give a best guess when the math goes sideways.</dd>
 --<dt>PathDynamicsOnMultipleHops</dt><dd>Passed to PathDynamic's onMultipleHops</dd>
 --<dt>PathDynamicsReport</dt><dd>Function to provide the PathDynamics function's Report option, default `function() end'.</dd>
---<dt>PathDynamicsRotationAxis</dt><dd>Custom axis to rotate path about. Can help to recover from paths over ridges.</dd>
---<dt>PathDynamicsRotationAngle</dt><dd>Custom angle (radians) to rotate path about. Can help to recover from paths over ridges.</dd>
+--<dt>AllPathDynamicsMEP</dt><dd>Required function that solves an MEP between two states. Input is an MEP object, a starting configuration, an ending configuration and an optional reporting function. If this function is not provided then it's default value is the error function.</dd>
 --</dl>
 
 
@@ -113,6 +108,8 @@ function PathDynamics(mepOrig, json)
 
     mep:setCoordinateSystem("Canonical")
     mep:setTolerance(0.0001)
+
+    -- interactive()
 
     -- getting important points
     local mins, maxs, all = mep:criticalPoints()
@@ -240,7 +237,7 @@ function PathDynamics(mepOrig, json)
     if table.maxn(all) == 2 then -- we are dealing with a single well system		
 	if mep:energyAtPoint(all[1]) < mep:energyAtPoint(all[2]) then 
 	    -- This case covers us at the bottom of a single well system
-	    results["EnergyBarrier"] = 0
+	    results["EnergyBarrier"] = math.huge
 	    results["AttemptFrequency"] = 0
 	    results["Event"] = function() end
 	    results["InitialEnergy"] = mep:energyAtPoint(1)
@@ -372,7 +369,6 @@ function PathDynamics(mepOrig, json)
     mep:setCoordinateSystem("CanonicalX") --rotated coord. system
     hessian = mep:hessianAtPoint(minimumEnergy1)
     hessian = hessian:cutX(radial_terms):cutY(radial_terms)
-    --interactive()
     local n1 = hessian:matEigen()
 
 
@@ -384,7 +380,7 @@ function PathDynamics(mepOrig, json)
 
     if f12 ~= f12 then -- it's nan
 	if json.onNan then
-	    json.onNan("f12 is nan")
+	    f12 = json.onNan("f12 is nan")
 	end
     end
 
@@ -681,10 +677,7 @@ end
 function AllPathDynamics(mep, minima, JSON)
     JSON = JSON or {}
     local function blank() end
-    local ComputeSteps = JSON.MEPComputeSteps or 40
-    local ComputePoints = JSON.MEPComputePoints or 20
     local report = JSON.Report or blank
-    local computeReport = JSON.MEPComputeReport or blank
     local PathDynamicsOnNan = JSON.PathDynamicsOnNan or error
     local PathDynamicsReport = JSON.PathDynamicsReport or blank
     local PathDynamicsOnMultipleHops = JSON.PathDynamicsOnMultipleHops or blank
@@ -693,14 +686,17 @@ function AllPathDynamics(mep, minima, JSON)
     local all_paths = {}
     local number_of_minima = table.maxn(minima)
     local symmetricLandscape = JSON.SymmetricLandscape or false
-    local PathDynamicsRotationAxis = JSON.PathDynamicsRotationAxis or {0,0,1}
-    local PathDynamicsRotationRadians = JSON.PathDynamicsRotationAngle or 0
-
+    --local PathDynamicsRotationAxis = JSON.PathDynamicsRotationAxis or {0,0,1}
+    --local PathDynamicsRotationRadians = JSON.PathDynamicsRotationAngle or 0
+    local AllPathDynamicsMEP = JSON.AllPathDynamicsMEP or function() error("AllPathDynamicsMEP() is not optional") end
 
     for i=1,number_of_minima-1 do
         for j=i+1,number_of_minima do
 	    local mep2 = mep:copy()
 
+            AllPathDynamicsMEP(mep, minima[i], minima[j], report)
+
+            --[[
             mep2:setInitialPath({minima[i], minima[j]})
             mep2:resamplePath(ComputePoints)
             
@@ -733,6 +729,7 @@ function AllPathDynamics(mep, minima, JSON)
 		--interactive("Multi-hop correction failed. Pre: mep3   post: mep2")
 		--end
 	    end
+            --]]
 
             local pd_opts = {
                 report=PathDynamicsReport, 
@@ -741,13 +738,13 @@ function AllPathDynamics(mep, minima, JSON)
             }
 
 	    report("Creating path between minimum points " .. i .. " and " .. j)
-	    local pd = PathDynamics(mep2, pd_opts)
+	    local pd = PathDynamics(mep, pd_opts)
 	    table.insert(all_paths, pd)
 	    report("")
 
-	    mep2:reverse()
+	    mep:reverse()
 	    report("Creating path between minimum points " .. j .. " and " .. i)
-	    local pd = PathDynamics(mep2, pd_opts)
+	    local pd = PathDynamics(mep, pd_opts)
 	    table.insert(all_paths, pd)
 	    report("")
 	    
