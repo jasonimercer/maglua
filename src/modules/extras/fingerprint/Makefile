@@ -1,4 +1,4 @@
-# Copyright (C) 2011 Jason Mercer.  All rights reserved.
+# Copyright (C) 2014 Jason Mercer.  All rights reserved.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -9,22 +9,13 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-DIRS=math_vectors sqlite3 os_extensions mep kmc curl interactive fingerprint
+OBJECTS=fingerprint_luafuncs.lo fingerprint_main.lo fingerprint.o
+LIBNAME=Fingerprint
+CATEGORY=extra
 
-all:
-	@for d in $(DIRS); do (make -C $$d); done
+DEPEND=luabaseobject
+BASEDIR=../../..
+include $(BASEDIR)/makefile.common.cpu
 
-install:
-	@for d in $(DIRS); do (make -C $$d install); done
-
-uninstall:
-	@for d in $(DIRS); do (make -C $$d uninstall); done
-
-clean:
-	@for d in $(DIRS); do (make -C $$d clean); done
-	rm -f *~
-
-distclean:
-	@for d in $(DIRS); do (make -C $$d distclean); done
-	rm -f *~
-
+EXTRA_CLEAN=fingerprint_luafuncs.h fingerprint_luafuncs.cpp \
+		fingerprint_main.h fingerprint_main.cpp
