@@ -36,6 +36,7 @@ local cmd_line_max_memory = nil
 local do_error_trim = false
 local custom_load_module = {}
 local skip_startup_file = false
+local setup_debug = false
 delayed_execute = {}
 
 -- trim info about bootstrap from error messages
@@ -94,7 +95,10 @@ for k,v in pairs(arg) do
 	skip_startup_file = true
     end
 
-
+    if v == "--enable-debug" then
+        setup_debug = true
+        table.remove(arg, k)
+    end
 
     if v == "--startup_file" and sub_process == nil  then
 	print_startup_path_file = arg[k+1] or true
@@ -146,6 +150,40 @@ for k,v in pairs(arg) do
     end
 end
 
+
+if setup_debug then
+    _enable_debug()
+
+    local function make_hook()
+        local get_debug_flag = _get_debug_flag
+        local set_debug_flag = _set_debug_flag
+
+        local enable_debug = _enable_debug
+        local disable_debug = _disable_debug
+
+        return function(event, line)
+                   if get_debug_flag() then
+                       disable_debug()
+                       if interactive then
+                           interactive(nil, {level_offset=2})
+                           enable_debug()
+                       else
+                           print("No interactive environemnt found. Disabling debug.")
+                           debug.sethook()
+                       end
+                       set_debug_flag(false)
+                   end
+               end
+    end
+
+    local hook = make_hook()
+    debug.sethook(hook, "crl", 10)
+end
+
+_get_debug_flag = nil
+_set_debug_flag = nil
+_enable_debug = nil
+_disable_debug = nil
 
 
 function reference()
@@ -303,6 +341,7 @@ table.insert(help_args,{"--skip_startup_file",      "Skip the startup file witho
 table.insert(help_args,{"--load_module <file>", "Attempt to load the following module. This option can be repeated."})
 table.insert(help_args,{"--write_docs [file]",      "Write HTML documentation to given file or stdout"})
 table.insert(help_args,{"--maxMemory value(B|KB|MB|GB)","Set the maximum amount of system memory that this process can allocate."})
+table.insert(help_args,{"--enable-debug",      "Drop to interactive on SIGTSTP (Ctrl+Z)"})
 
 -- get the module path
 --this file does not exist on a clean install

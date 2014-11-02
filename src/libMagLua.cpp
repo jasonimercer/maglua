@@ -169,10 +169,63 @@ static void do_rlimit(lua_State* L)
 	lua_setglobal(L, "setrlimit");
 }
 
+static int _debug_flag = 0;
+static int l_get_debug_flag(lua_State* L)
+{
+    lua_pushboolean(L, _debug_flag);
+    return 1;
+}
+static int l_set_debug_flag(lua_State* L)
+{
+    _debug_flag = lua_toboolean(L, 1);
+    return 0;
+}
+#include <signal.h>
+
+static void SigHandler(int signo)
+{
+    if (signo == SIGTSTP)
+    {
+        _debug_flag = 1;
+    }
+}
+static int l_enable_debug(lua_State* L)
+{
+    struct sigaction sa;
+    sa.sa_handler = SigHandler;
+    int r = sigaction(SIGTSTP, &sa, NULL);
+    if(r != 0)
+        return luaL_error(L, "failed to install signal handler (ret = %d)", r);
+    return 0;
+}
+
+static int l_disable_debug(lua_State* L)
+{
+    struct sigaction sa;
+    sa.sa_handler = SIG_DFL;
+    int r = sigaction(SIGTSTP, &sa, NULL);
+    if(r != 0)
+        return luaL_error(L, "failed to disable signal handler (ret = %d)", r);
+    return 0;
+}
 
 static void lua_setupPreamble(lua_State* L, int sub_process)
 {
 	luaL_openlibs(L);
+
+        lua_pushcfunction(L, l_get_debug_flag);
+        lua_setglobal(L, "_get_debug_flag");
+
+        lua_pushcfunction(L, l_set_debug_flag);
+        lua_setglobal(L, "_set_debug_flag");
+
+        lua_pushcfunction(L, l_enable_debug);
+        lua_setglobal(L, "_enable_debug");
+
+        lua_pushcfunction(L, l_disable_debug);
+        lua_setglobal(L, "_disable_debug");
+
+
 
 	register_os_extensions(L);
 	
