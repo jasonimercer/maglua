@@ -35,7 +35,7 @@ baseFixed = string.gsub(base, "%-", "")
 baseFixed = string.gsub(baseFixed, "%.", "")
 M = string.len(filename)
 
-f:write("static char  " .. baseFixed .. "_name[ " .. M+1 .. "] = \"" .. filename .. "\";\n")
+f:write("static char  " .. baseFixed .. "_name[ " .. M+2 .. "] = \"=" .. filename .. "\";\n")
 f:write("static char  " .. baseFixed .. "[" .. N+1 .. "] = {\n")
 
 i = 0
@@ -66,5 +66,18 @@ f:write("// lua hardcode.lua " .. filename .. "\n\n")
 f:write("extern \"C\"{\n")
 f:write("const char* __" .. baseFixed .. "_name();\n")
 f:write("const char* __" .. baseFixed .. "();\n")
-f:write("}\n")
+
+f:write("}\n\n")
+
+f:write("// convenience macro\n")
+f:write(string.format(
+[[#define luaL_dofile_%s(L) \
+{ \
+  if(luaL_dostringn(L, __%s(), __%s_name())) \
+  { \
+        fprintf(stderr, "%%s\n", lua_tostring(L, -1)); \
+        return luaL_error(L, lua_tostring(L, -1)); \
+  } \
+}
+]], baseFixed, baseFixed ,baseFixed))
 f:close()

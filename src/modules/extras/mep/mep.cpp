@@ -4296,11 +4296,7 @@ extern "C"
 
 	const char* s = __mep_luafuncs();
 
-	if(luaL_dostringn(L, s, "mep_luafuncs.lua"))
-	{
-	    fprintf(stderr, "MEP: %s\n", lua_tostring(L, -1));
-	    return luaL_error(L, lua_tostring(L, -1));
-	}
+        luaL_dofile_mep_luafuncs(L);
 
 	lua_pushnil(L);
 	lua_setglobal(L, "maglua_getmetatable");

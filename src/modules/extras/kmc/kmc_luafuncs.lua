@@ -104,8 +104,8 @@ methods["startupFunction"] = {
 
 
 methods["setProposedEventFunction"] = {
-    "Set a function that will be called before immediatelty before the selected event function. It will be passed the time and function of the fastest event as well as the third return value from the eventFunction. The semantics of the third return value is opaque as far as the KMC framework is concerned. It is up to the user to decide what to do with it. A common choice is to have it be a table with information regarding the energy barrier of the event and clustering decisions to allow adaption of a cluster energy cutoff. It could also be used to record the sequence of events for a simulation. If this function is defined, it is responsible for retuning a boolean value. If it returns true then the event function will be called, otherwise it will not. If a proposedEvent function is not provided or it is set to nil then the selected event function will always be called.",
-    "1 Function: The function will be passed a minimum time, the corresponding event function and an arbitrary 3rd return value from the create event function. It must return a boolean value which will determine if the KMC framework will call the event function on the SpinSystem.",
+    "Set a function that will be called immediatelty before the selected event function. It will be passed the time and function of the fastest event as well as the position and the third return value from the eventFunction. The semantics of the third return value is opaque as far as the KMC framework is concerned. It is up to the user to decide what to do with it. A common choice is to have it be a table with information regarding the energy barrier of the event and clustering decisions to allow adaption of a cluster energy cutoff. It could also be used to record the sequence of events for a simulation. If this function is defined, it is responsible for retuning a boolean value. If it returns true then the event function will be called, otherwise it will not. If a proposedEvent function is not provided or it is set to nil then the selected event function will always be called.",
+    "1 Function: The function will be passed a minimum time, the corresponding event function, the position of the event and the arbitrary 3rd return value from the create event function. It must return a boolean value which will determine if the KMC framework will call the event function on the SpinSystem.",
     "",
     function(kmc, sf)
 	local data = dd(kmc)
@@ -367,10 +367,34 @@ local function index_of_smallest_value(values, rng)
     return low_index[r]
 end
 
+methods["extraReturnFunction"] = {
+    "get the function that is called with arguments (min_time, min_action, min_pos, min_opaque) and whose return values are appended to the standard return value of :apply(ss)",
+    "",
+    "1 Function: Function to call to augment the standard return value of :apply(ss)",
+    function(kmc)
+        local data = dd(kmc)
+        if data.extraReturnFunction == nil then
+            data.extraReturnFunction = function() end
+        end
+        return data.extraReturnFunction
+    end
+}
+
+methods["setExtraReturnFunction"] = {
+    "Set the function that is called with arguments (min_time, min_action, min_pos, min_opaque) and whose return values are appended to the standard return value of :apply(ss)",
+    "1 Function: Function to call to augment the standard return value of :apply(ss)",
+    "",
+    function(kmc, func)
+        local data = dd(kmc)
+        data.extraReturnFunction = func
+    end
+}
+
+
 methods["apply"] = {
     "Take a single step of the KMC algorithm by computing and stepping to the next nearest event",
     "1 *SpinSystem*: SpinSystem to operator on.",
-    "",
+    "1 Boolean, Optional Values: Value indicating if a step was made or if time was added to the SpinSystem. The proposedEventFunction can disallow an event.",
     function(kmc, ss)
         local data = dd(kmc)
 	local comm = kmc:MPIComm()
@@ -382,16 +406,16 @@ methods["apply"] = {
 	local end_f = kmc:shutdownFunction()
 	local proposed_f = kmc:proposedEventFunction()
 
-	local det_fields  = data.fields_no_temp
-	local temp_fields =  data.fields_only_temp
+	-- local det_fields  = data.fields_no_temp
+	-- local temp_fields =  data.fields_only_temp
 
 	if comm:get_rank() == nil then
-	    return -- this process isn't part of this computation
+	    return false-- this process isn't part of this computation
 	end
 
-	if det_fields == nil then
-	    error("Fields are not set. Use the :setFields method.")
-	end
+	-- if det_fields == nil then
+	--    error("Fields are not set. Use the :setFields method.")
+	-- end
 
 	start_f(kmc, ss)
 
@@ -466,8 +490,9 @@ methods["apply"] = {
 	local min_action = mta[2]
 	local min_pos = mta[3]
 	local min_opaque = mta[4]
+        local made_step = true
 
-	if proposed_f(min_time, min_action, min_opaque) then
+	if proposed_f(min_time, min_action, min_pos, min_opaque) then
 	    if min_time then
 		if min_time > max_step then
 		    ss:setTime(ss:time() + max_step)
@@ -481,10 +506,13 @@ methods["apply"] = {
 		-- let's step forward without doing anything
 		ss:setTime(ss:time() + max_step)
 	    end
+        else
+            made_step = false
 	end
 
 	end_f(kmc, ss, all_times) -- do something custom
-	return
+	return made_step, kmc:extraReturnFunction()(min_time, min_action, min_pos, min_opaque)
+        
     end
 }
 

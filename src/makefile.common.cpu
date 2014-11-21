@@ -47,5 +47,9 @@ clean:
 	rm -f $(OBJECTS)
 	rm -f $(EXTRA_CLEAN)
 
+dstclean: distclean
+
+dsitclean: distclean
+
 distclean: clean
 	rm -f $(LIBNAME).so

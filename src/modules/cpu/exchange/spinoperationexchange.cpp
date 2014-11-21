@@ -748,11 +748,7 @@ EXCHANGE_API int lib_register(lua_State* L)
     lua_pushcfunction(L, l_getmetatable);
     lua_setglobal(L, "maglua_getmetatable");
 
-    if(luaL_dostringn(L, __exchange_luafuncs(), "exchange_luafuncs.lua"))
-    {
-        fprintf(stderr, "%s\n", lua_tostring(L, -1));
-        return luaL_error(L, lua_tostring(L, -1));
-    }
+    luaL_dofile_exchange_luafuncs(L);
 
     lua_pushnil(L);
     lua_setglobal(L, "maglua_getmetatable");
@@ -776,12 +772,7 @@ EXCHANGE_API const char* lib_name(lua_State* L)
 #include "exchange_main.h"
 EXCHANGE_API int lib_main(lua_State* L)
 {
-    if(luaL_dostringn(L, __exchange_main(), "exchange_main.lua"))
-    {
-        fprintf(stderr, "%s\n", lua_tostring(L, -1));
-        return luaL_error(L, lua_tostring(L, -1));
-    }
-
+    luaL_dofile_exchange_main(L);
     return 0;
 }
 

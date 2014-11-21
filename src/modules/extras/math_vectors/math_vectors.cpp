@@ -1,18 +1,12 @@
 #include "math_vectors.h"
 #include <math.h>
 #include "math_vectors_luafuncs.h"
+#include "luabaseobject.h"
 
 #include <vector>
 #include <deque>
 using namespace std;
 #include "info.h"
-extern "C"
-{
-MATH_VECTORS_API int lib_register(lua_State* L);
-MATH_VECTORS_API int lib_version(lua_State* L);
-MATH_VECTORS_API const char* lib_name(lua_State* L);
-MATH_VECTORS_API int lib_main(lua_State* L);
-}
 
 
 static int l_erfc(lua_State* L)
@@ -130,6 +124,8 @@ static int l_vectorsicosphere(lua_State* L)
     return 1;
 }
 
+extern "C"
+{
 MATH_VECTORS_API int lib_register(lua_State* L)
 {
 	lua_getglobal(L, "math");
@@ -147,11 +143,7 @@ MATH_VECTORS_API int lib_register(lua_State* L)
 
 	lua_pop(L, 1); // math table
 
-	if(luaL_dostring(L, __math_vectors_luafuncs()))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
+        luaL_dofile_math_vectors_luafuncs(L);
 	
 	return 0;
 }
@@ -173,4 +165,5 @@ MATH_VECTORS_API const char* lib_name(lua_State* L)
 MATH_VECTORS_API int lib_main(lua_State* L)
 {
 	return 0;
+}
 }

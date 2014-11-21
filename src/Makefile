@@ -56,6 +56,7 @@ clean:
 	rm -f $(LIBNAME) $(EXTRA_CLEAN) $(OBJECTS)
 	rm -f bootstrap.h bootstrap.cpp shutdown.h shutdown.cpp maglua.html
 	rm -f $(BIN)
+	rm -f info.h	#dev version
 
 pack:			#dev version
 	./pack.sh	#dev version
@@ -84,6 +85,4 @@ distclean: clean
 	make -C modules/cpu distclean
 	make -C modules/common distclean
 	make -C modules/extras distclean
-	rm -f $(BIN)
-	rm -f info.h	#dev version
 

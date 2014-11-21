@@ -244,11 +244,8 @@ MAGNETOSTATICS3D_API int lib_register(lua_State* L)
 	
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
-	if(luaL_dostring(L, __mag3d_luafuncs()))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
+
+        luaL_dofile_mag3d_luafuncs(L);
 
 	lua_pushnil(L);
 	lua_setglobal(L, "maglua_getmetatable");

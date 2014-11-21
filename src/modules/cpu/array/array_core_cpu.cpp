@@ -1724,11 +1724,7 @@ ARRAY_API int lib_register(lua_State* L)
     lua_pushcfunction(L, l_getmetatable);
     lua_setglobal(L, "maglua_getmetatable");
 
-    if(luaL_dostringn(L, __array_luafuncs(), __array_luafuncs_name()))
-    {
-        fprintf(stderr, "%s\n", lua_tostring(L, -1));
-        return luaL_error(L, lua_tostring(L, -1));
-    }
+    luaL_dofile_array_luafuncs(L);
 
     lua_pushnil(L);
     lua_setglobal(L, "maglua_getmetatable");

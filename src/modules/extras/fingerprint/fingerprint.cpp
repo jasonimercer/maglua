@@ -352,13 +352,7 @@ int lib_register(lua_State* L)
     lua_pushcfunction(L, l_key_fp);
     lua_setglobal(L, "fp_hashFingerprint");
 
-    const char* s = __fingerprint_luafuncs();
-
-    if(luaL_dostringn(L, s, "fingerprint_luafuncs.lua"))
-    {
-        fprintf(stderr, "%s\n", lua_tostring(L, -1));
-        return luaL_error(L, lua_tostring(L, -1));
-    }
+    luaL_dofile_fingerprint_luafuncs(L);
 
     return 0;
 }
@@ -380,11 +374,7 @@ const char* lib_name(lua_State* L)
 #include "fingerprint_main.h"
 int lib_main(lua_State* L)
 {
-    if(luaL_dostringn(L, __fingerprint_main(), "fingerprint_main.lua"))
-    {
-        fprintf(stderr, "%s\n", lua_tostring(L, -1));
-        return luaL_error(L, lua_tostring(L, -1));
-    }
+    luaL_dofile_fingerprint_main(L);
 
     return 0;
 }

@@ -226,12 +226,11 @@ static void lua_setupPreamble(lua_State* L, int sub_process)
         lua_setglobal(L, "_disable_debug");
 
 
-
 	register_os_extensions(L);
 	
-	if(luaL_dostringn(L, __dofile(), "=dofile.lua"))
+	if(luaL_dostringn(L, __dofile(), __dofile_name()))
 	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+            fprintf(stderr, "%s\n", lua_tostring(L, -1));
 	}
 		
 	lua_getglobal(L, "dofile_add");
@@ -286,11 +285,8 @@ int libMagLua(lua_State* L, int sub_process, int force_quiet)
 {
 	lua_setupPreamble(L, sub_process);
 
-        if(luaL_dostringn(L, __bootstrap(), __bootstrap_name()))
-        {
-            fprintf(stderr, "%s\n", lua_tostring(L, -1));
-            return 1; //luaL_error(L, lua_tostring(L, -1));
-        }
+        luaL_dofile_bootstrap(L);
+
 	return 0;
 }
 

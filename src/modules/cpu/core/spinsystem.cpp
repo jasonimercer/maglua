@@ -82,9 +82,11 @@ SpinSystem* SpinSystem::copy(lua_State* L)
 
 bool SpinSystem::sameSize(const SpinSystem* other) const
 {
-	return 	nx == other->nx && 
-			ny == other->ny && 
-			nz == other->nz;
+    if(other == 0)
+        return false;
+    return nx == other->nx && 
+           ny == other->ny && 
+           nz == other->nz;
 }
 
 static void cross3(
@@ -1120,6 +1122,47 @@ void SpinSystem::getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* sit
 	v[7] = sqrt(v[4]*v[4] + v[5]*v[5] + v[6]*v[6]);
 }
 
+
+static double dot_6d(const double v1, const double v2, const double v3, const double w1, const double w2, const double w3)
+{
+    return v1*w1 + v2*w2 + v3*w3;
+}
+
+int  SpinSystem::totalAngularDiff(SpinSystem* other, double& tad)
+{
+    if(!sameSize(other))
+        return 1;
+
+    if(!x || !other->x)
+        return 1;
+
+    const double* _x1 = x->data();
+    const double* _y1 = y->data();
+    const double* _z1 = z->data();
+    const double* _m1 = ms->data();
+
+    const double* _x2 = other->x->data();
+    const double* _y2 = other->y->data();
+    const double* _z2 = other->z->data();
+    const double* _m2 = other->ms->data();
+
+
+    double sum = 0;
+    for(int i=0; i<nxyz; i++)
+    {
+        if(_m1[i] != 0 && _m2[i] != 0)
+        {
+
+            const double ab = dot_6d(_x1[i], _y1[i], _z1[i], _x2[i], _y2[i], _z2[i]);
+
+            const double cos_t = ab / (_m1[i] * _m2[i]);
+            sum += acos(cos_t);
+        }
+    }
+
+    tad = sum;
+    return 0;
+}
 
 
 
@@ -2490,6 +2533,33 @@ static int l_idx2pos(lua_State* L)
 	return 1;
 }
 
+
+static int l_totalangulardiff(lua_State* L)
+{
+    LUA_PREAMBLE(SpinSystem, s1, 1);
+    LUA_PREAMBLE(SpinSystem, s2, 2);
+
+    double sum = 0;
+    if(s1->totalAngularDiff(s2, sum))
+        return luaL_error(L, "Size mismatch or uninitialized data\n");
+    lua_pushnumber(L, sum);
+    return 1;
+}
+
+static int l_averageangulardiff(lua_State* L)
+{
+    LUA_PREAMBLE(SpinSystem, s1, 1);
+    LUA_PREAMBLE(SpinSystem, s2, 2);
+
+    double sum = 0;
+    if(s1->totalAngularDiff(s2, sum))
+        return luaL_error(L, "Size mismatch or uninitialized data\n");
+
+    lua_pushnumber(L, sum / ((double)s1->nxyz));
+    return 1;
+}
+
+
 int SpinSystem::help(lua_State* L)
 {
 	if(lua_gettop(L) == 0)
@@ -3052,6 +3122,21 @@ int SpinSystem::help(lua_State* L)
 		return 3;
 	}
 
+        if(func == l_totalangulardiff)
+        {
+            lua_pushstring(L, "Compute the total angular difference between the calling SpinSystem and the given SpinSystem.");
+            lua_pushstring(L, "1 SpinSystem: SpinSystem to compare against.");
+            lua_pushstring(L, "1 Number: Sum of the angular differences between all non-zero sites.");
+            return 3;
+        }
+        if(func == l_averageangulardiff)
+        {
+            lua_pushstring(L, "Compute the average angular difference between the calling SpinSystem and the given SpinSystem.");
+            lua_pushstring(L, "1 SpinSystem: SpinSystem to compare against.");
+            lua_pushstring(L, "1 Number: Sum of the angular differences between all non-zero sites divided by the number of sites.");
+            return 3;
+        }
+
 	return LuaBaseObject::help(L);
 }
 
@@ -3144,6 +3229,11 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"registeredSlots", l_registeredSlots},
 		
 		{"invalidateFourierData", l_invalidatefourierdata},
+
+
+                {"totalAngularDifference", l_totalangulardiff},
+                {"averageAngularDifference", l_averageangulardiff},
+                
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

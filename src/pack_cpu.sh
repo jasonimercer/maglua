@@ -77,6 +77,7 @@ cp -r modules/extras/kmc               $version/modules/extras
 cp -r modules/extras/curl              $version/modules/extras
 cp -r modules/extras/interactive       $version/modules/extras
 cp -r modules/extras/fingerprint       $version/modules/extras
+cp -r modules/extras/profile           $version/modules/extras
 
 rm -rf `du -a $version | cut -f 2 | grep '\.svn'`
 

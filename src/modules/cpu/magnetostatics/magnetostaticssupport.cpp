@@ -808,11 +808,15 @@ void magnetostaticsLoad(
 	
 	lua_State* L = lua_open();
 	luaL_openlibs(L);
+
+        // we are not using the fancy macro stuff in the 
+        // hardcoded file here. We have a new state that's
+        // a sandbox, not the main state.
 	if(luaL_dostring(L, __extrapolate()))
 	{
-		fprintf(stderr, "(%s:%i) %s\n", __FILE__, __LINE__, lua_tostring(L, -1));
-		lua_close(L);
-		return;
+            fprintf(stderr, "(%s:%i) %s\n", __FILE__, __LINE__, lua_tostring(L, -1));
+            lua_close(L);
+            return;
 	}
 	
 	

@@ -21,6 +21,7 @@ extern "C" {
 
 #include "factory.h"
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <vector>
 typedef struct buffer
@@ -50,6 +51,11 @@ inline void buffer_unref(lua_State* L, buffer* b)
 		int r = b->encoded_table_refs[i];
 		luaL_unref(L, LUA_REGISTRYINDEX, r);
 	}
+}
+
+inline int luaL_dostringn(lua_State* L, const char* code, const char* name)
+{
+    return luaL_loadbuffer(L, code, strlen(code), name) || lua_pcall(L, 0, LUA_MULTRET, 0);
 }
 
 
@@ -656,7 +662,7 @@ inline void luaT_register(lua_State* L)
 	" return v\n"
 	"end\n"
 	;
-	luaL_dostring(L, get_name);
+	luaL_dostringn(L, get_name, "@luabaseobject.h(get_name)");
 	lua_pushstring(L, T::typeName());
 	lua_call(L, 1,1);
 	lua_pushstring(L, "new");
@@ -689,13 +695,6 @@ inline void luaT_register(lua_State* L)
 #define _NULLPAIR32  _NULLPAIR16,_NULLPAIR16
 #define _NULLPAIR64  _NULLPAIR32,_NULLPAIR32
 #define _NULLPAIR128 _NULLPAIR64,_NULLPAIR64
-
-inline int luaL_dostringn(lua_State* L, const char* code, const char* name)
-{
-	return luaL_loadbuffer(L, code, strlen(code), name) || lua_pcall(L, 0, LUA_MULTRET, 0);
-}
-
-
 
 
 #endif // LUABASEOBJECT_H

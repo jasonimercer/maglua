@@ -781,11 +781,8 @@ LONGRANGE2D_API int lib_register(lua_State* L)
 
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
-	if(luaL_dostring(L, __longrange2d_luafuncs()))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
+
+        luaL_dofile_longrange2d_luafuncs(L);
 
 	lua_pushnil(L);
 	lua_setglobal(L, "maglua_getmetatable");
@@ -813,13 +810,8 @@ LONGRANGE2D_API const char* lib_name(lua_State* L)
 
 LONGRANGE2D_API int lib_main(lua_State* L)
 {
-	if(luaL_dostring(L, __longrange2d_main()))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
-	
-	return 0;
+    luaL_dofile_longrange2d_main(L);
+    return 0;
 }
 
 

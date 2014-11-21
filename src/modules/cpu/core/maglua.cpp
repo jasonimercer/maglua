@@ -42,11 +42,8 @@ CORE_API int lib_register(lua_State* L)
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
 
-	if(luaL_dostringn(L, __spinsystem_luafuncs(), "spinsystem_luafuncs.lua"))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
+        luaL_dofile_spinsystem_luafuncs(L);
+
 	lua_pushnil(L);
 	lua_setglobal(L, "maglua_getmetatable");
 

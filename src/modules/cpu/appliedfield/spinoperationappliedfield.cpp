@@ -228,23 +228,9 @@ APPLIEDFIELD_API int lib_register(lua_State* L)
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
 	
-	if(luaL_dostringn(L, __appliedfield_luafuncs(), "appliedfield_luafuncs.lua"))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
-
-	if(luaL_dostringn(L, __appliedfield_heterogeneous_luafuncs(), "appliedfield_heterogeneous_luafuncs.lua"))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
-
-	if(luaL_dostringn(L, __appliedfield_site_luafuncs(), "appliedfield_site_luafuncs.lua"))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
+        luaL_dofile_appliedfield_luafuncs(L);
+        luaL_dofile_appliedfield_heterogeneous_luafuncs(L);
+        luaL_dofile_appliedfield_site_luafuncs(L);
 
 	lua_pushnil(L);
 	lua_setglobal(L, "maglua_getmetatable");

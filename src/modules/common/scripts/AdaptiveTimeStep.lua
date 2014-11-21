@@ -67,7 +67,7 @@ function make_adapt_step_function(a1, a2, a3, a4, a5, a6)
 		step(ss3, true)
 		
 		local are_same, ee = same(ss2,ss3)
-                print(are_same, ee, s:timeStep())
+                --print(are_same, ee, s:timeStep())
 		if are_same then
 			ss3:copySpinsTo(s)
 			if optional_temp and not skip_temperature then
@@ -87,7 +87,7 @@ function make_adapt_step_function(a1, a2, a3, a4, a5, a6)
 			s:setTimeStep(s:timeStep() * adjust) --stride longer next time
 -- 			print("good", adjust)
 		else
- 			print("","","","","bad:", ee)
+ 			--print("","","","","bad:", ee)
 -- 			error("BAD!!")
 			s:setTimeStep(s:timeStep() * 0.5) --stride shorter next time
 		end

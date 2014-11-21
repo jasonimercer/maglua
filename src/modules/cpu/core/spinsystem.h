@@ -74,6 +74,7 @@ public:
 	void getNetMag(dArray* site_scale1, dArray* site_scale2, dArray* site_scale3, double* v8, const double scale);
 	
 	void diff(SpinSystem* other, double* v4);
+        int  totalAngularDiff(SpinSystem* other, double& tad);
 
 	dArray* x;
 	dArray* y;

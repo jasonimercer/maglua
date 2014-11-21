@@ -237,10 +237,9 @@ RANDOM_API int lib_register(lua_State* L)
 	luaT_register<CRand>(L);
 	luaT_register<MTRand>(L);
 	luaT_register<Isaac>(L);
-	if(luaL_dostring(L, __random_wrapper()))
-	{
-		fprintf(stderr, "%s\n", lua_tostring(L, -1));
-	}
+
+        luaL_dofile_random_wrapper(L);
+
 	return 0;
 }
 

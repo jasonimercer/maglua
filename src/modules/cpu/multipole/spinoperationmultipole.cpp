@@ -21,7 +21,7 @@
 #include <math.h>
 
 Multipole::Multipole(int nx, int ny, int nz)
-	: SpinOperation(Multipole::typeName(), DIPOLE_SLOT, nx, ny, nz, hash32(Multipole::typeName()))
+	: SpinOperation(nx, ny, nz, hash32(Multipole::typeName()))
 {
 	setSlotName("Multipole");
 	x = 0; y = 0; z = 0; weight = 0;
@@ -298,11 +298,8 @@ MULTIPOLE_API int lib_register(lua_State* L)
 
     lua_pushcfunction(L, l_getmetatable);
     lua_setglobal(L, "maglua_getmetatable");
-    if(luaL_dostring(L, __fmm_octtree_luafuncs()))
-    {
-        fprintf(stderr, "%s\n", lua_tostring(L, -1));
-        return luaL_error(L, lua_tostring(L, -1));
-    }
+
+    luaL_dofile_fmm_octtree_luafuncs(L);
 
     lua_pushnil(L);
     lua_setglobal(L, "maglua_getmetatable");

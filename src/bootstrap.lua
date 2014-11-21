@@ -177,7 +177,7 @@ if setup_debug then
     end
 
     local hook = make_hook()
-    debug.sethook(hook, "crl", 10)
+    debug.sethook(hook, "l", 5)
 end
 
 _get_debug_flag = nil

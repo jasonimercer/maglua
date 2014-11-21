@@ -83,13 +83,8 @@ int lib_register(lua_State* L)
 	lua_pushcfunction(L, l_curl_fetch);
 	lua_setglobal(L, "curl");
 
-	const char* s = __curl_luafuncs();
+        luaL_dofile_curl_luafuncs(L);
 
-	if(luaL_dostringn(L, s, "curl_luafuncs.lua"))
-	{
-		fprintf(stderr, "CURL: %s\n", lua_tostring(L, -1));
-		return luaL_error(L, lua_tostring(L, -1));
-	}
 	
 	return 0;
 }
