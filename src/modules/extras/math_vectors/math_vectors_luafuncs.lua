@@ -1,45 +1,27 @@
 -- Math_Vectors
 
-local function istable(a)
-	return type(a) == "table"
-end
-local function isnumber(a)
-	return type(a) == "number"
-end
-	
+local type_table = type(table)
+local type_number = type(1)
+
 local function cross(a,b)
-	if not istable(a) or not istable(b) then
-		error("cross expects 2 tables")
-	end
-	
-	local c = {}
-	c[1] = a[2]*b[3] - a[3]*b[2]
-	c[2] = a[3]*b[1] - a[1]*b[3]
-	c[3] = a[1]*b[2] - a[2]*b[1]
-
-	return c
+    if type(a) == type_table then
+        if type(b) == type_table then
+            
+            local c = {}
+            c[1] = a[2]*b[3] - a[3]*b[2]
+            c[2] = a[3]*b[1] - a[1]*b[3]
+            c[3] = a[1]*b[2] - a[2]*b[1]
+            
+            return c
+            
+        end
+    end
+    error("cross expects 2 tables")
 end
 
-local function dot(a,b)
-	if not istable(a) or not istable(b) then
-		error("dot expects 2 tables")
-	end
-	
-	local sum = 0
-	for i=1,table.maxn(a) do
-		local x = a[i]
-		local y = b[i]
-		
-		if isnumber(x) and isnumber(y) then
-			sum = sum + x*y
-		end
-	end
-	
-	return sum
-end
 
 local function norm(a)
-	return dot(a,a)^(1/2)
+	return math.dot(a,a)^(1/2)
 end
 	
 local function angleBetween(a,b)
@@ -49,7 +31,7 @@ local function angleBetween(a,b)
 	    return 0
 	end
 	
-	local ct = dot(a, b) / n
+	local ct = math.dot(a, b) / n
 
 	-- floating point problems:
 	if ct < -1 then ct = -1 end
@@ -68,7 +50,7 @@ local function scaledVector(a, s)
 end
 
 local function project(a, b)
-	local ab,bb = dot(a,b),dot(b,b)
+	local ab,bb = math.dot(a,b),math.dot(b,b)
 	if bb == 0 then
 		return scaledVector(b, 0)
 	end
@@ -204,43 +186,40 @@ local function get_random_un_funcs(arg)
 end
 
 local function unwrap_table(t)
-	if t[1] then
-		local v = t[1]
-		table.remove(t, 1)
-		return v, unwrap_table(t)
-	end
+    if t[1] then
+        local v = t[1]
+        table.remove(t, 1)
+        return v, unwrap_table(t)
+    end
 end
 local function wrap_table(...)
-	return arg
+    return arg
 end
 
-local function get_arg_type(arg, t, skip)
-	skip = skip or 0
-	local r = {}
-	for i = skip+1, table.maxn(arg) do
-		if type(arg[i]) == t then
-			table.insert(r, arg[i])
-		end
-	end
-	return unwrap_table(r)
+local function get_numbers(arg, start, n)
+    for i=start, n do
+        if type(arg[i]) == type_number then
+            return arg[i], get_numbers(arg, i+1, n)
+        end
+    end
 end
-
-local function get_numbers(arg, skip)
-	return get_arg_type(arg, type(12), skip)
-end
-local function get_tables(arg, skip)
-	return get_arg_type(arg, type({}), skip)
+local function get_tables(arg, start, n)
+    for i=start, n do
+        if type(arg[i]) == type_table then
+            return arg[i], get_tables(arg, i+1, n)
+        end
+    end
 end
 local function copy_table(t)
-	local r = {}
-	for k,v in pairs(t) do
-		if type(v) == type({}) then
-			r[k] = copy_table(v)
-		else
-			r[k] = v
-		end
-	end
-	return r
+    local r = {}
+    for k,v in pairs(t) do
+        if type(v) == type_table then
+            r[k] = copy_table(v)
+        else
+            r[k] = v
+        end
+    end
+    return r
 end
 
 -- rules:
@@ -256,15 +235,15 @@ local function vectorByRule(...)
 	-- random functions
 	local uf, nf = get_random_un_funcs(arg)
 	
-	local rules = copy_table( wrap_table( get_tables( arg )))[1]
+	local rules = copy_table( wrap_table( get_tables( arg, 1, table.maxn(arg) )))[1]
 
 	local total_prob = 0
 	-- Now we need to format the rules in a more strict manner. 
 	-- We will convert tables into 1 primary and 2 nullspace vectors
 	for k,r in pairs(rules) do
 		total_prob = total_prob + (r[2] or 0)
-		local a, b, c = get_tables(r, 2)
-		local stddev = get_numbers(r, 2) or 0
+		local a, b, c = get_tables(r, 3, table.maxn(r))
+		local stddev = get_numbers(r, 3, table.maxn(r)) or 0
 		if a == nil then
 			a = {1,0,0}
 		end
@@ -376,7 +355,6 @@ math.vectorsByRules = vectorByRule
 math.nullSpace = nullSpace
 math.randomNormal = randomNormal
 math.cross = cross
-math.dot = dot
 math.rotateAboutBy = rotateAboutBy
 math.angleBetween = angleBetween
 math.norm = norm
@@ -404,7 +382,7 @@ math.help = function(x)
 			"2 Tables of Numbers: Input",
 			"1 Table of Numbers: Projection"
 	end
-	if x == dot then
+	if x == math.dot then
 		return
 			"Compute the dot product between 2 Vectors",
 			"2 Tables of Numbers: Input",

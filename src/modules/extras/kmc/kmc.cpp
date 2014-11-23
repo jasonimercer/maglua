@@ -135,6 +135,9 @@ KMC_API int lib_register(lua_State* L)
     lua_pushcfunction(L, l_getmetatable);
     lua_setglobal(L, "maglua_getmetatable");
 
+    luaL_dofile_kmc_luafuncs(L);
+
+/*
     const char* s = __kmc_luafuncs();
 
     if(luaL_dostringn(L, s, "kmc_luafuncs.lua"))
@@ -142,12 +145,15 @@ KMC_API int lib_register(lua_State* L)
 	fprintf(stderr, "KMC: %s\n", lua_tostring(L, -1));
 	return luaL_error(L, lua_tostring(L, -1));
     }
+*/
 
+/*
     if(luaL_dostringn(L, __kmc_wood_luafuncs(), "kmc_wood_luafuncs.lua"))
     {
 	fprintf(stderr, "KMC: %s\n", lua_tostring(L, -1));
 	return luaL_error(L, lua_tostring(L, -1));
     }
+*/
 
     lua_pushnil(L);
     lua_setglobal(L, "maglua_getmetatable");

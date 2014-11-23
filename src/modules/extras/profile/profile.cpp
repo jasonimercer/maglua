@@ -99,6 +99,12 @@ int lib_close(lua_State* L)
     lua_pushcfunction(L, l_get_profile_data);
     lua_setglobal(L, "_get_profile_data");
 
+    lua_pushcfunction(L, l_getpid);
+    lua_setglobal(L, "_profile_getpid");
+
+    lua_pushcfunction(L, l_gethostname);
+    lua_setglobal(L, "_profile_gethostname");
+
     luaL_dofile_profile_close(L);
     return 0;
 }

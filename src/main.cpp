@@ -34,9 +34,12 @@ int main(int argc, char** argv)
 	lua_State *L = lua_open();
 	int ret = libMagLuaArgs(argc, argv, L, sub_process, force_quiet);
 
-	if(luaL_dostringn(L, __shutdown(), __shutdown_name()))
+        // not using the convenience macro in shutdown.h because we
+        // want to hit MPI_Finalize if things go bad
+	if(luaL_dostringn(L, __shutdown(), __shutdown_chunkname()))
 	{
 	    fprintf(stderr, "%s\n", lua_tostring(L, -1));
+            ret = ret | 1;
 	}
 
 	lua_close(L);

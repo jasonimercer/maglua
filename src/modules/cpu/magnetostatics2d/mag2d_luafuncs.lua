@@ -482,9 +482,15 @@ local function mag2d_load(mag, filename)
 		error("Failed to load `" ..filename .. "'", 2)
 	end
 	
+        local chunkname = "=" .. filename
+        local a,b,c = string.find(filename, ".*/(.*)")
+        if a then
+            chunkname = "=" .. c
+        end
+
 	local data = f:read("*a")
 	f:close()
-	local sameInternals, loadfunc = assert(loadstring(data))()
+	local sameInternals, loadfunc = assert(loadstring(data, chunkname))()
 
 	if sameInternals(mag) then
 		loadfunc(mag)

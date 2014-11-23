@@ -3,6 +3,9 @@
 -- This is a boot loader for the rest of the program
 -- this file is encoded into a C string
 
+-- before we do anything we will get a copy of the command line 
+command_line = table.concat(arg, " ")
+
 -- OS specific file locations/cmds
 -- for now OS is only Linux
 local module_path_dir

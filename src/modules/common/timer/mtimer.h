@@ -25,10 +25,14 @@ public:
 	static int help(lua_State* L);
 	
 	void fixTime();
+#if 0
 	long get_seconds();
 	long get_nanoseconds();
+#endif
+
 	double get_time();
 	void set_time(double t);
+        void accumulate();
 	void reset();
 	void start();
 	void stop();

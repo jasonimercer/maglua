@@ -228,7 +228,7 @@ static void lua_setupPreamble(lua_State* L, int sub_process)
 
 	register_os_extensions(L);
 	
-	if(luaL_dostringn(L, __dofile(), __dofile_name()))
+	if(luaL_dostringn(L, __dofile(), __dofile_chunkname()))
 	{
             fprintf(stderr, "%s\n", lua_tostring(L, -1));
 	}

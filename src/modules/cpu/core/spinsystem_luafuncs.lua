@@ -7,7 +7,12 @@ local t = maglua_getmetatable(MODNAME) -- this is a special function available o
 -- trying something new for style. Putting docs and code in a table which will later be 
 -- used to build metatable and help system.
 local methods = {} 
-            
+
+local type_text = type("")
+local type_number = type(1)
+local type_table = type({})
+local type_function = type(type)
+local type_nil = type(nil)            
 
 methods["netMoment"] = {
 	"Calculate and return the net moment of a spin system",
@@ -25,10 +30,11 @@ methods["netMoment"] = {
 			local scale = 1
 			for i = 1, select('#',...) do
 				local v = select(i,...)
-				if type(v)==type(1.23) then
+                                local type_v = type(v)
+				if type_v==type_number then
 					scale = scale * v
 				end
-				if type(v)==type(wsReal) then
+				if type_v==type(wsReal) then
 					wsReal:pairwiseMultiply(v, wsReal)
 				end
 			end
@@ -94,24 +100,10 @@ methods["sameDimensions"] =
     end
 }
 
-local function getName(x)
-    if type(x) == type("") then
-	return x
-    end
+-- getName now defined in C
+local getName = _getName
+_getName = nil
 
-    local t = getmetatable(x)
-    if t then
-	if t.slotName then
-	    return x:slotName()
-	end
-    end
-
-    if type(x) == type(nil) then
-	return nil
-    end
-
-    error("Unknown object used for slot name")
-end
 
 methods["ensureSlotExists"] =
 {
@@ -130,7 +122,7 @@ methods["setSlotUsed"] =
 "1 String or an object with a slot name, 0 or 1 Boolean: A field name and a flag to include or exclude the field in the summation method. Default value is true.",
 "",
 function(ss, n, b)
-    if type(b) == type(nil) then
+    if type(b) == type_nil then
 	return ss:_setSlotUsed( getName(n) )
     else
 	return ss:_setSlotUsed( getName(n), b )
@@ -185,7 +177,8 @@ methods["field"] =
 "1 String or an object with a slot name, 1 3Vector: The first argument identifies the field interaction type, must match a :slotName() of an applied operator. The second argument selects the lattice site.",
 "4 Numbers: The field vector at the site and the magnitude fo the field",
 function(ss,n,...)
-    if type(n) == type(1) or type(n) == type({}) then
+    local type_n = type(n)
+    if type_n == type_number or type_n == type_table then
 	return ss:field("Total", n, ...)
     end
     return ss:_field( getName(n), ...)
@@ -237,30 +230,30 @@ end
 
 
 
+local function zero(ss,v)
+    v = getName(v)
+    ss:ensureSlotExists(v)
+    ss:setSlotUsed(v, false)
+    ss:zeroField(v)
+    -- print("Zero'd " .. v)
+end
+
 methods["resetFields"] =
 {
 "Zero some or all of the fields and exclude them from future sums until they are added to the sum list either via applying new fields or setting the internal flag explicitly with :setSlotUsed.",
 "Nothing or a table of Strings or an objects with a slot name: Fields to reset (default all registered slots).",
 "",
 function(ss,t)
-    local function zero(v)
-	v = getName(v)
-	ss:ensureSlotExists(v)
-	ss:setSlotUsed(v, false)
-	ss:zeroField(v)
-	-- print("Zero'd " .. v)
-    end
-
     if t == nil then
 	for k,v in pairs(ss:slots()) do
-	    zero(v)
+	    zero(ss,v)
 	end
 	return
     end
 
-    if type(t) == type({}) then
+    if type(t) == type_table then
 	for k,v in pairs(t) do
-	    zero(v)
+	    zero(ss,v)
 	end
 	return
     end
@@ -277,23 +270,25 @@ methods["sumFields"] =
 function(ss, a,b)
     local destination = nil
     local source = nil
-    if type(a) ~= type({}) and type(a) ~= type(nil) then
+    local type_a = type(a)
+    local type_b = type(b)
+    if type_a ~= type_table and type_a ~= type_nil then
 	destination = getName(a)
     end
 
     -- allowing arguments to be reversed
     if destination == nil then
-	if type(b) ~= type({}) and type(b) ~= type(nil) then
+	if type_b ~= type_table and type_b ~= type_nil then
 	    destination = getName(b)
 	end
     end
     
-    if type(a) == type({}) then
+    if type_a == type_table then
 	source = a
     end
 
     if source == nil then
-	if type(b) == type({}) then
+	if type_b == type_table then
 	    source = b
 	end
     end

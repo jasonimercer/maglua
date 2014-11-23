@@ -118,6 +118,7 @@ void Timer::fixTime()
 #endif
 }
 
+#if 0
 long Timer::get_seconds()
 {
 	fixTime();
@@ -130,17 +131,19 @@ long Timer::get_seconds()
 
 long Timer::get_nanoseconds()
 {
-	fixTime();
-	return nanoseconds;
+    fixTime();
+    return nanoseconds;
 }
+#endif
 
 double Timer::get_time()
 {
-	fixTime();
+    accumulate();
+    fixTime();
 #ifdef WIN32
-	return seconds;
+    return seconds;
 #else
-	return (double)(seconds) + (double)(nanoseconds)/((double)NANOSEC_PER_SEC);
+    return (double)(seconds) + (double)(nanoseconds)/((double)NANOSEC_PER_SEC);
 #endif
 }
 
@@ -178,8 +181,11 @@ void Timer::start()
 	paused = 0;  
 }
 
-void Timer::stop()
+// add internal time and reset timer start struct
+void Timer::accumulate()
 {
+    if(!paused)
+    {
 #ifdef WIN32
 	t1 = clock();
 #else
@@ -189,6 +195,7 @@ void Timer::stop()
 	gettimeofday( (struct timeval *)t1, NULL);
 #endif
 #endif
+
 
 #ifdef WIN32
 	seconds += (double)(t1 - t0) / CLOCKS_PER_SEC;
@@ -201,17 +208,34 @@ void Timer::stop()
 	nanoseconds += (t1->tv_usec*1000) - (t0->tv_usec*1000);
 #endif
 #endif
-	paused = 1;
 
-	fixTime();
+
+#ifdef WIN32
+	t0 = t1;
+#else
+#ifndef MACOSX
+        memcpy(t0, t1, sizeof(struct timespec));
+#else
+        memcpy(t0, t1, sizeof(struct timeval));
+#endif
+#endif
+
+        fixTime();
+    }
+}
+
+void Timer::stop()
+{
+    accumulate();
+    paused = 1;
 }
 
 void Timer::pause()
 {
-	if(paused)
-		start();
-	else
-		stop();
+    if(paused)
+        start();
+    else
+        stop();
 }
 
 
@@ -247,6 +271,7 @@ static int l_stop(lua_State* L)
 	return 0;
 }
 
+#if 0
 static int l_getsec(lua_State* L)
 {
 	LUA_PREAMBLE(Timer, timer, 1);	
@@ -259,7 +284,9 @@ static int l_getnano(lua_State* L)
 	lua_pushinteger(L, timer->get_nanoseconds());
 	return 1;
 }
-static int l_get(lua_State* L)
+#endif
+
+static int l_elapsed(lua_State* L)
 {
 	LUA_PREAMBLE(Timer, timer, 1);	
 	lua_pushnumber(L, timer->get_time());
@@ -307,26 +334,27 @@ int Timer::help(lua_State* L)
 		lua_pushstring(L, "");
 		return 3;
 	}	
+        #if 0
 	if(func == l_getsec)
 	{
 		lua_pushstring(L, "Get elapsed seconds since last reset/start");
 		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 number: elapsed seconds");
+		lua_pushstring(L, "1 integer: elapsed seconds");
 		return 3;
 	}	
 	if(func == l_getnano)
 	{
 		lua_pushstring(L, "Get elapsed nanoseconds since last reset/start");
 		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 number: elapsed nanoseconds");
+		lua_pushstring(L, "1 integer: elapsed nanoseconds");
 		return 3;
 	}
-	
-	if(func == l_get)
+	#endif
+	if(func == l_elapsed)
 	{
-		lua_pushstring(L, "Get elapsed seconds since last reset/start");
+		lua_pushstring(L, "Get elapsed time since last reset/start.");
 		lua_pushstring(L, ""); 
-		lua_pushstring(L, "1 number: elapsed seconds");
+		lua_pushstring(L, "1 Number: elapsed seconds");
 		return 3;
 	}
 
@@ -345,9 +373,9 @@ const luaL_Reg* Timer::luaMethods()
 		{"stop",       l_stop},
 		{"pause",      l_pause},
 		{"reset",      l_reset},
-		{"seconds",    l_getsec},
-		{"nanoseconds",l_getnano},
-		{"elapsed",       l_get},
+//		{"seconds",    l_getsec},
+//		{"nanoseconds",l_getnano},
+		{"elapsed",       l_elapsed},
 		{NULL, NULL}
 	};
 	merge_luaL_Reg(m, _m);

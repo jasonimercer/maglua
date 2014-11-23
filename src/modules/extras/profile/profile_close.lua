@@ -14,7 +14,7 @@ local name_pos = 8
 local call_data = x[1]
 local profile_total_timer = x[2]
 local profile_base = x[3]
-
+local date = x[4]
 
 if call_data then -- we were profiling
     profile_total_timer:stop()
@@ -34,7 +34,38 @@ if call_data then -- we were profiling
 
     local result_table = {}
 
+
+    -- now we will combine common names
+    local cd_combined = {}
+    local n = table.maxn(cd)
+
+    for i=1,n do
+        local cdi = cd[i]
+        if cdi then
+            cd[i] = nil
+            
+            for j=1,n do
+                if cd[j] then
+                    if cd[j][name_pos] == cdi[name_pos] then
+                        cdi[total_inclusive] = cdi[total_inclusive] + cd[j][total_inclusive]
+                        cdi[total_inclusive] = cdi[total_exclusive] + cd[j][total_exclusive]
+                        cdi[call_count] = cdi[call_count] + cd[j][call_count]
+                        cd[j] = nil
+                    end
+                end
+            end
+            
+            table.insert(cd_combined, cdi)
+        end
+    end
+    
+    cd = cd_combined
+
+
+
     table.sort(cd, cd_sort_inclusive)
+
+
 
 
 
@@ -55,12 +86,23 @@ if call_data then -- we were profiling
         end
     end
 
-    local fn = profile_base .. "_" .. string.format("%06d", os.pid()) .. ".txt"
+    local fn = profile_base .. "_" .. string.format("%05d", os.pid()) .. ".txt"
     local f = io.open(fn, "w")
 
-    f:write("Profile data for " .. profile_base .. ", process id: " .. string.format("%06d", os.pid()) .. "\n")
-    f:write(fcalls .. " function calls.\n")
-    f:write(string.format("%8g second runtime.\n", profile_total_timer ))
+    f:write("MagLua Profile Report\n\n")
+
+    local cmd = tostring(command_line)
+    local date = tostring(date)
+    local host = _profile_gethostname()
+    local pid = string.format("%05d", _profile_getpid())
+    local time = string.format("%6g", profile_total_timer)
+    -- fcalls
+
+    f:write(string.format("  Command Line: %s\n", cmd))
+    f:write(string.format("     Host Name: %-30s        PID: %-20s\n", host, pid))
+    f:write(string.format("    Start Date: %-30s Total Time: %-20s\n", date, time .. " seconds"))
+    f:write(string.format("Function Calls: %s\n", fcalls))
+
     f:write("\n")
     f:write("                                                                 Percent Runtime\n")
     f:write("Function Name                               Function Calls     Inclusive Exclusive\n")

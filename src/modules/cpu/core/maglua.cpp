@@ -34,10 +34,46 @@ static int l_getmetatable(lua_State* L)
     return 1;
 }
 
+
+// moving getName into C. 
+// profiler shows a lot of calls to it, trying to save some time
+static int l_getname(lua_State* L)
+{
+    const int t = lua_type(L, 1);
+
+    if(t == LUA_TSTRING)
+    {
+        lua_pushvalue(L, 1);
+        return 1;
+    }
+
+    if(t == LUA_TNIL)
+    {
+        return 0;
+    }
+
+    if(lua_getmetatable(L, 1))
+    {
+        lua_getfield(L, -1, "slotName");
+        if(lua_isfunction(L, -1))
+        {
+            lua_pushvalue(L, 1);
+            lua_call(L, 1, 1);
+            return 1;
+        }
+    }
+
+    return luaL_error(L, "Unknown object used for slot name");
+}
+
+
 #include "spinsystem_luafuncs.h"
 CORE_API int lib_register(lua_State* L)
 {
 	luaT_register<SpinSystem>(L);
+
+        lua_pushcfunction(L, l_getname);
+        lua_setglobal(L, "_getName");
 
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");

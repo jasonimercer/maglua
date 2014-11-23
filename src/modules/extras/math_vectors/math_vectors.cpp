@@ -124,6 +124,49 @@ static int l_vectorsicosphere(lua_State* L)
     return 1;
 }
 
+
+static int l_dot(lua_State* L)
+{
+    int t1 = lua_type(L, 1);
+    int t2 = lua_type(L, 2);
+
+    if(t1 != t2 || t1 != LUA_TTABLE)
+    {
+        return luaL_error(L, "dot expects 2 tables");
+    }
+
+
+    vector<double> v1;
+    vector<double> v2;
+
+    lua_pushnil(L);
+    while(lua_next(L, 1))
+    {
+        v1.push_back(lua_tonumber(L, -1));
+        lua_pop(L, 1);
+    }
+
+    lua_pushnil(L);
+    while(lua_next(L, 2))
+    {
+        v2.push_back(lua_tonumber(L, -1));
+        lua_pop(L, 1);
+    }
+
+    int n = v1.size();
+    if(v2.size() < v1.size())
+        n = v2.size();
+
+    double sum = 0;
+    for(int i=0; i<n; i++)
+        sum += v1[i] * v2[i];
+    
+
+    lua_pushnumber(L, sum);
+    return 1;
+}
+
+
 extern "C"
 {
 MATH_VECTORS_API int lib_register(lua_State* L)
@@ -135,6 +178,10 @@ MATH_VECTORS_API int lib_register(lua_State* L)
 
 	lua_pushstring(L, "erf");
 	lua_pushcfunction(L, l_erf);
+	lua_settable(L, -3);
+
+	lua_pushstring(L, "dot");
+	lua_pushcfunction(L, l_dot);
 	lua_settable(L, -3);
 
 	lua_pushstring(L, "vectorIcosphere");

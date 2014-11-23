@@ -10,10 +10,6 @@ function dofile(filename)
 		suffix = suffix or ""
 		suffix = string.lower(suffix)
 
-                if internals["="..suffix] then
-                    return assert(loadstring(internals["="..suffix], "=" .. filename))()
-                end
-
 		if internals[suffix] then
 			return assert(loadstring(internals[suffix], "=" .. filename))()
 		end

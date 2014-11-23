@@ -2,12 +2,14 @@
 local MODNAME = "MEP"
 local MODTAB = _G[MODNAME]
 local t = maglua_getmetatable(MODNAME) -- this is a special function available only at registration time
-
--- trying something new for style/readability. 
--- Putting docs and code in a table which will later be used
--- to build metatable and help system.
 local methods = {}
 
+
+local type_number = type(1)
+local type_table = type({})
+local type_function = type(type)
+local type_text = type("")
+local type_nil = type(nil)
 
 -- internal support functions
 local function get_mep_data(mep)
@@ -362,7 +364,10 @@ methods["equal"] =
     function(mep, v1,v2,tol)
 	tol = tol or 5 * math.pi / 180
 
-	if type(v1) ~= type(v2) then
+        local type_v1 = type(v1)
+        local type_v2 = type(v2)
+
+	if type_v1 ~= type_v2 then
 	    error("first two arguments must be the same type")
 	end
 
@@ -370,7 +375,7 @@ methods["equal"] =
 	    error("nil input")
 	end
 
-	if type(v1) == type(1) then -- integers
+	if type_v1 == type_number then -- integers
 	    for s=1,mep:numberOfSites() do
 		if not mep:equal({v1,s}, {v2,s}, tol) then
 		    return false
@@ -379,7 +384,7 @@ methods["equal"] =
 	    return true
 	end
 
-	if type(v1) == type({}) then
+	if type_v1 == type_table then
 	    local p1, s1, p2, s2 = v1[1], v1[2], v2[1], v2[2]
 	    local angle = mep:_angleBetweenPointSite(p1,s1,p2,s2)
 	    --print(p1,s1,p2,s2,angle,tol,angle<=tol)
@@ -542,13 +547,14 @@ end
 
 local function filter_arg(arg)
     local result = {}
-    result[ type(1) ] = {}
-    result[ type("s") ] = {}
-    result[ type({}) ] = {}
-    result[ type(print) ] = {}
+    result[ type_number ] = {}
+    result[ type_text ] = {}
+    result[ type_table ] = {}
+    result[ type_function ] = {}
     for i=1,table.maxn(arg) do
-	result[ type(arg[i]) ] = result[ type(arg[i]) ] or {}
-	table.insert(result[ type(arg[i]) ], arg[i])
+        local type_argi = type(arg[i])
+	result[ type_argi ] = result[ type_argi ] or {}
+	table.insert(result[ type_argi ], arg[i])
     end
     return result
 end
@@ -561,10 +567,10 @@ methods["compute"] =
     function(mep, ...)
 	local results = filter_arg(arg)
 
-	local n    = results[ type(1) ][1] or 50 
-	local tol  = results[ type(1) ][2] or mep:tolerance()
+	local n    = results[ type_number ][1] or 50 
+	local tol  = results[ type_number ][2] or mep:tolerance()
 
-	local json = results[ type({}) ][1] or {}
+	local json = results[ type_table ][1] or {}
 
         local _do_resample = json.resamplePath or true
 	local report = json.report or function() end
@@ -711,7 +717,7 @@ methods["execute"] =
         end -- run_round
 
         local function getat(a, i)
-            if type(a) == type({}) then
+            if type(a) == type_table then
                 return a[i]
             end
             return a
@@ -721,7 +727,7 @@ methods["execute"] =
             return b
         end
         local function size(t)
-            if type(t) == type({}) then
+            if type(t) == type_table then
                 return table.maxn(t)
             end
             return 1
@@ -1065,7 +1071,7 @@ methods["keepPoints"] =
     "N Integers or 1 Table of integers: The points to keep while deleting the others.",
     "",
     function(mep, ...)
-	if type(arg[1]) == type({}) then -- we were given a table
+	if type(arg[1]) == type_table then -- we were given a table
 	    arg = arg[1]
 	end
 
@@ -1087,7 +1093,7 @@ methods["deletePoints"] =
     "N Integers or 1 Table of integers: The points to delete while keeping the others.",
     "",
     function(mep, ...)
-	if type(arg[1]) == type({}) then -- we were given a table
+	if type(arg[1]) == type_table then -- we were given a table
 	    arg = arg[1]
 	end
 
@@ -1113,10 +1119,10 @@ methods["copyPointTo"] =
     "2 Integers or 2 Tables of Integers",
     "",
     function(mep, a,b)
-	if type(a) == type(1) then
+	if type(a) == type_number then
 	    a = {a}
 	end
-	if type(b) == type(1) then
+	if type(b) == type_number then
 	    b = {b}
 	end
 	return mep:_copy(a,b)
@@ -1129,10 +1135,10 @@ methods["swapPoints"] =
     "2 Integers or 2 Tables of Integers",
     "",
     function(mep, a,b)
-	if type(a) == type(1) then
+	if type(a) == type_number then
 	    a = {a}
 	end
-	if type(b) == type(1) then
+	if type(b) == type_number then
 	    b = {b}
 	end
 	return mep:_swap(a,b)
@@ -1158,10 +1164,10 @@ methods["pointNearSingularity"] =
 	-- "Cartesian", "Spherical", "Canonical", "SphericalX", "SphericalY", "CanonicalX", "CanonicalY"
 	local v = {x/r, y/r, z/r}
 
-	if type(a) == type(1) then
+	if type(a) == type_number then
 	    a = {a}
 	end
-	if type(b) == type(1) then
+	if type(b) == type_number then
 	    b = {b}
 	end
 	return mep:_copy(a,b)
@@ -1193,7 +1199,7 @@ methods["setEnergyFunction"] =
     "",
     function(mep, func)
 	local d = get_mep_data(mep)
-	if type(func) ~= "function" then
+	if type(func) ~= type_function then
 	    error("setEnergyFunction requires a function", 2)
 	end
 	d.energy_function = func
@@ -1207,11 +1213,11 @@ methods["setSites"] =
     "1 Table of 1,2 or 3 Component Tables: mobile sites.",
     "",
     function(mep, tt)
-	if type(tt) ~= "table" then
+	if type(tt) ~= type_table then
 	    error("setSites requires a table of 1,2 or 3 Component Tables representing sites.") 
 	end
 	
-	if tt[1] and type(tt[1]) ~= "table" then
+	if tt[1] and type(tt[1]) ~= type_table then
 	    error("setSites requires a table of 1,2 or 3 Component Tables representing sites.") 
 	end
 	
@@ -1251,8 +1257,7 @@ methods["setInitialPath"] =
 	local ss = mep:spinSystem() or error("SpinSystem must be set before :setInitialPath()")
 	
 	local msg = "setInitialPath requires a Table of Tables of site orientations."
-	local tableType = type({})
-	if type(pp) ~= tableType then
+	if type(pp) ~= type_table then
 	    error(msg)
 	end
 	local numSites = mep:numberOfSites()
@@ -1265,7 +1270,7 @@ methods["setInitialPath"] =
 		mobility = 0 --fixed endpoints
 	    end
 	    
-	    if type(pp[p]) ~= tableType then
+	    if type(pp[p]) ~= type_table then
 		error(msg .. " type(input[" .. p .. "]) = " .. type(pp[p]))
 	    end
 	    
@@ -1766,11 +1771,11 @@ methods["rotatePathAboutBy"] =
     "1 Vector, 1 Number: Vector is 1 table of 3 numbers and 1 optional string or 3 numbers and 1 optional string. Numbers repesent coordinates, string is coordinate system (default Cartesian). Last number is the angle to rotate about by (radians)",
     "",
     function(mep, a,b,c,d,e)
-        if type(a) == type({}) then
+        if type(a) == type_table then
             return mep:_rotatePathAboutBy(a[1], a[2], a[3], a[4] or "Cartesian", b)
         end
 
-        if type(d) == type("") then
+        if type(d) == type_text then
             return mep:_rotatePathAboutBy(a,b,c,d,e)
         end
 
@@ -2054,7 +2059,7 @@ methods["reduceToPoints"] = methods["keepPoints"]
     "N Integers or 1 Table of integers: The points to keep while discarding the others.",
     "",
     function(mep, ...)
-	if type(arg[1]) == type({}) then -- we were given a table
+	if type(arg[1]) == type_table then -- we were given a table
 	    arg = arg[1]
 	end
 	local new_initial_path = {}
@@ -2164,7 +2169,7 @@ methods["splitAtPoint"] =
 	local arg = {...}
 	local ret_style
 	
-	if type(arg[1]) == "table" then
+	if type(arg[1]) == type_table then
 	    ret_style = "t"
 	    local t = {}
 	    for k,v in pairs(arg[1]) do
@@ -2213,7 +2218,7 @@ methods["merge"] =
 	local arg = {...}
 	local ret_style
 	
-	if type(arg[1]) == "table" then
+	if type(arg[1]) == type_table then
 	    ret_style = "t"
 	    local t = {}
 	    for k,v in pairs(arg[1]) do
@@ -2366,10 +2371,10 @@ methods["uniquePoints"] =
     function(mep, ...)
 	local nums, tabs = {}, {}
 	for k,v in pairs(arg) do
-	    if(type(v)) == type(0) then -- number
+	    if(type(v)) == type_number then -- number
 		table.insert(nums, v)
 	    end
-	    if(type(v)) == type({}) then -- table
+	    if(type(v)) == type_table then -- table
 		table.insert(tabs, v)
 	    end
 	end
@@ -2499,11 +2504,12 @@ methods["findMinima"] =
     "Table of minima: Each minimum will be a table of sites, each site is 3 numbers representing a vector and a string naming the coordinate system.",
     function(mep, n, json)
 	json = json or {}
-	if type(n) == type(4) then -- need n points over hypersphere		
+        local type_n = type(n)
+	if type_n == type_number then -- need n points over hypersphere		
 	    local cs = json.cs or "Spherical"
 	    return mep:findMinima(mep:evenlyDistributedPoints(n, cs), json)
 	end
-	if type(n) == type({}) then
+	if type_n == type_table then
 	    local report = json.report or function() end
 	    local hints = json.hints
 
@@ -2606,10 +2612,11 @@ methods["spinInCoordinateSystem"] =
 	local txts = {}
 
 	for i=1,table.maxn(arg) do
-	    if type(arg[i]) == type(1) then
+            local type_argi = type(arg[i])
+	    if type_argi == type_number then
 		table.insert(ints, arg[i])
 	    end
-	    if type(arg[i]) == type("s") then
+	    if type_argi == type_text then
 		table.insert(txts, arg[i])
 	    end
 	end
@@ -2648,11 +2655,12 @@ methods["setPointSiteMobility"] =
     "2 Integers, 1 Number or 1 Integer, 1 Table: Point and site indices and a mobility value: 0 for fixed, 1 for free. If a site is not provided then a table can be passed to set all site at the point.",
     "",
     function (mep,p,s,v)
-	if type(s) == type(1) then
+        local type_s = type(s)
+	if type_s == type_number then
 	    mep:_setImageSiteMobility(p,s,v)
 	    return
 	end
-	if type(s) == type({}) then
+	if type_s == type_table then
 	    for i=1,mep:numberOfSites() do
 		mep:setPointSiteMobility(p,i,s[i])
 	    end
@@ -2711,13 +2719,14 @@ methods["setSpinInCoordinateSystem"] =
 	local tabs = {}
 
 	for i=1,table.maxn(arg) do
-	    if type(arg[i]) == type({}) then
+            local type_argi = type(arg[i])
+	    if type_argi == type_table then
 		error("setSpinInCoordinateSystem no longer accepts tables")
 	    end
-	    if type(arg[i]) == type(1) then
+	    if type_argi == type_number then
 		table.insert(nums, arg[i])
 	    end
-	    if type(arg[i]) == type("s") then
+	    if type_argi == type_text then
 		table.insert(txts, arg[i])
 	    end
 	end
@@ -2743,14 +2752,14 @@ methods["setSpinInCoordinateSystem"] =
 
 local tcopy = nil
 function tcopy(t)
-    if type(t) == type({}) then
+    if type(t) == type_table then
 	local c = {}
 	for k,v in pairs(t) do
 	    c[ tcopy(k) ] = tcopy(v)
 	end
 	return c
     end
-    if type(t) == type("a") then
+    if type(t) == type_text then
 	return t .. ""
     end
     return t

@@ -195,14 +195,17 @@ local total_inclusive = 5
 local total_exclusive = 6
 local id_pos = 7
 local name_pos = 8
+
+local profile_total_timer = Timer.new()
+
+
 local function new_call_data(id, name)
-    return {Timer.new(), Timer.new(), 0, 0, 0, 0, id, name}
+    return {0, 0, 0, 0, 0, 0, id, name}
 end
 
 local function hook(event, lineno)
-    if Timer == nil then
-        return  -- timer module not loaded yet
-    end
+
+    local ptt_e = profile_total_timer:elapsed()
 
     local t = debug.getinfo(2)
     local name, id = function_lookup(t.func), tostring(t.func)
@@ -211,22 +214,24 @@ local function hook(event, lineno)
         local sss = stack[stack_size]
         if sss and call_data[sss] then
             local cd = call_data[sss]
-            cd[timer_func]:stop()
-            cd[total_exclusive] = cd[total_exclusive] + cd[timer_func]:elapsed()
+            cd[total_exclusive] = cd[total_exclusive] + (ptt_e - cd[timer_func])
         end
 
         stack_size = stack_size + 1
         stack[stack_size] = id
 
-        call_data[id] = call_data[id] or new_call_data(id, name)
+        if call_data[id] == nil then
+            call_data[id] = new_call_data(id, name)
+        end
 
         local t = call_data[id]
 
         t[call_count] = t[call_count] + 1
         t[recursion_level] = t[recursion_level] + 1
         if t[recursion_level] == 1 then
-            t[timer_all]:start()
-            t[timer_func]:start()
+            local ptt = profile_total_timer:elapsed()
+            t[timer_all] = ptt_e
+            t[timer_func] = ptt_e
         end
     end
 
@@ -239,17 +244,15 @@ local function hook(event, lineno)
         if t then
             t[recursion_level] = t[recursion_level] - 1
             if t[recursion_level] == 0 then
-                t[timer_all]:stop()
-                t[total_inclusive] = t[total_inclusive] + t[timer_all]:elapsed()
+                t[total_inclusive] = t[total_inclusive] + (ptt_e - t[timer_all])
             end
-            t[timer_func]:stop()
-            t[total_exclusive] = t[total_exclusive] + t[timer_func]:elapsed()
+            t[total_exclusive] = t[total_exclusive] + (ptt_e - t[timer_func])
         end
 
         id =  stack[stack_size]
         local t = call_data[id]
         if t then
-            t[timer_func]:start()
+            t[timer_func] = ptt_e
         end
     end
 end
@@ -257,15 +260,18 @@ end
 
 
 if profile_base then
-    local profile_total_timer = Timer.new()
+    local tn = os.tmpname()
+    os.execute("/bin/date > " .. tn)
+    local f = io.open(tn, "r")
+    local date = f:read("*l")
+    f:close()
+    os.execute("rm -f " .. tn)
 
     profile_total_timer:start()
 
-    _set_profile_data({call_data, profile_total_timer, profile_base})
+    _set_profile_data({call_data, profile_total_timer, profile_base, date})
 
     debug.sethook(hook, "cr", 0)
-
-
 end
 
 _set_profile_data = nil

@@ -46,14 +46,14 @@ typedef struct ss
 SCRIPTS_API int lib_register(lua_State* L)
 {
 	static const ss data[] = {
-		{__CGS_name(),  __CGS()},
-		{__POVRay_name(),  __POVRay()},
-		{__RungeKutta_name(),  __RungeKutta()},
-		{__PredictorCorrector_name(), __PredictorCorrector()},
-		{__AdaptiveTimeStep_name(),  __AdaptiveTimeStep()},
-		{__ColorMap_name(),  __ColorMap()},
-		{__MakeMacro_name(),  __MakeMacro()},
-		{__PathDynamics_name(), __PathDynamics()},
+		{__CGS_filename(),  __CGS()},
+		{__POVRay_filename(),  __POVRay()},
+		{__RungeKutta_filename(),  __RungeKutta()},
+		{__PredictorCorrector_filename(), __PredictorCorrector()},
+		{__AdaptiveTimeStep_filename(),  __AdaptiveTimeStep()},
+		{__ColorMap_filename(),  __ColorMap()},
+		{__MakeMacro_filename(),  __MakeMacro()},
+		{__PathDynamics_filename(), __PathDynamics()},
 		{0,0}
 	};
 	
