@@ -23,6 +23,8 @@ end
 
 
 
+
+-- lookup functions done in Lua because I haven't protred them to C yet
 local function name_scope_search(value, max_depth, scope)
     max_depth = max_depth or 5
     scope = scope or _G
@@ -129,31 +131,22 @@ local function name_local_search(value, start_level, source_lookup)
 end
 
 -- given a function value, return a nice string
-local function_lookup_list = {}
 local function function_lookup(func)
     local name = tostring(func)
-    if function_lookup_list[name] then
-        return function_lookup_list[name]
-    end
-
-    local function add(s)
-        function_lookup_list[name] = s
-        return s
-    end
 
     local a,b = name_scope_search(func)
     if a then
-        return add(b)
+        return b
     end
 
     a,b,c = name_local_search(func, 4)
     if a then
-        return add(b .. "@" .. c)
+        return b .. "@" .. c
     end
 
     a,b = metatable_search(func, 4)
     if a then
-        return add(fix_mts(b))
+        return fix_mts(b) -- need to check here. Not seeing A:f() 
     end
 
     local env = debug.getinfo(func)
@@ -163,99 +156,22 @@ local function function_lookup(func)
         local line  = env.linedefined
 
         if file and line then
-            return add("Function at " .. file .. ":" .. line)
+            return "Function at " .. file .. ":" .. line
         end
-        return add("Unknown function " .. name)
+        return "Unknown function " .. name
     end
 
     if env.what == "C" then
-        return add("C " .. name)
+        return "C " .. name
     end
 
     if env.what == "main" then
-        return add("main chunk")
+        return "main chunk"
     end
 
-    return add(env.what)
+    return env.what
 end
 
-local call_data = {}
-local stack = {}
-local stack_size = 0
-
--- call
--- return
--- tail return
-
-local timer_all = 1
-local timer_func = 2
-local call_count = 3
-local recursion_level = 4
-local total_inclusive = 5
-local total_exclusive = 6
-local id_pos = 7
-local name_pos = 8
-
-local profile_total_timer = Timer.new()
-
-
-local function new_call_data(id, name)
-    return {0, 0, 0, 0, 0, 0, id, name}
-end
-
-local function hook(event, lineno)
-
-    local ptt_e = profile_total_timer:elapsed()
-
-    local t = debug.getinfo(2)
-    local name, id = function_lookup(t.func), tostring(t.func)
-
-    if event == "call" then
-        local sss = stack[stack_size]
-        if sss and call_data[sss] then
-            local cd = call_data[sss]
-            cd[total_exclusive] = cd[total_exclusive] + (ptt_e - cd[timer_func])
-        end
-
-        stack_size = stack_size + 1
-        stack[stack_size] = id
-
-        if call_data[id] == nil then
-            call_data[id] = new_call_data(id, name)
-        end
-
-        local t = call_data[id]
-
-        t[call_count] = t[call_count] + 1
-        t[recursion_level] = t[recursion_level] + 1
-        if t[recursion_level] == 1 then
-            local ptt = profile_total_timer:elapsed()
-            t[timer_all] = ptt_e
-            t[timer_func] = ptt_e
-        end
-    end
-
-    if event == "return" or event == "tail return" then
-        local id = stack[stack_size]
-        stack[stack_size] = nil
-        stack_size = stack_size - 1
-
-        local t = call_data[id]
-        if t then
-            t[recursion_level] = t[recursion_level] - 1
-            if t[recursion_level] == 0 then
-                t[total_inclusive] = t[total_inclusive] + (ptt_e - t[timer_all])
-            end
-            t[total_exclusive] = t[total_exclusive] + (ptt_e - t[timer_func])
-        end
-
-        id =  stack[stack_size]
-        local t = call_data[id]
-        if t then
-            t[timer_func] = ptt_e
-        end
-    end
-end
 
 
 
@@ -263,17 +179,16 @@ if profile_base then
     local tn = os.tmpname()
     os.execute("/bin/date > " .. tn)
     local f = io.open(tn, "r")
-    local date = f:read("*l")
+    local date = f:read("*l") or "Unknown date"
     f:close()
     os.execute("rm -f " .. tn)
 
-    profile_total_timer:start()
+    _set_profile_data({profile_base, date})
 
-    _set_profile_data({call_data, profile_total_timer, profile_base, date})
-
-    debug.sethook(hook, "cr", 0)
+    _profile_set_lookup(function_lookup)
+    _profile_start()
 end
 
 _set_profile_data = nil
-
-
+_profile_start = nil
+_profile_set_lookup = nil

@@ -135,7 +135,8 @@ public:
 
 	double problemScale();
 	double getEnergy(lua_State* L, int energy_index);
-	
+	double vecEnergy(lua_State* L, vector<VectorCS>& vec, int set_index, int get_index, int energy_index);
+
 	// void getSiteSpin(lua_State* L, int get_index, int* site3, double* m3);
 	void getSiteSpin(lua_State* L, int get_index, int* site3, vector<double>& v);
 	void getSiteSpin(lua_State* L, int get_index, int* site3, VectorCS& m3);
@@ -174,13 +175,13 @@ public:
 	void computePointSecondDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, double* derivsAB);
 	double computePointSecondDerivativeAB(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1, int c2, double dc1=-1, double dc2=-1);
 
-	void computePointFirstDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, vector<VectorCS>& d);
+	void computePointFirstDerivative(lua_State* L, int p, const double p_energy, int set_index, int get_index, int energy_index, vector<VectorCS>& d);
 
-	double computePointFirstDerivativeC(lua_State* L, int p, int set_index, int get_index, int energy_index, int coord);
+	double computePointFirstDerivativeC(lua_State* L, int p, const double p_energy, int set_index, int get_index, int energy_index, int coord);
 
-	void computeVecFirstDerivative(lua_State* L, vector<VectorCS>& vec, int set_index, int get_index, int energy_index, vector<VectorCS>& dest);
+	void computeVecFirstDerivative(lua_State* L, vector<VectorCS>& vec, const double vec_energy, int set_index, int get_index, int energy_index, vector<VectorCS>& dest);
 
-	double computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, int set_index, int get_index, int energy_index, int coord);
+	double computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, const double vec_energy, int set_index, int get_index, int energy_index, int coord);
 
 	int uniqueSites(lua_State* L);
 	int slidePoint(lua_State* L);

@@ -9,13 +9,13 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=profile_close.lo profile_main.lo profile.o
+OBJECTS=profile_close.lo profile_main.lo profile.o profile_support.o
 LIBNAME=Profile
 CATEGORY=extra
 
-DEPEND=luabaseobject timer
+DEPEND=luabaseobject
+EXTRALIBS=-lrt
 BASEDIR=../../..
 include $(BASEDIR)/makefile.common.cpu
 
-EXTRA_CLEAN=profile_close.h profile_close.cpp \
-		profile_main.h profile_main.cpp
+EXTRA_CLEAN=profile_close.h profile_close.cpp profile_main.h profile_main.cpp

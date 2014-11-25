@@ -1,6 +1,8 @@
 #include <luabaseobject.h>
+#include "profile_support.h"
 #include "profile_main.h"
 #include "profile_close.h"
+#include "profile.h"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -10,13 +12,6 @@
 // these are also available in os_extensions but there's no guarantee that it'll 
 // be loaded first or even available
 static int profile_data_ref = LUA_REFNIL;
-
-// Here's an odd bit of code. I hope the compiler isn't too smart.
-// The idea here is to add a dependancy. We want the Timer module
-// to load before this modules so we can start the main timer if
-// it turns out we are profiling. 
-#include "../../common/timer/mtimer.h"
-Timer t;
 
 static int l_getpid(lua_State* L)
 {
@@ -45,7 +40,18 @@ static int l_get_profile_data(lua_State* L)
     return 1;
 }
 
+static int l_set_support(lua_State* L)
+{
+    profile_support_set_lookup(luaL_ref(L, LUA_REGISTRYINDEX));
 
+    return 0;
+}
+
+static int l_profile_start(lua_State* L)
+{
+    profile_support_start(L);
+    return 0;
+}
 
 #include "info.h"
 extern "C"
@@ -89,6 +95,12 @@ int lib_main(lua_State* L)
     lua_pushcfunction(L, l_set_profile_data);
     lua_setglobal(L, "_set_profile_data");
     
+    lua_pushcfunction(L, l_profile_start);
+    lua_setglobal(L, "_profile_start");
+
+    lua_pushcfunction(L, l_set_support);
+    lua_setglobal(L, "_profile_set_lookup");
+
     luaL_dofile_profile_main(L);
 
     return 0;
@@ -105,6 +117,9 @@ int lib_close(lua_State* L)
     lua_pushcfunction(L, l_gethostname);
     lua_setglobal(L, "_profile_gethostname");
 
+    lua_pushcfunction(L, profile_support_stop);
+    lua_setglobal(L, "_profile_support_stop");
+    
     luaL_dofile_profile_close(L);
     return 0;
 }

@@ -1155,7 +1155,9 @@ int  SpinSystem::totalAngularDiff(SpinSystem* other, double& tad)
 
             const double ab = dot_6d(_x1[i], _y1[i], _z1[i], _x2[i], _y2[i], _z2[i]);
 
-            const double cos_t = ab / (_m1[i] * _m2[i]);
+            double cos_t = ab / (_m1[i] * _m2[i]);
+            if(cos_t > 1) cos_t = 1;
+            if(cos_t < -1) cos_t = -1;
             sum += acos(cos_t);
         }
     }

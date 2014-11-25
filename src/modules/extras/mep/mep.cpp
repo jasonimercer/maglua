@@ -1872,15 +1872,15 @@ CoordinateSystem MEP::getCSAt(int p, int s)
 
 
 
-void MEP::computePointFirstDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, vector<VectorCS>& d)
+void MEP::computePointFirstDerivative(lua_State* L, int p, const double p_energy, int set_index, int get_index, int energy_index, vector<VectorCS>& d)
 {
     d.clear();
     const int num_sites = numberOfSites();
     for(int c=0; c<num_sites; c++)
     {
-	double v1 = computePointFirstDerivativeC(L, p, set_index, get_index, energy_index, c*3+0);
-	double v2 = computePointFirstDerivativeC(L, p, set_index, get_index, energy_index, c*3+1);
-	double v3 = computePointFirstDerivativeC(L, p, set_index, get_index, energy_index, c*3+2);
+	double v1 = computePointFirstDerivativeC(L, p, p_energy, set_index, get_index, energy_index, c*3+0);
+	double v2 = computePointFirstDerivativeC(L, p, p_energy, set_index, get_index, energy_index, c*3+1);
+	double v3 = computePointFirstDerivativeC(L, p, p_energy, set_index, get_index, energy_index, c*3+2);
 
 	d.push_back(VectorCS(v1,v2,v3, getPointSite(p,c).cs));
     }
@@ -1888,15 +1888,15 @@ void MEP::computePointFirstDerivative(lua_State* L, int p, int set_index, int ge
 
 
 
-void MEP::computeVecFirstDerivative(lua_State* L, vector<VectorCS>& vec, int set_index, int get_index, int energy_index, vector<VectorCS>& d)
+void MEP::computeVecFirstDerivative(lua_State* L, vector<VectorCS>& vec, const double vec_energy, int set_index, int get_index, int energy_index, vector<VectorCS>& d)
 {
     d.clear();
     const int num_sites = numberOfSites();
     for(int c=0; c<num_sites; c++)
     {
-	double x1 = computeVecFirstDerivativeC(L, vec, set_index, get_index, energy_index, c*3+0);
-	double x2 = computeVecFirstDerivativeC(L, vec, set_index, get_index, energy_index, c*3+1);
-	double x3 = computeVecFirstDerivativeC(L, vec, set_index, get_index, energy_index, c*3+2);
+	double x1 = computeVecFirstDerivativeC(L, vec, vec_energy, set_index, get_index, energy_index, c*3+0);
+	double x2 = computeVecFirstDerivativeC(L, vec, vec_energy, set_index, get_index, energy_index, c*3+1);
+	double x3 = computeVecFirstDerivativeC(L, vec, vec_energy, set_index, get_index, energy_index, c*3+2);
 		
 	d.push_back(VectorCS(x1,x2,x3, vec[c].cs));
     }
@@ -1916,7 +1916,20 @@ void MEP::computeVecFirstDerivative(lua_State* L, vector<VectorCS>& vec, int set
   }
 */
 
-double MEP::computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, int set_index, int get_index, int energy_index, int c1)
+double MEP::vecEnergy(lua_State* L, vector<VectorCS>& vec, int set_index, int get_index, int energy_index)
+{
+    // back up old sites so we can restore after
+    vector<double> cfg;
+    saveConfiguration(L, get_index, cfg);
+
+    setAllSpins(L, set_index, vec);
+    double e = getEnergy(L, energy_index);
+
+    loadConfiguration(L, set_index, cfg); // restore
+    return e;
+}
+
+double MEP::computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, const double energy, int set_index, int get_index, int energy_index, int c1)
 {
     // back up old sites so we can restore after
     vector<double> cfg;
@@ -2004,11 +2017,14 @@ double MEP::computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, int 
     setAllSpins(L, set_index, state);
     e1 = getEnergy(L, energy_index);
 
+#if 0
     copyVectorTo(vec, state);
     vectorElementChange(state, c1, 0, fixedRadius);
     rescale_vectors(state, mags);
     setAllSpins(L, set_index, state);
     e2 = getEnergy(L, energy_index);
+#endif
+    e2 = energy;
 
     copyVectorTo(vec, state);
     vectorElementChange(state, c1, dx1, fixedRadius);
@@ -2028,11 +2044,11 @@ double MEP::computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, int 
 
 
 
-double MEP::computePointFirstDerivativeC(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1)
+double MEP::computePointFirstDerivativeC(lua_State* L, int p, const double p_energy, int set_index, int get_index, int energy_index, int c1)
 {
     vector<VectorCS> vec;
     getPoint(p, vec);
-    return computeVecFirstDerivativeC(L, vec, set_index, get_index, energy_index, c1);
+    return computeVecFirstDerivativeC(L, vec, p_energy, set_index, get_index, energy_index, c1);
 }
 
 
@@ -2059,7 +2075,9 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_i
 	mags.push_back( vec[i].magnitude() );
     }
 
-    computeVecFirstDerivative(L, vec, set_index, get_index, energy_index, grad);
+    double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
+
+    computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, grad);
     double current_grad = sqrt(cart_norm2(grad));
 
     // printf("Start grad: %20e\n", current_grad);
@@ -2073,7 +2091,9 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_i
             {
                 rescale_vectors(vec2, mags);
 
-                computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+                double vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
+
+                computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
                 const double new_grad = sqrt(cart_norm2(grad));
 
                 if(new_grad <= current_grad)
@@ -2115,47 +2135,62 @@ int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index,
     double current_energy = getEnergy(L, energy_index);
     double start_energy = current_energy;
 
+    bool* changer = new bool[ns*3];
+    double* hi = new double[ns*3];
+    copyVectorTo(vec, vec2);
+
+    for(int i=0; i<ns*3; i++)
+    {
+        hi[i] = h;
+        // pre-recording which sites change
+        changer[i] = vectorElementChange(vec2, i, 0, fixedRadius);
+    }
 
     for(int i=0; i<steps; i++)
     {
-	bool improvement = false;
+        int biggest_h = -1;
 	for(int qq=0; qq<ns*3; qq++)
 	{
-	    for(int d=0; d<2; d++) //direction
-	    {
-		bool change = false;
-		copyVectorTo(vec, vec2);
-		if(d == 0)
-		    change = vectorElementChange(vec2, qq, -h, fixedRadius);
-		else
-		    change = vectorElementChange(vec2, qq,  h, fixedRadius);
+            // don't consider unchanging
+            if(changer[qq])
+            {
+                if(biggest_h < 0 || fabs(hi[qq]) > fabs(hi[biggest_h]))
+                    biggest_h = qq;
+            }
+        }
 
-		if(change)
-		{
-		    setAllSpins(L, set_index, vec2);
-		    double new_energy = getEnergy(L, energy_index);
-		    
-		    if(new_energy < current_energy)
-		    {
-			current_energy = new_energy;
-			improvement = true;
-			
-			copyVectorTo(vec2, vec);
-		    }
-		}
-	    }
-	}
+        int qq = biggest_h;
+        {
+            bool change = false;
+            copyVectorTo(vec, vec2);
+            change = vectorElementChange(vec2, qq,  hi[qq], fixedRadius);
 
-	if(improvement)
-	{
-	    good_steps++;
-	    h *= 1.2;
-	}
-	else
-	{
-	    h *= 0.5;
-	}
+            if(change)
+            {
+                //printf("%2d  %4d/%4d\n", qq, i, steps );
+                setAllSpins(L, set_index, vec2);
+                double new_energy = getEnergy(L, energy_index);
+		
+                if(new_energy < current_energy)
+                {
+                    //printf("                    %e\n", (current_energy-new_energy) );
+
+                    current_energy = new_energy;
+                    hi[qq] *= 2.1;
+                    
+                    copyVectorTo(vec2, vec);
+                    good_steps++;
+                }
+                else
+                {
+                    hi[qq] *= -0.1; // notice we switch directions on failures
+                }
+            }
+        }
     }
+
+    delete [] hi;
+    delete [] changer;
 
     setPoint(point, vec);
     energy_ok = false;
@@ -2186,7 +2221,8 @@ int MEP::expensiveGradientMinimization(lua_State* L, int get_index, int set_inde
     getPoint(point, vec);
     getPoint(point, vec2);
 
-    computeVecFirstDerivative(L, vec, set_index, get_index, energy_index, grad);
+    double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
+    computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, grad);
 
     double start_grad2 = cart_norm2(grad);
     double current_grad2 = start_grad2;
@@ -2207,7 +2243,9 @@ int MEP::expensiveGradientMinimization(lua_State* L, int get_index, int set_inde
 
                 if(change)
                 {
-                    computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+                    double vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
+
+                    computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
                     double new_grad2 = cart_norm2(grad);
                     
                     if(new_grad2 < current_grad2)
@@ -2312,8 +2350,9 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	h = 1e-10;
     h = 1e-10;
 
+    double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
 
-    computeVecFirstDerivative(L, vec, set_index, get_index, energy_index, grad);
+    computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, grad);
     for(int i=0; i<num_sites; i++)
 	grad[i].zeroRadialComponent();
 
@@ -2325,15 +2364,17 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	bool change = vectorElementChange(vec2, qq, -h, fixedRadius);
         if(change)
         {
-            computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+            double vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
+            computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
             for(int i=0; i<num_sites; i++)
                 grad[i].zeroRadialComponent(vec2[i]);
             double x_minus_h = sqrt(cart_norm2(grad));
             
             
             getPoint(p, vec2);
+            vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
             vectorElementChange(vec2, qq,  h, fixedRadius);
-            computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+            computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
             for(int i=0; i<num_sites; i++)
                 grad[i].zeroRadialComponent(vec2[i]);
             double x_plus_h = sqrt(cart_norm2(grad));
@@ -2399,7 +2440,8 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	    vec2[i].setMagnitude( mags[i] );
 	}
 
-	computeVecFirstDerivative(L, vec2, set_index, get_index, energy_index, grad);
+        double vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
+	computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
 	for(int i=0; i<num_sites; i++)
 	    grad[i].zeroRadialComponent();
 	double min2_2 = cart_norm2(grad);
@@ -2533,7 +2575,8 @@ int MEP::slidePoint(lua_State* L)
 
     for(int i=0; i<num_steps; i++)
     {
-	computeVecFirstDerivative(L, vec, set_index, get_index, energy_index, slope);
+        double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
+	computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, slope);
 
 	for(int q=0; q<num_sites; q++)
 	{
@@ -2932,7 +2975,8 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
 	getPoint(i, vec);
 	getForcePoint(i, force);
 
-	computeVecFirstDerivative(L, vec, set_index, get_index, energy_index, force);
+        double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
+	computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, force);
 
 	for(int j=0; j<ns; j++)
 	{
@@ -3540,7 +3584,12 @@ static int l_computepoint1deriv(lua_State* L)
 	
     vector<VectorCS> derivs;
 
-    mep->computePointFirstDerivative(L, p, set_index, get_index, energy_index, derivs);
+    vector<VectorCS> vec;
+    mep->getPoint(p, vec);
+    double p_energy = mep->vecEnergy(L, vec, set_index, get_index, energy_index);
+
+
+    mep->computePointFirstDerivative(L, p, p_energy, set_index, get_index, energy_index, derivs);
 
     lua_newtable(L);
     int j = 1;
