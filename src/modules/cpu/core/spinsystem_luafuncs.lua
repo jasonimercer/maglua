@@ -216,15 +216,18 @@ end
 }
 
 
+
+
 methods["zeroField"] =
 {
 "Zero all values for a given field type",
 "1 String or an object with a slot name: The name of the field.",
 "",
 function(ss,n)
-    ss:fieldArrayX(n):zero()
-    ss:fieldArrayY(n):zero()
-    ss:fieldArrayZ(n):zero()
+    local gn = getName(n)
+    ss:_fieldArrayX(gn):zero()
+    ss:_fieldArrayY(gn):zero()
+    ss:_fieldArrayZ(gn):zero()
 end
 }
 
@@ -268,6 +271,10 @@ methods["sumFields"] =
 "1 or 0 Strings or an object with a slot name, 1 or 0 Tables of Strings or objects with a slot name: Destination slot name for summation (default `Total'), source terms to be included in the summation (default all terms but the `Total' term).",
 "",
 function(ss, a,b)
+    if a == nil then
+        return ss:_sumFields() -- vanilla sumFields
+    end
+
     local destination = nil
     local source = nil
     local type_a = type(a)
@@ -305,9 +312,11 @@ function(ss, a,b)
 
     ss:ensureSlotExists(destination)
     
-    local dest_x = ss:fieldArrayX(destination)
-    local dest_y = ss:fieldArrayY(destination)
-    local dest_z = ss:fieldArrayZ(destination)
+    local getNameDestination = getName(destination)
+
+    local dest_x = ss:_fieldArrayX(getNameDestination)
+    local dest_y = ss:_fieldArrayY(getNameDestination)
+    local dest_z = ss:_fieldArrayZ(getNameDestination)
 
     dest_x:zero()
     dest_y:zero()
@@ -315,10 +324,11 @@ function(ss, a,b)
 
     for k,v in pairs(source) do
 	if ss:slotUsed(v) then
+            local gnv = getName(v)
 	    -- print("Adding ", getName(v), " to ", getName(destination))
-	    dest_x:pairwiseScaleAdd(1, ss:fieldArrayX(v), dest_x)
-	    dest_y:pairwiseScaleAdd(1, ss:fieldArrayY(v), dest_y)
-	    dest_z:pairwiseScaleAdd(1, ss:fieldArrayZ(v), dest_z)
+	    dest_x:pairwiseScaleAdd(1, ss:_fieldArrayX(gnv), dest_x)
+	    dest_y:pairwiseScaleAdd(1, ss:_fieldArrayY(gnv), dest_y)
+	    dest_z:pairwiseScaleAdd(1, ss:_fieldArrayZ(gnv), dest_z)
 	end
     end
 end

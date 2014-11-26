@@ -158,7 +158,7 @@ static void l_hook(lua_State* L, lua_Debug* ar)
     int event = ar->event;
 
     // NEED TO THINK HERE 
-    // lua_getstack(L, 2, ar);  // get data about stack 2 levels up/down
+    lua_getstack(L, 0, ar); 
     lua_getinfo(L, "f", ar); // push function on stack
 
     lua_pushvalue(L, -1);
@@ -189,7 +189,7 @@ static void l_hook(lua_State* L, lua_Debug* ar)
             call_data_element* cd = call_data[call_stack.top()];
             if(cd)
             {
-                int r = cd->recursion_level;
+                int r = cd->recursion_level - 1;
                 cd->ensure_size(r);
                 cd->total_exclusive[r] += elapsed - cd->exclusive_start[r];
                 cd->functions_I_call[id]++;
@@ -211,6 +211,7 @@ static void l_hook(lua_State* L, lua_Debug* ar)
         new_function->exclusive_start[r] = elapsed;
         
         new_function->recursion_level++;
+
     }
 
     if(event == LUA_HOOKRET || event == LUA_HOOKTAILRET)
@@ -238,7 +239,7 @@ static void l_hook(lua_State* L, lua_Debug* ar)
                 id = call_stack.top();
                 cd = call_data[id];
                 r = cd->recursion_level;
-                cd->exclusive_start[r] = elapsed;
+                cd->exclusive_start[r-1] = elapsed;
             }
         }
     }

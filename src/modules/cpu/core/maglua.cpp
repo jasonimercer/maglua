@@ -43,7 +43,8 @@ static int l_getname(lua_State* L)
 
     if(t == LUA_TSTRING)
     {
-        lua_pushvalue(L, 1);
+        lua_settop(L, 1);
+        //lua_pushvalue(L, 1);
         return 1;
     }
 

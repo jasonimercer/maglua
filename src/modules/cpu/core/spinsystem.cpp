@@ -830,6 +830,8 @@ int  SpinSystem::decode(buffer* b)
 
 
 // sumFields is being moved to spinsystem_luafuncs.lua to increase flexibility
+// Actually... it has been moved back. We are using this as a fallback when 
+// a sumFields() is called without arguments.
 void SpinSystem::sumFields()
 {
 	const int SUM_SLOT = getSlot("Total");
