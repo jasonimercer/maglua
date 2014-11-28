@@ -24,12 +24,6 @@ public:
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
 	
-	void fixTime();
-#if 0
-	long get_seconds();
-	long get_nanoseconds();
-#endif
-
 	double get_time();
 	void set_time(double t);
         void accumulate();
@@ -58,11 +52,7 @@ public:
 #endif
 
 
-#ifdef WIN32
 	double seconds;
-#else
-	long seconds;
-#endif
 	long nanoseconds;
 	int paused;
 };

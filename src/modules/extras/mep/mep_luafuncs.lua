@@ -23,35 +23,6 @@ local function get_mep_data(mep)
 end
 
 
--- helper function to generate common closures
--- usage:
--- get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-local function build_gse_closures(mep, JSON)
-    local d = get_mep_data(mep)
-    local ss = mep:spinSystem()
-    local energy_function = mep:energyFunction()
-    JSON = JSON or {}
-    local report = JSON.report or function()end
-    --print("BUILD GSE CLOSURES")
-    local function get_site_ss(x,y,z)
-	local sx,sy,sz = ss:spin(x,y,z)
-	--report(string.format("get(%d,%d,%d)", x,y,z))
-	return sx,sy,sz
-    end
-    local function set_site_ss(x,y,z,sx,sy,sz) --return if a change was made
-	local ox,oy,oz,m = ss:spin({x,y,z})
-	ss:setSpin({x,y,z}, {sx,sy,sz}, m)
-	--report(string.format("set(%d,%d,%d,  %e,%e,%e)", x,y,z,sx,sy,sz))
-	return (ox ~= sx) or (oy ~= sy) or (oz ~= sz)
-    end
-    local function get_energy_ss()
-	--  print("energy")
-	local e = energy_function(ss)
-	return e
-    end
-    return get_site_ss, set_site_ss, get_energy_ss
-end
-
 
 local function getStepMod(tol, err, maxMotion)
     -- print("getStepMod(tol=" .. tol .. ",err=" .. err .. ")")
@@ -129,17 +100,6 @@ methods["sweepValues"] =
     end
 }
 
-methods["spinSystem"] =
-    {
-    "Get the *SpinSystem* used in the calculation",
-    "",
-    "1 SpinSystem",
-    function(mep)
-	local d = get_mep_data(mep)
-	return d.ss
-    end
-}
-
 methods["tolerance"] =
     {
     "Get the tolerance used in the adaptive algorithm",
@@ -183,7 +143,7 @@ methods["writePathPointTo"] =
     "",
     function(mep, path_point, ssNew)
 	local d = get_mep_data(mep)
-	local ss = d.ss
+	local ss = mep:spinSystem()
 	
 	local cfg = {}
 	local ns = mep:numberOfSites() 
@@ -220,8 +180,7 @@ methods["pathEnergy"] =
     "",
     "1 Table: energies along the path",
     function(mep)
-	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep, {report=print})
-	mep:calculateEnergies(get_site_ss, set_site_ss, get_energy_ss)
+	mep:calculateEnergies()
 	return mep:getPathEnergy()
     end
 }
@@ -292,51 +251,15 @@ end
 methods["resamplePath"] =
     {
     "Resample path using existing number of points or given number of points",
-    "0 or 1 Integers: Current or new number of path points",
+    "0 or 1 Integers, 1 Optional Table of Booleans: Current or new number of path points. The table will have flags for each site defining if the interpolation should go around the back or long side of the sphere.",
     "",
-    function(mep, _np)
+    function(mep, _np, backward)
 	local np = _np or mep:numberOfPathPoints()
-	mep:resampleStateXYZPath(np)
+	mep:resampleStateXYZPath(np, backward)
 	-- mep:setNumberOfPathPoints(np)
     end
 }
 
-
-local setNumberOfPathPoints_warning = true
-methods["setNumberOfPathPoints"] =
-    {
-    "Backward compatibility method. Gives a warning and calls :resamplePath()",
-    "1 Integer: New number of path points",
-    "",
-    function(mep, _np)
-	if setNumberOfPathPoints_warning then
-	    setNumberOfPathPoints_warning = false
-	    local level = 2
-	    local trace = {}
-	    local env = debug.getinfo(level)
-
-	    while env do
-		table.insert(trace, (env.short_src or "") .. ":" .. (env.currentline or 0))
-		level = level + 1
-		env = debug.getinfo(level)
-	    end
-
-	    -- not showing trace of bootstrap
-	    for i=1,4 do
-		table.remove(trace)
-	    end
-
-	    trace[1] = trace[1] or "Unknown"
-
-	    local warning = "WARNING: This script is using the obsolete method `:setNumberOfPathPoints(x)' at: (" .. trace[1] .. ")"
-	    warning = warning .. "\nWARNING: Please replace `:setNumberOfPathPoints(x)' with `:resamplePath(x)'."
-
-	    io.stderr:write(warning .. "\n")
-	end
-
-	return mep:resamplePath(_np)
-    end
-}
 
 
 methods["equalPoints"] =
@@ -534,14 +457,14 @@ methods["reverse"] =
 }
 
 
-local function single_compute_step(mep, get_site_ss, set_site_ss, get_energy_ss)
+local function single_compute_step(mep)
     local d = get_mep_data(mep)
 
     mep:initialize()
 
-    mep:calculateEnergyGradients(get_site_ss, set_site_ss, get_energy_ss)
-    --mep:makeForcePerpendicularToPath(get_site_ss, set_site_ss, get_energy_ss)
-    --mep:makeForcePerpendicularToSpins(get_site_ss, set_site_ss, get_energy_ss)
+    mep:calculateEnergyGradients()
+    --mep:makeForcePerpendicularToPath()
+    --mep:makeForcePerpendicularToSpins()
     mep:applyForces()
 end
 
@@ -588,8 +511,6 @@ methods["compute"] =
 	    error("Energy function is nil. Set an energy function with :setEnergyFunction")
 	end
 	
-	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-	
 	mep:initialize()
 	
 	local successful_steps = 0
@@ -600,22 +521,18 @@ methods["compute"] =
 	    copy_to_children(mep, true, tol>=0)
 	    
 	    d.big_step:setBeta(current_beta)
-	    single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss)
+	    single_compute_step(d.big_step) 
 	    
 	    if tol > 0 then -- negative tolerance will indicate no adaptive steps
 		d.small_step:setBeta(current_beta/2)
 		
-		--print("small step 1:")
-		single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
-		--print("small step 2:")
-		single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
+		single_compute_step(d.small_step)
+		single_compute_step(d.small_step)
 		
 		local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
 		local aDiffAvrg = aDiff / np
 		
-		-- print("beta = ", current_beta)
 		local step_mod, good_step = getStepMod(tol, maxDiff)
-		--print("step_mod = ", step_mod)
 		if good_step then
 		    d.small_step:internalCopyTo(mep)
 		    mep:resamplePath(np)
@@ -650,6 +567,10 @@ methods["execute"] =
 	local report = json.report or function() end
 	local goal = json.goal or nil
         local maxIteration = json.maxIterations or math.huge
+        local quitOnMultiMax = false
+        if json.quitOnMultiMax ~= nil then
+            quitOnMultiMax = json.quitOnMultiMax
+        end
 
 	local d = get_mep_data(mep)
 	local ss = mep:spinSystem()
@@ -664,8 +585,6 @@ methods["execute"] =
 	if energy_function == nil then
 	    error("Energy function is nil. Set an energy function with :setEnergyFunction")
 	end
-	
-	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 	
 	mep:initialize()
 
@@ -683,13 +602,13 @@ methods["execute"] =
                 copy_to_children(mep, true, tol>=0)
                 
                 d.big_step:setBeta(current_beta)
-                single_compute_step(d.big_step, get_site_ss, set_site_ss, get_energy_ss)
+                single_compute_step(d.big_step)
                 
                 if tol > 0 then -- negative tolerance will indicate no adaptive steps
                     d.small_step:setBeta(current_beta/2)
                     
-                    single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
-                    single_compute_step(d.small_step, get_site_ss, set_site_ss, get_energy_ss)
+                    single_compute_step(d.small_step)
+                    single_compute_step(d.small_step)
                     
                     local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
                     local aDiffAvrg = aDiff / np
@@ -773,6 +692,11 @@ methods["execute"] =
         if goal == nil then
             local m = max(size(n), size(tol))
             for i=1,m do
+                if quitOnMultiMax then
+                    if mep:maxCount() > 1 then
+                        return
+                    end
+                end
                 local _t = getat(tol, i)
                 local _n = getat(n, i)
                 if _t and _n then
@@ -784,6 +708,11 @@ methods["execute"] =
             for g=1,size(goal) do
                 local over_goal = true
                 while over_goal and currentIteration < maxIteration do
+                    if quitOnMultiMax then
+                        if mep:maxCount() > 1 then
+                            return
+                        end
+                    end
                     local _t = getat(tol, g)
                     local _n = getat(n, g)
                     if _t and _n then
@@ -815,15 +744,27 @@ methods["execute"] =
 
 methods["setSpinSystem"] =
     {
-    "Set the SpinSystem that will be used to do energy and orientation calculations. The any changes made to this SpinSystem will be undone before control is returned to the calling environment.",
+    "Set the SpinSystem that will be used to do energy and orientation calculations. Any changes made to this SpinSystem will be undone before control is returned to the calling environment.",
     "1 *SpinSystem*: SpinSystem to be used in calculations",
     "",
     function(mep, ss)
-	local d = get_mep_data(mep)
+	-- local d = get_mep_data(mep)
 	if getmetatable(ss) ~= SpinSystem.metatable() then
 	    error("setSpinSystem requires a SpinSystem", 2)
 	end
-	d.ss = ss
+        mep:_setSpinSystem(ss)
+	-- d.ss = ss
+    end
+}
+
+
+methods["spinSystem"] =
+    {
+    "Get the *SpinSystem* used in the calculation",
+    "",
+    "1 SpinSystem",
+    function(mep)
+        return mep:_getSpinSystem()
     end
 }
 
@@ -1203,6 +1144,7 @@ methods["setEnergyFunction"] =
 	    error("setEnergyFunction requires a function", 2)
 	end
 	d.energy_function = func
+        mep:_setEnergyFunction(func)
     end
 }
 
@@ -1353,9 +1295,7 @@ methods["pathEnergyNDeriv"] =
 	    mep:initialize()
 	end
 	
-        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-	
-	return mep:_pathEnergyNDeriv(n, get_site_ss, set_site_ss, get_energy_ss)
+	return mep:_pathEnergyNDeriv(n)
     end
 }
 
@@ -1367,13 +1307,11 @@ local function relaxPoint(mep, pointNum, steps, goal)
     local energy_function = mep:energyFunction()
     local tol = nonDefaultTol or mep:tolerance()
     
-    local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-
     steps = steps or 10
     goal = goal or 0
     local h, good_steps = nil
     for i=1,steps do
-	min_mag_grad, h, good_steps = mep:_relaxSinglePoint_sd(pointNum, get_site_ss, set_site_ss, get_energy_ss, h, goal)
+	min_mag_grad, h, good_steps = mep:_relaxSinglePoint_sd(pointNum, h, goal)
 	-- print(min_mag_grad, "<", goal)
 	if min_mag_grad < goal then
 	    return min_mag_grad
@@ -1400,11 +1338,9 @@ methods["expensiveEnergyMinimizationAtPoint"] =
     "1 Integer, 1 Optional Integer, 1 Optional Number: Point index, number of steps (default 50), starting step size (default 1e-3)",
     "1 Integer, 3 Number: Ratio of successful steps to total steps, initial energy, final energy, final step size",
     function(mep, point, steps, h)
-	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-	
 	steps = steps or 50
 
-	local good_steps, iE, fE, fH = mep:_expensiveEnergyMinimization(get_site_ss, set_site_ss, get_energy_ss, point, (h or 1e-3), steps)
+	local good_steps, iE, fE, fH = mep:_expensiveEnergyMinimization(point, (h or 1e-3), steps)
 
 	return good_steps / steps, iE, fE, fH
     end
@@ -1449,10 +1385,10 @@ methods["energyOfCustomConfiguration"] =
 methods["interpolateBetweenCustomPoints"] =
     {
     "Interpolate between two custom points.",
-    "2 Tables of Vectors, 1 Number: Each Vector is defined as 3 numbers and 1 optional string stating the coordinate system (Default Cartesian). The number is a ratio ideally between 0 and 1 which interpolates between the two input.",
+    "2 Tables of Vectors, 1 Number, 1 Optional Boolean: Each Vector is defined as 3 numbers and 1 optional string stating the coordinate system (Default Cartesian). The number is a ratio ideally between 0 and 1 which interpolates between the two input. The last optional boolean, if true, will interpolate the point around the back or long side of the sphere.",
     "1 Table of Vectors: The interpolated point.",
-    function(mep, p1, p2, r)
-	return mep:_interpolateBetweenCustomPoints(p1, p2, r)
+    function(mep, p1, p2, r, back)
+	return mep:_interpolateBetweenCustomPoints(p1, p2, r, back)
     end
 }
 
@@ -1789,11 +1725,9 @@ methods["expensiveGradientMinimizationAtPoint"] =
     "1 Integer, 1 Optional Integer, 1 Optional Number: Point index, number of steps (default 50), starting step size (default 1e-3)",
     "1 Integer, 3 Number: Ratio of successful steps to total steps, initial square of the gradient, final square of the gradient, final step size",
     function(mep, point, steps, h)
-	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-	
         steps = steps or 50
 
-        local good_steps, iG, fG, fH = mep:_expensiveGradientMinimization(get_site_ss, set_site_ss, get_energy_ss, point, (h or 1e-3), steps)
+        local good_steps, iG, fG, fH = mep:_expensiveGradientMinimization(point, (h or 1e-3), steps)
 
         return good_steps / steps, iG, fG, fH
     end
@@ -1811,8 +1745,6 @@ methods["slidePoint"] =
 	    mep:initialize()
 	end
 	
-	local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-	
 	local numSteps = numSteps or 50
 	
 	if pointNum == nil then
@@ -1823,7 +1755,7 @@ methods["slidePoint"] =
 	    direction = -1
 	end
 	
-	return mep:_slidePoint(get_site_ss, set_site_ss, get_energy_ss, pointNum, direction, numSteps, stepSize)
+	return mep:_slidePoint(pointNum, direction, numSteps, stepSize)
     end
 }
 
@@ -1846,9 +1778,7 @@ methods["classifyPoint"] =
 	    step[i] = h
 	end
 
-        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-	
-	local t1, t2, t3 = mep:_classifyPoint(pointNum, step, set_site_ss, get_site_ss, get_energy_ss)
+	local t1, t2, t3 = mep:_classifyPoint(pointNum, step)
 	return t1, t2, t3
     end
 }
@@ -1893,8 +1823,7 @@ methods["gradientAtPoint"] =
 	else
 	    destArray = Array.Double.new(c*3, 1)
 	end
-        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-	local t = mep:_gradAtPoint(pointNum, get_site_ss, set_site_ss, get_energy_ss)
+	local t = mep:_gradAtPoint(pointNum)
 	
 	for x=1,c*3 do
 	    destArray:set(x, 1, t[x])
@@ -1909,8 +1838,6 @@ methods["secondDerivativeAtPoint"] = {
     "1 Integer, 2 Integers, 2 optional Numbers: The first integer is the point number. The next 2 integers are coordinate numbers. Valid values are between 1 and then number of sites time 3. A 2 Site problem would accept numbers between 1 and 6 inclusively. The optional numbers are step sizes for the numeric differentiaion",
     "1 Number: second derivative of energy with repect to the coordinates",
     function(mep, pointNum, c1, c2, h1, h2)
-        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
-
 	if c1 < 1 or c1 > mep:numberOfSites()*3 then
 	    error("c1 out of bounds")
 	end
@@ -1923,7 +1850,7 @@ methods["secondDerivativeAtPoint"] = {
 	    error("point index out of bounds")
 	end
 
-	local t = mep:_computePointSecondDerivativeAB(pointNum, c1, c2, get_site_ss, set_site_ss, get_energy_ss, h1, h2)
+	local t = mep:_computePointSecondDerivativeAB(pointNum, c1, c2, h1, h2)
 	return t
     end
 
@@ -1934,7 +1861,6 @@ methods["hessianAtPoint"] = {
     "1 Integer, 1 Optional Array: Point to calculate 2nd derivative about. If no array is provided one will be created",
     "1 Array: Derivatives",
     function(mep, pointNum, destArray)
-        local get_site_ss, set_site_ss, get_energy_ss = build_gse_closures(mep)
 	
 	local c = mep:siteCount()
 	
@@ -1948,7 +1874,7 @@ methods["hessianAtPoint"] = {
 	
         --local ep = mep:epsilon()
         --mep:setEpsilon(ep*0.01)
-	local t = mep:_hessianAtPoint(pointNum, get_site_ss, set_site_ss, get_energy_ss)
+	local t = mep:_hessianAtPoint(pointNum)
         --mep:setEpsilon(ep)
 	
 	for x=0,c*3-1 do

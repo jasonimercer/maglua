@@ -694,42 +694,9 @@ function AllPathDynamics(mep, minima, JSON)
         for j=i+1,number_of_minima do
 	    local mep2 = mep:copy()
 
+	    report("Creating path between minimum points " .. i .. " and " .. j)
             AllPathDynamicsMEP(mep, minima[i], minima[j], report)
 
-            --[[
-            mep2:setInitialPath({minima[i], minima[j]})
-            mep2:resamplePath(ComputePoints)
-            
-            if PathDynamicsRotationRadians ~= 0 then
-                mep2:rotatePathAboutBy(PathDynamicsRotationAxis, PathDynamicsRotationRadians)
-            end
-
-            mep2:compute(ComputeSteps, {report=computeReport}) -- run MEP
-
-            if symmetricLandscape == false then -- we'll try to fix things
-                -- local np = mep2:numberOfPoints()
-                if mep2:minCount() > 2 then 
-                    attempt_simplify(mep2, SimplifyDegrees)
-
-                    -- using interpolation methods as poor man's saddle point finder
-                    mep2:resamplePath(ComputePoints)
-                    mep2:reduceToInterpolatedCriticalPoints({InterpolateEndPoints=false})
-                else
-                    mep2:reduceToInterpolatedCriticalPoints({InterpolateEndPoints=false}) 
-		    
-                    -- NOTE: not refining maxs until we have a good method
-                    -- of refining saddle points
-
-                    --local mins, maxs, all = mep2:criticalPoints()
-		    --refine_mins(mep2, mins)
-		    --refine_maxs(mep2, maxs)
-		    --mep2:reduceToPoints(all)
-		end
-		--if mep2:minCount() > 2 then 
-		--interactive("Multi-hop correction failed. Pre: mep3   post: mep2")
-		--end
-	    end
-            --]]
 
             local pd_opts = {
                 report=PathDynamicsReport, 
@@ -737,13 +704,13 @@ function AllPathDynamics(mep, minima, JSON)
                 onMultipleHops=PathDynamicsOnMultipleHops
             }
 
-	    report("Creating path between minimum points " .. i .. " and " .. j)
+	    report("Calculating physics from point " .. i .. " to " .. j)
 	    local pd = PathDynamics(mep, pd_opts)
 	    table.insert(all_paths, pd)
 	    report("")
 
 	    mep:reverse()
-	    report("Creating path between minimum points " .. j .. " and " .. i)
+	    report("Calculating physics from point " .. j .. " to " .. i)
 	    local pd = PathDynamics(mep, pd_opts)
 	    table.insert(all_paths, pd)
 	    report("")

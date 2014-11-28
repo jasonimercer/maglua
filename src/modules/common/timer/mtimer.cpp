@@ -52,94 +52,58 @@ Timer::~Timer()
 
 int Timer::luaInit(lua_State* L)
 {
-	LuaBaseObject::luaInit(L);
-	reset();
-	return 0;
+    LuaBaseObject::luaInit(L);
+    reset();
+    return 0;
 }
 
 
 void Timer::encode(buffer* b)
 {
-	ENCODE_PREAMBLE
-	char version = 0;
-	encodeChar(version, b);
-	
-	int running = !paused;
-	
-	if(running)
-		stop();
-
-	double t = get_time();
-
-	if(running)
-		start();
-	
-	encodeInteger(running, b);
-	encodeDouble(t, b);
+    ENCODE_PREAMBLE
+    char version = 0;
+    encodeChar(version, b);
+    
+    int running = !paused;
+    
+    if(running)
+        stop();
+    
+    double t = get_time();
+    
+    if(running)
+        start();
+    
+    encodeInteger(running, b);
+    encodeDouble(t, b);
 }
 
 int Timer::decode(buffer* b)
 {
-	stop();
-	reset();
-
-	char version = decodeChar(b);
-	if(version == 0)
-	{
-		int running = decodeInteger(b);
-		double t = decodeDouble(b);
-		
-		set_time(t);
-		if(running)
-			start();
-	}
-	else
-	{
-		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
-	}
-	return 0;
+    stop();
+    reset();
+    
+    char version = decodeChar(b);
+    if(version == 0)
+    {
+        int running = decodeInteger(b);
+        double t = decodeDouble(b);
+	
+        set_time(t);
+        if(running)
+            start();
+    }
+    else
+    {
+        fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
+    }
+    return 0;
 }
 	
-
-void Timer::fixTime()
-{
-#ifndef WIN32
-	while(nanoseconds < 0)
-	{
-		nanoseconds+=NANOSEC_PER_SEC;
-		seconds--;
-	}
-	
-	while(nanoseconds > NANOSEC_PER_SEC)
-	{
-		nanoseconds-=NANOSEC_PER_SEC;
-		seconds++;
-	}
-#endif
-}
-
-#if 0
-long Timer::get_seconds()
-{
-	fixTime();
-#ifdef WIN32
-	return (long) floor(seconds);
-#else
-	return seconds;
-#endif
-}
-
-long Timer::get_nanoseconds()
-{
-    fixTime();
-    return nanoseconds;
-}
-#endif
 
 double Timer::get_time()
 {
     accumulate();
-    fixTime();
 #ifdef WIN32
     return seconds;
 #else
@@ -161,9 +125,19 @@ void Timer::set_time(double t)
 
 void Timer::reset()
 {
-	seconds = 0;
-	nanoseconds = 0;
-	paused = 1;
+    seconds = 0;
+    nanoseconds = 0;
+    paused = 1;
+
+#ifdef WIN32
+	t0 = clock();
+#else
+#ifndef MACOSX
+	clock_gettime(CLOCKTYPE, (struct timespec*)t0);
+#else
+	gettimeofday((struct timeval *)t0, NULL);
+#endif
+#endif
 }
 
 void Timer::start()
@@ -200,13 +174,13 @@ void Timer::accumulate()
 #ifdef WIN32
 	seconds += (double)(t1 - t0) / CLOCKS_PER_SEC;
 #else
-#ifndef MACOSX
+  #ifndef MACOSX
 	seconds += (t1->tv_sec) - (t0->tv_sec);
 	nanoseconds += (t1->tv_nsec) - (t0->tv_nsec);
-#else //macosx
+  #else //macosx
 	seconds += (t1->tv_sec) - (t0->tv_sec);
 	nanoseconds += (t1->tv_usec*1000) - (t0->tv_usec*1000);
-#endif
+  #endif
 #endif
 
 
@@ -220,13 +194,13 @@ void Timer::accumulate()
 #endif
 #endif
 
-        fixTime();
     }
 }
 
 void Timer::stop()
 {
-    accumulate();
+    if(!paused)
+        accumulate();
     paused = 1;
 }
 

@@ -949,16 +949,16 @@ void SpinSystem::fft(int component)
 
 void SpinSystem::zeroFields()
 {
-	for(int i=0; i<nslots; i++)
-	{
-		slot_used[i] = false;
-		if(hx[i])
-		{
-			hx[i]->zero();
-			hy[i]->zero();
-			hz[i]->zero();
-		}
-	}
+    for(int i=0; i<nslots; i++)
+    {
+        slot_used[i] = false;
+        if(hx[i])
+        {
+            hx[i]->zero();
+            hy[i]->zero();
+            hz[i]->zero();
+        }
+    }
 }
 
 bool SpinSystem::member(const int px, const int py, const int pz) const
@@ -1030,13 +1030,41 @@ void SpinSystem::setGamma(const double g)
 
 
 
-void  SpinSystem::set(const int i, double sx, double sy, double sz)
+void  SpinSystem::set(const int i, const double sx, const double sy, const double sz)
 {
 	(*x)[i] = sx;
 	(*y)[i] = sy;
 	(*z)[i] = sz;
 
 	(*ms)[i]= sqrt(sx*sx+sy*sy+sz*sz);
+	invalidateFourierData();
+}
+
+void  SpinSystem::get(const int i, double* v4)
+{
+    v4[0] = (*x)[i];
+    v4[1] = (*y)[i];
+    v4[2] = (*z)[i];
+    v4[3] = (*ms)[i];
+}
+
+void  SpinSystem::set(const int i, const double sx, const double sy, const double sz, const double sm)
+{
+        double m = sqrt(sx*sx+sy*sy+sz*sz);
+
+        if(m == 0)
+        {
+            (*x)[i] = sm;
+            (*y)[i] = 0;
+            (*z)[i] = 0;
+        }
+        else
+        {
+            (*x)[i] = sm * (sx/m);
+            (*y)[i] = sm * (sy/m);
+            (*z)[i] = sm * (sz/m);
+        }
+
 	invalidateFourierData();
 }
 
@@ -1050,6 +1078,17 @@ void SpinSystem::set(const int px, const int py, const int pz, const double sx, 
 		*i = 4;
 	}
 	set(i, sx, sy, sz);
+}
+
+void SpinSystem::set(const int px, const int py, const int pz, const double sx, const double sy, const double sz, const double sm)
+{
+	const int i = getidx(px, py, pz);
+	if(i < 0 || i >= nxyz) //force crash
+	{
+		int* i = 0;
+		*i = 4;
+	}
+	set(i, sx, sy, sz, sm);
 }
 
 void SpinSystem::idx2xyz(int idx, int& x, int& y, int& z) const 
@@ -2517,6 +2556,28 @@ static int l_slots(lua_State* L)
 	return 1;
 }
 
+static int l_slotsnottotal(lua_State* L)
+{
+	LUA_PREAMBLE(SpinSystem, s,  1);
+	lua_newtable(L);
+	int j = 1;
+	for(int i=0; i<s->nslots; i++)
+	{
+            if(s->registered_slot_names[i])
+            {
+                if(strcmp(s->registered_slot_names[i], "Total") != 0)
+                {
+                    lua_pushinteger(L, j);
+                    lua_pushstring(L, s->registered_slot_names[i]);
+                    lua_settable(L, -3);
+                    j++;
+                }
+            }
+	}
+	s->invalidateFourierData(); // why is this here?!?
+	return 1;
+}
+
 static int l_idx2pos(lua_State* L)
 {
 	LUA_PREAMBLE(SpinSystem, s, 1);
@@ -3214,6 +3275,7 @@ const luaL_Reg* SpinSystem::luaMethods()
 		{"_setFieldArrayZ",  l_setfieldarrayz},
 		
 		{"slots", l_slots},
+		{"slotsNotTotal", l_slotsnottotal},
 		{"_slotUsed", l_getslotused},
 		{"_setSlotUsed", l_setslotused},
 		{"_ensureSlotExists", l_ensureslotexists},

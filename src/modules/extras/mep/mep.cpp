@@ -69,6 +69,8 @@ MEP::MEP()
     : LuaBaseObject(hash32(MEP::slineage(0)))
 {
     ref_data = LUA_REFNIL;
+    ref_energy_function = LUA_REFNIL;
+    ss = 0;
     energy_ok = false;
     good_distances = false;
     beta = 0.1;
@@ -126,11 +128,36 @@ void MEP::deinit()
 {
     if(ref_data != LUA_REFNIL)
 	luaL_unref(L, LUA_REGISTRYINDEX, ref_data);
+    if(ref_energy_function != LUA_REFNIL)
+	luaL_unref(L, LUA_REGISTRYINDEX, ref_energy_function);
+
     ref_data = LUA_REFNIL;
+    ref_energy_function = LUA_REFNIL;
 
     state_path.clear();
     image_site_mobility.clear();
     sites.clear();
+}
+
+int MEP::lua_setspinsystem(lua_State* L)
+{
+    luaT_set<SpinSystem>(&ss, luaT_to<SpinSystem>(L, 2));
+    return 0;
+}
+
+int MEP::lua_getspinsystem(lua_State* L)
+{
+    luaT_push<SpinSystem>(L, ss);
+    return 1;
+}
+
+int MEP::lua_setEnergyFunction(lua_State* L)
+{
+    if(ref_energy_function != LUA_REFNIL)
+        luaL_unref(L, LUA_REGISTRYINDEX, ref_energy_function);
+
+    ref_energy_function = luaL_ref(L, LUA_REGISTRYINDEX);
+    return 0;
 }
 
 int MEP::luaInit(lua_State* L, int base)
@@ -156,6 +183,21 @@ void MEP::encode(buffer* b) //encode to data stream
 
     _exportLuaVariable(L, -1, b);
     lua_pop(L, 1);
+
+
+    if(ref_energy_function != LUA_REFNIL)
+    {
+        lua_rawgeti(L, LUA_REGISTRYINDEX, ref_energy_function);
+    }
+    else
+    {
+        lua_pushnil(L);
+    }
+
+    _exportLuaVariable(L, -1, b);
+    lua_pop(L, 1);
+
+
 	
     encodeInteger(fixedRadius, b);
     encodeInteger(state_path.size(), b);
@@ -189,7 +231,9 @@ int  MEP::decode(buffer* b) // decode from data stream
     deinit();
     _importLuaVariable(L, b);
     ref_data = luaL_ref(L, LUA_REGISTRYINDEX);
-
+    _importLuaVariable(L, b);
+    ref_energy_function = luaL_ref(L, LUA_REGISTRYINDEX);
+    
     fixedRadius = decodeInteger(b);
 	
     int n = decodeInteger(b);
@@ -220,10 +264,47 @@ int  MEP::decode(buffer* b) // decode from data stream
     return 0;
 }
 
+
+void MEP::get_site_ss(int px, int py, int pz, double* v3)
+{
+    const int c = ss->getidx(px, py, pz);
+
+    v3[0] = ss->x->data()[c];
+    v3[1] = ss->y->data()[c];
+    v3[2] = ss->z->data()[c];
+}
+
+bool MEP::set_site_ss(int px, int py, int pz, double* v3)
+{
+    double current[4];
+    const int c = ss->getidx(px, py, pz);
+
+    ss->get(c, current);
+
+    double m = ss->ms->data()[c];
+    ss->set(px,py,pz, v3[0], v3[1], v3[2], m);
+
+    return memcpy(current, v3, sizeof(double)*3) != 0;
+}
+
+double MEP::get_energy_ss(lua_State* L)
+{
+    lua_rawgeti(L, LUA_REGISTRYINDEX, ref_energy_function);
+    luaT_push<SpinSystem>(L, ss);
+
+    lua_call(L, 1, 1);
+    double e = lua_tonumber(L, -1);
+    lua_pop(L, 1);
+}
+
+
 void MEP::internal_copy_to(MEP* dest)
 {
     dest->state_path.clear();
     dest->fixedRadius = fixedRadius;
+
+    lua_rawgeti(L, LUA_REGISTRYINDEX, ref_energy_function);
+    dest->ref_energy_function = luaL_ref(L, LUA_REGISTRYINDEX);
 
     for(int i=0; i<state_path.size(); i++)
     {
@@ -242,6 +323,7 @@ void MEP::internal_copy_to(MEP* dest)
 	dest->sites.push_back(sites[i]);
     }
 
+    luaT_set<SpinSystem>(&(dest->ss), ss);
 
     dest->path_tangent.clear();
     dest->force_vector.clear();
@@ -538,22 +620,20 @@ double MEP::distanceBetweenHyperPoints(int p1, int p2)
     return d;
 }
 
-void MEP::interpolateVectorCS(const vector<VectorCS>& v1, const vector<VectorCS>& v2, const double ratio, vector<VectorCS>& dest)
+void MEP::interpolateVectorCS(const vector<VectorCS>& v1, const vector<VectorCS>& v2, const double ratio, vector<VectorCS>& dest, bool backwards)
 {
     for(unsigned int i=0; i<v1.size(); i++)
     {
 	VectorCS t;
-	interpolateVectorCS(v1[i], v2[i], ratio, t);
+	interpolateVectorCS(v1[i], v2[i], ratio, t, backwards);
 	dest.push_back(t);
     }
 }
 
-void MEP::interpolateVectorCS(const VectorCS& v1, const VectorCS& v2, const double ratio, VectorCS& dest)
+void MEP::interpolateVectorCS(const VectorCS& v1, const VectorCS& v2, const double ratio, VectorCS& dest, bool backwards)
 {
     VectorCS nv1 = v1.normalizedTo(1).convertedToCoordinateSystem(Cartesian);
     VectorCS nv2 = v2.normalizedTo(1).convertedToCoordinateSystem(Cartesian);
-
-    double a = VectorCS::angleBetween(nv1, nv2);
 
     if(ratio == 0) //then no need to interpolate
     {
@@ -564,6 +644,13 @@ void MEP::interpolateVectorCS(const VectorCS& v1, const VectorCS& v2, const doub
     {
 	dest = v2;
 	return;
+    }
+
+    double a = VectorCS::angleBetween(nv1, nv2);
+
+    if(backwards)
+    {
+        a = - (M_PI*2 - a);
     }
 	
     VectorCS norm;
@@ -605,7 +692,7 @@ void MEP::interpolateVectorCS(const VectorCS& v1, const VectorCS& v2, const doub
 }
 
 
-void MEP::interpolatePoints(const int p1, const int p2, const int site, const double _ratio, vector<VectorCS>& dest, const double rjitter)
+void MEP::interpolatePoints(const int p1, const int p2, const int site, const double _ratio, vector<VectorCS>& dest, const double rjitter, bool backwards)
 {
     const int num_sites = numberOfSites();
 
@@ -628,6 +715,11 @@ void MEP::interpolatePoints(const int p1, const int p2, const int site, const do
     double ratio = _ratio * (1.0 + rjitter * mobility);
 	
     double a = VectorCS::angleBetween(nv1, nv2);
+
+    if(backwards)
+    {
+        a = - (M_PI*2 - a);
+    }
 
     if(ratio == 0) //then no need to interpolate
     {
@@ -676,13 +768,13 @@ void MEP::interpolatePoints(const int p1, const int p2, const int site, const do
 
 
 
-void MEP::interpolateHyperPoints(const int p1, const int p2, const double ratio, vector<VectorCS>& dest, const double jitter)
+void MEP::interpolateHyperPoints(const int p1, const int p2, const double ratio, vector<VectorCS>& dest, const double jitter, bool* backwards)
 {
     int n = numberOfSites();
     for(int i=0; i<n; i++)
     {
 	double rjitter = (myrandf() * jitter*2 - jitter);
-	interpolatePoints(p1,p2,i,ratio,dest, rjitter);
+	interpolatePoints(p1,p2,i,ratio,dest, rjitter, backwards[i]);
     }
 }
 
@@ -847,6 +939,24 @@ int MEP::resampleStatePath(lua_State* L)
     if(lua_isnumber(L, 3))
 	jitter = lua_tonumber(L, 3);
 	
+    const int ns = numberOfSites();
+    
+    bool* backwards = new bool[ns];
+    for(int i=0; i<ns; i++)
+    {
+        if(lua_istable(L, -1))
+        {
+            lua_pushinteger(L, i+1);
+            lua_gettable(L, -2);
+            backwards[i] = lua_toboolean(L, -1);
+            lua_pop(L, 1);
+        }
+        else
+            backwards[i] = false;
+    }
+
+
+
     if(lua_isnumber(L, 2))
     {
 	int num_points = lua_tointeger(L, 2);
@@ -941,7 +1051,7 @@ int MEP::resampleStatePath(lua_State* L)
 	if(j != -1)
 	{
 // 			printf("range[ %i:%i]  ratio: %e\n", j, j+1, ratio); 
-	    interpolateHyperPoints(j, j+1, ratio, new_state_path, jitter);
+	    interpolateHyperPoints(j, j+1, ratio, new_state_path, jitter, backwards);
 	}
 	else
 	{
@@ -969,7 +1079,6 @@ int MEP::resampleStatePath(lua_State* L)
     vector<double> first_mobility;// = image_site_mobility[0];
     vector<double> last_mobility;// = image_site_mobility[image_site_mobility.size()-1];
 	
-    const int ns = numberOfSites();
 // 	new_num_images
 	
     for(int i=0; i<ns; i++)
@@ -1007,6 +1116,7 @@ int MEP::resampleStatePath(lua_State* L)
 	
     energy_ok = false; //need to recalc energy
     good_distances = false;
+    delete [] backwards;
     return 0;
 }
 
@@ -1019,7 +1129,7 @@ void MEP::addSite(int x, int y, int z)
 }
 
 //project gradients onto vector perpendicular to spin direction
-void MEP::projForcePerpSpins(lua_State* L, int get_index, int set_index, int energy_index)
+void MEP::projForcePerpSpins(lua_State* L)
 {
     if(force_vector.size() != state_path.size())
     {
@@ -1208,7 +1318,7 @@ void MEP::computeTangent(const int p1, const int p2, const int dest)
 // the plan is to compute vectors along the path (cartesian), apply the forces to the state
 // saving in a temporary buffer. Convert old and new states to cartesian and get the difference
 // from that we can do the proper vector rejection and move that back into the force
-void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int energy_index) 
+void MEP::projForcePerpPath(lua_State* L) //, int get_index, int set_index, int energy_index) 
 {
     //for(int k=0; k<state_path.size(); k++)
     //    print_vec("before", force_vector[k]);
@@ -1332,7 +1442,7 @@ void MEP::projForcePerpPath(lua_State* L, int get_index, int set_index, int ener
 
 
 //project gradients onto vector perpendicular to path direction
-void MEP::projForcePath(lua_State* L, int get_index, int set_index, int energy_index) 
+void MEP::projForcePath(lua_State* L) //, int get_index, int set_index, int energy_index) 
 {
     path_tangent.clear();
     path_tangent.resize(state_path.size());
@@ -1389,7 +1499,7 @@ void MEP::projForcePath(lua_State* L, int get_index, int set_index, int energy_i
 }
 
 // back up old sites so we can restore after
-void MEP::saveConfiguration(lua_State* L, int get_index, vector<double>& buffer)
+void MEP::saveConfiguration(vector<double>& buffer)
 {
     buffer.clear();
     const int ns = numberOfSites();
@@ -1398,29 +1508,26 @@ void MEP::saveConfiguration(lua_State* L, int get_index, vector<double>& buffer)
     {
 	int* site = &sites[s*3];
 	//printf(">> %i %i %i\n", site[0], site[1], site[2]);
-	getSiteSpin(L, get_index, site, buffer);
+	getSiteSpin(site, buffer);
     }
 }
 
 // restore state
-void MEP::loadConfiguration(lua_State* L, int set_index, vector<double>& buffer)
+void MEP::loadConfiguration(vector<double>& buffer)
 {
     const int num_sites = numberOfSites();
 
     for(int s=0; s<num_sites; s++)
     {
-	setSiteSpin(L, set_index, &sites[s*3], &buffer[s*3]);
+	setSiteSpin(&sites[s*3], &buffer[s*3]);
     }
-	
-
-
 }
 
-	
-void MEP::getSiteSpin(lua_State* L, int get_index, int* site3, VectorCS& m3)
+void MEP::getSiteSpin(int* site3, VectorCS& m3)
 {
     double t[3];
 
+    /*
     lua_pushvalue(L, get_index);
     lua_pushinteger(L, site3[0]+1);
     lua_pushinteger(L, site3[1]+1);
@@ -1432,6 +1539,8 @@ void MEP::getSiteSpin(lua_State* L, int get_index, int* site3, VectorCS& m3)
     t[2] = lua_tonumber(L, -1);
 
     lua_pop(L, 3);	
+    */
+    get_site_ss(site3[0], site3[1], site3[2], t);
 
     VectorCS vec(t, Cartesian);
     vec.convertToCoordinateSystem(m3.cs);
@@ -1441,10 +1550,10 @@ void MEP::getSiteSpin(lua_State* L, int get_index, int* site3, VectorCS& m3)
     m3.v[2] = vec.v[2];
 }
 
-void MEP::getSiteSpin(lua_State* L, int get_index, int* site3, vector<double>& v)
+void MEP::getSiteSpin(int* site3, vector<double>& v)
 {
     VectorCS m(0,0,0,Cartesian);
-    getSiteSpin(L, get_index, site3, m); // will get in Cartesian
+    getSiteSpin(site3, m); // will get in Cartesian
     v.push_back(m.v[0]);
     v.push_back(m.v[1]);
     v.push_back(m.v[2]);
@@ -1481,60 +1590,52 @@ void MEP::setImageSiteMobility(const int image, const int site, double mobility)
     image_site_mobility[k] = mobility;
 }
 
-void MEP::setSiteSpin(lua_State* L, int set_index, int* site3, const double* _mm)
+void MEP::setSiteSpin(int* site3, const double* _mm)
 {
     VectorCS mm(_mm[0], _mm[1], _mm[2], Cartesian);
-    setSiteSpin(L, set_index, site3, mm);
+    setSiteSpin(site3, mm);
 }
 
-
-void MEP::setSiteSpin(lua_State* L, int set_index, int* site3, const VectorCS& mm)
+void MEP::setSiteSpin(int* site3, const VectorCS& mm)
 {
     VectorCS tt = mm.convertedToCoordinateSystem(Cartesian);
     double* t = tt.v;
 
-    lua_pushvalue(L, set_index);
-    lua_pushinteger(L, site3[0]+1);
-    lua_pushinteger(L, site3[1]+1);
-    lua_pushinteger(L, site3[2]+1);
-    lua_pushnumber(L, t[0]);
-    lua_pushnumber(L, t[1]);
-    lua_pushnumber(L, t[2]);
-    lua_call(L, 6, 1);
-	
-    if(lua_toboolean(L, -1)) // then a change happened
+    if( set_site_ss(site3[0], site3[1], site3[2], t) )
     {
 	energy_ok = false; //need to recalc energy
 	good_distances = false;
     }
-    lua_pop(L, 1);
 }
 
-void MEP::setAllSpins(lua_State* L, int set_index, const vector<VectorCS>& m)
+void MEP::setAllSpins(const vector<VectorCS>& m)
 {
     int num_sites = numberOfSites();
     for(int s=0; s<num_sites; s++)
-	setSiteSpin(L, set_index, &sites[s*3], m[s]);
+	setSiteSpin(&sites[s*3], m[s]);
 }
 
-void MEP::getAllSpins(lua_State* L, int get_index, vector<VectorCS>& m)
+void MEP::getAllSpins(vector<VectorCS>& m)
 {
     int num_sites = numberOfSites();
     for(int s=0; s<num_sites; s++)
-	getSiteSpin(L, get_index, &sites[s*3], m[s]);
+	getSiteSpin(&sites[s*3], m[s]);
 }
 
 
-double MEP::getEnergy(lua_State* L, int energy_index)
+double MEP::getEnergy(lua_State* L)
 {
+    return get_energy_ss(L);
+#if 0
     lua_pushvalue(L, energy_index);
     lua_call(L, 0, 1);
     double e = lua_tonumber(L, -1);
     lua_pop(L, 1);
     return e;
+#endif
 }
 
-int MEP::calculateEnergies(lua_State* L, int get_index, int set_index, int energy_index)
+int MEP::calculateEnergies(lua_State* L)
 {
     if(energy_ok)
 	return 0;
@@ -1544,19 +1645,19 @@ int MEP::calculateEnergies(lua_State* L, int get_index, int set_index, int energ
 
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
     for(int p=0; p<np; p++)
     {
 	for(int s=0; s<ns; s++)
 	{
-	    setSiteSpin(L, set_index, &sites[s*3], state_path[p * ns + s]);
+	    setSiteSpin(&sites[s*3], state_path[p * ns + s]);
 	}
 
-	energies.push_back(getEnergy(L, energy_index));
+	energies.push_back(getEnergy(L)); 
     }
 
-    loadConfiguration(L, set_index, cfg);
+    loadConfiguration(cfg);
 	
     energy_ok = true;
     return 0;
@@ -1621,10 +1722,10 @@ void MEP::listDerivN(vector<double>& dest, vector<double>& src)
 }
 
 
-int MEP::calculatePathEnergyNDeriv(lua_State* L, int get_index, int set_index, int energy_index, int n, vector<double>& nderiv)
+int MEP::calculatePathEnergyNDeriv(lua_State* L, int n, vector<double>& nderiv)
 {
     // populate energies vector
-    calculateEnergies(L, get_index, set_index, energy_index); //always returns 0
+    calculateEnergies(L); //always returns 0
 
     double distance = calculateD12(); //total distance
     nderiv.clear();
@@ -1647,7 +1748,7 @@ int MEP::calculatePathEnergyNDeriv(lua_State* L, int get_index, int set_index, i
     // n > 1
     vector<double> nmoDeriv; //n-1 deriv	
 	
-    calculatePathEnergyNDeriv(L, get_index, set_index, energy_index, n-1, nmoDeriv);
+    calculatePathEnergyNDeriv(L, n-1, nmoDeriv);
 
     listDerivN(nderiv, nmoDeriv);
 	
@@ -1682,11 +1783,11 @@ static void rescale_vectors(vector<VectorCS>& vecs, vector<double>& mags)
     }
 }
 
-double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, int get_index, int energy_index, int c1, int c2, double _dc1, double _dc2)
+double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int c1, int c2, double _dc1, double _dc2)
 {
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
     const int num_sites = numberOfSites();
     vector<VectorCS> vec;
@@ -1719,9 +1820,9 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, i
     if(vectorElementChange(vec, c1, dx1, fixedRadius) &&
        vectorElementChange(vec, c2, dx2, fixedRadius) )
     {
-        setAllSpins(L, set_index, vec);
+        setAllSpins(vec);
         getPoint(p, vec);
-        e1 = getEnergy(L, energy_index);
+        e1 = getEnergy(L);
     }
 
 	
@@ -1729,9 +1830,9 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, i
     if(vectorElementChange(vec, c1, dx1, fixedRadius) &&
        vectorElementChange(vec, c2,-dx2, fixedRadius) )
     {
-        setAllSpins(L, set_index, vec);
+        setAllSpins(vec);
         getPoint(p, vec);
-        e2 = getEnergy(L, energy_index);
+        e2 = getEnergy(L);
     }
 
     // calc lower deriv energies
@@ -1739,18 +1840,18 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, i
     if(vectorElementChange(vec, c1,-dx1, fixedRadius) &&
        vectorElementChange(vec, c2, dx2, fixedRadius))
     {
-        setAllSpins(L, set_index, vec);
+        setAllSpins(vec);
         getPoint(p, vec);
-        e3 = getEnergy(L, energy_index);
+        e3 = getEnergy(L);
     }
 
     e4 = 0;
     if(vectorElementChange(vec, c1,-dx1, fixedRadius) &&
        vectorElementChange(vec, c2,-dx2, fixedRadius))
     {
-        setAllSpins(L, set_index, vec);
+        setAllSpins(vec);
         getPoint(p, vec);
-        e4 = getEnergy(L, energy_index);
+        e4 = getEnergy(L);
     }
 
     double diff_e1_e2 = (e1 - e2);
@@ -1762,14 +1863,14 @@ double MEP::computePointSecondDerivativeAB(lua_State* L, int p, int set_index, i
     result = (dd1 - dd2) / (2.0 * dx1);
 
     // restore existing cfg
-    loadConfiguration(L, set_index, cfg);	
+    loadConfiguration(cfg);	
 
     return result;
 }
 
 
 // partial derivs
-void MEP::computePointSecondDerivative(lua_State* L, int p, int set_index, int get_index, int energy_index, double* derivsAB)
+void MEP::computePointSecondDerivative(lua_State* L, int p, double* derivsAB)
 {
     const int num_sites = numberOfSites();
     int deriv_pos = 0;
@@ -1777,7 +1878,7 @@ void MEP::computePointSecondDerivative(lua_State* L, int p, int set_index, int g
     {
 	for(int c2=0; c2<num_sites*3; c2++)
 	{
-	    derivsAB[deriv_pos] = computePointSecondDerivativeAB(L, p, set_index, get_index, energy_index, c1, c2);
+	    derivsAB[deriv_pos] = computePointSecondDerivativeAB(L, p, c1, c2);
 	    deriv_pos++;
 	}
     }
@@ -1872,15 +1973,15 @@ CoordinateSystem MEP::getCSAt(int p, int s)
 
 
 
-void MEP::computePointFirstDerivative(lua_State* L, int p, const double p_energy, int set_index, int get_index, int energy_index, vector<VectorCS>& d)
+void MEP::computePointFirstDerivative(lua_State* L, int p, const double p_energy, vector<VectorCS>& d)
 {
     d.clear();
     const int num_sites = numberOfSites();
     for(int c=0; c<num_sites; c++)
     {
-	double v1 = computePointFirstDerivativeC(L, p, p_energy, set_index, get_index, energy_index, c*3+0);
-	double v2 = computePointFirstDerivativeC(L, p, p_energy, set_index, get_index, energy_index, c*3+1);
-	double v3 = computePointFirstDerivativeC(L, p, p_energy, set_index, get_index, energy_index, c*3+2);
+	double v1 = computePointFirstDerivativeC(L, p, p_energy, c*3+0);
+	double v2 = computePointFirstDerivativeC(L, p, p_energy, c*3+1);
+	double v3 = computePointFirstDerivativeC(L, p, p_energy, c*3+2);
 
 	d.push_back(VectorCS(v1,v2,v3, getPointSite(p,c).cs));
     }
@@ -1888,15 +1989,15 @@ void MEP::computePointFirstDerivative(lua_State* L, int p, const double p_energy
 
 
 
-void MEP::computeVecFirstDerivative(lua_State* L, vector<VectorCS>& vec, const double vec_energy, int set_index, int get_index, int energy_index, vector<VectorCS>& d)
+void MEP::computeVecFirstDerivative(lua_State* L, vector<VectorCS>& vec, const double vec_energy, vector<VectorCS>& d)
 {
     d.clear();
     const int num_sites = numberOfSites();
     for(int c=0; c<num_sites; c++)
     {
-	double x1 = computeVecFirstDerivativeC(L, vec, vec_energy, set_index, get_index, energy_index, c*3+0);
-	double x2 = computeVecFirstDerivativeC(L, vec, vec_energy, set_index, get_index, energy_index, c*3+1);
-	double x3 = computeVecFirstDerivativeC(L, vec, vec_energy, set_index, get_index, energy_index, c*3+2);
+	double x1 = computeVecFirstDerivativeC(L, vec, vec_energy, c*3+0);
+	double x2 = computeVecFirstDerivativeC(L, vec, vec_energy, c*3+1);
+	double x3 = computeVecFirstDerivativeC(L, vec, vec_energy, c*3+2);
 		
 	d.push_back(VectorCS(x1,x2,x3, vec[c].cs));
     }
@@ -1916,24 +2017,24 @@ void MEP::computeVecFirstDerivative(lua_State* L, vector<VectorCS>& vec, const d
   }
 */
 
-double MEP::vecEnergy(lua_State* L, vector<VectorCS>& vec, int set_index, int get_index, int energy_index)
+double MEP::vecEnergy(lua_State* L, vector<VectorCS>& vec)
 {
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
-    setAllSpins(L, set_index, vec);
-    double e = getEnergy(L, energy_index);
+    setAllSpins(vec);
+    double e = getEnergy(L);
 
-    loadConfiguration(L, set_index, cfg); // restore
+    loadConfiguration(cfg); // restore
     return e;
 }
 
-double MEP::computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, const double energy, int set_index, int get_index, int energy_index, int c1)
+double MEP::computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, const double energy, int c1)
 {
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
     const int num_sites = numberOfSites();
     double result;
 
@@ -2014,8 +2115,8 @@ double MEP::computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, cons
     copyVectorTo(vec, state);
     vectorElementChange(state, c1,-dx1, fixedRadius);
     rescale_vectors(state, mags);
-    setAllSpins(L, set_index, state);
-    e1 = getEnergy(L, energy_index);
+    setAllSpins(state);
+    e1 = getEnergy(L);
 
 #if 0
     copyVectorTo(vec, state);
@@ -2029,36 +2130,36 @@ double MEP::computeVecFirstDerivativeC(lua_State* L, vector<VectorCS>& vec, cons
     copyVectorTo(vec, state);
     vectorElementChange(state, c1, dx1, fixedRadius);
     rescale_vectors(state, mags);
-    setAllSpins(L, set_index, state);
-    e3 = getEnergy(L, energy_index);
+    setAllSpins(state);
+    e3 = getEnergy(L);
 
     double v1 = (e3 - e2) / dx1;
     double v2 = (e2 - e1) / dx1;
 
     result = (v1 + v2) * 0.5;
 
-    loadConfiguration(L, set_index, cfg);	
+    loadConfiguration(cfg);	
 
     return result;
 }
 
 
 
-double MEP::computePointFirstDerivativeC(lua_State* L, int p, const double p_energy, int set_index, int get_index, int energy_index, int c1)
+double MEP::computePointFirstDerivativeC(lua_State* L, int p, const double p_energy, int c1)
 {
     vector<VectorCS> vec;
     getPoint(p, vec);
-    return computeVecFirstDerivativeC(L, vec, p_energy, set_index, get_index, energy_index, c1);
+    return computeVecFirstDerivativeC(L, vec, p_energy, c1);
 }
 
 
 
 
-int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_index, int energy_index, int point, double h, int steps)
+int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int point, double h, int steps)
 {
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
     int good_steps = 0;
     const int num_sites = numberOfSites();
@@ -2075,9 +2176,9 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_i
 	mags.push_back( vec[i].magnitude() );
     }
 
-    double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
+    double vec_energy = vecEnergy(L, vec);
 
-    computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, grad);
+    computeVecFirstDerivative(L, vec, vec_energy, grad);
     double current_grad = sqrt(cart_norm2(grad));
 
     // printf("Start grad: %20e\n", current_grad);
@@ -2091,9 +2192,9 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_i
             {
                 rescale_vectors(vec2, mags);
 
-                double vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
+                double vec2_energy = vecEnergy(L, vec2);
 
-                computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
+                computeVecFirstDerivative(L, vec2, vec2_energy, grad);
                 const double new_grad = sqrt(cart_norm2(grad));
 
                 if(new_grad <= current_grad)
@@ -2106,21 +2207,20 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int get_index, int set_i
         }
     }
 
-
     setPoint(point, vec);
 
     energy_ok = false;
 
-    loadConfiguration(L, set_index, cfg);
+    loadConfiguration(cfg);
 
     return good_steps;
 }
 
-int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index, int energy_index, int point, double h, int steps)
+int MEP::expensiveEnergyMinimization(lua_State* L, int point, double h, int steps)
 {
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
     int good_steps = 0;
     const int ns = numberOfSites();
@@ -2131,8 +2231,8 @@ int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index,
     getPoint(point, vec);
     getPoint(point, vec2);
 
-    setAllSpins(L, set_index, vec);
-    double current_energy = getEnergy(L, energy_index);
+    setAllSpins(vec);
+    double current_energy = getEnergy(L);
     double start_energy = current_energy;
 
     bool* changer = new bool[ns*3];
@@ -2168,8 +2268,8 @@ int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index,
             if(change)
             {
                 //printf("%2d  %4d/%4d\n", qq, i, steps );
-                setAllSpins(L, set_index, vec2);
-                double new_energy = getEnergy(L, energy_index);
+                setAllSpins(vec2);
+                double new_energy = getEnergy(L);
 		
                 if(new_energy < current_energy)
                 {
@@ -2194,7 +2294,7 @@ int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index,
 
     setPoint(point, vec);
     energy_ok = false;
-    loadConfiguration(L, set_index, cfg);
+    loadConfiguration(cfg);
 
     lua_pushinteger(L, good_steps);
     lua_pushnumber(L, start_energy);
@@ -2205,11 +2305,11 @@ int MEP::expensiveEnergyMinimization(lua_State* L, int get_index, int set_index,
 
 
 
-int MEP::expensiveGradientMinimization(lua_State* L, int get_index, int set_index, int energy_index, int point, double h, int steps)
+int MEP::expensiveGradientMinimization(lua_State* L, int point, double h, int steps)
 {
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
     int good_steps = 0;
     const int ns = numberOfSites();
@@ -2221,8 +2321,8 @@ int MEP::expensiveGradientMinimization(lua_State* L, int get_index, int set_inde
     getPoint(point, vec);
     getPoint(point, vec2);
 
-    double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
-    computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, grad);
+    double vec_energy = vecEnergy(L, vec);
+    computeVecFirstDerivative(L, vec, vec_energy, grad);
 
     double start_grad2 = cart_norm2(grad);
     double current_grad2 = start_grad2;
@@ -2243,9 +2343,9 @@ int MEP::expensiveGradientMinimization(lua_State* L, int get_index, int set_inde
 
                 if(change)
                 {
-                    double vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
+                    double vec2_energy = vecEnergy(L, vec2);
 
-                    computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
+                    computeVecFirstDerivative(L, vec2, vec2_energy, grad);
                     double new_grad2 = cart_norm2(grad);
                     
                     if(new_grad2 < current_grad2)
@@ -2280,7 +2380,7 @@ int MEP::expensiveGradientMinimization(lua_State* L, int get_index, int set_inde
     lua_pushnumber(L, start_grad2);
     lua_pushnumber(L, current_grad2 );
     lua_pushnumber(L, h);
-    loadConfiguration(L, set_index, cfg);
+    loadConfiguration(cfg);
     return 4;
 }
 
@@ -2291,10 +2391,7 @@ int MEP::expensiveGradientMinimization(lua_State* L, int get_index, int set_inde
 // expected on the stack:
 // at 1, mep
 // at 2, point number
-// at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
-// at 4, function set_site_ss1(x,y,z, sx,sy,sz)  return something_changed
-// at 5, function get_energy_ss1()
-// at 6, optional start h
+// at 3, optional start h
 // returns min (mag of grad)
 int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 {
@@ -2314,16 +2411,9 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
     if(p < 0 || p >= path_length)
 	return luaL_error(L, "Point index out of bounds");
 
-    const int get_index = 3;
-    const int set_index = 4;
-    const int energy_index = 5;
-
-    if(!lua_isfunction(L, 3) || !lua_isfunction(L, 4) || !lua_isfunction(L, 5))
-	return luaL_error(L, "3 functions expected - perhaps you should call the wrapper method :relaxSinglePoint");
-	
     // need to save current configuration
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
     vector<VectorCS> vec;
     vector<VectorCS> vec2;
@@ -2337,22 +2427,22 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
     }
 
     // write path point as it currently stands
-    setAllSpins(L, set_index, vec);
+    setAllSpins(vec);
 
     vector<VectorCS> grad;
     double* _grad_grad = new double[num_sites*3];
     double h = epsilon;
 
-    if(lua_isnumber(L, 6))
-	h = lua_tonumber(L, 6);
+    if(lua_isnumber(L, 3))
+	h = lua_tonumber(L, 3);
 
     if(h < 1e-10)
 	h = 1e-10;
     h = 1e-10;
 
-    double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
+    double vec_energy = vecEnergy(L, vec);
 
-    computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, grad);
+    computeVecFirstDerivative(L, vec, vec_energy, grad);
     for(int i=0; i<num_sites; i++)
 	grad[i].zeroRadialComponent();
 
@@ -2364,17 +2454,17 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	bool change = vectorElementChange(vec2, qq, -h, fixedRadius);
         if(change)
         {
-            double vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
-            computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
+            double vec2_energy = vecEnergy(L, vec2);
+            computeVecFirstDerivative(L, vec2, vec2_energy, grad);
             for(int i=0; i<num_sites; i++)
                 grad[i].zeroRadialComponent(vec2[i]);
             double x_minus_h = sqrt(cart_norm2(grad));
             
             
             getPoint(p, vec2);
-            vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
+            vec2_energy = vecEnergy(L, vec2);
             vectorElementChange(vec2, qq,  h, fixedRadius);
-            computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
+            computeVecFirstDerivative(L, vec2, vec2_energy, grad);
             for(int i=0; i<num_sites; i++)
                 grad[i].zeroRadialComponent(vec2[i]);
             double x_plus_h = sqrt(cart_norm2(grad));
@@ -2420,8 +2510,8 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 
 
     double goal = 0;
-    if(lua_isnumber(L, 7))
-	goal = lua_tonumber(L, 7);
+    if(lua_isnumber(L, 4))
+	goal = lua_tonumber(L, 4);
 
 
     int max_steps = 50;
@@ -2440,8 +2530,8 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 	    vec2[i].setMagnitude( mags[i] );
 	}
 
-        double vec2_energy = vecEnergy(L, vec2, set_index, get_index, energy_index);
-	computeVecFirstDerivative(L, vec2, vec2_energy, set_index, get_index, energy_index, grad);
+        double vec2_energy = vecEnergy(L, vec2);
+	computeVecFirstDerivative(L, vec2, vec2_energy, grad);
 	for(int i=0; i<num_sites; i++)
 	    grad[i].zeroRadialComponent();
 	double min2_2 = cart_norm2(grad);
@@ -2488,7 +2578,7 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
     delete [] _grad_grad;
 
     //need to restore saved configuration to SpinSystem
-    loadConfiguration(L, set_index, cfg);
+    loadConfiguration(cfg);
 
     lua_pushnumber(L, sqrt(min2));
     lua_pushnumber(L, h);
@@ -2506,46 +2596,39 @@ int MEP::relaxSinglePoint_SteepestDecent(lua_State* L)
 // relax individual point. This is used to refine a maximal point
 // expected on the stack:
 // at 1, mep
-// at 2, function get_site_ss1(x,y,z) return sx,sy,sz 
-// at 3, function set_site_ss1(x,y,z, sx,sy,sz)  return something_changed
-// at 4, function get_energy_ss1()
-// at 5, point number
-// at 6, direction
-// at 7, num steps
-// at 8, step size
-// at 9, tolerance
+// at 2, point number
+// at 3, direction
+// at 4, num steps
+// at 5, step size
+// at 6, tolerance
 // returns new step size
 int MEP::slidePoint(lua_State* L)
 {
     const int num_sites = numberOfSites();
     const int path_length = numberOfImages();
 
-    const int get_index = 2;
-    const int set_index = 3;
-    const int energy_index = 4;
-
     const double step_up = 1.1;
     const double step_down = 0.9;
 
-    const int p = lua_tointeger(L, 5) - 1;
+    const int p = lua_tointeger(L, 2) - 1;
     if(p < 0 || p >= path_length)
 	return luaL_error(L, "Point index out of bounds");
 
-    double direction = lua_tonumber(L, 6);
+    double direction = lua_tonumber(L, 3);
     if(direction < 0)
 	direction = -1;
     else
 	direction =  1;
 
-    int num_steps = lua_tointeger(L, 7);
-    double h = lua_tonumber(L, 8);
+    int num_steps = lua_tointeger(L, 4);
+    double h = lua_tonumber(L, 5);
 
     if(h == 0)
 	h = 1e-10;
 
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
     const int n = num_sites;
     vector<VectorCS> vec;
@@ -2567,16 +2650,16 @@ int MEP::slidePoint(lua_State* L)
 
 	
     // write path point as it currently stands (at this point)
-    setAllSpins(L, set_index, vec);
-    double last_energy = getEnergy(L, energy_index);
+    setAllSpins(vec);
+    double last_energy = getEnergy(L);
     int consecutive_fails = 0;
     int consecutive_successes = 0;
 
 
     for(int i=0; i<num_steps; i++)
     {
-        double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
-	computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, slope);
+        double vec_energy = vecEnergy(L, vec);
+	computeVecFirstDerivative(L, vec, vec_energy, slope);
 
 	for(int q=0; q<num_sites; q++)
 	{
@@ -2603,8 +2686,8 @@ int MEP::slidePoint(lua_State* L)
 	}
 
 	//rescale_vectors(currentSystem, state, mags, num_sites);
-	setAllSpins(L, set_index, state);
-	double current_energy = getEnergy(L, energy_index);
+	setAllSpins(state);
+	double current_energy = getEnergy(L);
 
 	// printf("(%s:%i)  %g %e %e    %e\n", __FILE__, __LINE__, direction, current_energy, last_energy, h);
 
@@ -2659,7 +2742,7 @@ int MEP::slidePoint(lua_State* L)
 
 
 
-    loadConfiguration(L, set_index, cfg);	
+    loadConfiguration(cfg);	
     energy_ok = false;
     // delete [] slope;
     // delete [] mags;
@@ -2801,7 +2884,7 @@ int MEP::uniqueSites(lua_State* L)
 }
 
 // unused
-void MEP::computePointGradAtSite(lua_State* L, int p, int s, int set_index, int energy_index, double* grad3)
+void MEP::computePointGradAtSite(lua_State* L, int p, int s, double* grad3)
 {
 //	vector<double> cfg;
 //  saveConfiguration(L, get_index, cfg);
@@ -2831,11 +2914,11 @@ void MEP::computePointGradAtSite(lua_State* L, int p, int s, int set_index, int 
 	    VectorCS new_coord(vec);
 	    new_coord.v[c] += d[i] * h[c];
 	    new_coord.setMagnitude( m1 );
-	    setSiteSpin(L, set_index, &sites[s*3], new_coord);
+	    setSiteSpin(&sites[s*3], new_coord);
 
 	    if(i<4)
 	    {
-		f[i] = getEnergy(L, energy_index);
+		f[i] = getEnergy(L);
 	    }
 	}
 	grad3[c] = (f[0]-8.0*f[1]+8.0*f[2]-f[3]) / (12.0 * h[c]);
@@ -2958,7 +3041,7 @@ int MEP::maxpoints(lua_State* L)
     return 3;
 }
 
-int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, int energy_index)
+int MEP::calculateEnergyGradients(lua_State* L)
 {
     const int ns = numberOfSites();
     const int ni = numberOfImages();
@@ -2975,8 +3058,8 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
 	getPoint(i, vec);
 	getForcePoint(i, force);
 
-        double vec_energy = vecEnergy(L, vec, set_index, get_index, energy_index);
-	computeVecFirstDerivative(L, vec, vec_energy, set_index, get_index, energy_index, force);
+        double vec_energy = vecEnergy(L, vec);
+	computeVecFirstDerivative(L, vec, vec_energy, force);
 
 	for(int j=0; j<ns; j++)
 	{
@@ -2995,21 +3078,21 @@ int MEP::calculateEnergyGradients(lua_State* L, int get_index, int set_index, in
 }
 
 // get energies about a state
-void MEP::stateNeighbourhood(const vector<VectorCS>& _state, lua_State* L, const int set_index, int get_index, int energy_index, const vector<double>& h, vector<double>& eee_h)
+void MEP::stateNeighbourhood(const vector<VectorCS>& _state, lua_State* L, const vector<double>& h, vector<double>& eee_h)
 {
     const int ns = numberOfSites();
     const int np = numberOfImages();
 
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
     vector<double> mags;
     for(int i=0; i<ns; i++)
 	mags.push_back( _state[i].magnitude() );
 
-    setAllSpins(L, set_index, _state);
-    const double base_energy = getEnergy(L, energy_index);
+    setAllSpins(_state);
+    const double base_energy = getEnergy(L);
     double e1, e2;
 
     for(int i=0; i<ns*3; i++)
@@ -3019,16 +3102,16 @@ void MEP::stateNeighbourhood(const vector<VectorCS>& _state, lua_State* L, const
 	    vector<VectorCS> state(_state);
 	    change = vectorElementChange(state, i, -h[i], fixedRadius);
 	    rescale_vectors(state, mags);
-	    setAllSpins(L, set_index, state);
-	    e1 = getEnergy(L, energy_index);
+	    setAllSpins(state);
+	    e1 = getEnergy(L);
 	}
 
 	{
 	    vector<VectorCS> state(_state);
 	    vectorElementChange(state, i,  h[i], fixedRadius);
 	    rescale_vectors(state, mags);
-	    setAllSpins(L, set_index, state);
-	    e2 = getEnergy(L, energy_index);
+	    setAllSpins(state);
+	    e2 = getEnergy(L);
 	}
 
 	if(change)
@@ -3040,16 +3123,16 @@ void MEP::stateNeighbourhood(const vector<VectorCS>& _state, lua_State* L, const
 	}
     }
 
-    loadConfiguration(L, set_index, cfg);
+    loadConfiguration(cfg);
 }
 
 // get energies about a point
-void MEP::pointNeighbourhood(const int point, lua_State* L, const int set_index, int get_index, int energy_index, const vector<double>& h, vector<double>& eee_h)
+void MEP::pointNeighbourhood(const int point, lua_State* L, const vector<double>& h, vector<double>& eee_h)
 {
     vector<VectorCS> state;
     getPoint(point, state);
 
-    stateNeighbourhood(state, L, set_index, get_index, energy_index, h, eee_h);
+    stateNeighbourhood(state, L, h, eee_h);
 }
 
 int MEP::l_classifyPoint(lua_State* L, int base)
@@ -3066,13 +3149,9 @@ int MEP::l_classifyPoint(lua_State* L, int base)
 	lua_pop(L, 1);
     }
 
-    const int set_index = base + 2;
-    const int get_index = base + 3;
-    const int energy_index = base + 4;
-
     vector<double> eee_h;
 
-    pointNeighbourhood(point, L, set_index, get_index, energy_index, h, eee_h);
+    pointNeighbourhood(point, L, h, eee_h);
 
     for(int i=0; i<eee_h.size(); i+=4)
     {
@@ -3145,18 +3224,14 @@ int MEP::classifyPoint(lua_State* L)
     const int num_sites = numberOfSites();
     const int path_length = numberOfImages();
 
-    const int get_index = 2;
-    const int set_index = 3;
-    const int energy_index = 4;
-
-    const int p = lua_tointeger(L, 5) - 1;
+    const int p = lua_tointeger(L, 2) - 1;
     if(p < 0 || p >= path_length)
 	return luaL_error(L, "Point index out of bounds");
 
     vector<double> h;
 
     lua_pushnil(L);
-    while(lua_next(L, 6))
+    while(lua_next(L, 3))
     {
 	h.push_back(lua_tonumber(L, -1));
 	lua_pop(L, 1);
@@ -3167,7 +3242,7 @@ int MEP::classifyPoint(lua_State* L)
 
     // back up old sites so we can restore after
     vector<double> cfg;
-    saveConfiguration(L, get_index, cfg);
+    saveConfiguration(cfg);
 
     vector<VectorCS> state;
     getPoint(p, state);
@@ -3179,8 +3254,8 @@ int MEP::classifyPoint(lua_State* L)
 	mags.push_back( state[i].magnitude() ); //_magnitude(currentSystem, &(vec[i*3]));
     }
 
-    setAllSpins(L, set_index, state);
-    const double base_energy = getEnergy(L, energy_index);
+    setAllSpins(state);
+    const double base_energy = getEnergy(L);
 
     int ups = 0;
     int downs = 0;
@@ -3195,14 +3270,14 @@ int MEP::classifyPoint(lua_State* L)
 	getPoint(p, state);
 	vectorElementChange(state, i, -h[i], fixedRadius);
 	rescale_vectors(state, mags);
-	setAllSpins(L, set_index, state);
-	const double e1 = getEnergy(L, energy_index);
+	setAllSpins(state);
+	const double e1 = getEnergy(L);
 
 	getPoint(p, state);
 	vectorElementChange(state, i,  h[i], fixedRadius);
 	rescale_vectors(state, mags);
-	setAllSpins(L, set_index, state);
-	const double e2 = getEnergy(L, energy_index);
+	setAllSpins(state);
+	const double e2 = getEnergy(L);
 
 	lua_pushinteger(L, 1);
 	lua_pushnumber(L, e1);
@@ -3356,98 +3431,36 @@ static int l_projForcePerpSpins(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
 	
-    int get_index = 2;
-    int set_index = 3;
-    int energy_index = 4;
-	
-    if(!lua_isfunction(L, get_index))
-	return luaL_error(L, "1st argument expected to be get_site_ss1(x,y,z) function");
-    if(!lua_isfunction(L, set_index))
-	return luaL_error(L, "2nd argument expected to be set_site_ss1(x,y,z,sx,sy,sz) function");
-    if(!lua_isfunction(L, energy_index))
-	return luaL_error(L, "3rd argument expected to be get_energy_ss1() function");
-	
-    mep->projForcePerpSpins(L, get_index, set_index, energy_index);
+    mep->projForcePerpSpins(L);
     return 0;
 }
 static int l_projForcePerpPath(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
-	
-    int get_index = 2;
-    int set_index = 3;
-    int energy_index = 4;
-	
-    if(!lua_isfunction(L, get_index))
-	return luaL_error(L, "1st argument expected to be get_site_ss1(x,y,z) function");
-    if(!lua_isfunction(L, set_index))
-	return luaL_error(L, "2nd argument expected to be set_site_ss1(x,y,z,sx,sy,sz) function");
-    if(!lua_isfunction(L, energy_index))
-	return luaL_error(L, "3rd argument expected to be get_energy_ss1() function");
-    mep->projForcePerpPath(L, get_index, set_index, energy_index);
+
+    mep->projForcePerpPath(L);
     return 0;
 }
 static int l_projForcePath(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
 	
-    int get_index = 2;
-    int set_index = 3;
-    int energy_index = 4;
-	
-    if(!lua_isfunction(L, get_index))
-	return luaL_error(L, "1st argument expected to be get_site_ss1(x,y,z) function");
-    if(!lua_isfunction(L, set_index))
-	return luaL_error(L, "2nd argument expected to be set_site_ss1(x,y,z,sx,sy,sz) function");
-    if(!lua_isfunction(L, energy_index))
-	return luaL_error(L, "3rd argument expected to be get_energy_ss1() function");
-	
-    mep->projForcePath(L, get_index, set_index, energy_index);
+    mep->projForcePath(L);
     return 0;
 }
 
-// at 1, mep
-// at 2, function get_site(x,y,z) return sx,sy,sz end
-// at 3, function set_site(x,y,z, sx,sy,sz) end
-// at 4, get energy function
 static int l_calculateEnergyGradients(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
 	
-    int get_index = 2;
-    int set_index = 3;
-    int energy_index = 4;
-	
-    if(!lua_isfunction(L, get_index))
-	return luaL_error(L, "1st argument expected to be get_site_ss1(x,y,z) function");
-    if(!lua_isfunction(L, set_index))
-	return luaL_error(L, "2nd argument expected to be set_site_ss1(x,y,z,sx,sy,sz) function");
-    if(!lua_isfunction(L, energy_index))
-	return luaL_error(L, "3rd argument expected to be get_energy_ss1() function");
-	
-    return mep->calculateEnergyGradients(L, get_index, set_index, energy_index);
+    return mep->calculateEnergyGradients(L);
 }
 
-// at 1, mep
-// at 2, function get_site(x,y,z) return sx,sy,sz end
-// at 3, function set_site(x,y,z, sx,sy,sz) end
-// at 4, get energy function
 static int l_calculateEnergies(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
 	
-    int get_index = 2;
-    int set_index = 3;
-    int energy_index = 4;
-	
-    if(!lua_isfunction(L, get_index))
-	return luaL_error(L, "1st argument expected to be get_site_ss1(x,y,z) function");
-    if(!lua_isfunction(L, set_index))
-	return luaL_error(L, "2nd argument expected to be set_site_ss1(x,y,z,sx,sy,sz) function");
-    if(!lua_isfunction(L, energy_index))
-	return luaL_error(L, "3rd argument expected to be get_energy_ss1() function");
-	
-    return mep->calculateEnergies(L, get_index, set_index, energy_index);
+    return mep->calculateEnergies(L);
 }
 
 static int l_getpathenergy(lua_State* L)
@@ -3498,13 +3511,6 @@ static int l_getgradient(lua_State* L)
     return lua_pushVectorCS(L, mep->force_vector[idx], VCSF_CSDESC);
 }
 
-// expected on the stack at function call
-// at 1, mep
-// at 2, point number
-// at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
-// at 4, function set_site_ss1(x,y,z, sx,sy,sz) 
-// at 5, function get_energy_ss1()
-// this is the internal version
 static int l_relaxSinglePoint_sd_(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
@@ -3523,18 +3529,11 @@ static int l_slidePoint_(lua_State* L)
 // expected on the stack at function call
 // at 1, mep
 // at 2, point number
-// at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
-// at 4, function set_site_ss1(x,y,z, sx,sy,sz) 
-// at 5, function get_energy_ss1()
 // this is the internal version
 static int l_computepoint2deriv(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
 
-    const int get_index = 3;
-    const int set_index = 4;
-    const int energy_index = 5;
-	
     int num_sites = mep->numberOfSites();
 	
     int p = lua_tointeger(L, 2) - 1;
@@ -3544,7 +3543,7 @@ static int l_computepoint2deriv(lua_State* L)
 
     double* derivsAB = new double[num_sites * num_sites * 9];
 	
-    mep->computePointSecondDerivative(L, p, set_index, get_index, energy_index, derivsAB);
+    mep->computePointSecondDerivative(L, p, derivsAB);
 	
     lua_newtable(L);
     for(int i=0; i<num_sites * num_sites * 9; i++)
@@ -3561,18 +3560,11 @@ static int l_computepoint2deriv(lua_State* L)
 // expected on the stack at function call
 // at 1, mep
 // at 2, point number
-// at 3, function get_site_ss1(x,y,z) return sx,sy,sz 
-// at 4, function set_site_ss1(x,y,z, sx,sy,sz) 
-// at 5, function get_energy_ss1()
 // this is the internal version
 static int l_computepoint1deriv(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
 
-    const int get_index = 3;
-    const int set_index = 4;
-    const int energy_index = 5;
-	
     int num_sites = mep->numberOfSites();
 	
     int p = lua_tointeger(L, 2) - 1;
@@ -3586,10 +3578,10 @@ static int l_computepoint1deriv(lua_State* L)
 
     vector<VectorCS> vec;
     mep->getPoint(p, vec);
-    double p_energy = mep->vecEnergy(L, vec, set_index, get_index, energy_index);
+    double p_energy = mep->vecEnergy(L, vec);
 
 
-    mep->computePointFirstDerivative(L, p, p_energy, set_index, get_index, energy_index, derivs);
+    mep->computePointFirstDerivative(L, p, p_energy, derivs);
 
     lua_newtable(L);
     int j = 1;
@@ -3797,13 +3789,9 @@ static int l_pend_(lua_State* L)
     if(lua_isnumber(L, 2))
 	n = lua_tonumber(L, 2);
 
-    const int get_index = 3;
-    const int set_index = 4;
-    const int energy_index = 5;
-	
     vector<double> nderiv;
 	
-    mep->calculatePathEnergyNDeriv(L, get_index, set_index, energy_index, n, nderiv);
+    mep->calculatePathEnergyNDeriv(L, n, nderiv);
 	
     double total = mep->d12_total;
 	
@@ -3939,27 +3927,21 @@ static int _l_expensiveenergyminimization(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
 
-    int get_index = 2;
-    int set_index = 3;
-    int energy_index = 4;
-    int point = lua_tointeger(L, 5)-1;
-    double h = lua_tonumber(L, 6);
-    int steps = lua_tointeger(L, 7);
+    int point = lua_tointeger(L, 2)-1;
+    double h = lua_tonumber(L, 3);
+    int steps = lua_tointeger(L, 4);
 
-    return mep->expensiveEnergyMinimization(L, get_index, set_index, energy_index, point, h, steps);
+    return mep->expensiveEnergyMinimization(L, point, h, steps);
 }
 static int _l_expensivegradientminimization(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
 
-    int get_index = 2;
-    int set_index = 3;
-    int energy_index = 4;
-    int point = lua_tointeger(L, 5)-1;
-    double h = lua_tonumber(L, 6);
-    int steps = lua_tointeger(L, 7);
+    int point = lua_tointeger(L, 2)-1;
+    double h = lua_tonumber(L, 3);
+    int steps = lua_tointeger(L, 4);
 
-    return mep->expensiveGradientMinimization(L, get_index, set_index, energy_index, point, h, steps);
+    return mep->expensiveGradientMinimization(L, point, h, steps);
 }
 
 static int l_computePointSecondDerivativeAB(lua_State* L)
@@ -3970,20 +3952,15 @@ static int l_computePointSecondDerivativeAB(lua_State* L)
     const int c1 = lua_tonumber(L, 3) - 1;
     const int c2 = lua_tonumber(L, 4) - 1;
 
-    const int get_index = 5;
-    const int set_index = 6;
-    const int energy_index = 7;
-
     double d1 = -1;
     double d2 = -1;
 
-    if(lua_isnumber(L, 8))
-	d1 = lua_tonumber(L, 8);
-    if(lua_isnumber(L, 9))
-	d2 = lua_tonumber(L, 9);
+    if(lua_isnumber(L, 5))
+	d1 = lua_tonumber(L, 5);
+    if(lua_isnumber(L, 6))
+	d2 = lua_tonumber(L, 6);
 
-
-    lua_pushnumber(L, mep->computePointSecondDerivativeAB(L, pt, set_index, get_index, energy_index, c1, c2, d1, d2));
+    lua_pushnumber(L, mep->computePointSecondDerivativeAB(L, pt, c1, c2, d1, d2));
 
     return 1;
 }
@@ -4018,6 +3995,24 @@ static int _l_classifypoint(lua_State* L)
     return mep->l_classifyPoint(L, 2);
 }
 
+static int _l_setspinsystem(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+    return mep->lua_setspinsystem(L);
+}
+
+static int _l_getspinsystem(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+    return mep->lua_getspinsystem(L);
+}
+
+static int _l_setEnergyFunction(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+    return mep->lua_setEnergyFunction(L);
+}
+
 static int _l_int_cp(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
@@ -4042,7 +4037,11 @@ static int _l_int_cp(lua_State* L)
 
     double ratio = lua_tonumber(L, 4);
 
-    mep->interpolateVectorCS(v1, v2, ratio, v3);
+    bool backwards = false;
+    if(lua_isboolean(L, 5))
+        backwards = lua_toboolean(L, 5);
+
+    mep->interpolateVectorCS(v1, v2, ratio, v3, backwards);
 
 
     lua_newtable(L);
@@ -4313,6 +4312,9 @@ const luaL_Reg* MEP::luaMethods()
 	    {"_findBestPath", _l_bestpath},
 	    {"_interpolateBetweenCustomPoints", _l_int_cp},
             {"_rotatePathAboutBy", _l_rpab},
+            {"_setSpinSystem", _l_setspinsystem},
+            {"_getSpinSystem", _l_getspinsystem},
+            {"_setEnergyFunction", _l_setEnergyFunction},
 	    {NULL, NULL}
 	};
     merge_luaL_Reg(m, _m);

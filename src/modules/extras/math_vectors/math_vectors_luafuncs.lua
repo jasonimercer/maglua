@@ -340,6 +340,34 @@ local function vectorOnSphere()
 end
 
 
+local type_number = type(123)
+local function normalNumbers(a,b,c)
+    local numbers = {}
+    local rng = nil
+    for k,v in pairs({a,b,c}) do
+        if type(v) == type_number then
+            table.insert(numbers, v)
+        end
+
+        if getmetatable(v) then --assuming Random object
+            rng = v
+        end
+    end
+
+    local mean = numbers[1] or 0
+    local stddev = numbers[2] or 1
+
+    if rng then
+        return function()
+                   return rng:normal() * stddev + mean
+               end
+    else
+        return function()
+                   return math.randomNormal(mean, stddev)
+               end
+    end
+end
+
 
 -- vector changed to vectors to help with
 -- idea that multiple can be generated
@@ -360,6 +388,7 @@ math.angleBetween = angleBetween
 math.norm = norm
 math.scaledVector = scaledVector
 math.project = project
+math.normalNumbers = normalNumbers
 
 local help = math.help or 
 function(f)
@@ -514,6 +543,13 @@ end
 	    "1 Table of Tables of 3 Numbers: Vectors."
 	end
 	
+        if x == math.normalNumbers then
+            return "Create and return a function that, when called, will return random numbers for a normal or gaussian distribution. The source RNG is either math.random or a given MagLua RNG",
+            "2 optional numbers, 1 optional Random number object: Mean and standard deviation of distribution (defaults - and 1), optional source of RNG stream",
+            "1 function: Takes no values, returns a single number on call."
+        end
+
+
 	if x == nil then
 		return help()
 	end

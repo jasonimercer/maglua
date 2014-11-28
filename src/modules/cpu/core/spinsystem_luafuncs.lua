@@ -233,12 +233,15 @@ end
 
 
 
-local function zero(ss,v)
-    v = getName(v)
-    ss:ensureSlotExists(v)
-    ss:setSlotUsed(v, false)
-    ss:zeroField(v)
-    -- print("Zero'd " .. v)
+local function zero(ss,n)
+    local gn = getName(n)
+    ss:_ensureSlotExists(gn)
+    ss:_setSlotUsed(gn, false)
+    --ss:zeroField(n)
+    ss:_fieldArrayX(gn):zero()
+    ss:_fieldArrayY(gn):zero()
+    ss:_fieldArrayZ(gn):zero()
+    -- print("Zero'd " .. n)
 end
 
 methods["resetFields"] =
@@ -248,9 +251,10 @@ methods["resetFields"] =
 "",
 function(ss,t)
     if t == nil then
-	for k,v in pairs(ss:slots()) do
-	    zero(ss,v)
-	end
+        ss:_resetFields()
+	--for k,v in pairs(ss:slots()) do
+	--    zero(ss,v)
+	--end
 	return
     end
 
@@ -265,6 +269,27 @@ function(ss,t)
 end
 }
 
+local function sumFieldsCustom(ss,dest_name, src_names)
+    ss:_ensureSlotExists(dest_name)
+    
+    local dest_x = ss:_fieldArrayX(dest_name)
+    local dest_y = ss:_fieldArrayY(dest_name)
+    local dest_z = ss:_fieldArrayZ(dest_name)
+
+    dest_x:zero()
+    dest_y:zero()
+    dest_z:zero()
+
+    for k,src_name in pairs(src_names) do
+	if ss:_slotUsed(src_name) then
+	    dest_x:pairwiseScaleAdd(1, ss:_fieldArrayX(src_name), dest_x)
+	    dest_y:pairwiseScaleAdd(1, ss:_fieldArrayY(src_name), dest_y)
+	    dest_z:pairwiseScaleAdd(1, ss:_fieldArrayZ(src_name), dest_z)
+	end
+    end
+
+end
+
 methods["sumFields"] =
 {
 "Sum all fields or all given fields into a given slot or the `Total' slot",
@@ -275,62 +300,29 @@ function(ss, a,b)
         return ss:_sumFields() -- vanilla sumFields
     end
 
-    local destination = nil
-    local source = nil
     local type_a = type(a)
-    local type_b = type(b)
-    if type_a ~= type_table and type_a ~= type_nil then
-	destination = getName(a)
-    end
-
-    -- allowing arguments to be reversed
-    if destination == nil then
-	if type_b ~= type_table and type_b ~= type_nil then
-	    destination = getName(b)
-	end
-    end
-    
     if type_a == type_table then
-	source = a
+        local src_names = {}
+        for k,v in pairs(a) do
+            src_names[k] = getName(v)
+        end
+        sumFieldsCustom(ss, "Total", src_names)
+    else
+        local dest_name = getName(a)
+        local src_names
+
+        if type(b) == type_table then
+            src_names = {}
+            for k,v in pairs(b) do
+                src_names[k] = getName(v)
+            end
+        else
+            src_names = ss:slotsNotTotal()
+        end
+
+        sumFieldsCustom(ss, dest_name, src_names)
     end
 
-    if source == nil then
-	if type_b == type_table then
-	    source = b
-	end
-    end
-
-    destination = destination or "Total"
-    if source == nil then
-	source = {}
-	for k,v in pairs(ss:slots()) do
-	    if v ~= "Total" then
-		table.insert(source, v)
-	    end
-	end
-    end
-
-    ss:ensureSlotExists(destination)
-    
-    local getNameDestination = getName(destination)
-
-    local dest_x = ss:_fieldArrayX(getNameDestination)
-    local dest_y = ss:_fieldArrayY(getNameDestination)
-    local dest_z = ss:_fieldArrayZ(getNameDestination)
-
-    dest_x:zero()
-    dest_y:zero()
-    dest_z:zero()
-
-    for k,v in pairs(source) do
-	if ss:slotUsed(v) then
-            local gnv = getName(v)
-	    -- print("Adding ", getName(v), " to ", getName(destination))
-	    dest_x:pairwiseScaleAdd(1, ss:_fieldArrayX(gnv), dest_x)
-	    dest_y:pairwiseScaleAdd(1, ss:_fieldArrayY(gnv), dest_y)
-	    dest_z:pairwiseScaleAdd(1, ss:_fieldArrayZ(gnv), dest_z)
-	end
-    end
 end
 }
 

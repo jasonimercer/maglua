@@ -28,16 +28,16 @@ double myrandf()
 
 static double _acosFL(double x, const char* file, const int line)
 {
-	if(fabs(x) > 1)
-	{
-		{int* i = (int*)5; *i = 5;}
-		fprintf(stderr, "(%s:%i) argument of acos out of range (%g)\n", file, line, x);
-		if(x < 0)
-			x = -1;
-		else
-			x = 1;
-	}
-	return acos(x);
+    if(fabs(x) > 1)
+    {
+        //{int* i = (int*)5; *i = 5;}
+        //fprintf(stderr, "(%s:%i) argument of acos out of range (%g)\n", file, line, x);
+        if(x < 0)
+            x = -1;
+        else
+            x = 1;
+    }
+    return acos(x);
 }
 
 

@@ -42,7 +42,7 @@ if x then -- we were profiling
     end
 
 
-    table.sort(fnames, cd_sort_inclusive)
+    table.sort(fnames, cd_sort_exclusive)
 
     local fcalls = 0
     for i=1,table.maxn(fnames) do
@@ -67,8 +67,15 @@ if x then -- we were profiling
         end
     end
 
+    local _mpi = ""
+    if mpi then
+        if mpi.get_size() > 1 then
+            _mpi = "_mpi_" .. mpi.get_rank() .. "_" .. mpi.get_size()
+        end
+    end
+
     local fn_base = profile_base .. "_" .. string.format("%05d", os.pid())
-    local fn = fn_base .. ".txt"
+    local fn = fn_base .. _mpi .. ".txt"
     local f = io.open(fn, "w")
 
     f:write("MagLua Profile Report\n\n")
@@ -164,40 +171,6 @@ if x then -- we were profiling
 
     f:close()
     io.stderr:write("Profile report written to `" .. fn .. "'\n")
-
-
-    if false then
-    f = io.open(fn_base .. ".dot", "w")
-
-    f:write("digraph call_graph {\n rankdir=LR;\n")
-
-
-    for i=1,num_names do
-        local name = fnames[i]
-
-        --127 [label=Lee, width="0.22222", height="0.15278", group=11, fontsize=7, pos="570.02,1089.4"];
-
-        f:write(string.format([[    node_%d [label="%s\n%d %5.2f%%", shape=rectangle ] ]] .. "\n", i, name,  total_x(name, "call_count"), total_x(name, "exclusive")))
-
-    end
-
-
-    for i=1,num_names do
-        local sname = fnames[i]
-        for j=1,num_names do
-            local dname = fnames[j]
-            local num_calls = name2name(sname, dname)
-            if num_calls > 0 then
-                f:write(string.format([[    node_%d -> node_%d [ label = "%d" ] ]] .. "\n", i, j, num_calls))
-            end
-        end
-    end
-    
-    f:write("}\n")
-
-    f:close()
-    io.stderr:write("Profile call graph written to `" .. fn_base .. ".dot'\n")
-    end
 
 end
 

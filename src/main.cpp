@@ -45,7 +45,13 @@ int main(int argc, char** argv)
 	lua_close(L);
 	
 #ifdef _MPI
-	MPI_Finalize();
+        // if a process threw an error, shut things down with an abort
+        // so other processes don't wait around for a dead peer
+        if(ret)
+            MPI_Abort(MPI_COMM_WORLD, ret);
+        else
+            MPI_Finalize();
 #endif
+
 	return ret;
 }

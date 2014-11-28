@@ -59,7 +59,10 @@ public:
 	void setGamma(const double g);
 
 	void set(const int px, const int py, const int pz, const double x, const double y, const double z);
-	void set(const int idx, double x, const double y, const double z);
+	void set(const int px, const int py, const int pz, const double x, const double y, const double z, const double m);
+	void set(const int idx, const double x, const double y, const double z);
+	void set(const int idx, const double x, const double y, const double z, const double m);
+	void get(const int idx, double* v4);
 	int  getidx(const int px, const int py, const int pz) const ;
 	void  idx2xyz(int idx, int& x, int& y, int& z) const ;
 	bool member(const int px, const int py, const int pz) const ;
