@@ -55,8 +55,9 @@ for i,v in ipairs(arg) do
 	if p then
 	    table.remove(arg, i+1)
 	    LongeRange2D = LongRange2D or {}
+            local sep = startup_dir_sep
 	    LongRange2D.cacheDirectory = function() 
-				 return "]] .. p .. [[" .. startup_dir_sep
+				 return p .. sep
 			     end
 	end
 	table.remove(arg, i)

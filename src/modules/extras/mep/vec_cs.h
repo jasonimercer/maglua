@@ -28,11 +28,11 @@ class VectorCS
 {
 public:
     VectorCS() {v[0] = 0; v[1] = 0; v[2] = 0; cs = Cartesian; fix();}
-	VectorCS(double v0, double v1, double v2, CoordinateSystem CS)
+	VectorCS(double v0, double v1, double v2, CoordinateSystem CS=Cartesian)
 	{
 	    v[0] = v0; v[1] = v1; v[2] = v2; cs = CS; fix();
 	}
-	VectorCS(const double* vv, CoordinateSystem CS)
+	VectorCS(const double* vv, CoordinateSystem CS=Cartesian)
 	{
 	    v[0] = vv[0]; v[1] = vv[1]; v[2] = vv[2]; cs = CS; fix();
 	}

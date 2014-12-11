@@ -139,13 +139,15 @@ static int l_getmetatable(lua_State* L)
 }
 
 #include "demag.h"
+
+#if 0
 #define ___(F)					   \
 	double X = lua_tonumber(L, 1); \
 	double Y = lua_tonumber(L, 2); \
 	double Z = lua_tonumber(L, 3); \
  \
 	double p[2][3]; \
-	int q[2] = {4,5}; \
+	int q[2] = {5,4}; \
 	for(int i=0; i<2; i++) \
 	{ \
 		for(int j=0; j<3; j++) \
@@ -172,7 +174,7 @@ static int l_zx(lua_State* L){ ___(magnetostatic_Nzx) }
 static int l_zy(lua_State* L){ ___(magnetostatic_Nzy) }
 static int l_zz(lua_State* L){ ___(magnetostatic_Nzz) }
 
-
+#endif
 
 #include "pointfunc_demag.h"
 #define __p(F)					   \
@@ -209,6 +211,7 @@ MAGNETOSTATICS2D_API int lib_register(lua_State* L)
 
 	lua_getglobal(L, "Magnetostatics2D");
 	
+        /*
 	lua_pushcfunction(L, l_xx);	lua_setfield(L, -2, "NXX");
 	lua_pushcfunction(L, l_xy);	lua_setfield(L, -2, "NXY");
 	lua_pushcfunction(L, l_xz);	lua_setfield(L, -2, "NXZ");
@@ -220,7 +223,7 @@ MAGNETOSTATICS2D_API int lib_register(lua_State* L)
 	lua_pushcfunction(L, l_zx);	lua_setfield(L, -2, "NZX");
 	lua_pushcfunction(L, l_zy);	lua_setfield(L, -2, "NZY");
 	lua_pushcfunction(L, l_zz);	lua_setfield(L, -2, "NZZ");
-	
+	*/
 		
 	lua_pushcfunction(L, l_pxx);	lua_setfield(L, -2, "PXX");
 	lua_pushcfunction(L, l_pxy);	lua_setfield(L, -2, "PXY");
@@ -235,8 +238,11 @@ MAGNETOSTATICS2D_API int lib_register(lua_State* L)
 	lua_pushcfunction(L, l_pzz);	lua_setfield(L, -2, "PZZ");
 	lua_pop(L, 1); //pop table
 	
-	register_mag2d_internal_functions(L);
+	//register_mag2d_internal_functions(L);
 	
+        l_mag2d_support_register(L);
+
+
 	lua_pushcfunction(L, l_getmetatable);
 	lua_setglobal(L, "maglua_getmetatable");
 

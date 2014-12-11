@@ -1635,6 +1635,29 @@ double MEP::getEnergy(lua_State* L)
 #endif
 }
 
+double MEP::energyOfCustomPoint(const vector<VectorCS>& v1)
+{
+    const int ns = numberOfSites();
+    if(v1.size() != ns)
+        return 0;
+
+    vector<double> cfg;
+    saveConfiguration(cfg);
+   
+    for(int s=0; s<ns; s++)
+    {
+        setSiteSpin(&sites[s*3], v1[s]);
+    }
+    
+
+    double e = getEnergy(L);
+
+    loadConfiguration(cfg);
+
+    return e;
+}
+
+
 int MEP::calculateEnergies(lua_State* L)
 {
     if(energy_ok)
@@ -2272,6 +2295,94 @@ int MEP::expensiveEnergyMinimization(lua_State* L, int point, double h, int step
                 double new_energy = getEnergy(L);
 		
                 if(new_energy < current_energy)
+                {
+                    //printf("                    %e\n", (current_energy-new_energy) );
+
+                    current_energy = new_energy;
+                    hi[qq] *= 2.1;
+                    
+                    copyVectorTo(vec2, vec);
+                    good_steps++;
+                }
+                else
+                {
+                    hi[qq] *= -0.1; // notice we switch directions on failures
+                }
+            }
+        }
+    }
+
+    delete [] hi;
+    delete [] changer;
+
+    setPoint(point, vec);
+    energy_ok = false;
+    loadConfiguration(cfg);
+
+    lua_pushinteger(L, good_steps);
+    lua_pushnumber(L, start_energy);
+    lua_pushnumber(L, current_energy);
+    lua_pushnumber(L, h);
+    return 4;
+}
+
+
+int MEP::expensiveEnergyMaximization(lua_State* L, int point, double h, int steps)
+{
+    // back up old sites so we can restore after
+    vector<double> cfg;
+    saveConfiguration(cfg);
+
+    int good_steps = 0;
+    const int ns = numberOfSites();
+
+    vector<VectorCS> vec;
+    vector<VectorCS> vec2;
+
+    getPoint(point, vec);
+    getPoint(point, vec2);
+
+    setAllSpins(vec);
+    double current_energy = getEnergy(L);
+    double start_energy = current_energy;
+
+    bool* changer = new bool[ns*3];
+    double* hi = new double[ns*3];
+    copyVectorTo(vec, vec2);
+
+    for(int i=0; i<ns*3; i++)
+    {
+        hi[i] = h;
+        // pre-recording which sites change
+        changer[i] = vectorElementChange(vec2, i, 0, fixedRadius);
+    }
+
+    for(int i=0; i<steps; i++)
+    {
+        int biggest_h = -1;
+	for(int qq=0; qq<ns*3; qq++)
+	{
+            // don't consider unchanging
+            if(changer[qq])
+            {
+                if(biggest_h < 0 || fabs(hi[qq]) > fabs(hi[biggest_h]))
+                    biggest_h = qq;
+            }
+        }
+
+        int qq = biggest_h;
+        {
+            bool change = false;
+            copyVectorTo(vec, vec2);
+            change = vectorElementChange(vec2, qq,  hi[qq], fixedRadius);
+
+            if(change)
+            {
+                //printf("%2d  %4d/%4d\n", qq, i, steps );
+                setAllSpins(vec2);
+                double new_energy = getEnergy(L);
+		
+                if(new_energy > current_energy)
                 {
                     //printf("                    %e\n", (current_energy-new_energy) );
 
@@ -3933,6 +4044,16 @@ static int _l_expensiveenergyminimization(lua_State* L)
 
     return mep->expensiveEnergyMinimization(L, point, h, steps);
 }
+static int _l_expensiveenergymaximization(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+
+    int point = lua_tointeger(L, 2)-1;
+    double h = lua_tonumber(L, 3);
+    int steps = lua_tointeger(L, 4);
+
+    return mep->expensiveEnergyMaximization(L, point, h, steps);
+}
 static int _l_expensivegradientminimization(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
@@ -4058,7 +4179,7 @@ static int _l_int_cp(lua_State* L)
 #include "mep_bestpath.h"
 static int _l_bestpath(lua_State* L)
 {
-    return l_bestpath(L, 1);
+    return l_bestpath(L);
 }
 
 
@@ -4307,6 +4428,7 @@ const luaL_Reg* MEP::luaMethods()
 	    {"_copy", _l_copy},
 	    {"_angleBetweenPointSite", _l_angle_between_pointsite},
 	    {"_expensiveEnergyMinimization", _l_expensiveenergyminimization},
+	    {"_expensiveEnergyMaximization", _l_expensiveenergymaximization},
 	    {"_expensiveGradientMinimization", _l_expensivegradientminimization},
 	    {"_classifyPoint", _l_classifypoint},
 	    {"_findBestPath", _l_bestpath},

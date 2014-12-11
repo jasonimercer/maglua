@@ -456,7 +456,7 @@ return sameInternals, function(mag)
 		for j=1,nz do]] .. "\n")
 		
 	for k,v in pairs(tnames) do
-		f:write("local t" .. v .. " = mag:tensorArray(i, j, \"" .. v .. "\")\n")
+		f:write("                        local t" .. v .. " = mag:tensorArray(i, j, \"" .. v .. "\")\n")
 	end
 
 	f:write([[			for x=1,nx do
@@ -596,162 +596,155 @@ end
 
 
 local function makeData(mag)
-	-- first we'll see if the data already exists
-	local fns = get_possible_files(mag, {"local", "cache"})
-
-	-- try each shoe for a match
-	for k,v in pairs(fns) do
-		local f = v[1] 
-		if mag2d_load(mag, f) then --we don't need to do work
-			return
-		end
-	end
-
-
-	local id = initializeInternalData(mag, mag:internalData())
-	local ABC = id.ABC
-	local grainSize = id.grainSize
-	local nx, ny, nz = mag:nx(), mag:ny(), mag:nz()
-	
-	local NXX,NXY,NXZ = {},{},{}
-	local NYX,NYY,NYZ = {},{},{}
-	local NZX,NZY,NZZ = {},{},{}
-	
-	for d=1,nz do
-		NXX[d],NXY[d],NXZ[d] = {},{},{}
-		NYX[d],NYY[d],NYZ[d] = {},{},{}
-		NZX[d],NZY[d],NZZ[d] = {},{},{}
-		for s=1,nz do
-			NXX[d][s] = mag:tensorArray(d, s, "XX")
-			NXY[d][s] = mag:tensorArray(d, s, "XY")
-			NXZ[d][s] = mag:tensorArray(d, s, "XZ")
-
-			NYX[d][s] = mag:tensorArray(d, s, "YX")
-			NYY[d][s] = mag:tensorArray(d, s, "YY")
-			NYZ[d][s] = mag:tensorArray(d, s, "YZ")
-
-			NZX[d][s] = mag:tensorArray(d, s, "ZX")
-			NZY[d][s] = mag:tensorArray(d, s, "ZY")
-			NZZ[d][s] = mag:tensorArray(d, s, "ZZ")
-			
-			NXX[d][s]:zero()
-			NXY[d][s]:zero()
-			NXZ[d][s]:zero()
-			
-			NYX[d][s]:zero()
-			NYY[d][s]:zero()
-			NYZ[d][s]:zero()
-						
-			NZX[d][s]:zero()
-			NZY[d][s]:zero()
-			NZZ[d][s]:zero()
-		end
-	end
-	
-		-- max function
-	local function mf(a,b)
-		if a>b then
-			return a
-		end
-		return b
-	end
-	
-	local max = mf(id.truncation, mf(id.truncationX, mf(id.truncationY, id.truncationZ)))
-	
-	-- assuming all A and B vector are the same for all layers
-	local ax, ay, az = ABC[1][1][1], ABC[1][1][2], ABC[1][1][3]
-	local bx, by, bz = ABC[1][2][1], ABC[1][2][2], ABC[1][2][3]
-	
-	for dest = 1,nz do
-		local dGrain = grainSize[dest]
-		local dcx, dcy, dcz = 0, 0, 0
-		for j=1,dest-1 do -- note the -1
-			dcx = dcx + ABC[j][3][1]
-			dcy = dcy + ABC[j][3][2]
-			dcz = dcz + ABC[j][3][3]
-		end
-		for src = 1,nz do
-			local sGrain = grainSize[src]
-			local scx, scy, scz = 0, 0, 0
-			for j=1,src-1 do -- note the -1
-				scx = scx + ABC[j][3][1]
-				scy = scy + ABC[j][3][2]
-				scz = scz + ABC[j][3][3]
-			end
-			local cx, cy, cz = scx-dcx, scy-dcy, scz-dcz
-			local max = id.truncation
-			if math.abs(src - dest) <= id.truncationZ then
-
-			for X=-max,max do
-				if math.abs(X) <= id.truncationX then
-				
-				for Y=-max,max do
-				if math.abs(Y) <= id.truncationY then
-			
-					local x = X
-					local y = Y
-					local rx = (ax * x + bx * y + cx)
-					local ry = (ay * x + by * y + cy)
-					local rz = (az * x + bz * y + cz)
-					
--- 					print(rx,ry,rz)
-					
-					-- wrap to [0:na-1] bounds
-					while x < 0 do
-						x = x + 1000*nx
-					end
-					while y < 0 do
-						y = y + 1000*ny
-					end
-					
-					x = math.mod(x, nx)
-					y = math.mod(y, ny)
-					
-					local vXX = Magnetostatics2D.NXX(rx,ry,rz, sGrain, dGrain)
-					local vXY = Magnetostatics2D.NXY(rx,ry,rz, sGrain, dGrain)
-					local vXZ = Magnetostatics2D.NXZ(rx,ry,rz, sGrain, dGrain)
-					
-					local vYX = Magnetostatics2D.NYX(rx,ry,rz, sGrain, dGrain)
-					local vYY = Magnetostatics2D.NYY(rx,ry,rz, sGrain, dGrain)
-					local vYZ = Magnetostatics2D.NYZ(rx,ry,rz, sGrain, dGrain)
-					
-					local vZX = Magnetostatics2D.NZX(rx,ry,rz, sGrain, dGrain)
-					local vZY = Magnetostatics2D.NZY(rx,ry,rz, sGrain, dGrain)
-					local vZZ = Magnetostatics2D.NZZ(rx,ry,rz, sGrain, dGrain)
-					
-					-- adding one to indices here because the c++ code decrements them
-					NXX[dest][src]:addAt(x+1, y+1, vXX)
-					NXY[dest][src]:addAt(x+1, y+1, vXY)
-					NXZ[dest][src]:addAt(x+1, y+1, vXZ)
-					
-					NYX[dest][src]:addAt(x+1, y+1, vYX)
-					NYY[dest][src]:addAt(x+1, y+1, vYY)
-					NYZ[dest][src]:addAt(x+1, y+1, vYZ)
-					
-					NZX[dest][src]:addAt(x+1, y+1, vZX)
-					NZY[dest][src]:addAt(x+1, y+1, vZY)
-					NZZ[dest][src]:addAt(x+1, y+1, vZZ)
-				end
-			end
-			end
-			end
-			end
-		end
-	end
-
--- 	for y=1,ny do
--- 		local r={}
--- 		for x=1,nx do
--- 			table.insert(r, NXY[1][1]:get(x,y))
--- 		end
--- 		print(table.concat(r, ", "))
--- 	end
-	
-	mag:setCompileRequired(true)
-
-	-- save so we can be lazy later
-	local fn = get_new_filename(mag)
-	mag2d_save(mag, fn)
+    -- first we'll see if the data already exists
+    local fns = get_possible_files(mag, {"local", "cache"})
+    
+    -- try each shoe for a match
+    for k,v in pairs(fns) do
+        local f = v[1] 
+        if mag2d_load(mag, f) then --we don't need to do work
+            return
+        end
+    end
+    
+    
+    local id = initializeInternalData(mag, mag:internalData())
+    local ABC = id.ABC
+    local grainSize = id.grainSize
+    local nx, ny, nz = mag:nx(), mag:ny(), mag:nz()
+    
+    local NXX,NXY,NXZ = {},{},{}
+    local NYX,NYY,NYZ = {},{},{}
+    local NZX,NZY,NZZ = {},{},{}
+    
+    for d=1,nz do
+        NXX[d],NXY[d],NXZ[d] = {},{},{}
+        NYX[d],NYY[d],NYZ[d] = {},{},{}
+        NZX[d],NZY[d],NZZ[d] = {},{},{}
+        for s=1,nz do
+            NXX[d][s] = mag:tensorArray(d, s, "XX")
+            NXY[d][s] = mag:tensorArray(d, s, "XY")
+            NXZ[d][s] = mag:tensorArray(d, s, "XZ")
+            
+            NYX[d][s] = mag:tensorArray(d, s, "YX")
+            NYY[d][s] = mag:tensorArray(d, s, "YY")
+            NYZ[d][s] = mag:tensorArray(d, s, "YZ")
+            
+            NZX[d][s] = mag:tensorArray(d, s, "ZX")
+            NZY[d][s] = mag:tensorArray(d, s, "ZY")
+            NZZ[d][s] = mag:tensorArray(d, s, "ZZ")
+            
+            NXX[d][s]:zero()
+            NXY[d][s]:zero()
+            NXZ[d][s]:zero()
+            
+            NYX[d][s]:zero()
+            NYY[d][s]:zero()
+            NYZ[d][s]:zero()
+            
+            NZX[d][s]:zero()
+            NZY[d][s]:zero()
+            NZZ[d][s]:zero()
+        end
+    end
+    
+    -- max function
+    local function mf(a,b)
+        if a>b then
+            return a
+        end
+        return b
+    end
+    
+    local max = mf(id.truncation, mf(id.truncationX, mf(id.truncationY, id.truncationZ)))
+    
+    -- assuming all A and B vector are the same for all layers
+    local ax, ay, az = ABC[1][1][1], ABC[1][1][2], ABC[1][1][3]
+    local bx, by, bz = ABC[1][2][1], ABC[1][2][2], ABC[1][2][3]
+    
+    -- 1 is source, 2 is dest
+    for z1 = 1,nz do
+        local Grain1 = grainSize[z1]
+        local gx1, gy1, gz1 = Grain1[1], Grain1[2], Grain1[3]
+        local cx1, cy1, cz1 = 0, 0, 0 -- cumulative
+        for j=1,z1-1 do -- note the -1
+            cx1 = cx1 + ABC[j][3][1]
+            cy1 = cy1 + ABC[j][3][2]
+            cz1 = cz1 + ABC[j][3][3]
+        end
+        for z2 = 1,nz do
+            local Grain2 = grainSize[z2]
+            local gx2, gy2, gz2 = Grain2[1], Grain2[2], Grain2[3]
+            local cx2, cy2, cz2 = 0, 0, 0
+            for j=1,z2-1 do -- note the -1
+                cx2 = cx2 + ABC[j][3][1]
+                cy2 = cy2 + ABC[j][3][2]
+                cz2 = cz2 + ABC[j][3][3]
+            end
+            local cx, cy, cz = cx2-cx1, cy2-cy1, cz2-cz1
+            local max = id.truncation
+            if math.abs(z1 - z2) <= id.truncationZ then
+                
+                for X=-max,max do
+                    if math.abs(X) <= id.truncationX then
+                        
+                        for Y=-max,max do
+                            if math.abs(Y) <= id.truncationY then
+                                
+                                local x = X
+                                local y = Y
+                                local rx = (ax * x + bx * y + cx)
+                                local ry = (ay * x + by * y + cy)
+                                local rz = (az * x + bz * y + cz)
+                                
+                                -- wrap to [0:na-1] bounds
+                                while x < 0 do
+                                    x = x + 1000*nx
+                                end
+                                while y < 0 do
+                                    y = y + 1000*ny
+                                end
+                                
+                                x = math.mod(x, nx)
+                                y = math.mod(y, ny)
+                                
+                                local vXX = Magnetostatics2D.NXX(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+                                local vXY = Magnetostatics2D.NXY(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+                                local vXZ = Magnetostatics2D.NXZ(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+                                
+                                local vYX = Magnetostatics2D.NYX(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+                                local vYY = Magnetostatics2D.NYY(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+                                local vYZ = Magnetostatics2D.NYZ(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+                                
+                                local vZX = Magnetostatics2D.NZX(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+                                local vZY = Magnetostatics2D.NZY(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+                                local vZZ = Magnetostatics2D.NZZ(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+                                
+                                -- adding one to indices here because the c++ code decrements them
+                                NXX[z1][z2]:addAt(x+1, y+1, -vXX)
+                                NXY[z1][z2]:addAt(x+1, y+1, -vXY)
+                                NXZ[z1][z2]:addAt(x+1, y+1, -vXZ)
+                                
+                                NYX[z1][z2]:addAt(x+1, y+1, -vYX)
+                                NYY[z1][z2]:addAt(x+1, y+1, -vYY)
+                                NYZ[z1][z2]:addAt(x+1, y+1, -vYZ)
+                                
+                                NZX[z1][z2]:addAt(x+1, y+1, -vZX)
+                                NZY[z1][z2]:addAt(x+1, y+1, -vZY)
+                                NZZ[z1][z2]:addAt(x+1, y+1, -vZZ)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    mag:setCompileRequired(true)
+    
+    -- save so we can be lazy later
+    local fn = get_new_filename(mag)
+    mag2d_save(mag, fn)
 end
 
 -- create a function that the C code can call to make the longrange2d operator a magnetostatic2d operator

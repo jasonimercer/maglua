@@ -129,11 +129,10 @@ sr:addMagnetostatic2D(mag2d, {8,8,2}, {8,8,2}, "Calculate")
 	    local r1 = mag:indexToPosition(src)
 	    local r2 = mag:indexToPosition(dest)
 
-	    local x,y,z = mag:grainSize(src[3])
-	    local sGrain = {x,y,z}
 
-	    local x,y,z = mag:grainSize(dest[3])
-	    local dGrain = {x,y,z}
+	    local gx1,gy1,gz1 = mag:grainSize(src[3])
+
+	    local gx2,gy2,gz2 = mag:grainSize(dest[3])
 
 	    -- dest - src
 	    local rx,ry,rz = r2[1]-r1[1], r2[2]-r1[2], r2[3]-r1[3]
@@ -142,17 +141,18 @@ sr:addMagnetostatic2D(mag2d, {8,8,2}, {8,8,2}, "Calculate")
 	    -- doing it to match the results of the longrange tensors
 	    rz = -rz
 
-	    values["XX"] = Magnetostatics2D.NXX(rx,ry,rz, sGrain, dGrain)
-	    values["XY"] = Magnetostatics2D.NXY(rx,ry,rz, sGrain, dGrain)
-	    values["XZ"] = Magnetostatics2D.NXZ(rx,ry,rz, sGrain, dGrain)
+            
+	    values["XX"] = Magnetostatics2D.NXX(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+	    values["XY"] = Magnetostatics2D.NXY(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+	    values["XZ"] = Magnetostatics2D.NXZ(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
 
-	    values["YX"] = Magnetostatics2D.NYX(rx,ry,rz, sGrain, dGrain)
-	    values["YY"] = Magnetostatics2D.NYY(rx,ry,rz, sGrain, dGrain)
-	    values["YZ"] = Magnetostatics2D.NYZ(rx,ry,rz, sGrain, dGrain)
+	    values["YX"] = Magnetostatics2D.NYX(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+	    values["YY"] = Magnetostatics2D.NYY(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+	    values["YZ"] = Magnetostatics2D.NYZ(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
 
-	    values["ZX"] = Magnetostatics2D.NZX(rx,ry,rz, sGrain, dGrain)
-	    values["ZY"] = Magnetostatics2D.NZY(rx,ry,rz, sGrain, dGrain)
-	    values["ZZ"] = Magnetostatics2D.NZZ(rx,ry,rz, sGrain, dGrain)
+	    values["ZX"] = Magnetostatics2D.NZX(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+	    values["ZY"] = Magnetostatics2D.NZY(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
+	    values["ZZ"] = Magnetostatics2D.NZZ(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
 	end
 
 	if values["XX"] == nil then
@@ -172,7 +172,7 @@ sr:addMagnetostatic2D(mag2d, {8,8,2}, {8,8,2}, "Calculate")
 	t[8] = values["YZ"]
 	t[9] = values["ZZ"]
 
-	for i=1,9 do
+        for i=1,9 do
 	    t[i] = t[i] * scale
 	end
 

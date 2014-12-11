@@ -451,14 +451,14 @@ bool LongRange2D::apply(SpinSystem* ss)
 	ws1->zero();
 	for(int d=0; d<nz; d++) //dest
 	{
-		const int k = d*nxy;
-		for(int s=0; s<nz; s++) //src
-		{
-			const int j = s*nxy;
-			arrayScaleMultAdd_o(ws1->ddata(), k, one, qXX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
-			arrayScaleMultAdd_o(ws1->ddata(), k, one, qXY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
-			arrayScaleMultAdd_o(ws1->ddata(), k, one, qXZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
-		}
+            const int k = d*nxy;
+            for(int s=0; s<nz; s++) //src
+            {
+                const int j = s*nxy;
+                arrayScaleMultAdd_o(ws1->ddata(), k, one, qXX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, one, qXY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, one, qXZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
+            }
 	}
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hx->ddata(),  ws2->ddata(), nxyz);
@@ -467,39 +467,39 @@ bool LongRange2D::apply(SpinSystem* ss)
 	ws1->zero();
 	for(int d=0; d<nz; d++) //dest
 	{
-		const int k = d*nxy;
-		for(int s=0; s<nz; s++) //src
-		{
-			const int j = s*nxy;
-			arrayScaleMultAdd_o(ws1->ddata(), k, one, qYX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
-			arrayScaleMultAdd_o(ws1->ddata(), k, one, qYY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
-			arrayScaleMultAdd_o(ws1->ddata(), k, one, qYZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
-		}
+            const int k = d*nxy;
+            for(int s=0; s<nz; s++) //src
+            {
+                const int j = s*nxy;
+                arrayScaleMultAdd_o(ws1->ddata(), k, one, qYX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, one, qYY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, one, qYZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
+            }
 	}
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hy->ddata(),  ws2->ddata(), nxyz);
-
+        
 	// HZ
 	ws1->zero();
 	for(int d=0; d<nz; d++) //dest
 	{
-		const int k = d*nxy;
-		for(int s=0; s<nz; s++) //src
-		{
-			const int j = s*nxy;
-			arrayScaleMultAdd_o(ws1->ddata(), k, one, qZX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
-			arrayScaleMultAdd_o(ws1->ddata(), k, one, qZY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
-			arrayScaleMultAdd_o(ws1->ddata(), k, one, qZZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
-		}
+            const int k = d*nxy;
+            for(int s=0; s<nz; s++) //src
+            {
+                const int j = s*nxy;
+                arrayScaleMultAdd_o(ws1->ddata(), k, one, qZX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, one, qZY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, one, qZZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
+            }
 	}
 	ws1->ifft2DTo(ws2);
 	arrayGetRealPart(hz->ddata(),  ws2->ddata(), nxyz);
 
 	for(int i=0; i<nz; i++)
 	{
-		hx->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
-		hy->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
-		hz->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
+            hx->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
+            hy->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
+            hz->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
 	}
 
 	return true;

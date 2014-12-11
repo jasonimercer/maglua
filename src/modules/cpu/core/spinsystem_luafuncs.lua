@@ -100,6 +100,32 @@ methods["sameDimensions"] =
     end
 }
 
+methods["positionToIndex"] =
+{
+    "Convert a position to an index between 1 and xyz",
+    "1 3Vector: Position to convert. If any dimension is out of range, periodic coordinates will be applied.",
+    "1 Integer: Index corresponding to position.",
+    function(ss, x,y,z)
+        if type(x) == type_table then
+            return ss:positionToIndex(x[1] or 1, x[2] or 1, x[3] or 1)
+        end
+
+        x=x or 1
+        y=y or 1
+        z=z or 1
+
+        while x < 1 do x = x + ss:nx() end
+        while y < 1 do y = y + ss:ny() end
+        while z < 1 do z = z + ss:nz() end
+
+        while x > ss:nx() do x = x - ss:nx() end
+        while y > ss:ny() do y = y - ss:ny() end
+        while z > ss:nz() do z = z - ss:nz() end
+
+        return (z-1) * (ss:nx() * ss:ny()) + (y-1) * (ss:nx()) + x
+    end
+}
+
 -- getName now defined in C
 local getName = _getName
 _getName = nil

@@ -1,412 +1,390 @@
 #include "mep_bestpath.h"
 #include "vec_cs.h"
+#include "mep_spheres.h"
+#include "mep.h"
+
+#include <map>
+#include <string.h>
 #include <vector>
 #include <list>
 #include <algorithm>    // std::sort
 #include <math.h>
 
-#define report 0
-//#define report stdout
 
-#ifndef M_PI
-#define M_PI 3.14159265359
-#endif
+typedef vector<int> vint;
 
-using namespace std;
+static double findPoint(const sphere* sph, VectorCS& p, int& pidx)
+{
+    double min_angle = VectorCS::angleBetween(p, VectorCS(sph[0].vertex));
+    pidx = 0;
 
-class site
+    int i=1;
+    while(sph[i].neighbours)
+    {
+        double a = VectorCS::angleBetween(p, VectorCS(sph[i].vertex));
+        if(a < min_angle)
+        {
+            min_angle = a;
+            pidx = i;
+        }
+        i++;
+    }
+
+    return min_angle;
+}
+
+static double findHyperPoint(vector <const sphere*>& spheres, vector<VectorCS>& p, vint& pidx)
+{
+    double sum_min_angle = 0;
+
+    for(int i=0; i<p.size(); i++)
+    {
+        pidx.push_back(0);
+        sum_min_angle += findPoint(spheres[i], p[i], pidx[i]);
+    }
+    return sum_min_angle;
+}
+
+static bool vint_same(const vint& a, const vint& b)
+{
+    if(a.size() != b.size())
+        return false;
+
+    for(int i=0; i<a.size(); i++)
+    {
+        if(a[i] != b[i])
+            return false;
+    }
+    return true;
+}
+
+static bool v_inc(vector<int>& state, vector<int>& max, int pos=0)
+{
+    if(pos >= state.size())
+        return false;
+    state[pos]++;
+    if(state[pos] == max[pos])
+    {
+        state[pos] = 0;
+        return v_inc(state, max, pos+1);
+    }
+    return true;
+}
+
+static void pick_combination(const vector<int>& state, vector<const int*>& srcs, vint& dst)
+{
+    dst.clear();
+
+    for(int i=0; i<state.size(); i++)
+    {
+        dst.push_back( srcs[i][state[i]] );
+    }
+}
+
+static void all_combinations(vector<vint>& dest, vector<const int*>& srcs)
+{
+    vector<int> state;
+    vector<int> maxs;
+    for(int i=0; i<srcs.size(); i++)
+    {
+        state.push_back(0);
+        
+        int max = -1;
+        while(srcs[i][max+1] != -1)
+            max++;
+        maxs.push_back(max);
+    }
+    
+    dest.push_back(vint());
+
+    pick_combination(state, srcs, dest.back());
+
+    while(v_inc(state, maxs))
+    {
+        dest.push_back(vint());
+        pick_combination(state, srcs, dest.back());
+    }
+
+
+}
+
+class dijkstrasNode
 {
 public:
-    site() {source=-1;considered=false;}
-    site(const site& s) {set(s.vs);source=-1;considered=false;}
-    site(const vector<VectorCS>& s){set(s);source=-1;considered=false;}
-    void set(const vector<VectorCS>& s) {vs.clear(); for(int i=0; i<s.size(); i++) vs.push_back(VectorCS(s[i]));}
-    vector <VectorCS> vs;
-
-    bool considered; // used in the path search
-    int source; // point backward to rebuild path;
-    double energy;
-    vector<int> neighbour;
-};
-
-static int get_site(lua_State* L, int idx, site& s)
-{
-    lua_pushnil(L);
-    while(lua_next(L, idx)) // for each orientation in site
-    {
-	double x[3];
-	for(int i=0; i<3; i++)
-	{
-	    lua_pushinteger(L, i+1);
-	    lua_gettable(L, -2);
-	    x[i] = lua_tonumber(L, -1);
-	    lua_pop(L, 1);
-	}
-	s.vs.push_back(VectorCS(x, Cartesian));
-	lua_pop(L, 1);
-    }
-}
-
-static double angle_between_sites(const site& a, const site& b)
-{
-#if 0
-    double maxa = VectorCS::angleBetween(a.vs[0], b.vs[0]);
-    for(int q=1; q<a.vs.size(); q++)
-    {
-        const double aa = VectorCS::angleBetween(a.vs[q], b.vs[q]);
-        if(aa > maxa)
-            maxa = aa;
-    }
-    return maxa;
-#else
-    double sum = 0;
-    for(int q=0; q<a.vs.size(); q++)
-    {
-	sum += VectorCS::angleBetween(a.vs[q], b.vs[q]);
-    }
-    return sum;
-#endif
-}
-
-static double angle_between_sites(const vector<site>& sites, int i, int j)
-{
-    return angle_between_sites(sites[i], sites[j]);
-}
-
-typedef std::pair < double, int > doubleIntPair;
-
-static bool doubleIntPairOrder(const doubleIntPair& i,const doubleIntPair& j) 
-{
-    return i.first < j.first;
-}
-
-
-
-// find the smallest energy increment from the border
-static int fill_up(list<int>& border, vector<site>& sites)
-{
-    list<int>::iterator it;
-
-    int low_e_b = -1; // border index
-    int low_e_n = -1; // neighbour index
-
-    for(it=border.begin(); it!=border.end(); it++)
-    {
-        for(int i=0; i<sites[*it].neighbour.size(); i++)
+    dijkstrasNode() 
         {
-            int n = sites[*it].neighbour[i];
-            if(sites[n].considered == false)
-            {
-                if(low_e_n == -1)
-                {
-                    low_e_b = *it;
-                    low_e_n = n;
-                }
-                else
-                {
-                    if(sites[n].energy < sites[low_e_n].energy)
-                    {
-                        low_e_b = *it;
-                        low_e_n = n;
-                    }
-                }
-            }
+            source_energy = INFINITY; 
+            energy_calculated=false;
+            considered = false;
         }
-    }
-
-    if(low_e_b != -1)
-    {
-        if(report)
-            fprintf(report, "(%s:%i) Up:    Adding %d to border from %d\n", __FILE__,__LINE__,low_e_n,low_e_b);
-                    
-        border.push_back(low_e_n);
-        sites[low_e_n].considered = true;
-        sites[low_e_n].source = low_e_b;
-        
-        return low_e_n;
-    }
-    return -1;
-}
-
-// find the lowest energy border with a low energy unconsidered neighbour
-static int fill_down(list<int>& border, vector<site>& sites)
-{
-    list<int>::iterator it;
-
-    int low_e_b = -1; // border index
-    int low_e_n = -1; // neighbour index
-
-    for(it=border.begin(); it!=border.end(); it++)
-    {
-        if(low_e_b == -1 || (sites[*it].energy < sites[low_e_b].energy))
+    dijkstrasNode(const dijkstrasNode& n)
         {
-            // looking for lowest energy unconsidered neighbour
-            int low_un = -1;
-            for(int i=0; i<sites[*it].neighbour.size(); i++)
+            energy_calculated = n.energy_calculated;
+            energy = n.energy;
+            source_energy = n.source_energy;
+            source = n.source;
+            considered = n.considered;
+            neighbour_list = n.neighbour_list;
+        }
+    double getEnergy(MEP* mep, const vint& idxs, vector<const sphere*>& spheres)
+        {
+            if(energy_calculated)
+                return energy;
+
+            vector<VectorCS> cfg;
+
+            for(int i=0; i<idxs.size(); i++)
+                cfg.push_back(VectorCS(spheres[i][idxs[i]].vertex));
+
+            energy = mep->energyOfCustomPoint(cfg);
+            energy_calculated = true;
+            return energy;
+        }
+    
+    void create_neighbour_list(const vint& here, vector<const sphere*>& spheres)
+        {
+            if(neighbour_list.size() > 0)
+                return;
+
+            int n = here.size();
+
+            // static void all_combinations(vector<vint>& dest, vector<int*>& srcs)
+           
+            vector<const int*> srcs;
+            for(int i=0; i<n; i++)
             {
-                int n = sites[*it].neighbour[i];
-                if(sites[n].considered == false)
-                {
-                    if(low_un == -1 || sites[n].energy < sites[low_un].energy)
-                    {
-                        low_un = n;
-                    }
-                }
+                int j = here[i];
+                srcs.push_back(spheres[i][j].neighbours);
             }
 
-            if(low_un != -1)
-            {
-                // if this site has a low energy unconsidered neighbour
-                if( sites[low_un].energy < sites[*it].energy )
-                {
-                    if(low_e_b == -1)
-                    {
-                        low_e_b = *it;
-                        low_e_n = low_un;
-                    }
-                    else
-                    {
-                        if( sites[*it].energy < sites[low_e_b].energy )
-                        {
-                            low_e_b = *it;
-                            low_e_n = low_un;
-                        }
-                    }
-                }
-            }
+            all_combinations(neighbour_list, srcs);
+
         }
-    }
-
-    if(low_e_b != -1)
-    {
-        if(report)
-            fprintf(report, "(%s:%i) Down:  Adding %d to border from %d\n", __FILE__,__LINE__,low_e_n,low_e_b);
-                    
-        border.push_back(low_e_n);
-        sites[low_e_n].considered = true;
-        sites[low_e_n].source = low_e_b;
-        
-        return low_e_n;
-    }
-    return -1;
-}
-
-static int inside_border(int idx, vector<site>& sites)
-{
-    int all_considered = sites[idx].considered;
-
-    for(int i=0; i<sites[idx].neighbour.size() && all_considered; i++)
-    {
-        int k = sites[idx].neighbour[i];
-
-        if(sites[k].considered == false)
-            all_considered = 0;
-    }
-    return all_considered;
-}
-
-static void reduce_border(list<int>& border, vector<site>& sites)
-{
-    for(list<int>::iterator it = border.begin(); it != border.end(); ++it)
-    {
-        if(inside_border(*it, sites))
-        {
-            border.remove(*it);
-            return reduce_border(border, sites);
-        }
-    }
-}
-
-int l_bestpath(lua_State* L, int base)
-{
-    const int ors = 2; // ors_combinations table (orientation combinations)
-    const int eni = 3; // energy table index
-    const int sidx = 4; // start index
-    const int eidx = 5; // end index
-    const int con_deg = 6; // goal connectivity degree index
-
-    vector<site> sites;
-    vector<double> energies;
-    site start;
-    site end;
-    int conDegree = lua_tointeger(L, con_deg);
-
-    lua_pushnil(L);
-    while(lua_next(L, ors)) // for each site
-    {
-	sites.push_back(site());
-	site& s = sites.back();
-        s.considered = false; // used in path search
-	s.source = -1; // used backwards to rebuild path
-
-	int idx = lua_gettop(L);
-	get_site(L, idx, s);
-	lua_pop(L, 1);
-    }
-    int nsites = sites.size();
-    int ops = sites[0].vs.size(); // orientations per site
-
-    lua_pushnil(L);
-    while(lua_next(L, eni)) // for each energy
-    {
-	energies.push_back(lua_tonumber(L, -1));
-	lua_pop(L, 1);
-    }
-
-
-    if(sites.size() != energies.size())
-    {
-        return luaL_error(L, "Sites and Energies lists do not have the same size");
-    }
-
-    for(int i=0; i<sites.size(); i++)
-    {
-        sites[i].energy = energies[i];
-    }
-
-
-    get_site(L, sidx, start);
-    get_site(L, eidx, end);
-
-    // need to look through the orientations for the 
-    // sites closest to the start and end
-    int closest_start_idx = -1;
-    int closest_end_idx = -1;
-
-    double closest_start_dist = 1e10;
-    double closest_end_dist = 1e10;
-
-    for(int i=0; i<sites.size(); i++)
-    {
-        double a1 = angle_between_sites(start, sites[i]);
-        double a2 = angle_between_sites(  end, sites[i]);
-
-        if(closest_start_idx == -1 || a1 < closest_start_dist)
-        {
-            closest_start_dist = a1;
-            closest_start_idx = i;
-        }
-
-        if(closest_end_idx == -1 || a2 < closest_end_dist)
-        {
-            closest_end_dist = a2;
-            closest_end_idx = i;
-        }
-    }
-
-
-    // for each site we want the "conDegree" closest sites
-    for(int i=0; i<sites.size(); i++)
-    {
-        vector< doubleIntPair > angleIndex;
-
-        for(int j=0; j<sites.size(); j++)
-        { 
-            if(i != j)
-            {
-                angleIndex.push_back( doubleIntPair(angle_between_sites(sites, i, j), j) );
-                
-                std::sort (angleIndex.begin(), angleIndex.end(), doubleIntPairOrder);
-                
-                while(angleIndex.size() > conDegree)
-                {
-                    angleIndex.pop_back();
-                }
-            }
-        }
-
-        for(int j=0; j<angleIndex.size(); j++)
-        {
-            sites[i].neighbour.push_back(angleIndex[j].second);
-        }
-    }
-
-
-    if(report)
-    {
-        for(int c=0; c<sites.size(); c++)
-        {
-            printf("%3d > ", c);
-            for(int q=0; q<sites[c].neighbour.size(); q++)
-            {
-                printf("%3d (%5g)", sites[c].neighbour[q], angle_between_sites(sites[c], sites[ sites[c].neighbour[q] ]));
-            }
-            printf("\n");
-        }
-    }
-
-    list<int> border;
-    border.push_back(closest_start_idx);
-
-    sites[closest_start_idx].considered = true;
-    sites[closest_start_idx].source = closest_start_idx;
-
-    if(report)
-        fprintf(report, "(%s:%i) Prime: Adding %d to border from %d\n", __FILE__,__LINE__,closest_start_idx,closest_start_idx);
-
-    int add_fill_up   = 1;
-    int add_fill_down = 1;
-    if(report)
-        fprintf(report, "(%s:%i) %i %i %i\n", __FILE__, __LINE__, (add_fill_up != -1), (add_fill_down != -1), (sites[closest_end_idx].source));
-
-
-
-    int progress = 1;
-    while(progress && (sites[closest_end_idx].source == -1))
-    {
-        add_fill_up   = 1;
-        add_fill_down = 1;
-        progress = 0;
-
-        while(add_fill_down != -1)
-        {
-            add_fill_down = fill_down(border, sites);
-            if(add_fill_down != -1)
-                progress = 1;
-        }
-
-        add_fill_up = fill_up(border,sites);
-
-        reduce_border(border,sites);
-
-        if(add_fill_up != -1)
-            progress = 1;
-
-        if(report)
-            fprintf(report, "(%s:%i) %i %i\n", __FILE__, __LINE__, progress, sites[closest_end_idx].source);
-    }
-
     
 
-    if(sites[closest_end_idx].source == -1)
-    {
-        lua_pushboolean(L, false);
-        return 1;
-    }
+    bool energy_calculated;
+    double energy;
+    double source_energy;
+    vint source;
 
-    {
-        list<int> v;
-        int i = closest_end_idx;
+    vector<vint> neighbour_list;
 
-        while(i != closest_start_idx)
+    bool considered;
+
+};
+
+class dijkstrasSearch
+{
+public:
+    dijkstrasSearch() {step = 0;};
+
+    vint getSource(vint& n)
         {
-            // printf("i = %i\n", i);
-            v.push_front(i);
-            i = sites[i].source;
+            return nodes[n].source;
         }
-        v.push_front(i);
- 
-        
-        lua_newtable(L);
-        int k = 1;
-        for(list<int>::iterator it = v.begin(); it != v.end(); it++)
+
+    bool iterate()
         {
-            lua_pushinteger(L, k);
-            lua_pushinteger(L, (*it)+1);
-            lua_settable(L, -3);
-            k++;
-        }
-        return 1;
+            if(edge.empty())
+            {
+                //printf("empty\n");
+                return false;
+            }
+
+            vint v = edge.front();
+            edge.pop_front();
+
+
+            if( nodes.find(v) == nodes.end() ) // then doesn't contain
+            {
+                nodes.insert ( std::pair<vint,dijkstrasNode>(v,dijkstrasNode()) );
+            }
+
+            dijkstrasNode& node = nodes.find(v)->second;
+
+            if(node.considered)
+            {
+                //printf("considered\n");
+                return true;
+            }
+
+            node.create_neighbour_list(v, spheres);
+
+            if(step == 0)
+            {
+                node.source_energy = 0;
+            }
+            step++;
+
+
+            double energy_here = node.getEnergy(mep, v, spheres);
+
+            for(int i=0; i<node.neighbour_list.size(); i++)
+            {
+                vint& nn = node.neighbour_list[i];
+
+                if( nodes.find(nn) == nodes.end() ) // then doesn't contain
+                {
+                    nodes.insert ( std::pair<vint,dijkstrasNode>(nn,dijkstrasNode()) );
+                }
+
+                dijkstrasNode& neighbour = nodes[nn];
+
+                if(!neighbour.considered)
+                {
+                    double e = energy_here;
+                    if(node.source_energy > e)
+                        e = node.source_energy;
+                    if(e < neighbour.source_energy)
+                    {
+                        neighbour.source_energy = e * 1.0000000001; // this will select for shortest paths down-hill
+                        neighbour.source = v;
+                    }
+                    edge.push_back(nn);
+
+                    /*
+                    for(int q=0; q<nn.size(); q++)
+                    {
+                        printf("%4d ", nn[q]);
+                    }
+                    printf("\n");
+                    */
+                }
+            }
+            node.considered = true;
+            return true;
+        };
+
+    
+    std::map<vint, dijkstrasNode> nodes;
+    std::list<vint> edge;
+
+    vector<const sphere*> spheres;    
+    MEP* mep;
+    int step;
+};
+
+static void sphere_lookup(vint& v, vector<const sphere*>& spheres, vector<double>& mags, vector<VectorCS>& cfg)
+{
+    cfg.clear();
+
+    for(int i=0; i<v.size(); i++)
+    {
+        VectorCS vcs(spheres[i][v[i]].vertex);
+        // printf("mags[%i] = %g\n", i, mags[i]);
+        vcs.setMagnitude(mags[i]);
+        cfg.push_back(vcs);//.copy());
     }
 }
+
+int l_bestpath(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+    int n = 1; // sphere level
+    int ns = mep->numberOfSites();
+
+    if(!lua_istable(L, 2) || !lua_istable(L, 3))
+    {
+        return luaL_error(L, "Dijkstra's path needs start and end.");
+    }
+
+    vector<VectorCS> a;
+    vector<VectorCS> b;
+
+    lua_pushnil(L);
+    while(lua_next(L, 2))
+    {
+        a.push_back(lua_toVectorCS(L, lua_gettop(L)));
+        //print_vec(a.back());
+        lua_pop(L, 1);
+    }
+
+    lua_pushnil(L);
+    while(lua_next(L, 3))
+    {
+        b.push_back(lua_toVectorCS(L, lua_gettop(L)));
+        //print_vec(b.back());
+        lua_pop(L, 1);
+    }
+
+    vector<double> mags;
+
+    for(int i=0; i<a.size(); i++)
+        mags.push_back(a[i].magnitude());
+
+
+    if(lua_isnumber(L, 4))
+        n = lua_tointeger(L, 4);
+
+    if(n < 1 || n > 5)
+        return luaL_error(L, "Dodecahedron subdivision level must be between 1 and 5.");
+
+    vector<const sphere*> spheres;    
+    for(int i=0; i<ns; i++)
+        spheres.push_back(get_sphere(n));
+
+    
+    vint a_idx;
+    vint b_idx;
+
+    double sum_a = findHyperPoint(spheres, a, a_idx);
+    double sum_b = findHyperPoint(spheres, b, b_idx);
+
+
+    dijkstrasSearch ds;
+
+    ds.mep = mep;
+    ds.spheres = spheres;
+    ds.edge.push_back(a_idx);
+
+    //int dsi = 0;
+    while(ds.iterate())
+    {
+        //printf("dsi %d\n", dsi);
+        //dsi++;
+    }
+
+    list<vint> soln;
+
+    soln.push_front(b_idx);
+    
+    int path = 0;
+    while(!vint_same(b_idx, a_idx))
+    {
+        //printf("path %d\n", path);
+        //path++;
+        b_idx = ds.getSource(b_idx);
+        soln.push_front(b_idx);
+    }
+
+    lua_newtable(L);
+
+    int i=1;
+    
+    vector<VectorCS> cfg;
+    list<vint>::iterator it;
+    for(it=soln.begin(); it!=soln.end(); ++it)
+    {
+        vint& v = *it;
+
+
+        lua_pushinteger(L, i);
+
+        lua_newtable(L);
+        sphere_lookup(v, spheres, mags, cfg);
+
+        for(int j=0; j<cfg.size(); j++)
+        {
+            lua_pushinteger(L, j+1);
+            
+            lua_pushVectorCS(L, cfg[j], VCSF_ASTABLE | VCSF_CSDESC);
+            lua_settable(L, -3);
+        }
+        lua_settable(L, -3);
+        i++;
+    }
+
+    return 1;
+}
+
 

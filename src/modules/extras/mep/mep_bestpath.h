@@ -1,3 +1,3 @@
 #include "luabaseobject.h"
 
-int l_bestpath(lua_State* L, int base);
+int l_bestpath(lua_State* L);

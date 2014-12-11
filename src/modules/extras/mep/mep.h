@@ -106,11 +106,14 @@ public:
 
 	int calculateEnergyGradients(lua_State* L);
 
+        double energyOfCustomPoint(const vector<VectorCS>& v1);
+
 	void internal_copy_to(MEP* dest);
 
 	int relaxSinglePoint_SteepestDecent(lua_State* L);
 	int relaxSinglePoint_expensiveDecent(lua_State* L, int point, double h, int steps);
 	int expensiveEnergyMinimization(lua_State* L, int point, double h, int steps);
+	int expensiveEnergyMaximization(lua_State* L, int point, double h, int steps);
 	int expensiveGradientMinimization(lua_State* L, int point, double h, int steps);
 
 //	int relaxSinglePoint(lua_State* L);

@@ -1,5 +1,354 @@
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
+
+static inline void G_parts(const double* vecr, double& f3, double& f5)
+{
+    const double& rx = vecr[0];
+    const double& ry = vecr[1];
+    const double& rz = vecr[2];
+
+    const double rdotr = rx*rx + ry*ry + rz*rz;
+
+    if(rdotr == 0)
+    {
+        f3 = 0;
+        f5 = 0;
+        return;
+    }
+
+    const double r = sqrt(rdotr);
+    const double r3 = rdotr * r;
+
+    f5 = 1.0 / (r3 * rdotr);
+    f3 = f5 * rdotr;
+    f5 = - 3.0 * f5;
+}
+
+
+#define make_functionAA(ab, a, b) \
+    double __G ## ab(const double* r) { \
+        double f3, f5; \
+        G_parts(r, f3, f5); \
+        return (1.0 / 4.0 * M_PI) * (f3 + r[a]*r[b]*f5); }
+#define make_functionAB(ab, a, b) \
+    double __G ## ab(const double* r) { \
+        double f3, f5; \
+        G_parts(r, f3, f5); \
+        return (1.0 / 4.0 * M_PI) * (r[a]*r[b]*f5); }
+
+make_functionAA(xx, 0, 0)
+make_functionAB(xy, 0, 1)
+make_functionAB(xz, 0, 2)
+
+make_functionAB(yx, 1, 0)
+make_functionAA(yy, 1, 1)
+make_functionAB(yz, 1, 2)
+
+make_functionAB(zx, 2, 0)
+make_functionAB(zy, 2, 1)
+make_functionAA(zz, 2, 2)
+
+
+
+typedef double (*fp)(const double*); // function pointer typedef
+
+// rectangular numerical integration
+template <fp Gab>
+static double intGab_rect(const double* vsd, const double volume)
+{
+    const double r[3] = {((vsd[0+6]+vsd[1+6]) - (vsd[0]+vsd[1]))*0.5, 
+                         ((vsd[2+6]+vsd[3+6]) - (vsd[2]+vsd[3]))*0.5, 
+                         ((vsd[4+6]+vsd[5+6]) - (vsd[4]+vsd[5]))*0.5};
+
+    return Gab(r) * volume;
+}
+
+// trapezoidal integration
+#define BIT(x, b) (( x & (1<<b)) >> b)
+template <fp Gab>
+double intGab_trap(const double* vsd, const double volume)
+{
+    double r[3];
+    
+    double sum = 0;
+    for(unsigned char i=0; i<64; i++)
+    {
+        r[0] = vsd[ 6+BIT(i,0)] - vsd[0+BIT(i,1)];
+        r[1] = vsd[ 8+BIT(i,2)] - vsd[2+BIT(i,3)];
+        r[2] = vsd[10+BIT(i,4)] - vsd[4+BIT(i,5)];
+        sum += Gab(r);
+    }
+
+    return sum * volume / 64.0;
+}
+
+template <fp Gab>
+double intGab_simp(const double* vsd, const double volume)
+{
+    const double T = intGab_trap<Gab>(vsd, volume);
+    const double M = intGab_rect<Gab>(vsd, volume);
+
+    return (2 * M + T) / 3;
+}
+
+
+
+
+static void split6(const double* original, const int split_coord, double* s1, double* s2)
+{
+    memcpy(s1, original, sizeof(double)*12);
+    memcpy(s2, original, sizeof(double)*12);
+
+    const double mid = (original[2*split_coord] + original[2*split_coord+1]) * 0.5;
+
+    s1[2*split_coord+1] = mid;
+    s2[2*split_coord+0] = mid;
+}
+
+
+template <fp Gab>
+double Nab_(const double* vsd, const double tol, const int depth, 
+            const int max_depth, double& coarse_soln, const double volume)
+{
+    double half1[12];
+    double half2[12];
+
+    split6(vsd, depth % 6, half1, half2);
+
+    const double half_volume = volume * 0.5;
+    double fine_soln1, fine_soln2;
+
+    if(depth < 2)
+    {
+        fine_soln1 = intGab_rect<Gab>(half1, half_volume);
+        fine_soln2 = intGab_rect<Gab>(half2, half_volume);
+    }
+    else
+    {
+        fine_soln1 = intGab_simp<Gab>(half1, half_volume);
+        fine_soln2 = intGab_simp<Gab>(half2, half_volume);
+    }
+
+    const double fine_soln = fine_soln1 + fine_soln2;
+
+    if(fabs(coarse_soln - fine_soln) < tol)
+    {
+        // last_value = last_value;
+        return fine_soln;
+    }
+
+    if((max_depth > -1) && depth >= max_depth)
+    {
+        return fine_soln;
+    }
+
+    const double best_soln1 = Nab_<Gab>(half1, tol, depth+1, max_depth, fine_soln1, half_volume);
+    const double best_soln2 = Nab_<Gab>(half2, tol, depth+1, max_depth, fine_soln2, half_volume);
+
+    coarse_soln = fine_soln1 + fine_soln2;
+
+    return best_soln1 + best_soln2;
+}
+
+template <fp Gab>
+static double Nab(const double* vsd, const double tol, const long int max_depth, double& error)
+{
+    double v1 = (vsd[1]-vsd[0]) * (vsd[3]-vsd[2]) * (vsd[5]-vsd[4]);
+    double v2 = (vsd[7]-vsd[6]) * (vsd[9]-vsd[8]) * (vsd[11]-vsd[10]);
+
+    double volume = 1; // we add the real volume after
+    double coarse_soln = intGab_rect<Gab>(vsd, volume);
+    const double prefactor = -(v1*v2)/(4.0*M_PI);
+
+    const double better_soln = prefactor * Nab_<Gab>(vsd, tol, 0, max_depth, coarse_soln, 1);
+
+    coarse_soln = prefactor * coarse_soln;
+
+    error = (better_soln - coarse_soln);
+
+    return better_soln;
+}
+
+
+
+#define make_int_ab(ab) \
+    double N##ab(const double* vsd, const double tol, const int max_depth, double& error)\
+    {return Nab<__G##ab>(vsd, tol, max_depth, error);}
+
+make_int_ab(xx)
+make_int_ab(xy)
+make_int_ab(xz)
+
+make_int_ab(yx)
+make_int_ab(yy)
+make_int_ab(yz)
+
+make_int_ab(zx)
+make_int_ab(zy)
+make_int_ab(zz)
+
+
+
+static double logND(const double num, const double denom)
+{
+    if(num == 0 || denom == 0)
+        return 0;
+    return log(num/denom);
+}
+
+static double invtan(const double num, const double denom)
+{
+    if(num == 0 && denom == 0)
+        return 0;
+    return atan2(num,denom);
+}
+
+double ms_f(const double X, const double Y, const double Z)
+{
+    const double x = fabs(X);
+    const double y = fabs(Y);
+    const double z = fabs(Z);
+
+    const double xx = x*x;
+    const double yy = y*y;
+    const double zz = z*z;
+
+    const double R = sqrt(xx+yy+zz);
+
+    const double ypR2 = (y+R)*(y+R);
+    const double zpR2 = (z+R)*(z+R);
+
+    return (1.0/12.0) * (
+        2 * (2 * xx - yy - zz) * R
+        - 12.0 * x * y * z * invtan(y*z, x*R)
+        + 3 * y * zz * logND( ypR2, xx+zz )
+        - 3 * y * xx * logND( ypR2, xx+zz )
+        + 3 * z * yy * logND( zpR2, xx+yy )
+        - 3 * z * xx * logND( zpR2, xx+yy )
+        );
+}
+
+
+double ms_g(const double X, const double Y, const double Z)
+{
+    const double x = fabs(X);
+    const double y = fabs(Y);
+    const double z = fabs(Z);
+
+    const double xx = x*x;
+    const double yy = y*y;
+    const double zz = z*z;
+
+    const double R = sqrt(xx+yy+zz);
+
+    const double xpR2 = (x+R)*(x+R);
+    const double ypR2 = (y+R)*(y+R);
+    const double zpR2 = (z+R)*(z+R);
+
+    const double s1 = (X<0)?-1:1;
+    const double s2 = (Y<0)?-1:1;
+
+    return (s1*s2/6.0) * (
+        - 2 * x * y * R
+        - 3 * z * (xx * invtan(y*z, x*R) + yy * invtan(x*z, y*R) + (1.0/3.0) * zz * invtan(x*y, z*R))
+        + 3 * x * y * z * logND(zpR2, xx+yy)
+        + 0.5 * y * (3 * zz - yy) * logND(xpR2, yy+zz)
+        + 0.5 * x * (3 * zz - xx) * logND(ypR2, xx+zz)
+        );
+}
+
+
+typedef double (*dfddd)(const double, const double, const double);
+template <dfddd s>
+static double Ns(const double X,   const double Y,   const double Z,
+                 const double dx1, const double dy1, const double dz1,
+                 const double dx2, const double dy2, const double dz2)
+{
+    const double sign[4]={1.0, -1.0, 1.0, -1.0};
+    const double xx[4] = {0, dx2, dx2-dx1, -dx1};
+    const double yy[4] = {0, dy2, dy2-dy1, -dy1};
+    const double zz[4] = {0, dz2, dz2-dz1, -dz1};
+    double sum = 0;
+
+    for(int v1=0; v1<4; v1++)
+    {
+        for(int v2=0; v2<4; v2++)
+        {
+            for(int v3=0; v3<4; v3++)
+            {
+                sum += sign[v1]*sign[v2]*sign[v3]*s(X+xx[v1], Y+yy[v2], Z+zz[v3]);
+            }
+        }
+    }
+    return sum / (4.0 * M_PI * dx2 * dy2 * dz2);
+}
+
+double magnetostatic_Nxx(const double X,   const double Y,   const double Z,
+                         const double dx1, const double dy1, const double dz1,
+                         const double dx2, const double dy2, const double dz2)
+{
+    return Ns<ms_f>(X,Y,Z, dx1,dy1,dz1, dx2,dy2,dz2);
+}
+
+double magnetostatic_Nyy(const double X,   const double Y,   const double Z,
+                         const double dx1, const double dy1, const double dz1,
+                         const double dx2, const double dy2, const double dz2)
+{
+    return magnetostatic_Nxx(Y,X,Z, dy1,dx1,dz1, dy2,dx2,dz2);
+}
+
+double magnetostatic_Nzz(const double X,   const double Y,   const double Z,
+                         const double dx1, const double dy1, const double dz1,
+                         const double dx2, const double dy2, const double dz2)
+{
+    return magnetostatic_Nxx(Z,Y,X, dz1,dy1,dx1, dz2,dy2,dx2);
+}
+
+
+double magnetostatic_Nxy(const double X,   const double Y,   const double Z,
+                         const double dx1, const double dy1, const double dz1,
+                         const double dx2, const double dy2, const double dz2)
+{
+    return Ns<ms_g>(X,Y,Z, dx1,dy1,dz1, dx2,dy2,dz2);
+}
+
+double magnetostatic_Nxz(const double X,   const double Y,   const double Z,
+                         const double dx1, const double dy1, const double dz1,
+                         const double dx2, const double dy2, const double dz2)
+{
+    return magnetostatic_Nxy(X,Z,Y, dx1,dz1,dy1, dx2,dz2,dy2);
+}
+
+double magnetostatic_Nyx(const double X,   const double Y,   const double Z,
+                         const double dx1, const double dy1, const double dz1,
+                         const double dx2, const double dy2, const double dz2)
+{
+    return magnetostatic_Nxy(X,Y,Z, dx1,dy1,dz1, dx2,dy2,dz2);
+}
+
+double magnetostatic_Nyz(const double X,   const double Y,   const double Z,
+                         const double dx1, const double dy1, const double dz1,
+                         const double dx2, const double dy2, const double dz2)
+{
+    return magnetostatic_Nxy(Y,Z,X, dy1,dz1,dx1, dy2,dz2,dx2);
+}
+
+double magnetostatic_Nzx(const double X,   const double Y,   const double Z,
+                         const double dx1, const double dy1, const double dz1,
+                         const double dx2, const double dy2, const double dz2)
+{
+    return magnetostatic_Nxz(X,Y,Z, dx1,dy1,dz1, dx2,dy2,dz2);
+}
+
+double magnetostatic_Nzy(const double X,   const double Y,   const double Z,
+                         const double dx1, const double dy1, const double dz1,
+                         const double dx2, const double dy2, const double dz2)
+{
+    return magnetostatic_Nyz(X,Y,Z, dx1,dy1,dz1, dx2,dy2,dz2);
+}
+
+
 extern "C" {
 #include <lua.h>
 #include <lualib.h>
@@ -7,372 +356,163 @@ extern "C" {
 }
 
 
-#ifndef M_PI
-#define M_PI 3.1415926535897932385
-#endif
-
-// JOURNAL OF GEOPHYSICAL RESEARCH, VOL. 98, NO. B6, PP. 9551-9555, 1993
-
-// portland group does strange non-compatible long double math.                                                                                            
-#ifndef __PGI
-#define ATAN atanl
-#define SQRT sqrtl
-#define LOG  logl
-#define DOUBLE long double
-#else
-#define ATAN atan
-#define SQRT sqrt
-#define LOG  log
-#define DOUBLE double
-#endif
 
 
-
-
-static DOUBLE invtan(const DOUBLE num, const DOUBLE denom)
+static int l_NXX1(lua_State* L)
 {
-	if(denom == 0)
-	{
-		if(num > 0)
-			return M_PI * 0.5;
-		return -M_PI * 0.5;
-	}
-	const DOUBLE v = ATAN(num/denom);
-// 	if(isnan(v))
-// // 		printf("%Lf  %Lf\n", num, denom);
-	return v;
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
+
+    lua_pushnumber(L, magnetostatic_Nxx(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8]));
+    return 1;
 }
-
-static DOUBLE sign(const DOUBLE x)
+static int l_NXY1(lua_State* L)
 {
-	if(x > 0)
-		return  1;
-	if(x < 0)
-		return -1;
-	return 0;
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
+
+    lua_pushnumber(L, magnetostatic_Nxy(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8]));
+    return 1;
 }
-
-static DOUBLE phi(const DOUBLE n, const DOUBLE d)
+static int l_NXZ1(lua_State* L)
 {
-	DOUBLE v =  0;
-	if(n == 0)
-		v = 0;
-	else
-	{
-		if(d == 0)
-			v = 1000 * sign(n); //arcsinh(10^500) ~= 1000. 10^500 is like infinity
-		else
-		{
-			const DOUBLE p = n / d;
-			const DOUBLE t = p + SQRT(1.0 + p*p);
-			if(t == 0)
-			{
-				v = 1000 * sign(n);
-			}
-			else
-				v = LOG(t);
-		}
-	}
-	return v;
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
+
+    lua_pushnumber(L, magnetostatic_Nxz(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8]));
+    return 1;
 }
 
 
-static DOUBLE g(const DOUBLE x, const DOUBLE y, const DOUBLE z)
+static int l_NYX1(lua_State* L)
 {
-	const DOUBLE xx = x*x;
-	const DOUBLE yy = y*y;
-	const DOUBLE zz = z*z;
-	const DOUBLE R = SQRT(xx+yy+zz);
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
 
-	return 	  (x*y*z) * phi(z, SQRT(xx+yy))
-			+ (y/6.0) * (3.0*zz-yy) * phi(x, SQRT(yy+zz))
-			+ (x/6.0) * (3.0*zz-xx) * phi(y, SQRT(xx+zz))
-			- ( z*zz/6.0) * invtan(x*y,(z*R))
-			- ( z*yy/2.0) * invtan(x*z,(y*R))
-			- ( z*xx/2.0) * invtan(y*z,(x*R))
-			- (x*y*R/3.0);
+    lua_pushnumber(L, magnetostatic_Nyx(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8]));
+    return 1;
+}
+static int l_NYY1(lua_State* L)
+{
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
+
+    lua_pushnumber(L, magnetostatic_Nyy(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8]));
+    return 1;
+}
+static int l_NYZ1(lua_State* L)
+{
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
+
+    lua_pushnumber(L, magnetostatic_Nyz(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8]));
+    return 1;
 }
 
-static DOUBLE G2(const DOUBLE X,   const DOUBLE Y,   const DOUBLE Z) 
-{
-	return g(X,Y,Z) - g(X,Y,0);
-}
-static DOUBLE G1(const DOUBLE X,   const DOUBLE Y,   const DOUBLE Z,
-		 const DOUBLE dx2, const DOUBLE dy2, const DOUBLE dz2) 
-{
-	return G2(X+dx2,Y,Z+dz2) 
-		 - G2(X+dx2,Y,Z    )
-		 - G2(X,    Y,Z+dz2) 
-		 + G2(X,    Y,Z    );
-}
 
-static DOUBLE G(const DOUBLE X,   const DOUBLE Y,   const DOUBLE Z,
-		 const DOUBLE dx1, const DOUBLE dy1, const DOUBLE dz1, 
-		 const DOUBLE dx2, const DOUBLE dy2, const DOUBLE dz2) 
+static int l_NZX1(lua_State* L)
 {
-	return G1(X,Y,    Z,    dx2,dy2,dz2) 
-		 - G1(X,Y-dy1,Z,    dx2,dy2,dz2) 
-		 - G1(X,Y,    Z-dz1,dx2,dy2,dz2) 
-		 + G1(X,Y-dy1,Z-dz1,dx2,dy2,dz2);
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
+
+    lua_pushnumber(L, magnetostatic_Nzx(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8]));
+    return 1;
+}
+static int l_NZY1(lua_State* L)
+{
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
+
+    lua_pushnumber(L, magnetostatic_Nzy(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8]));
+    return 1;
+}
+static int l_NZZ1(lua_State* L)
+{
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
+
+    lua_pushnumber(L, magnetostatic_Nzz(n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8]));
+    return 1;
 }
 
 
 
-
-
-static DOUBLE f(const DOUBLE x, const DOUBLE y, const DOUBLE z)
+static void make_vsd(double* n, double* vsd)
 {
-	const DOUBLE xx = x*x;
-	const DOUBLE yy = y*y;
-	const DOUBLE zz = z*z;
-	const DOUBLE R = SQRT(xx+yy+zz);
-	
-	return 	  y * 0.5 * (zz-xx) * phi(y,SQRT(xx+zz))
-			+ z * 0.5 * (yy-xx) * phi(z,SQRT(xx+yy))
-			- x*y*z * invtan(y*z, x*R)
-			+ (1.0/6.0) * (2.0*xx-yy-zz) * R;
+    vsd[0] = 0; vsd[1] = n[3];
+    vsd[2] = 0; vsd[3] = n[4];
+    vsd[4] = 0; vsd[5] = n[5];
+
+    vsd[6] = n[0]; vsd[7] = n[0]+n[6];
+    vsd[8] = n[1]; vsd[9] = n[1]+n[7];
+    vsd[10]= n[2]; vsd[11]= n[2]+n[8];
 }
 
-static DOUBLE F2(const DOUBLE X,   const DOUBLE Y,   const DOUBLE Z,
-		 const DOUBLE dx1, const DOUBLE dy1, const DOUBLE dz1, 
-		 const DOUBLE dx2, const DOUBLE dy2, const DOUBLE dz2) 
+template <fp Gab>
+int l_NAB(lua_State* L)
 {
-	const DOUBLE v = 
-	       f(X,Y,Z) - f(0,Y,Z) - f(X,0,Z) + f(X,Y,0);
-	return v;
-}
+    double error;
+    double n[9];
+    for(int i=0; i<9; i++)
+        n[i] = lua_tonumber(L, i+1);
 
-static DOUBLE F1(const DOUBLE X,   const DOUBLE Y,   const DOUBLE Z,
-		 const DOUBLE dx1, const DOUBLE dy1, const DOUBLE dz1, 
-		 const DOUBLE dx2, const DOUBLE dy2, const DOUBLE dz2) 
-{
-	const DOUBLE v =
-	        F2(X, Y,     Z,     dx1, dy1, dz1, dx2, dy2, dz2)
-	      - F2(X, Y-dy1, Z,     dx1, dy1, dz1, dx2, dy2, dz2)
-		  - F2(X, Y,     Z-dz1, dx1, dy1, dz1, dx2, dy2, dz2)
-		  + F2(X, Y-dy1, Z-dz1, dx1, dy1, dz1, dx2, dy2, dz2);
-	return v;
-}
+    double tol = lua_tonumber(L, 10);
+    double vsd[12];
 
-static DOUBLE F(const DOUBLE X,   const DOUBLE Y,   const DOUBLE Z,
-		 const DOUBLE dx1, const DOUBLE dy1, const DOUBLE dz1, 
-		 const DOUBLE dx2, const DOUBLE dy2, const DOUBLE dz2) 
-{
-	const DOUBLE v = 
-	         F1(X, Y+dy2, Z+dz2, dx1, dy1, dz1, dx2, dy2, dz2) 
-		   - F1(X, Y,     Z+dz2, dx1, dy1, dz1, dx2, dy2, dz2)  
-		   - F1(X, Y+dy2, Z,     dx1, dy1, dz1, dx2, dy2, dz2)  
-		   + F1(X, Y,     Z,     dx1, dy1, dz1, dx2, dy2, dz2);	
-		   
-	return v;
-}
+    make_vsd(n, vsd);
 
-static void shuffle(double* dest, const double* src, const int* o)
-{
-	dest[0] = src[o[0]];
-	dest[1] = src[o[1]];
-	dest[2] = src[o[2]];
-}
+    int max_depth = -1;
+    if(lua_isnumber(L, 11))
+        max_depth = lua_tointeger(L, 11);
 
 
-double magnetostatic_Nxx(const double X,   const double Y,   const double Z,
-				  const double* target, const double* source)
-{
-	const double* p1 = target;
-	const double* p2 = source;
-	const DOUBLE dx1 = p1[0];
-	const DOUBLE dx2 = p2[0];
-	const DOUBLE v = p1[0]*p1[1]*p1[2];
-	
-	const DOUBLE FF1 = F(X,         Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
-	const DOUBLE FF2 = F(X+dx2-dx1, Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
-	const DOUBLE FF3 = F(X-dx1,     Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
-	const DOUBLE FF4 = F(X+dx2,     Y, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
+    lua_pushnumber(L, Nab<Gab>(vsd, tol, max_depth, error));
+    lua_pushnumber(L, error);
+    return 2;
 
-	return -(1.0/(4.0*M_PI * v)) * (FF1 + FF2 - FF3 - FF4);
-}
-
-
-double magnetostatic_Nyy(const double X,   const double Y,   const double Z,
-				  const double* target, const double* source)
-{
-	double t[3], s[3];
-	const int o[3] = {1,2,0};
-	shuffle(t, target, o);
-	shuffle(s, source, o);
-
-	return magnetostatic_Nxx(Y, Z, X, t, s);
-}
-
-double magnetostatic_Nzz(const double X,   const double Y,   const double Z,
-				  const double* target, const double* source)
-{
-	double t[3], s[3];
-	const int o[3] = {2,0,1};
-	shuffle(t, target, o);
-	shuffle(s, source, o);
-
-	return magnetostatic_Nxx(Z, X, Y, t, s);
-}
-
-
-double magnetostatic_Nxy(const double X,   const double Y,   const double Z,
-				  const double* target, const double* source)
-{
-	const double* p1 = target;
-	const double* p2 = source;
-	const DOUBLE dx1 = p1[0];
-	const DOUBLE dx2 = p2[0];
-	const DOUBLE dy1 = p1[1];
-	const DOUBLE dy2 = p2[1];
-	const DOUBLE v = p1[0]*p1[1]*p1[2];
-	return -(1.0 / (4.0*M_PI*v)) * (
-		  G(X,     Y,     Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
-		- G(X-dx1, Y,     Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
-		- G(X,     Y+dy2, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]) 
-		+ G(X-dx1, Y+dy2, Z, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]));
-}
-
-
-double magnetostatic_Nxz(const double X,   const double Y,   const double Z,
-				  const double* target, const double* source)
-{
-	double t[3], s[3];
-	const int o[3] = {0,2,1};
-	shuffle(t, target, o);
-	shuffle(s, source, o);
-	return magnetostatic_Nxy(X, Z, Y, t, s);
-}
-
-double magnetostatic_Nzx(const double X,   const double Y,   const double Z,
-				  const double* target, const double* source)
-{
-	double t[3], s[3];
-	const int o[3] = {2,0,1};
-	
-	shuffle(t, target, o);
-	shuffle(s, source, o);
-	return magnetostatic_Nxy(Z, X, Y, t, s);
-}
-
-double magnetostatic_Nyx(const double X,   const double Y,   const double Z,
-				  const double* target, const double* source)
-{
-	double t[3], s[3];
-	const int o[3] = {1,0,2};
-	shuffle(t, target, o);
-	shuffle(s, source, o);
-	return magnetostatic_Nxy(Y, X, Z, t, s);
-}
-
-double magnetostatic_Nyz(const double X,   const double Y,   const double Z,
-				  const double* target, const double* source)
-{
-	double t[3], s[3];
-	const int o[3] = {1,2,0};
-	shuffle(t, target, o);
-	shuffle(s, source, o);
-	return magnetostatic_Nxy(Y, Z, X, t, s);
-}
-
-
-double magnetostatic_Nzy(const double X,   const double Y,   const double Z,
-				  const double* target, const double* source)
-{
-	double t[3], s[3];
-	const int o[3] = {2,1,0};
-	shuffle(t, target, o);
-	shuffle(s, source, o);
-	return magnetostatic_Nxy(Z, Y, X, t, s);
 }
 
 
 
 
-
-
-
-
-
-
-
-
-
-#define PROTO(func) static int l_ ## func(lua_State* L) {
-
-#define FUNC1(func) \
-PROTO(func) \
-	const DOUBLE v1 = lua_tonumber(L, 1); \
-	lua_pushnumber(L,  func(v1) ); return 1; }
-
-#define FUNC2(func) \
-PROTO(func) \
-	const DOUBLE v1 = lua_tonumber(L, 1); \
-	const DOUBLE v2 = lua_tonumber(L, 2); \
-	lua_pushnumber(L,  func(v1,v2) ); return 1; }
-
-#define FUNC3(func) \
-PROTO(func) \
-	const DOUBLE v1 = lua_tonumber(L, 1); \
-	const DOUBLE v2 = lua_tonumber(L, 2); \
-	const DOUBLE v3 = lua_tonumber(L, 3); \
-	lua_pushnumber(L,  func(v1,v2,v3) ); return 1; }
-
-#define FUNC6(func) \
-PROTO(func) \
-	const DOUBLE v1 = lua_tonumber(L, 1); \
-	const DOUBLE v2 = lua_tonumber(L, 2); \
-	const DOUBLE v3 = lua_tonumber(L, 3); \
-	const DOUBLE v4 = lua_tonumber(L, 4); \
-	const DOUBLE v5 = lua_tonumber(L, 5); \
-	const DOUBLE v6 = lua_tonumber(L, 6); \
-	lua_pushnumber(L,  func(v1,v2,v3,v4,v5,v6) ); return 1; }
-
-#define FUNC9(func) \
-PROTO(func) \
-	const DOUBLE v1 = lua_tonumber(L, 1); \
-	const DOUBLE v2 = lua_tonumber(L, 2); \
-	const DOUBLE v3 = lua_tonumber(L, 3); \
-	const DOUBLE v4 = lua_tonumber(L, 4); \
-	const DOUBLE v5 = lua_tonumber(L, 5); \
-	const DOUBLE v6 = lua_tonumber(L, 6); \
-	const DOUBLE v7 = lua_tonumber(L, 7); \
-	const DOUBLE v8 = lua_tonumber(L, 8); \
-	const DOUBLE v9 = lua_tonumber(L, 9); \
-	lua_pushnumber(L,  func(v1,v2,v3,v4,v5,v6,v7,v8,v9) ); return 1; }
-
-
-
-FUNC1(sign)
-FUNC2(invtan)
-FUNC2(phi)
-FUNC3(g)
-FUNC3(f)
-FUNC3(G2)
-FUNC6(G1)
-FUNC9(G)
-FUNC9(F)
-FUNC9(F1)
-FUNC9(F2)
-
-#define REG(func) lua_pushstring(L, #func); lua_pushcfunction(L, l_##func); lua_settable(L, -3);
-
-void register_mag2d_internal_functions(lua_State* L)
+void l_mag2d_support_register(lua_State* L)
 {
-	lua_getglobal(L, "Magnetostatics2D");
-	
-	REG(sign);
-	REG(invtan);
-	REG(phi);
-	REG(g);
-	REG(f);
-	REG(G1);
-	REG(G2);
-	REG(G);
-	REG(F1);
-	REG(F2);
-	REG(F);
-	
-	lua_pop(L, 1);
+    lua_getglobal(L, "Magnetostatics2D");
+
+    lua_pushcfunction(L, l_NXX1);    lua_setfield(L, -2, "NXX");
+    lua_pushcfunction(L, l_NXY1);    lua_setfield(L, -2, "NXY");
+    lua_pushcfunction(L, l_NXZ1);    lua_setfield(L, -2, "NXZ");
+
+    lua_pushcfunction(L, l_NYX1);    lua_setfield(L, -2, "NYX");
+    lua_pushcfunction(L, l_NYY1);    lua_setfield(L, -2, "NYY");
+    lua_pushcfunction(L, l_NYZ1);    lua_setfield(L, -2, "NYZ");
+
+    lua_pushcfunction(L, l_NZX1);    lua_setfield(L, -2, "NZX");
+    lua_pushcfunction(L, l_NZY1);    lua_setfield(L, -2, "NZY");
+    lua_pushcfunction(L, l_NZZ1);    lua_setfield(L, -2, "NZZ");
+
+    lua_pushcfunction(L, &(l_NAB<__Gxx>));    lua_setfield(L, -2, "NXX_Integrate");
+    lua_pushcfunction(L, &(l_NAB<__Gxy>));    lua_setfield(L, -2, "NXY_Integrate");
+    lua_pushcfunction(L, &(l_NAB<__Gxz>));    lua_setfield(L, -2, "NXZ_Integrate");
+
+    lua_pushcfunction(L, &(l_NAB<__Gyx>));    lua_setfield(L, -2, "NYX_Integrate");
+    lua_pushcfunction(L, &(l_NAB<__Gyy>));    lua_setfield(L, -2, "NYY_Integrate");
+    lua_pushcfunction(L, &(l_NAB<__Gyz>));    lua_setfield(L, -2, "NYZ_Integrate");
+
+    lua_pushcfunction(L, &(l_NAB<__Gzx>));    lua_setfield(L, -2, "NZX_Integrate");
+    lua_pushcfunction(L, &(l_NAB<__Gzy>));    lua_setfield(L, -2, "NZY_Integrate");
+    lua_pushcfunction(L, &(l_NAB<__Gzz>));    lua_setfield(L, -2, "NZZ_Integrate");
+
+
+    lua_pop(L, 1);
 }
 

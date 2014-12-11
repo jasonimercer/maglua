@@ -322,20 +322,29 @@ local function vectorAboutPlane(...)
 	return math.vectorsByRules({rule})
 end
 
-local function vectorAboutX(stddev)
-	return math.vectorsByRules({{"D", 0, {1,0,0}, stddev}})
+local function vectorAboutX(stddev, rng)
+    if getmetatable(stddev) then
+        return vectorAboutX(rng, stddev)
+    end
+    return math.vectorsByRules({{"D", 0, {1,0,0}, stddev}}, rng)
 end
 
-local function vectorAboutY(stddev)
-	return math.vectorsByRules({{"D", 0, {0,1,0}, stddev}})
+local function vectorAboutY(stddev, rng)
+    if getmetatable(stddev) then
+        return vectorAboutY(rng, stddev)
+    end
+    return math.vectorsByRules({{"D", 0, {0,1,0}, stddev}}, rng)
 end
 
-local function vectorAboutZ(stddev)
-	return math.vectorsByRules({{"D", 0, {0,0,1}, stddev}})
+local function vectorAboutZ(stddev, rng)
+    if getmetatable(stddev) then
+        return vectorAboutZ(rng, stddev)
+    end
+    return math.vectorsByRules({{"D", 0, {0,0,1}, stddev}}, rng)
 end
 
 
-local function vectorOnSphere()
+local function vectorOnSphere(rng)
 	return math.vectorsByRules({{"S", 0}})
 end
 

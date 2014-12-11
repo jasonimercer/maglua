@@ -1332,15 +1332,29 @@ methods["relaxSinglePoint"] =
     end
 }
 
-methods["expensiveEnergyMinimizationAtPoint"] = 
+methods["energyMinimizationAtPoint"] = 
     {
-    "Attempt to minimize energy at a point using inefficient methods",
+    "Attempt to minimize energy at a point.",
     "1 Integer, 1 Optional Integer, 1 Optional Number: Point index, number of steps (default 50), starting step size (default 1e-3)",
     "1 Integer, 3 Number: Ratio of successful steps to total steps, initial energy, final energy, final step size",
     function(mep, point, steps, h)
 	steps = steps or 50
 
 	local good_steps, iE, fE, fH = mep:_expensiveEnergyMinimization(point, (h or 1e-3), steps)
+
+	return good_steps / steps, iE, fE, fH
+    end
+}
+
+methods["energyMaximizationAtPoint"] = 
+    {
+    "Attempt to maximize energy at a point.",
+    "1 Integer, 1 Optional Integer, 1 Optional Number: Point index, number of steps (default 50), starting step size (default 1e-3)",
+    "1 Integer, 3 Number: Ratio of successful steps to total steps, initial energy, final energy, final step size",
+    function(mep, point, steps, h)
+	steps = steps or 50
+
+	local good_steps, iE, fE, fH = mep:_expensiveEnergyMaximization(point, (h or 1e-3), steps)
 
 	return good_steps / steps, iE, fE, fH
     end
@@ -1357,7 +1371,7 @@ methods["minimizeEnergyOfCustomConfiguration"] =
 	mep:setInitialPath({cfg,cfg})
 	local cs = mep:coordinateSystem(1,1)
 	mep:setCoordinateSystem("Spherical")
-	mep:expensiveEnergyMinimizationAtPoint(1, steps, h)
+	mep:energyMinimizationAtPoint(1, steps, h)
 	mep:setCoordinateSystem(cs)
 	local res = {}
 	for s=1,mep:numberOfSites() do
@@ -1719,9 +1733,9 @@ methods["rotatePathAboutBy"] =
     end
 }
 
-methods["expensiveGradientMinimizationAtPoint"] = 
+methods["gradientMinimizationAtPoint"] = 
     {
-    "Attempt to minimize the energy gradient at a point using inefficient methods",
+    "Attempt to minimize the energy gradient at a point.",
     "1 Integer, 1 Optional Integer, 1 Optional Number: Point index, number of steps (default 50), starting step size (default 1e-3)",
     "1 Integer, 3 Number: Ratio of successful steps to total steps, initial square of the gradient, final square of the gradient, final step size",
     function(mep, point, steps, h)
@@ -2284,7 +2298,19 @@ methods["globalRelax"] =
     "",
     function(mep, n, h)
 	for p=1,mep:numberOfPoints() do
-	    mep:expensiveEnergyMinimizationAtPoint(p, n, h)
+	    mep:energyMinimizationAtPoint(p, n, h)
+	end
+    end
+}
+
+methods["globalExcite"] =
+    {
+    "Run several excitation steps where each point takes steps to increase it's energy.",
+    "1 Optional Integer, 1 Optional Number: Number of steps, default 50. Initial step size for each point.",
+    "",
+    function(mep, n, h)
+	for p=1,mep:numberOfPoints() do
+	    mep:energyMaximizationAtPoint(p, n, h)
 	end
     end
 }
@@ -2423,7 +2449,8 @@ methods["plot"] =
     end
 }
 
-methods["findMinima"] =
+
+methods["findMinimums"] =
     {
     "Find the coordinates of minima in the energy landscape",
     "1 Integer or input compatible with :setInitialPath(): Number of initial points which will be spread out evenly over hyper-sphere created by the sites involved in the calculation. If a table is instead given then the orientations in it will be used for the search start. Additionally, a JSON-style table can be provided as the second argument with data at a \"report\" key, data at a \"cs\" key and data at a \"hints\" key. The data at the report will be a function that will be called with human readable data regarding the progress of the algorithm (common choice is the print function). The cs key is the coordinate system used in the case that you are not specifying starting points but a point count and the program will evenly distribute them (a common choice, as well as the default, is \"Spherical\"). The hints data contains a list of starting points that should be added to whatever search will take place. ",
@@ -2433,7 +2460,7 @@ methods["findMinima"] =
         local type_n = type(n)
 	if type_n == type_number then -- need n points over hypersphere		
 	    local cs = json.cs or "Spherical"
-	    return mep:findMinima(mep:evenlyDistributedPoints(n, cs), json)
+	    return mep:findMinimums(mep:evenlyDistributedPoints(n, cs), json)
 	end
 	if type_n == type_table then
 	    local report = json.report or function() end
@@ -2458,10 +2485,10 @@ methods["findMinima"] =
 
 	    local default_plan = {
 		-- steps, relax step,  relax steps, equal test
-		{      9,      1e-4,           40,     0.0001},
-		{      3,      1e-4,           40,     0.0002},
-		{      3,      1e-4,           40,     0.005},
- 		{      3,      1e-4,           40,     0.3},
+		{      1,      1e-4,           60,     0.1},
+		{      1,      1e-4,           60,     0.2},
+		{      1,      1e-4,           60,     0.5},
+ 		{      3,      1e-4,           60,     0.3},
  		{      3,      1e-4,          100,     0.2}
  		--{      1,      1e-6,          100,     0.1},
 	    }
@@ -2492,7 +2519,7 @@ methods["findMinima"] =
 					 "Unique test degrees: %4g, Unique points: %4d",
 				     rtol, eqtol, table.maxn(up)))
 		end
-		if j == 3 then
+		if j == 1 then
 		    mid_up = num_up
 		end
 	    end
@@ -2500,7 +2527,7 @@ methods["findMinima"] =
 	    if mid_up ~= num_up then -- we may still be refining
 		json.hints = nil -- clearing hints so this is just a continuation
 		report("search has not converged, continuing search with current state")
-		return mep:findMinima(mep:path(), json)
+		return mep:findMinimums(mep:path(), json)
 	    end
 
 	    -- finalization
@@ -2508,7 +2535,7 @@ methods["findMinima"] =
 		local ratio, step_size = 1, 1e-10
 		local iteration = 0
 		while ratio > 1/30 and iteration < 10 do
-		    ratio, _, _, step_size = mep:expensiveEnergyMinimizationAtPoint(i, 30, step_size)
+		    ratio, _, _, step_size = mep:energyMinimizationAtPoint(i, 30, step_size)
 		    iteration = iteration + 1
 		end
 	    end
@@ -2523,9 +2550,108 @@ methods["findMinima"] =
 	end
 	
 
-	error("`findMinima' expects an integer or table as input")
+	error("`findMinimums' expects an integer or table as input")
     end
 }
+
+methods["findMaximums"] =
+    {
+    "Find the coordinates of maximums in the energy landscape",
+    "1 Integer or input compatible with :setInitialPath(): Number of initial points which will be spread out evenly over hyper-sphere created by the sites involved in the calculation. If a table is instead given then the orientations in it will be used for the search start. Additionally, a JSON-style table can be provided as the second argument with data at a \"report\" key, data at a \"cs\" key and data at a \"hints\" key. The data at the report will be a function that will be called with human readable data regarding the progress of the algorithm (common choice is the print function). The cs key is the coordinate system used in the case that you are not specifying starting points but a point count and the program will evenly distribute them (a common choice, as well as the default, is \"Spherical\"). The hints data contains a list of starting points that should be added to whatever search will take place. ",
+    "Table of maximums: Each maximum will be a table of sites, each site is 3 numbers representing a vector and a string naming the coordinate system.",
+    function(mep, n, json)
+	json = json or {}
+        local type_n = type(n)
+	if type_n == type_number then -- need n points over hypersphere		
+	    local cs = json.cs or "Spherical"
+	    return mep:findMaximums(mep:evenlyDistributedPoints(n, cs), json)
+	end
+	if type_n == type_table then
+	    local report = json.report or function() end
+	    local hints = json.hints
+
+	    mep:setInitialPath(n)
+
+	    -- adding hint like this so we don't pollute the input
+	    if hints then
+		local p = mep:path() 
+		for k,v in pairs(hints) do
+		    table.insert(p,v)
+		end
+		mep:setInitialPath(p)
+	    end
+	    
+	    mep:setCoordinateSystem( json.cs or "Spherical" )
+
+	    report("Starting search with " .. mep:numberOfPoints() .. " points")
+
+	    local default_plan = {
+		-- steps, relax step,  relax steps, equal test
+		{      1,      1e-4,           60,     1},
+		{      1,      1e-4,           60,     2},
+		{      1,      1e-2,           60,     5},
+ 		{      1,      1e-4,           60,     0.2},
+ 		{      1,      1e-6,           60,     1}
+	    }
+	    
+	    local plan = json.plan or  default_plan
+	    local mid_up = nil
+	    local num_up
+	    for j=1,table.maxn(default_plan) do
+		local v = default_plan[j]
+		local steps  = v[1]
+		local rtol   = v[2]
+		local rsteps = v[3]
+		local eqtol  = v[4]
+
+		for i=1,steps do
+		    mep:globalExcite(rsteps, rtol)
+		    local up = mep:uniquePoints(eqtol * math.pi/180)
+		    num_up = table.maxn(up)
+
+		    if table.maxn(up) == 0 then
+			interactive("Zero unique points")
+		    end
+		    mep:reduceToPoints(up)
+		    report(string.format("Global relax tolerance: %4g, " .. 
+					 "Unique test degrees: %4g, Unique points: %4d",
+				     rtol, eqtol, table.maxn(up)))
+		end
+		if j == 1 then
+		    mid_up = num_up
+		end
+	    end
+ 
+	    if mid_up ~= num_up then -- we may still be refining
+		json.hints = nil -- clearing hints so this is just a continuation
+		report("search has not converged, continuing search with current state")
+		return mep:findMaximums(mep:path(), json)
+	    end
+
+	    -- finalization
+	    for i=1,mep:numberOfPoints() do
+		local ratio, step_size = 1, 1e-10
+		local iteration = 0
+		while ratio > 1/30 and iteration < 10 do
+		    ratio, _, _, step_size = mep:energyMaximizationAtPoint(i, 30, step_size)
+		    iteration = iteration + 1
+		end
+	    end
+
+	    local up = mep:uniquePoints(2 * math.pi/180)
+	    if table.maxn(up) == 0 then
+		interactive("Zero unique points")
+	    end
+	    mep:reduceToPoints(up)
+
+	    return mep:path()
+	end
+	
+
+	error("`findMaximums' expects an integer or table as input")
+    end
+}
+
 
 
 methods["spinInCoordinateSystem"] =
@@ -2705,77 +2831,19 @@ local function ors_build(base, current, n, pop)
 end
 
 
-methods["floodFillPath"] =
+methods["dijkstrasPath"] =
 {
-"Use a flood-fill style algorithm to find the best low-resolution path between the starting point and the ending point. If the MEP object has more then 2 points the inner points will be deleted. The final path will be stored in the MEP object and the simplifyPath method will be run on the results.",
-"Optional JSON style table: Key \"OrientationsPerSite\" default 20. Key \"ConnectivityDegree\" default 6. Key \"SimplifyPathAngle\" defaily 5*pi/180.",
-"Final JSON table: ConnectivityDegree may be larger that the input value if no path was found between the start and end point resulting in an increase in connectivity.",
-function(mep, JSON)
-    JSON = JSON or {}
-    local orientationsPerSite = JSON.OrientationsPerSite or 20
-    local connectivityDegree = JSON.ConnectivityDegree or 6
-    local simplifyPathAngle = JSON.SimplifyPathAngle or 5*math.pi/180
-
-    if mep:numberOfPoints() ~= 2 then
-        mep:keepPoints({1, mep:numberOfPoints()})
-    end
-
-    local _start = mep:pointInCoordinateSystem(1)
-    local _end = mep:pointInCoordinateSystem(2)
-
-    local ns = mep:numberOfSites()
-
-    local ors = pointsOnSphere(mep, orientationsPerSite, 1, "Cartesian")
-
-
-    local ors_combinations = {}
-
-    ors_build(ors_combinations, {}, ns, ors)
-
-    mep:setInitialPath(ors_combinations)
-
-    local pe = mep:pathEnergy()
-    
-    local p = mep:_findBestPath(ors_combinations, 
-                             pe, 
-                             _start, 
-                             _end,
-                             connectivityDegree)
-
-    --interactive()
-    if p ~= false then
-        local t = {}
-        local n = table.maxn(p)
-        t[1] = mep:pointInCoordinateSystem(1)
-        for i=1,n do
-            t[i+1] = ors_combinations[ p[i] ]
-        end
-        t[n+1] = mep:pointInCoordinateSystem(2)
-        -- interactive()
-        mep:setInitialPath(t)
-        mep:simplifyPath(simplifyPathAngle)
-
-        local JSON = {}
-        JSON.OrientationsPerSite = orientationsPerSite
-        JSON.ConnectivityDegree = connectivityDegree
-        JSON.SimplifyPathAngle = simplifyPathAngle 
-        return JSON
-    else
-        -- error("Failed to find path.")
-        local j = {}
-        for k,v in pairs(JSON) do
-            j[k] = v
-        end
-
-        mep:keepPoints({1,mep:numberOfPoints()})
-
-        j.ConnectivityDegree = connectivityDegree + 1
-        return mep:findBestPath(j)
-    end
+"Run a modified Dijkstra's algorithm over sets of subdivided dodecahedrons to find a coarse minimum energy path between a pair of points.",
+"2 Tables, 1 optional Integer: Each table contains sites, each site is 3 numbers representing a vector and a string naming the coordinate system. The integer can be between 1 and 5 inclusively (default 1) and determines the number of subdivisions of the dodecahedron representing a sphere. Larger values will take a considerably longer amount of time to solve. A single site system with a subdivision count of 5 will result in approximately 750 vertices, each with 7 neighbours. A 2 site system with a subdivision count of 5 will result in half a million vertices, each with 49 neighbours. ",
+"1 Table: compatible with :setInitialPath, represents the solved path from the start to the end.",
+function(mep, a,b,n)
+    local p = mep:_findBestPath(a,b,n)
+    table.insert(p, 1, a)
+    table.insert(p, b)
+    return p
 end
 }
 
--- methods["findBestPath"] = nil -- disabling until after ising-like approx 
 
 
 
