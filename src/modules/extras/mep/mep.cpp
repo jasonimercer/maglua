@@ -422,11 +422,15 @@ int MEP::l_setCoordinateSystem(lua_State* L, int idx)
 	{
 	    for(int s=site[0]; s<site[1]; s++)
 	    {
-		// printf("%i %i %s\n", p,s,nameOfCoordinateSystem(newSystem));
-		setPointSite(p, s, getPointSite(p, s).convertedToCoordinateSystem(newSystem) );
+		//printf("%i %i %s\n", p,s,nameOfCoordinateSystem(newSystem));
+                VectorCS old = getPointSite(p, s);
+                //print_vec(old);
+                VectorCS conv = old.convertedToCoordinateSystem(newSystem);
+                //print_vec(conv);
+		setPointSite(p, s, conv);
 	    }
 	}
-
+        energy_ok = false; // just in case
 	return 0;
     }
 
@@ -4181,6 +4185,10 @@ static int _l_bestpath(lua_State* L)
 {
     return l_bestpath(L);
 }
+static int _l_bestpath2(lua_State* L)
+{
+    return l_bestpath2(L);
+}
 
 
 int MEP::help(lua_State* L)
@@ -4432,6 +4440,7 @@ const luaL_Reg* MEP::luaMethods()
 	    {"_expensiveGradientMinimization", _l_expensivegradientminimization},
 	    {"_classifyPoint", _l_classifypoint},
 	    {"_findBestPath", _l_bestpath},
+	    {"_findBestPath2", _l_bestpath2},
 	    {"_interpolateBetweenCustomPoints", _l_int_cp},
             {"_rotatePathAboutBy", _l_rpab},
             {"_setSpinSystem", _l_setspinsystem},

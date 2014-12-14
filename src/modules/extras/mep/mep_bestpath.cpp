@@ -71,6 +71,317 @@ static bool v_inc(vector<int>& state, vector<int>& max, int pos=0)
     return true;
 }
 
+static void sphere_lookup(vint& v, vector<const sphere*>& spheres, vector<double>& mags, vector<VectorCS>& cfg)
+{
+    cfg.clear();
+
+    for(int i=0; i<v.size(); i++)
+    {
+        VectorCS vcs(spheres[i][v[i]].vertex);
+        // printf("mags[%i] = %g\n", i, mags[i]);
+        vcs.setMagnitude(mags[i]);
+        cfg.push_back(vcs);//.copy());
+    }
+}
+
+typedef struct bfnode
+{
+    vint idx; // index into spheres
+    vint neighbour; // neighbour index in flattened vec2idx style 
+    double max_path_energy;
+    double energy;
+    int source; 
+    int distance;
+}bfnode;
+
+static int vec2idx(vint& vec, vint max)
+{
+    int j = 0;
+    int c = 1;
+    for(int i=0; i<max.size(); i++)
+    {
+        j += vec[i] * c;
+        c *= max[i];
+    }
+    return j;
+}
+
+static void idx2vec(int idx, vint& vec, vint max)
+{
+    vec.clear();
+    vec.resize(max.size(), 0);
+
+    for(int i=max.size()-1; i>=0; i--)
+    {
+        int c = 1;
+        for(int j=0; j<i; j++)
+            c *= max[j];
+
+        vec[i] = idx / c;
+        idx -= vec[i] * c;
+    }
+}
+
+static double max_(double a, double b)
+{
+    if(a > b)
+        return a;
+    return b;
+}
+
+int l_bestpath(lua_State* L) //Bellman-Ford path search
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+    int ns = mep->numberOfSites();
+
+    if(!lua_istable(L, 2) || !lua_istable(L, 3))
+    {
+        return luaL_error(L, "Path needs start and end.");
+    }
+
+    vector<VectorCS> a;
+    vector<VectorCS> b;
+
+    lua_pushnil(L);
+    while(lua_next(L, 2))
+    {
+        a.push_back(lua_toVectorCS(L, lua_gettop(L)));
+        lua_pop(L, 1);
+    }
+
+    lua_pushnil(L);
+    while(lua_next(L, 3))
+    {
+        b.push_back(lua_toVectorCS(L, lua_gettop(L)));
+        lua_pop(L, 1);
+    }
+
+    vector<double> mags;
+
+    for(int i=0; i<a.size(); i++)
+        mags.push_back(a[i].magnitude());
+
+
+    int n = 1; // sphere level
+    if(lua_isnumber(L, 4))
+        n = lua_tointeger(L, 4);
+
+    if(n < 1 || n > 5)
+        return luaL_error(L, "Dodecahedron subdivision level must be between 1 and 5.");
+
+    vector<const sphere*> spheres;    
+    for(int i=0; i<ns; i++)
+        spheres.push_back(get_sphere(n));
+
+    vint a_idx;
+    vint b_idx;
+
+    double sum_a = findHyperPoint(spheres, a, a_idx);
+    double sum_b = findHyperPoint(spheres, b, b_idx);
+
+    vector<int> sphere_verts;
+    int total_nodes = 1;
+    for(int i=0; i<ns; i++)
+    {
+        sphere_verts.push_back(0);
+
+        while(spheres[i][sphere_verts[i]].neighbours)
+        {
+            sphere_verts[i]++;
+        }
+        total_nodes*= sphere_verts[i];
+    }
+
+    int last_idx  = vec2idx(b_idx, sphere_verts);
+    int first_idx = vec2idx(a_idx, sphere_verts);
+
+    bfnode* nodes = new bfnode[total_nodes];
+
+    /*
+    {
+        vint test;
+        idx2vec(33, test, sphere_verts);
+
+        
+        printf("%d   %d %d     %d %d     \n", 33, test[0], test[1], sphere_verts[0], sphere_verts[1]);
+
+        int* x = (int*)5;
+        *x =4;
+    }*/
+    
+    for(int i=0; i<total_nodes; i++)
+    {
+        idx2vec(i, nodes[i].idx, sphere_verts);
+        //printf("%d   %d %d     %d %d     \n", i, nodes[i].idx[0], nodes[i].idx[1], sphere_verts[0], sphere_verts[1]);
+
+        vint num_neighbours;
+        vector<const int*> neighbours;
+        for(int j=0; j<ns; j++)
+        {
+            const int* nn = spheres[j][nodes[i].idx[j]].neighbours;
+            neighbours.push_back(nn);
+
+            int k=0;
+            while(nn[k] != -1)
+                k++;
+            num_neighbours.push_back(k);
+        }
+
+        vint state;
+        for(int j=0; j<ns; j++)
+            state.push_back(0);
+
+        vint vec;
+        vec.resize(ns, 0);
+        do
+        {
+            for(int j=0; j<ns; j++)
+            {
+                vec[j] = neighbours[j][ state[j] ];
+            }
+            int flat = vec2idx(vec, sphere_verts);
+
+            // printf("%d %d\n", vec[0], vec[1]);
+            nodes[i].neighbour.push_back(flat);
+        }while(v_inc(state, num_neighbours));
+
+
+        vector<VectorCS> cfg;
+
+        for(int j=0; j<ns; j++)
+        {
+            VectorCS v(spheres[j][ nodes[i].idx[j] ].vertex);
+            v.setMagnitude(mags[j]);
+            cfg.push_back(v);
+        }
+
+        nodes[i].energy = mep->energyOfCustomPoint(cfg);
+        nodes[i].max_path_energy = INFINITY;
+        nodes[i].distance = 1e8; // should be OK
+        nodes[i].source = i;
+
+        if(i == first_idx)
+        {
+            nodes[i].max_path_energy = nodes[i].energy;
+            nodes[i].distance = 0;
+            nodes[i].source = i;
+        }
+    }
+
+    // we are now setup to run iterations of the Bellman-Ford algorithm
+
+    /*
+    vint idx; // index into spheres
+    vint neighbour; // neighbour index in flattened vec2idx style 
+    double max_path_energy;
+    double energy;
+    int source;
+    int distance;
+    */
+
+    bool progress = true;
+
+    int iteration = 0;
+
+    while(progress)
+    {
+        progress = false;
+        iteration++;
+        //printf("it %d\n", iteration);
+
+        for(int i=0; i<total_nodes; i++)
+        {
+            if(i != first_idx)
+            {
+                const int s = nodes[i].source;
+                int best_path = nodes[i].neighbour[0];
+
+                for(int j=1; j<nodes[i].neighbour.size(); j++)
+                {
+                    const int k = nodes[i].neighbour[j];
+                    
+                    if(nodes[k].max_path_energy == nodes[best_path].max_path_energy)
+                    {
+                        if(nodes[k].distance < nodes[best_path].distance)
+                        {
+                            best_path = k;
+                        }
+                    }
+                    
+                    if(nodes[k].max_path_energy < nodes[best_path].max_path_energy)
+                    {
+                        best_path = k;
+                    }
+                }
+                
+                
+                if(best_path != nodes[i].source)
+                {
+                    progress = true;
+                    
+                    const double ee = max_(nodes[i].energy, nodes[best_path].max_path_energy);
+                    
+                    nodes[i].max_path_energy = ee;
+                    nodes[i].distance = nodes[best_path].distance + 1;
+                    nodes[i].source = best_path;
+                }
+            }
+        }
+    }
+
+
+
+    list<vint> soln;
+
+    int path = 0;
+    while(last_idx != first_idx && last_idx >= 0)
+    {
+        // printf("last_idx = %d\n", last_idx);
+
+        vint x;
+        idx2vec(last_idx, x, sphere_verts);
+        soln.push_front(x);
+
+        if(nodes[last_idx].source == last_idx)
+            last_idx = -1;
+        else
+            last_idx = nodes[last_idx].source;
+    }
+    soln.push_front( vint(a_idx) );
+    delete [] nodes;
+
+
+
+    lua_newtable(L);
+
+    int i=1;
+    
+    vector<VectorCS> cfg;
+    list<vint>::iterator it;
+    for(it=soln.begin(); it!=soln.end(); ++it)
+    {
+        vint& v = *it;
+        lua_pushinteger(L, i);
+
+        lua_newtable(L);
+        sphere_lookup(v, spheres, mags, cfg);
+
+        for(int j=0; j<cfg.size(); j++)
+        {
+            lua_pushinteger(L, j+1);
+            
+            lua_pushVectorCS(L, cfg[j], VCSF_ASTABLE | VCSF_CSDESC);
+            lua_settable(L, -3);
+        }
+        lua_settable(L, -3);
+        i++;
+    }
+
+    return 1;
+}
+
+#if 1
+
 static void pick_combination(const vector<int>& state, vector<const int*>& srcs, vint& dst)
 {
     dst.clear();
@@ -116,6 +427,7 @@ public:
             source_energy = INFINITY; 
             energy_calculated=false;
             considered = false;
+            distance = 0;
         }
     dijkstrasNode(const dijkstrasNode& n)
         {
@@ -125,6 +437,7 @@ public:
             source = n.source;
             considered = n.considered;
             neighbour_list = n.neighbour_list;
+            distance = n.distance;
         }
     double getEnergy(MEP* mep, const vint& idxs, vector<const sphere*>& spheres)
         {
@@ -166,6 +479,7 @@ public:
     double energy;
     double source_energy;
     vint source;
+    int distance;
 
     vector<vint> neighbour_list;
 
@@ -241,14 +555,6 @@ public:
                         neighbour.source = v;
                     }
                     edge.push_back(nn);
-
-                    /*
-                    for(int q=0; q<nn.size(); q++)
-                    {
-                        printf("%4d ", nn[q]);
-                    }
-                    printf("\n");
-                    */
                 }
             }
             node.considered = true;
@@ -264,20 +570,7 @@ public:
     int step;
 };
 
-static void sphere_lookup(vint& v, vector<const sphere*>& spheres, vector<double>& mags, vector<VectorCS>& cfg)
-{
-    cfg.clear();
-
-    for(int i=0; i<v.size(); i++)
-    {
-        VectorCS vcs(spheres[i][v[i]].vertex);
-        // printf("mags[%i] = %g\n", i, mags[i]);
-        vcs.setMagnitude(mags[i]);
-        cfg.push_back(vcs);//.copy());
-    }
-}
-
-int l_bestpath(lua_State* L)
+int l_bestpath2(lua_State* L) // dijkstra's implementation
 {
     LUA_PREAMBLE(MEP, mep, 1);
     int n = 1; // sphere level
@@ -388,3 +681,4 @@ int l_bestpath(lua_State* L)
 }
 
 
+#endif

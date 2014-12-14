@@ -197,6 +197,34 @@ methods["randomize"] =
     end
 }
 
+methods["reportCustomConfiguration"] = 
+{
+    "Use a given report function to report a configuration",
+    "1 Function, 1 Configuration ,1 Optional String: Report function, configuration, optional string prefix",
+    "",
+    function(mep, report, cfg, prefix)
+        prefix = prefix or ""
+
+        for s,c in pairs(cfg) do
+            -- using cartesian system to move values to traditional ranges:
+            local a1,a2,a3,a4 = c[1],c[2],c[3],c[4] or "Cartesian"
+            local b1,b2,b3,b4 = mep:convertCoordinateSystem(a1,a2,a3,a4, "Cartesian")
+            local c1,c2,c3,c4 = mep:convertCoordinateSystem(b1,b2,b3,b4, a4)
+            report(string.format("%s%2d   % 6e  % 6e  % 6e  %s", prefix,s,c1,c2,c3,c4))
+        end
+    end
+}
+
+methods["reportConfigurationAtPoint"] =
+    {
+    "Use a given report function to report the configuration at a point",
+    "1 Function, 1 Integer: Report function, path point index",
+    "",
+    function(mep, report, idx)
+        mep:reportCustomConfiguration(report, mep:point(idx), string.format("%3d   ", idx))
+    end
+    }
+
 methods["copy"] = 
     {
     "Create a copy of the MEP object",
@@ -2831,13 +2859,27 @@ local function ors_build(base, current, n, pop)
 end
 
 
-methods["dijkstrasPath"] =
+--methods["dijkstrasPath"] =
+methods["findPath"] =
+{
+"Run a modified Bellman-Ford algorithm over sets of subdivided dodecahedrons to find a coarse minimum energy path between a pair of points.",
+"2 Tables, 1 optional Integer: Each table contains sites, each site is 3 numbers representing a vector and a string naming the coordinate system. The integer can be between 1 and 5 inclusively (default 1) and determines the number of subdivisions of the dodecahedron representing a sphere. Larger values will take a considerably longer amount of time to solve. A single site system with a subdivision count of 5 will result in approximately 750 vertices, each with 7 neighbours. A 2 site system with a subdivision count of 5 will result in half a million vertices, each with 49 neighbours. ",
+"1 Table: compatible with :setInitialPath, represents the solved path from the start to the end.",
+function(mep, a,b,n)
+    local p = mep:_findBestPath(a,b,n)
+    table.insert(p, 1, a)
+    table.insert(p, b)
+    return p
+end
+}
+
+methods["findPath2"] =
 {
 "Run a modified Dijkstra's algorithm over sets of subdivided dodecahedrons to find a coarse minimum energy path between a pair of points.",
 "2 Tables, 1 optional Integer: Each table contains sites, each site is 3 numbers representing a vector and a string naming the coordinate system. The integer can be between 1 and 5 inclusively (default 1) and determines the number of subdivisions of the dodecahedron representing a sphere. Larger values will take a considerably longer amount of time to solve. A single site system with a subdivision count of 5 will result in approximately 750 vertices, each with 7 neighbours. A 2 site system with a subdivision count of 5 will result in half a million vertices, each with 49 neighbours. ",
 "1 Table: compatible with :setInitialPath, represents the solved path from the start to the end.",
 function(mep, a,b,n)
-    local p = mep:_findBestPath(a,b,n)
+    local p = mep:_findBestPath2(a,b,n)
     table.insert(p, 1, a)
     table.insert(p, b)
     return p
