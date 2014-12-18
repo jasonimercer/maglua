@@ -94,6 +94,23 @@ typedef struct bfnode
     int distance;
 }bfnode;
 
+static void vint_overlap(vint& a, vint& b, vint& c)
+{
+    std::map<int,int> mm;
+
+    for(int i=0; i<a.size(); i++)
+        mm[a[i]]++;
+    for(int i=0; i<b.size(); i++)
+        mm[b[i]]++;
+    
+    c.clear();
+    for(std::map<int,int>::iterator it=mm.begin(); it != mm.end(); ++it)
+    {
+        if(it->second > 1)
+            c.push_back(it->first);
+    }
+}
+
 static int vec2idx(vint& vec, vint max)
 {
     int j = 0;
@@ -128,6 +145,84 @@ static double max_(double a, double b)
         return a;
     return b;
 }
+
+static void vint_print(vint& v)
+{
+    for(int i=0; i<v.size(); i++)
+        printf("%d\n", v[i]);
+}
+
+static bool refineList(list<int>& x, bfnode* nodes, const int total_nodes)
+{
+//    printf("refine\n");
+    
+    bool change = false;
+    
+    vector<int> a;
+    vector<int> b;
+    vector<int> c;
+    vector<int> common;
+    
+    for(list<int>::iterator i=x.begin(); i!=x.end(); ++i)
+        a.push_back(*i);
+    
+    
+    b.push_back(a[0]);
+    for(int i=0; i<a.size()-2; i++)
+    {
+        /*
+        printf("a[%i].neighbours:\n", i);
+        vint_print(nodes[a[i]].neighbour);
+        printf("a[%i].neighbours:\n", i+2);
+        vint_print(nodes[a[i+2]].neighbour);
+       
+        printf("a[%i] = %i\n", i+1, a[i+1]);
+        */
+
+        vint_overlap(nodes[a[i]].neighbour, nodes[a[i+2]].neighbour, common);
+
+        //printf("common:\n");
+        //vint_print(common);
+
+        
+        int smallest = 0;
+        for(int j=1; j<common.size(); j++)
+        {
+            if(nodes[common[j]].energy < nodes[common[smallest]].energy)
+                smallest = j;
+        }
+        
+        if(common[smallest] != a[i+1])
+        {
+            change = true;
+            // printf("changing a[i+1] from %i to %i\n", a[i+1], common[smallest]);
+        }
+        b.push_back(common[smallest]);
+    }
+    b.push_back(a.back());
+    
+    
+    c.push_back(b[0]);
+    for(int i=1; i<b.size(); i++)
+    {
+        int& x = c.back();
+        if(x != b[i])
+            c.push_back(b[i]);
+        else
+        {
+            // printf("removing duplicate %i\n", b[i]);
+            change = true;
+        }
+    }
+
+    x.clear();
+    for(int i=0; i<c.size(); i++)
+        x.push_back(c[i]);
+    
+    return change;
+}
+
+
 
 int l_bestpath(lua_State* L) //Bellman-Ford path search
 {
@@ -241,10 +336,9 @@ int l_bestpath(lua_State* L) //Bellman-Ford path search
             }
             int flat = vec2idx(vec, sphere_verts);
 
-            // printf("%d %d\n", vec[0], vec[1]);
+            //printf("%d %d\n", vec[0], vec[1]);
             nodes[i].neighbour.push_back(flat);
         }while(v_inc(state, num_neighbours));
-
 
         vector<VectorCS> cfg;
 
@@ -302,6 +396,14 @@ int l_bestpath(lua_State* L) //Bellman-Ford path search
                     
                     if(nodes[k].max_path_energy == nodes[best_path].max_path_energy)
                     {
+                        if(nodes[k].distance == nodes[best_path].distance)
+                        {
+                            if(nodes[k].energy < nodes[best_path].energy)
+                            {
+                                best_path = k;
+                            }
+                        }
+
                         if(nodes[k].distance < nodes[best_path].distance)
                         {
                             best_path = k;
@@ -331,27 +433,42 @@ int l_bestpath(lua_State* L) //Bellman-Ford path search
 
 
 
-    list<vint> soln;
+    list<int> soln_flat;
 
     int path = 0;
     while(last_idx != first_idx && last_idx >= 0)
     {
         // printf("last_idx = %d\n", last_idx);
-
+        /*
         vint x;
         idx2vec(last_idx, x, sphere_verts);
         soln.push_front(x);
+        */
+
+        soln_flat.push_front(last_idx);
 
         if(nodes[last_idx].source == last_idx)
             last_idx = -1;
         else
             last_idx = nodes[last_idx].source;
     }
-    soln.push_front( vint(a_idx) );
+    soln_flat.push_front(first_idx);
+
+    /// ABC
+    while(refineList(soln_flat, nodes, total_nodes));
     delete [] nodes;
 
 
+    
+    list<vint> soln;
 
+    for(list<int>::iterator it=soln_flat.begin(); it!=soln_flat.end(); ++it)
+    {
+        vint x;
+        idx2vec(*it, x, sphere_verts);
+
+        soln.push_back( vint(x));
+    }
     lua_newtable(L);
 
     int i=1;
@@ -400,9 +517,11 @@ static void all_combinations(vector<vint>& dest, vector<const int*>& srcs)
     {
         state.push_back(0);
         
-        int max = -1;
-        while(srcs[i][max+1] != -1)
+        int max = 0;
+        while(srcs[i][max] != -1)
+        {
             max++;
+        }
         maxs.push_back(max);
     }
     
@@ -422,7 +541,15 @@ static void all_combinations(vector<vint>& dest, vector<const int*>& srcs)
 class dijkstrasNode
 {
 public:
-    dijkstrasNode() 
+    dijkstrasNode()
+        {
+            source_energy = INFINITY; 
+            energy_calculated=false;
+            considered = false;
+            distance = 0;
+        }
+    dijkstrasNode(vint& _here)
+        : here(_here)
         {
             source_energy = INFINITY; 
             energy_calculated=false;
@@ -472,6 +599,23 @@ public:
 
             all_combinations(neighbour_list, srcs);
 
+            /*
+            printf("here: %d %d\n", here[0], here[1]);
+
+            printf("Neighbours:\n");
+            for(int i=0; i<neighbour_list.size(); i++)
+                printf("%d %d\n", neighbour_list[i][0], neighbour_list[i][1]);
+            {int* i=(int*)1; *i=1;}
+            */
+        }
+    ;
+
+    double maxPathEnergy(std::map<vint, dijkstrasNode>& nodes)
+        {
+            if(vint_same(here, source))
+                return energy;
+
+            return max_(nodes[here].maxPathEnergy(nodes), energy);
         }
     
 
@@ -480,6 +624,7 @@ public:
     double source_energy;
     vint source;
     int distance;
+    vint here;
 
     vector<vint> neighbour_list;
 
@@ -490,48 +635,135 @@ public:
 class dijkstrasSearch
 {
 public:
-    dijkstrasSearch() {step = 0;};
+    dijkstrasSearch() {};
 
     vint getSource(vint& n)
         {
             return nodes[n].source;
         }
 
-    bool iterate()
+    double getEnergy(vint& n)
+        {
+            return nodes[n].energy;
+        }
+
+    void commonNeighbours(const vint& a, const vint& b, vector<vint>& common)
+        {
+            common.clear();
+            std::map<vint, int> nmap; // neighbour map
+            
+            vector<vint>& na = nodes[a].neighbour_list;
+            vector<vint>& nb = nodes[b].neighbour_list;
+
+            for(int i=0; i<na.size(); i++)
+                nmap[na[i]]++;
+
+            for(int i=0; i<nb.size(); i++)
+                nmap[nb[i]]++;
+
+            std::map<vint, int>::iterator it;
+            for(it = nmap.begin(); it != nmap.end(); ++it)
+            {
+                if(it->second > 1)
+                    common.push_back(vint(it->first));
+            }
+        }
+
+    bool refineList(list<vint>& x)
+        {
+            printf("refine\n");
+
+            bool change = false;
+
+            vector<vint> a;
+            vector<vint> b;
+            vector<vint> c;
+            vector<vint> common;
+
+            for(list<vint>::iterator i=x.begin(); i!=x.end(); ++i)
+                a.push_back(*i);
+
+            
+            b.push_back(a[0]);
+            for(int i=0; i<a.size()-2; i++)
+            {
+                commonNeighbours(a[i], a[i+2], common);
+
+                //printf("Neighbours of [%d %d] and [%d %d]:\n", a[i][0], a[i][1], a[i+2][0], a[i+2][1]);
+                //printf("Between: [%d %d]\n", a[i+1][0], a[i+1][1]);
+
+                int smallest = 0;
+                for(int j=0; j<common.size(); j++)
+                {
+                    if(getEnergy(common[j]) < getEnergy(common[smallest]))
+                        smallest = j;
+
+                    //printf("[%d %d]\n", common[j+1][0], common[j+1][1]);
+                    
+                }
+
+                if(!vint_same(common[smallest], a[i+1]))
+                {
+                    change = true;
+                    
+                    //printf("Replacing [%d %d %5e] with [%d %d %5e]\n", a[i+1][0], a[i+1][1],getEnergy(a[i+1]), common[smallest][0], common[smallest][1], getEnergy(common[smallest]));
+                }
+                b.push_back(common[smallest]);
+            }
+            b.push_back(a.back());
+
+
+            c.push_back(b[0]);
+            for(int i=1; i<b.size(); i++)
+            {
+                vint& x = c.back();
+                if(!vint_same(x, b[i]))
+                    c.push_back(b[i]);
+                else
+                {
+                    //printf("dropping duplicate\n");
+                    change = true;
+                }
+            }
+
+            x.clear();
+            for(int i=0; i<c.size(); i++)
+                x.push_back(c[i]);
+
+            return change;
+        }
+
+
+    bool iterate(vint& source)
         {
             if(edge.empty())
             {
-                //printf("empty\n");
                 return false;
             }
 
-            vint v = edge.front();
+            vint here = edge.front();
             edge.pop_front();
 
 
-            if( nodes.find(v) == nodes.end() ) // then doesn't contain
+            if( nodes.find(here) == nodes.end() ) // then doesn't contain
             {
-                nodes.insert ( std::pair<vint,dijkstrasNode>(v,dijkstrasNode()) );
+                nodes.insert ( std::pair<vint,dijkstrasNode>(here,dijkstrasNode(here)) );
+                nodes[here].create_neighbour_list(here, spheres);
+                if(vint_same(here, source))
+                {
+                    nodes[here].distance = 0;
+                }
             }
 
-            dijkstrasNode& node = nodes.find(v)->second;
+            dijkstrasNode& node = nodes.find(here)->second;
 
             if(node.considered)
             {
-                //printf("considered\n");
                 return true;
             }
 
-            node.create_neighbour_list(v, spheres);
 
-            if(step == 0)
-            {
-                node.source_energy = 0;
-            }
-            step++;
-
-
-            double energy_here = node.getEnergy(mep, v, spheres);
+            double energy_here = node.getEnergy(mep, here, spheres);
 
             for(int i=0; i<node.neighbour_list.size(); i++)
             {
@@ -539,7 +771,7 @@ public:
 
                 if( nodes.find(nn) == nodes.end() ) // then doesn't contain
                 {
-                    nodes.insert ( std::pair<vint,dijkstrasNode>(nn,dijkstrasNode()) );
+                    nodes.insert ( std::pair<vint,dijkstrasNode>(nn,dijkstrasNode(nn)) );
                 }
 
                 dijkstrasNode& neighbour = nodes[nn];
@@ -552,7 +784,7 @@ public:
                     if(e < neighbour.source_energy)
                     {
                         neighbour.source_energy = e * 1.0000000001; // this will select for shortest paths down-hill
-                        neighbour.source = v;
+                        neighbour.source = vint(here);
                     }
                     edge.push_back(nn);
                 }
@@ -567,7 +799,6 @@ public:
 
     vector<const sphere*> spheres;    
     MEP* mep;
-    int step;
 };
 
 int l_bestpath2(lua_State* L) // dijkstra's implementation
@@ -588,7 +819,6 @@ int l_bestpath2(lua_State* L) // dijkstra's implementation
     while(lua_next(L, 2))
     {
         a.push_back(lua_toVectorCS(L, lua_gettop(L)));
-        //print_vec(a.back());
         lua_pop(L, 1);
     }
 
@@ -596,9 +826,11 @@ int l_bestpath2(lua_State* L) // dijkstra's implementation
     while(lua_next(L, 3))
     {
         b.push_back(lua_toVectorCS(L, lua_gettop(L)));
-        //print_vec(b.back());
         lua_pop(L, 1);
     }
+
+    if(a.size() != b.size())
+        return luaL_error(L, "Configuration size mismatch");
 
     vector<double> mags;
 
@@ -631,7 +863,7 @@ int l_bestpath2(lua_State* L) // dijkstra's implementation
     ds.edge.push_back(a_idx);
 
     //int dsi = 0;
-    while(ds.iterate())
+    while(ds.iterate(a_idx))
     {
         //printf("dsi %d\n", dsi);
         //dsi++;
@@ -639,16 +871,22 @@ int l_bestpath2(lua_State* L) // dijkstra's implementation
 
     list<vint> soln;
 
-    soln.push_front(b_idx);
+    soln.push_front(vint(b_idx));
     
     int path = 0;
     while(!vint_same(b_idx, a_idx))
     {
         //printf("path %d\n", path);
         //path++;
-        b_idx = ds.getSource(b_idx);
-        soln.push_front(b_idx);
+        b_idx = vint(ds.getSource(b_idx));
+        soln.push_front(vint(b_idx));
     }
+
+    printf("soln size %d\n", soln.size());
+
+    while( ds.refineList(soln) );
+
+    printf("soln size %d\n", soln.size());
 
     lua_newtable(L);
 
@@ -659,7 +897,6 @@ int l_bestpath2(lua_State* L) // dijkstra's implementation
     for(it=soln.begin(); it!=soln.end(); ++it)
     {
         vint& v = *it;
-
 
         lua_pushinteger(L, i);
 

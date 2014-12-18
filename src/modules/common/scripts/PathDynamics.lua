@@ -276,6 +276,7 @@ function PathDynamics(mepOrig, json)
 
     --interactive("Pre")
 
+
     -- Working on rate:
     local hessian = mep:hessianAtPoint(saddlePoint)
     -- hessian = hessian:cutX(1,4):cutY(1,4) -- cut radial terms
@@ -285,105 +286,131 @@ function PathDynamics(mepOrig, json)
 	radial_terms[i] = (i-1)*3+1
     end
     hessian = hessian:cutX(radial_terms):cutY(radial_terms) -- cut radial terms
-    local evals, evecs = hessian:matEigen()
-    local evalsSad = evals:copy() -- saddle point data
-    local evecsSad = evecs:copy()
-
-
-    evals = evals:toTable(1) -- convert to lua table
-
-    -- find zero eigen value
-    min_val, min_idx = evals[1], 1
-    for s=2,ns*2 do
-	if math.abs(evals[s]) < math.abs(min_val) then
-	    min_val = evals[s]
-	    min_idx = s
-	end
-    end
-
-    table.remove(evals, min_idx) -- remove zero value
-    
-    local Lambda = makeDiagonal(evals)
-    
-    local V = evecs:cutY(min_idx) -- cut zero direction
-
-    local M = {}
-    local MG = 0
-    for s=1,ns do
-	M[s] = mep:spinInCoordinateSystem(1,s,"Canonical") -- r is first return value
-	MG = MG + M[s] 
-    end
-    -- local M2 = mep:spinInCoordinateSystem(1,2,"Canonical") 
-    -- local MG = M1 + M2
-
-    
-    function metricCC_at(idx)
-	local p = {}
-	for s=1,ns do
-	    local _, _, ps = mep:spinInCoordinateSystem(idx, s, "Canonical")
-	    p[s] = ps
-
-	    if (1-ps^2) == 0 then
-		if json.onNan then
-		    json.onNan("This rotation has a fixed coordinate, p" .. s .. " = " .. ps .. " at saddle point")
-		end
-	    end
-	end
-
-	local diag = {}
-	
-	for s=1,ns do
-	    table.insert(diag, (MG/M[s]) * (1-p[s]^2)^(-1))
-	    table.insert(diag, (MG/M[s]) * (1-p[s]^2)^( 1))
-	end
-	
-	return makeDiagonal(diag)
-    end
-    
-    local metricCC = metricCC_at(saddlePoint)
 
     --[[
-    local Gamma = Array.Double.new(4, 4, {
-				       0,  MG/M1,     0,     0,
-				  -MG/M1,      0,     0,     0,
-				       0,      0,     0,     MG/M2,
-				       0,      0,    -MG/M2, 0     })
-    --]]
-    local Gamma = Array.Double.new(ns*2, ns*2, 1)
-    Gamma:zero()
-    for s=1,ns do
-        local x, y = (s-1)*2+1, (s-1)*2+1
-        -- setting zeros are not needed but help reveal what is going on:
-        Gamma:set({x,y  }, 0)        Gamma:set({x+1,y},   MG/M[s])
-        Gamma:set({x,y+1}, -MG/M[s]) Gamma:set({x+1,y+1}, 0      )
+    local hes_scale = hessian:absoluted():max()
+    local det_zero = false
+
+    if hes_scale == 0 then
+        det_zero = true
+    else
+        local d = hessian:matDet()
+        if d == 0 then
+            det_zero = true
+        else
+            if hes_scale / d > 10^20 then
+                interactive()
+                det_zero = true
+            end
+        end
     end
 
+    --]]
+    local f12 = nil
 
-    local Tmatrix = Gamma:pairwiseScaleAdd(alpha, metricCC)
+    -- if not det_zero then
+    if true then
+        local evals, evecs = hessian:matEigen()
+        local evalsSad = evals:copy() -- saddle point data
+        local evecsSad = evecs:copy()
+        
 
-    local Tbar = V:matMul(Tmatrix):matMul(V:matTrans())
-
-    local KArray = Lambda:matMul(Tbar):matEigen()
-    local kappa =  KArray:min()/alpha
-
-    mep:setCoordinateSystem("CanonicalX") --rotated coord. system
-    hessian = mep:hessianAtPoint(minimumEnergy1)
-    hessian = hessian:cutX(radial_terms):cutY(radial_terms)
-    local n1 = hessian:matEigen()
-
-
-    local denom = 2*math.pi*kB*T * Lambda:absoluted():matDet()
-    
-    local logS1 = (makeDiagonal(n1):matDet() / denom )^(1/2)
-
-    local f12 = alpha / (1+alpha^2) * math.abs(gamma_cgs * kappa / MG) * logS1
+        evals = evals:toTable(1) -- convert to lua table
+        
+        -- find zero eigen value
+        min_val, min_idx = evals[1], 1
+        for s=2,ns*2 do
+            if math.abs(evals[s]) < math.abs(min_val) then
+                min_val = evals[s]
+                min_idx = s
+            end
+        end
+        
+        table.remove(evals, min_idx) -- remove zero value
+        
+        local Lambda = makeDiagonal(evals)
+        
+        local V = evecs:cutY(min_idx) -- cut zero direction
+        
+        local M = {}
+        local MG = 0
+        for s=1,ns do
+            M[s] = mep:spinInCoordinateSystem(1,s,"Canonical") -- r is first return value
+            MG = MG + M[s] 
+        end
+        -- local M2 = mep:spinInCoordinateSystem(1,2,"Canonical") 
+        -- local MG = M1 + M2
+        
+        
+        function metricCC_at(idx)
+            local p = {}
+            for s=1,ns do
+                local _, _, ps = mep:spinInCoordinateSystem(idx, s, "Canonical")
+                p[s] = ps
+                
+                if (1-ps^2) == 0 then
+                    if json.onNan then
+                        json.onNan("This rotation has a fixed coordinate, p" .. s .. " = " .. ps .. " at saddle point")
+                    end
+                end
+            end
+            
+            local diag = {}
+            
+            for s=1,ns do
+                table.insert(diag, (MG/M[s]) * (1-p[s]^2)^(-1))
+                table.insert(diag, (MG/M[s]) * (1-p[s]^2)^( 1))
+            end
+            
+            return makeDiagonal(diag)
+        end
+        
+        local metricCC = metricCC_at(saddlePoint)
+        
+        --[[
+        local Gamma = Array.Double.new(4, 4, {
+                                           0,  MG/M1,     0,     0,
+                                               -MG/M1,      0,     0,     0,
+                                           0,      0,     0,     MG/M2,
+                                           0,      0,    -MG/M2, 0     })
+        --]]
+        local Gamma = Array.Double.new(ns*2, ns*2, 1)
+        Gamma:zero()
+        for s=1,ns do
+            local x, y = (s-1)*2+1, (s-1)*2+1
+            -- setting zeros are not needed but help reveal what is going on:
+            Gamma:set({x,y  }, 0)        Gamma:set({x+1,y},   MG/M[s])
+            Gamma:set({x,y+1}, -MG/M[s]) Gamma:set({x+1,y+1}, 0      )
+        end
+        
+        
+        local Tmatrix = Gamma:pairwiseScaleAdd(alpha, metricCC)
+        
+        local Tbar = V:matMul(Tmatrix):matMul(V:matTrans())
+        
+        local KArray = Lambda:matMul(Tbar):matEigen()
+        local kappa =  KArray:min()/alpha
+        
+        mep:setCoordinateSystem("CanonicalX") --rotated coord. system
+        hessian = mep:hessianAtPoint(minimumEnergy1)
+        hessian = hessian:cutX(radial_terms):cutY(radial_terms)
+        local n1 = hessian:matEigen()
+        
+        
+        local denom = 2*math.pi*kB*T * Lambda:absoluted():matDet()
+        
+        local logS1 = (makeDiagonal(n1):matDet() / denom )^(1/2)
+        
+        f12 = alpha / (1+alpha^2) * math.abs(gamma_cgs * kappa / MG) * logS1
+    else
+        f12 = 0/0
+    end
 
     if f12 ~= f12 then -- it's nan
 	if json.onNan then
 	    f12 = json.onNan("f12 is nan")
 	end
     end
-
 
     results["EnergyBarrier"] = ESad - E1
     results["AttemptFrequency"] = f12

@@ -24,29 +24,35 @@ end
 
 
 
-local function getStepMod(tol, err, maxMotion)
-    -- print("getStepMod(tol=" .. tol .. ",err=" .. err .. ")")
-    if maxMotion then
-	if maxMotion > 0.1 then
-	    -- print("ret 0.5, false")
-	    return 0.5, false
-	end
-    end
-    if err == 0 then
-	-- print("ret 2, true")
-	return 2, true
+local function getStepMod(tol, tableDiff)
+    local step = {}
+    local good = {}
+    for k,err in pairs(tableDiff) do
+        if err == 0 then
+            good[k] = true
+            step[k] = 1.01
+        else
+            step[k] = (tol/err) ^ (0.5)
+            good[k] = step[k] >= 1
+
+            if step[k] < 1 then
+                step[k] = 0.75 * step[k]
+            end
+            --[[
+            if err<tol then
+                local x = 0.9*(tol / err)^(0.5)
+                good[k] = true
+                step[k] = x
+            else
+                local x = 0.95 * (tol / err)^(0.9)
+                good[k] = false
+                step[k] = x
+            end
+            --]]
+        end
     end
 
-    if err<tol then
-	local x = 0.9*(tol / err)^(0.5)
-	-- 		print(x)
-	-- print(err, tol)
-	-- print("ret " .. x .. ", " .. tostring(err<tol))
-	return x, err<tol
-    end
-    
-    -- print("ret " .. 0.95 * (tol / err)^(0.9) .. ", " .. tostring(err<tol))
-    return 0.95 * (tol / err)^(0.9), err<tol
+    return step, good
 end
 
 local function sweep_level(mep, rules, func, opt_func, depth)
@@ -510,78 +516,6 @@ local function filter_arg(arg)
     return result
 end
 
-methods["compute"] =
-    {
-    "Run several relaxation steps of the Minimum Energy Pathway method. NOTE: this is the older method. New development is now done on :execute() but this is left for backward compatibility reasons.",
-    "1 Optional Integer, 1 Optional Number: Number of steps, default 50. Tolerance different than tolerance specified. Optional JSON-style table: \"report\" key with a print function (default nil), \"resamplePath\" key with a boolean value (default true).",
-    "1 Number: Number of successful steps taken, for tol > 0 this may be less than number of steps requested",
-    function(mep, ...)
-	local results = filter_arg(arg)
-
-	local n    = results[ type_number ][1] or 50 
-	local tol  = results[ type_number ][2] or mep:tolerance()
-
-	local json = results[ type_table ][1] or {}
-
-        local _do_resample = json.resamplePath or true
-	local report = json.report or function() end
-	
-	local d = get_mep_data(mep)
-	local ss = mep:spinSystem()
-	local np = mep:numberOfPathPoints()
-	local energy_function = d.energy_function
-	
-	if ss == nil then
-	    error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
-	end
-	
-	if energy_function == nil then
-	    error("Energy function is nil. Set an energy function with :setEnergyFunction")
-	end
-	
-	mep:initialize()
-	
-	local successful_steps = 0
-	for i = 1,n do
-	    local current_beta = mep:beta()
-	    
-	    -- first bool below is for "do_big" second is for "do_small"
-	    copy_to_children(mep, true, tol>=0)
-	    
-	    d.big_step:setBeta(current_beta)
-	    single_compute_step(d.big_step) 
-	    
-	    if tol > 0 then -- negative tolerance will indicate no adaptive steps
-		d.small_step:setBeta(current_beta/2)
-		
-		single_compute_step(d.small_step)
-		single_compute_step(d.small_step)
-		
-		local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
-		local aDiffAvrg = aDiff / np
-		
-		local step_mod, good_step = getStepMod(tol, maxDiff)
-		if good_step then
-		    d.small_step:internalCopyTo(mep)
-		    mep:resamplePath(np)
-		    successful_steps = successful_steps + 1
-		end
-		mep:setBeta(step_mod * current_beta)
-	    else -- negative or zero tolerance: no adaptive step
-		successful_steps = successful_steps + 1
-		d.big_step:internalCopyTo(mep)
-	    end
- 
-            if _do_resample then
-                mep:resamplePath(np)
-            end
-	    report(string.format("step %3d of %3d, step size: %e, energy barrier: %e", i, n, mep:beta(), mep:energyBarrier()))
-	end
-	
-	return successful_steps
-    end
-}
-
 methods["execute"] =
     {
     "Run several relaxation steps of the Minimum Energy Pathway method with the ability to run until goals are met using constant steps and tolerances or a list of step counts and tolerances.",
@@ -603,8 +537,10 @@ methods["execute"] =
 	local d = get_mep_data(mep)
 	local ss = mep:spinSystem()
 	local np = mep:numberOfPathPoints()
+        local ns = mep:numberOfSites()
 	local energy_function = d.energy_function
 	local currentIteration = 0
+        local step_mod, good_step
 
 	if ss == nil then
 	    error("SpinSystem is nil. Set a working SpinSystem with :setSpinSystem")
@@ -638,20 +574,37 @@ methods["execute"] =
                     single_compute_step(d.small_step)
                     single_compute_step(d.small_step)
                     
-                    local aDiff, maxDiff, max_idx = d.big_step:absoluteDifference(d.small_step)
-                    local aDiffAvrg = aDiff / np
+                    local totalDiff, tableDiff = d.big_step:absoluteDifference(d.small_step)
+                    local aDiffAvrg = totalDiff / np
                     
-                    local step_mod, good_step = getStepMod(tol, maxDiff)
-                    if good_step then
-                        d.small_step:internalCopyTo(mep)
-                        -- mep:resamplePath(np)
-                        successful_steps = successful_steps + 1
+                    step_mod, good_step = getStepMod(tol, tableDiff)
+
+                    local smallest_step = step_mod[1]
+                    local biggest_step = step_mod[1]
+
+                    for p,good in pairs(good_step) do
+                        if step_mod[p] < smallest_step then
+                            smallest_step = step_mod[p]
+                        end
+                        if step_mod[p] > biggest_step then
+                            biggest_step = step_mod[p]
+                        end
                     end
-                    mep:setBeta(step_mod * current_beta)
+                    
+                    if smallest_step > 1 then
+                        d.small_step:internalCopyTo(mep)
+                        successful_steps = successful_steps + 1
+                        mep:setBeta(biggest_step * current_beta)
+                    else
+                        mep:setBeta(smallest_step * current_beta)
+                    end
                 else -- negative or zero tolerance: no adaptive step
                     successful_steps = successful_steps + 1
                     d.big_step:internalCopyTo(mep)
                 end
+                
+                -- interactive()
+                mep:resamplePath(np)
                 
                 if _do_resample then
                     if last_successful_steps ~= successful_steps then
@@ -713,6 +666,7 @@ methods["execute"] =
                 end
             end
 
+            report(diffs[maxi], tol)
             return diffs[maxi] <= tol, diffs[maxi], maxi
         end
             
@@ -748,6 +702,7 @@ methods["execute"] =
                         local new_cpe = _cpe()
                         local target = getat(goal, g) * _n
                         local same, off, idx = sameCPE(old_cpe, new_cpe, target)
+                        --off = off * mep:beta()
                         if idx < 0 then
                             report("Critical point count mismatch")
                         else
@@ -2437,27 +2392,81 @@ methods["printPath"] =
     end
 }
 
+local coordData = {}
+coordData["x"] = {"Cartesian", 1}
+coordData["y"] = {"Cartesian", 2}
+coordData["z"] = {"Cartesian", 3}
+
+coordData["r"] = {"Spherical", 1}
+coordData["p"] = {"Spherical", 2}
+coordData["t"] = {"Spherical", 3}
+
+coordData["phi"] = {"Canonical", 2}
+
+local function getPlotData(mep, what)
+    local a,b,c,d = string.find(what, "(.*)(%d+)")
+    local data = {}
+
+    if a then
+        local site = tonumber(d)
+        if site < 1 or site > mep:numberOfSites() then
+            error("Invalid site number")
+        end
+
+        local coord = string.lower(c)
+        local cd = coordData[coord]
+
+        for i=1,mep:numberOfPoints() do
+            local a1,a2,a3 = mep:spinInCoordinateSystem(i, site, "Cartesian")
+            local c1,c2,c3 = mep:convertCoordinateSystem(a1,a2,a3,"Cartesian", cd[1])
+            local t = {c1,c2,c3}
+            local v = t[cd[2]]
+
+            data[i] = v
+        end
+        return data
+    end
+
+    if string.lower(what) == "energy" then
+        return mep:pathEnergy()
+    end
+
+    if string.lower(what) == "number" then
+        for i=1,mep:numberOfPoints() do
+            data[i] = i
+        end
+        return data
+    end
+
+    error("unknown what:" .. what)
+end
+
 methods["plot"] =
     {
     "Use gnuplot to plot the path",
+    [[Optional table of strings: Default {"Number", "Energy"}. Available: "xN", "yN", "zN", "rN", "pN", "tN", "phiN" where N is site number. "Number" for point number, "Energy" for point energy]],
     "",
-    "",
-    function(mep)
+    function(mep, what, json)
         local DISPLAY = os.getenv("DISPLAY") or ""
-   
+        what = what or {"Number", "Energy"}
         local datafile = os.tmpname()
         local cmdfile = os.tmpname()
 
         local f = io.open(datafile, "w")
         local pe = mep:pathEnergy()
 
-        for k,v in pairs(pe) do
-            f:write(string.format("%d %e\n", k, v))
+        -- local function getPlotData(mep, what)
+
+        local x = getPlotData(mep, what[1])
+        local y = getPlotData(mep, what[2])
+
+        for i=1,table.maxn(x) do
+            f:write(string.format("%e %e\n", x[i], y[i]))
         end
         f:close()
 
         f = io.open(cmdfile, "w")
-        
+
         if DISPLAY == "" then
             f:write("set term dumb\n")
         else
@@ -2476,6 +2485,7 @@ methods["plot"] =
 
     end
 }
+
 
 
 methods["findMinimums"] =
@@ -2873,6 +2883,7 @@ function(mep, a,b,n)
 end
 }
 
+--[[
 methods["findPath2"] =
 {
 "Run a modified Dijkstra's algorithm over sets of subdivided dodecahedrons to find a coarse minimum energy path between a pair of points.",
@@ -2885,7 +2896,7 @@ function(mep, a,b,n)
     return p
 end
 }
-
+--]]
 
 
 

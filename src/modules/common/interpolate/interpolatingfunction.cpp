@@ -70,37 +70,37 @@ InterpolatingFunction::InterpolatingFunction()
 
 int l_adddata(lua_State* L)
 {
-	LUA_PREAMBLE(InterpolatingFunction, in, 1);
-
-	if(lua_istable(L, 2))
-	{
-		lua_pushnil(L);
-		while(lua_next(L, 2))
-		{
-			double k,v;
-
-			if(lua_istable(L, -1))
-			{
-				lua_pushinteger(L, 1);
-				lua_gettable(L, -2);
-				k = lua_tonumber(L, -1);
-				lua_pop(L, 1);
-				
-				lua_pushinteger(L, 2);
-				lua_gettable(L, -2);
-				v = lua_tonumber(L, -1);
-				lua_pop(L, 1);
-			}
-
-			in->addData(k, v);
-			lua_pop(L, 1);
-		}
-	}
-	else
-	{
-		in->addData(lua_tonumber(L, -2), lua_tonumber(L, -1));
-	}
-	return 0;
+    LUA_PREAMBLE(InterpolatingFunction, in, 1);
+    
+    if(lua_istable(L, 2))
+    {
+        lua_pushnil(L);
+        while(lua_next(L, 2))
+        {
+            double k,v;
+            
+            if(lua_istable(L, -1))
+            {
+                lua_pushinteger(L, 1);
+                lua_gettable(L, -2);
+                k = lua_tonumber(L, -1);
+                lua_pop(L, 1);
+		
+                lua_pushinteger(L, 2);
+                lua_gettable(L, -2);
+                v = lua_tonumber(L, -1);
+                lua_pop(L, 1);
+            }
+            
+            in->addData(k, v);
+            lua_pop(L, 1);
+        }
+    }
+    else
+    {
+        in->addData(lua_tonumber(L, -2), lua_tonumber(L, -1));
+    }
+    return 0;
 }
 
 int InterpolatingFunction::luaInit(lua_State* L)
@@ -126,6 +126,12 @@ void InterpolatingFunction::addData(const double in, const double out)
 {
 	rawdata.push_back(pair<double,double>(in,out));
 	compiled = false;
+}
+
+void InterpolatingFunction::clear()
+{
+    rawdata.clear();
+    compiled = false;
 }
 
 InterpolatingFunction* InterpolatingFunction::inverted()
@@ -254,17 +260,16 @@ double InterpolatingFunction::minX()
 }
 
 
+bool InterpolatingFunction::getValue(double in, double& out)
+{
+    return getValue(in, &out);
+}
+
 // #include <stdio.h>
 bool InterpolatingFunction::getValue(double in, double* out)
 {
 	if(!compiled)
 		compile();
-
-// 	if(!root || !root->inrange(in))
-// 	{
-// 		*out = 0;
-// 		return false;
-// 	}
 
 	_node* t = root;
 	
@@ -383,6 +388,31 @@ int l_maxx(lua_State* L)
 	return 1;
 }
 
+int l_clear(lua_State* L)
+{
+	LUA_PREAMBLE(InterpolatingFunction, in, 1);
+        in->clear();
+	return 0;
+}
+
+int l_td(lua_State* L)
+{
+    LUA_PREAMBLE(InterpolatingFunction, in, 1);
+
+    
+    vector <pair<double,double> >::iterator it;
+
+    lua_newtable(L);
+    for(it=in->rawdata.begin(); it != in->rawdata.end(); ++it)
+    {
+        lua_pushnumber(L, it->first);
+        lua_pushnumber(L, it->second);
+        lua_settable(L, -3);
+    }
+    
+    return 1;
+}
+
 int l_inverted(lua_State* L)
 {
 	LUA_PREAMBLE(InterpolatingFunction, in, 1);
@@ -416,7 +446,7 @@ int InterpolatingFunction::help(lua_State* L)
 	if(func == l_adddata)
 	{
 		lua_pushstring(L, "Add data to the 1D linear interpolator.");
-		lua_pushstring(L, "2 numbers: the x and y values where x is the data position and y is the data value.");
+		lua_pushstring(L, "2 numbers or a table of pairs of numbers: the x and y values where x is the data position and y is the data value.");
 		lua_pushstring(L, "");
 		return 3;
 	}
@@ -444,7 +474,22 @@ int InterpolatingFunction::help(lua_State* L)
 		lua_pushstring(L, "1 Number: Minimum X value");
 		return 3;
 	}	
+	if(func == l_clear)
+	{
+		lua_pushstring(L, "Clears the interpolator");
+		lua_pushstring(L, "");
+		lua_pushstring(L, "");
+		return 3;
+	}	
 	
+        if(func == l_td)
+        {
+            lua_pushstring(L, "Get the key-value pairs that define this interpolator");
+            lua_pushstring(L, "");
+            lua_pushstring(L, "1 Table: Keys are the x values, values are the y values.");
+            
+        }
+
 	if(func == l_inverted)
 	{
 		lua_pushstring(L, "Return a new 1D linear interpolating function based on the calling interpolator with the data and values interchanged. The calling interpolator should be monotonic.");
@@ -469,6 +514,8 @@ const luaL_Reg* InterpolatingFunction::luaMethods()
 		{"inverted",     l_inverted},
 		{"maxX", l_maxx},
 		{"minX", l_minx},
+                {"clear", l_clear},
+                {"tableData", l_td},
 		{"__call",        l_value},
 		{NULL, NULL}
 	};

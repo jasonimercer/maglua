@@ -543,7 +543,7 @@ int  MEP::l_rotatePathAboutBy(lua_State* L, int base)
 
 
 
-double MEP::absoluteDifference(MEP* other, int point, double& max_diff, int& max_idx)
+double MEP::absoluteDifference(MEP* other, int point, double& max_diff, int& max_idx, vector<double>& vdiff)
 {
     if(state_path.size() != other->state_path.size())
     {
@@ -555,14 +555,18 @@ double MEP::absoluteDifference(MEP* other, int point, double& max_diff, int& max
     max_diff = 0;
     max_idx = 0;
 
+    int ns = numberOfSites();
     int min = 0;
     int max = state_path.size();
-
+   
     if(point >= 0)
     {
-	min =  point    * numberOfSites();
-	max = (point+1) * numberOfSites();
+	min =  point    * ns;
+	max = (point+1) * ns;
     }
+
+    double q = 0;
+    vdiff.clear();
 
     for(int i=min; i<max; i++)
     {
@@ -570,6 +574,14 @@ double MEP::absoluteDifference(MEP* other, int point, double& max_diff, int& max
 	// ABC
 	// print_vec(state_path[i]);
 	// print_vec(other->state_path[i]);
+
+        q += diff;
+
+        if(i % ns == ns-1)
+        {
+            vdiff.push_back(q);
+            q = 0;
+        }
 
 	if(diff > max_diff)
 	{
@@ -3877,15 +3889,23 @@ static int l_absoluteDifference(lua_State* L)
 
     double max_diff;
     int max_idx;
-    const double d = mep1->absoluteDifference(mep2, point, max_diff, max_idx);
+    vector<double> vdiff;
+    const double d = mep1->absoluteDifference(mep2, point, max_diff, max_idx, vdiff);
 
     if(d == -1)
 	return luaL_error(L, "internal state size mismatch");
 
     lua_pushnumber(L, d);
-    lua_pushnumber(L, max_diff);
-    lua_pushinteger(L, max_idx+1);
-    return 3;
+    lua_newtable(L);
+    for(int i=0; i<vdiff.size(); i++)
+    {
+        lua_pushinteger(L, i+1);
+        lua_pushnumber(L, vdiff[i]);
+        lua_settable(L, -3);
+    }
+    //lua_pushnumber(L, max_diff);
+    //lua_pushinteger(L, max_idx+1);
+    return 2;
 }
 
 static int l_ppc(lua_State* L)
@@ -4267,9 +4287,9 @@ int MEP::help(lua_State* L)
     */
     if(func == l_absoluteDifference)
     {
-	lua_pushstring(L, "Get the absolute difference between the calling MEP and the passed MEP. Difference between two moments m1 and m2 is defined as the norm of the vector D where D = normalized(m1) - normalized(m2).");
+	lua_pushstring(L, "Get the absolute difference between the calling MEP and the passed MEP. Difference between two moments m1 and m2 is defined as the sum of all pairwise angular differences.");
 	lua_pushstring(L, "1 MEP: MEP to compare against.");
-	lua_pushstring(L, "2 Numbers, 1 Integer: Total of all differences, the maximum single difference and the index where that max occurs.");
+	lua_pushstring(L, "1 Number, 1 Table fo Numbers: Total of all differences, the difference at each site.");
 	return 3;
     }
 

@@ -180,7 +180,7 @@ public:
 	}
 
 
-	double absoluteDifference(MEP* other, int point, double& max_diff, int& max_idx);
+	double absoluteDifference(MEP* other, int point, double& max_diff, int& max_idx, vector<double>& vdiff);
 
 	int maxpoints(lua_State* L);
 	

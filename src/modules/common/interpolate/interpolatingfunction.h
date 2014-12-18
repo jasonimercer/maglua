@@ -50,6 +50,7 @@ public:
 	
 	void addData(const double in, const double out);
 	bool getValue(double in, double* out);
+	bool getValue(double in, double& out);
 
 	void encode(buffer* b);
 	int  decode(buffer* b);
@@ -58,8 +59,10 @@ public:
 	double minX();
 	
 	InterpolatingFunction* inverted();
-	
-private:
+
+        void clear();
+
+//private:
 	class _node
 	{
 	public:

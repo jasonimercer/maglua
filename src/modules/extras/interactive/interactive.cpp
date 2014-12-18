@@ -79,57 +79,42 @@ static char** my_completion( const char * text , int start,  int end)
  
 
 
-/* A static variable for holding the line. */
-static char *line_read = (char *)NULL;
 
-static char *last_line_read = (char *)NULL;
-
+    /* Static variable for holding the line. */
+    /* personal note: this is disgusting */
+    static char *line_read = (char *)0;
+    static char *last_line_read = (char *)0;
 
 char* rl_gets (const char* prompt=0)
 {
+
     rl_bind_key('\t',rl_complete);
 
 
-#if 0
-    /* If the buffer has already been allocated, return the memory
-       to the free pool. */
-    if (line_read)
+    if(line_read)
     {
-	free (line_read);
-	line_read = (char *)NULL;
+        if (last_line_read)
+        {
+            free(last_line_read);
+            last_line_read = (char *)NULL;
+        }
+        last_line_read = line_read;
     }
-#endif
-
-    if (last_line_read)
-    {
-	free(last_line_read);
-	last_line_read = (char *)NULL;
-    }
-
-    last_line_read = line_read;
 
     /* Get a line from the user. */
     line_read = readline (prompt?prompt:"");
 
-    /* If the line has any text in it, save it on the history. */
+    /* If the line has any text in it, that's different tha the last line, save it on the history. */
     if (line_read && *line_read)
     {
-        int add_to_history = 0;
+        int add_to_history = 1;
 
-        if(last_line_read == 0)
+        if(last_line_read)
         {
-            add_to_history = 1;
+            // don't add if same
+            add_to_history = strcmp(last_line_read, line_read);
+            // printf("'%s'  '%s'  %d\n", last_line_read, line_read, add_to_history);
         }
-        else
-        {
-            // not strncmp. trusting readline()
-            if(strcmp(last_line_read, line_read) != 0)
-            {
-                add_to_history = 1;
-            }
-        }
-
-
 
 	if(add_to_history)
             add_history (line_read);

@@ -139,7 +139,6 @@ static int l_mateigen_d(lua_State* L)
 //                    lapack_int* ldvl, double* vr, lapack_int* ldvr, double* work,
 //                    lapack_int* lwork, lapack_int *info );
 
-
 	LAPACK_dgeev(&JOBVL, &JOBVR, &N, AT, 
 				&LDA, eigenvalues, imag_part, 
 				VL, &LDVL, 
