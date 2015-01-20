@@ -2883,21 +2883,6 @@ function(mep, a,b,n)
 end
 }
 
---[[
-methods["findPath2"] =
-{
-"Run a modified Dijkstra's algorithm over sets of subdivided dodecahedrons to find a coarse minimum energy path between a pair of points.",
-"2 Tables, 1 optional Integer: Each table contains sites, each site is 3 numbers representing a vector and a string naming the coordinate system. The integer can be between 1 and 5 inclusively (default 1) and determines the number of subdivisions of the dodecahedron representing a sphere. Larger values will take a considerably longer amount of time to solve. A single site system with a subdivision count of 5 will result in approximately 750 vertices, each with 7 neighbours. A 2 site system with a subdivision count of 5 will result in half a million vertices, each with 49 neighbours. ",
-"1 Table: compatible with :setInitialPath, represents the solved path from the start to the end.",
-function(mep, a,b,n)
-    local p = mep:_findBestPath2(a,b,n)
-    table.insert(p, 1, a)
-    table.insert(p, b)
-    return p
-end
-}
---]]
-
 
 
 
