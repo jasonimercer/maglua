@@ -310,12 +310,12 @@ function PathDynamics(mepOrig, json)
 
     -- if not det_zero then
     if true then
+        -- hessian:matPrint()
         local evals, evecs = hessian:matEigen()
         local evalsSad = evals:copy() -- saddle point data
         local evecsSad = evecs:copy()
         
-
-        evals = evals:toTable(1) -- convert to lua table
+        evals = evals:matTrans():toTable(1) -- convert to lua table
         
         -- find zero eigen value
         min_val, min_idx = evals[1], 1
@@ -370,7 +370,7 @@ function PathDynamics(mepOrig, json)
         --[[
         local Gamma = Array.Double.new(4, 4, {
                                            0,  MG/M1,     0,     0,
-                                               -MG/M1,      0,     0,     0,
+                                      -MG/M1,      0,     0,     0,
                                            0,      0,     0,     MG/M2,
                                            0,      0,    -MG/M2, 0     })
         --]]

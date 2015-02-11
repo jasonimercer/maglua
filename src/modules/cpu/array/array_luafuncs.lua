@@ -288,7 +288,10 @@ methods["matPrint"] =
 "Print an array as if were a matrix.",
 "1 Optional String: If a string is provided, it will be printed to the left of the matrix with matrix dimensions either under the label or to the right of the label if the matrix only has a single row.",
 "Terminal output: Matrix form",
-function(M, name)
+function(M, name, json)
+    json = json or {}
+    local format = json.format or "% 06.6e"
+
     if name then
 	local name_len = string.len(name)
 	local dims_txt = M:ny() .. "x" .. M:nx()
@@ -297,7 +300,7 @@ function(M, name)
 	if M:ny() == 1 then
 	    local t = {}
 	    for c=1,M:nx() do
-		table.insert(t, string.format("% 06.6e", M:get(c,1)))
+		table.insert(t, string.format(format, M:get(c,1)))
 	    end
 	    print( name .. "(" .. dims_txt .. ")", table.concat(t, "\t"))
 	else
@@ -305,7 +308,7 @@ function(M, name)
 	    for r=1,M:ny() do
 		local t = {default[r] or ""}
 		for c=1,M:nx() do
-		    table.insert(t, string.format("% 06.6e", M:get(c,r)))
+		    table.insert(t, string.format(format, M:get(c,r)))
 		end
 		print(table.concat(t, "\t"))
 	    end
@@ -314,10 +317,14 @@ function(M, name)
 	for r=1,M:ny() do
 	    local t = {}
 	    for c=1,M:nx() do
-		table.insert(t, string.format("% 06.6e", M:get(c,r)))
+		table.insert(t, string.format(format, M:get(c,r)))
 	    end
 	    print(table.concat(t, "\t"))
 	end
+    end
+
+    if json.post then
+        print(json.post)
     end
 end
 }

@@ -15,7 +15,7 @@ CATEGORY=cpu
 
 # If you understand the implications of the change to the exchange operator
 # then you can uncomment the following line:
-# EXTRA_CFLAGS=-D_UNDERSTAND_EXCHANGE_CHANGE
+EXTRA_CFLAGS=-D_UNDERSTAND_EXCHANGE_CHANGE
 
 
 #DEPEND is parsed to make the vs2010 project
