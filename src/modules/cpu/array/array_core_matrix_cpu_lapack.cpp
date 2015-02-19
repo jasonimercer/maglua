@@ -15,7 +15,7 @@ Array<T>* getMatrix(lua_State* L, int idx, int nx, int ny, const char* name)
 
         if(a->nx != nx || a->ny != ny)
         {
-            luaL_error(L, "Matrix dimension mismatch for `%s', expected (%f x %f) for (%f x %f)", name, ny, nx, a->ny, a->nx);
+            luaL_error(L, "Matrix dimension mismatch for `%s', expected (%d x %d) for (%d x %d)", name, ny, nx, a->ny, a->nx);
         }
         return a;
     }
@@ -45,12 +45,16 @@ static int l_mateigen_d(lua_State* L)
     double* vr = evec_real->data();
     double* vi = evec_imag->data();
 
+    double* a = new double[A->nx * A->nx];
+    memcpy(a, A->data(), sizeof(double)*A->nx*A->nx);
 
     double* v = new double[n*n];
 
     lapack_int info = LAPACKE_dgeev( LAPACK_ROW_MAJOR, 'N', 'V', n, 
-                                     A->data(), n, wr, wi,
+                                     a, n, wr, wi,
                                      0, n, v, n );
+
+    delete [] a;
 
     if( info > 0 ) 
     {
@@ -240,8 +244,7 @@ int l_matcond(lua_State* L)
 }
 
 
-
-static int l_matlinear_system_d(lua_State* L)
+static int l_matlinear_system_d_LU(lua_State* L)
 {
     LUA_PREAMBLE(Array<double>, A, 1);
     LUA_PREAMBLE(Array<double>, B, 2);
@@ -273,21 +276,90 @@ static int l_matlinear_system_d(lua_State* L)
     double* x = X->data();
 
     memcpy(x, b, sizeof(double) * X->nx * X->ny);
+    
+    int szA = sizeof(double) * A->nx * A->ny;
+    double* q = (double*)malloc(szA);
+    memcpy(q, a, szA);
 
-    int info = LAPACKE_dgesv( LAPACK_ROW_MAJOR, N, B->nx, a, LDA, ipiv,  x, LDB );
+    int info = LAPACKE_dgesv( LAPACK_ROW_MAJOR, N, B->nx, q, LDA, ipiv,  x, LDB );
+
+    delete [] ipiv;
+    free(q);
 
     if( info > 0 ) 
     {
         lua_pushnil(L);
         lua_pushfstring(L, 
                         "The diagonal element of the triangular factor of A, " 
-                        "U(%f,%f) is zero, so that A is singular; "
+                        "U(%d,%d) is zero, so that A is singular; "
                         "the solution could not be computed.", info, info);
 
         // delete if needed
         luaT_inc< Array<double> >(X);
         luaT_dec< Array<double> >(X);
-        
+        return 2;
+    }
+
+    luaT_push< Array<double> >(L, X);
+
+    return 1;
+}
+
+static int l_matlinear_system_d_QR(lua_State* L)
+{
+    LUA_PREAMBLE(Array<double>, A, 1);
+    LUA_PREAMBLE(Array<double>, B, 2);
+
+    if(B->ny != A->ny)
+        return luaL_error(L, "b matrix dimensions mismatch");
+
+    Array<double>* X = 0;
+    if(luaT_is< Array<double> >(L, 3))
+    {
+        X = luaT_to< Array<double> >(L, 3);
+        if(X->nx != B->nx || X->ny != A->ny)
+            return luaL_error(L, "X dimensions mismatch");
+    }
+    else
+        X = new Array<double>(B->nx, A->ny);
+
+    int N = A->nx;
+    int LDA = N;
+    int LDB = B->nx;
+
+    lapack_int* ipiv = new lapack_int[N];
+
+    double* a = A->data();
+    double* b = B->data();
+    double* x = X->data();
+
+    memcpy(x, b, sizeof(double) * X->nx * X->ny);
+    
+    int szA = sizeof(double) * A->nx * A->ny;
+    double* q = (double*)malloc(szA);
+    memcpy(q, a, szA);
+
+    // int info = LAPACKE_dgesv( LAPACK_ROW_MAJOR, N, B->nx, q, LDA, ipiv,  x, LDB );
+
+    int m = A->ny;
+    int n = A->nx;
+    int nrhs = B->nx;
+    int info = LAPACKE_dgels( LAPACK_ROW_MAJOR, 'N', m, n, nrhs, q, LDA, x, LDB );
+
+    delete [] ipiv;
+    free(q);
+
+    if( info > 0 ) 
+    {
+        lua_pushnil(L);
+        lua_pushfstring(L, 
+                        "The diagonal element %d of the triangular factor " 
+                        "of A is zero, so that A does not have full rank;"
+                        "the least squares solution could not be computed.", info);
+
+        // delete if needed
+        luaT_inc< Array<double> >(X);
+        luaT_dec< Array<double> >(X);
         return 2;
     }
 
@@ -297,9 +369,10 @@ static int l_matlinear_system_d(lua_State* L)
 }
 
 
+
 int l_matlinearsystem(lua_State* L)
 {
-    if(luaT_is<dArray>(L, 1)) return l_matlinear_system_d(L);
+    if(luaT_is<dArray>(L, 1)) return l_matlinear_system_d_LU(L);
     return luaL_error(L, "Unimplemented data type for :matLinearSystem");
 }
 
@@ -324,8 +397,8 @@ int l_matmul_T(lua_State* L)
     if(C->nx != B->nx || C->ny != A->ny)
         return luaL_error(L, "Size mismatch for destination matrix");	
 
-    for(int x=0; x<C->nx; x++)
-        for(int y=0; y<C->ny; y++)
+    for(int y=0; y<A->ny; y++)
+        for(int x=0; x<B->nx; x++)
         {
             T s = 0;
             for(int k=0; k<A->nx; k++)

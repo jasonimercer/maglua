@@ -291,6 +291,31 @@ methods["matPrint"] =
 function(M, name, json)
     json = json or {}
     local format = json.format or "% 06.6e"
+    local delim = json.delim or "\t"
+    local p = json.print or print
+
+    if json.mathematica then
+        if name then
+            p(name .. " = {")
+        else
+            p("{")
+        end
+
+        local mat = {}
+        for r=1,M:ny() do
+            local line = {}
+            for c=1,M:nx() do
+                local s = string.format("% 18.18g", M:get(c,r,1))
+                s = string.gsub(s, "e", " 10^")
+                line[c] = s
+            end
+            mat[r] = "  {" .. table.concat(line, ", ") .. "}"
+        end
+
+        p(table.concat(mat, ",\n"))
+        p("}")
+        return
+    end
 
     if name then
 	local name_len = string.len(name)
@@ -302,15 +327,31 @@ function(M, name, json)
 	    for c=1,M:nx() do
 		table.insert(t, string.format(format, M:get(c,1)))
 	    end
-	    print( name .. "(" .. dims_txt .. ")", table.concat(t, "\t"))
+	    p( name .. "(" .. dims_txt .. ")" .. delim .. table.concat(t, delim))
 	else
-	    local default = {"  " .. name, "(" .. dims_txt .. ")"}
+            local l1 = name
+            local l2 = "(" .. dims_txt .. ")"
+
+            local max = math.max(string.len(l1), string.len(l2))
+
+            while string.len(l1) < max do
+                l1 = " " .. l1 .. " "
+            end
+            while string.len(l2) < max do
+                l2 = " " .. l2 .. " "
+            end
+
+            l1 = string.sub(l1, 1, max)
+            l2 = string.sub(l2, 1, max)
+            local l3 = string.rep(" ", max)
+
+	    local default = {l1, l2, l3}
 	    for r=1,M:ny() do
-		local t = {default[r] or ""}
+		local t = {default[r] or default[3]}
 		for c=1,M:nx() do
 		    table.insert(t, string.format(format, M:get(c,r)))
 		end
-		print(table.concat(t, "\t"))
+		p(table.concat(t, delim))
 	    end
 	end
     else
@@ -319,12 +360,12 @@ function(M, name, json)
 	    for c=1,M:nx() do
 		table.insert(t, string.format(format, M:get(c,r)))
 	    end
-	    print(table.concat(t, "\t"))
+	    p(table.concat(t, delim))
 	end
     end
 
     if json.post then
-        print(json.post)
+        p(json.post)
     end
 end
 }

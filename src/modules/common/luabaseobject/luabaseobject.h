@@ -91,6 +91,8 @@ extern "C"
  double decodeDouble(buffer* b);
    void decodeBuffer(void* dest, const int len, buffer* b);
    void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals);
+   void merge_luaL_pair(luaL_Reg* old_vals, const char* name, lua_CFunction func);
+
 
    LuaBaseObject* decodeLuaBaseObject(lua_State* L, buffer* b);
 }

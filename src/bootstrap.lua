@@ -579,37 +579,12 @@ escape = nil
 getModulesInDirectory = nil
 use_modules = nil
 
-if sub_process == nil then
-    -- find first script in args
-    local first_script_index = nil
-    
-    for i=1,table.maxn(arg) do
-	if arg[i] and first_script_index == nil then
-	    local a, b = string.find(string.lower(arg[i]), ".*%.lua$")
-	    if a then
-		first_script_index = i
-	    end
-	end
-    end
-    
-    if first_script_index == nil then
-	if interactive then
-	    interactive("", {message=false, header=false})
-	    print() -- for the newline that ctrl+d doesn't give
-	else
-	    e("Please supply a MagLua script (*.lua)")
-	end
-	return false
-    end
-    
-    -- need to shift indexes so that script is at [0]
-    local a = {}
-    for k,v in pairs(arg) do
-	a[k - first_script_index] = v
-    end
-    arg = a
-    a = nil
+-- Feb 12, 2015
+-- Changing things a bit:
+-- Allowing multiple scripts to run consecutively 
+-- by specifying them on the command line.
 
+if sub_process == nil then
     local function bt(level, exclude_last, msg) -- backtrace
         local function where(env)
             if env.what == "C" then
@@ -654,15 +629,59 @@ if sub_process == nil then
         bt(4, 6, msg)
     end
 
-    local function run()
-        dofile(arg[0])
+
+    local max_arg_idx = table.maxn(arg)
+    local ran_a_script = false
+    -- find first script in args
+    local first_script_index = nil
+    
+    for _i=1,max_arg_idx do
+	if arg[_i] then
+	    local a, b = string.find(string.lower(arg[_i]), ".*%.lua$")
+	    if a then
+                -- need to shift indexes so that script is at [0]
+                local shifted_arg = {}
+                for k,v in pairs(arg) do
+                    shifted_arg[k - _i] = v
+                end
+                arg = shifted_arg
+
+                local function run()
+                    dofile(arg[0])
+                end
+
+                if _custom_error_handler then
+                    xpcall(run, _custom_error_handler)
+                else
+                    xpcall(run, err)
+                end
+                ran_a_script = true
+
+                -- and shift arg back
+                local shifted_arg = {}
+                for k,v in pairs(arg) do
+                    shifted_arg[k + _i] = v
+                end
+                arg = shifted_arg
+	    end
+
+	end
+    end
+    
+    
+
+
+
+    if not ran_a_script then
+	if interactive then
+	    interactive("", {message=false, header=false})
+	    print() -- for the newline that ctrl+d doesn't give
+	else
+	    e("Please supply a MagLua script (*.lua)")
+	end
+	return false
     end
 
-    if _custom_error_handler then
-        xpcall(run, _custom_error_handler)
-    else
-        xpcall(run, err)
-    end
 else
     sub_process = nil
 end

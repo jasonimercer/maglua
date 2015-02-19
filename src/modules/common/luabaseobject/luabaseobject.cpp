@@ -92,20 +92,31 @@ static int addReg(luaL_Reg* old_vals, const luaL_Reg* new_val)
 	return 0;
 }
 
-void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals)
+void merge_luaL_pair(luaL_Reg* old_vals, const char* name, lua_CFunction func)
 {
-	if(!new_vals)return;
-	for(int i=0; new_vals[i].name; i++)
-	{
-		if(!addReg(old_vals, &(new_vals[i])))
-		{
-			fprintf(stderr, "(%s:%i) metatable larger than arbitrary cuttoff (127)\n", __FILE__, __LINE__);
-			// warning/error
-		}
-	}
+    luaL_Reg r;
+    r.name = name;
+    r.func = func;
+
+    if(!addReg(old_vals, &r))
+    {
+        fprintf(stderr, "(%s:%i) metatable larger than arbitrary cuttoff (127)\n", __FILE__, __LINE__);
+        // warning/error
+    }
 }
 
-
+void merge_luaL_Reg(luaL_Reg* old_vals, const luaL_Reg* new_vals)
+{
+    if(!new_vals)return;
+    for(int i=0; new_vals[i].name; i++)
+    {
+        if(!addReg(old_vals, &(new_vals[i])))
+        {
+            fprintf(stderr, "(%s:%i) metatable larger than arbitrary cuttoff (127)\n", __FILE__, __LINE__);
+            // warning/error
+        }
+    }
+}
 
 
 static void ensureSize(int add, buffer* b)

@@ -1,97 +1,290 @@
--- This script solves for the critical point of the following equation
---
--- Equation:
---    a x^2 + 2 b x y + 2 c x z + 2 d x w 
---  + e y^2 + 2 f y z + 2 g y w 
---  + h z^2 + 2 i z w 
---  + j w^2 
---  + k x + l y + m z + n w + p = energy
---
--- Partial Derivatives:
---   [a b c d] [x]   [k]
--- 2 [b e f g] [y] =-[l]
---   [c f h i] [z]   [m]
---   [d g i j] [w]   [n]
---
--- This is used to refine critical points for functons of 4 variables
--- that have quadratic features
+-- This script generalizes quadrics to arbitrary dimensions.
+-- The goal is to fit data to them to find critical points
 
-local function hq_solveCriticalPoint(self)
-    if table.maxn(self.data) < 15 then
+-- let's write some lower dimension functions to get the feel for them
+-- 1D
+-- value = a x^2 + b x + c
+--
+-- 2D
+-- value = a x^2 + b y^2 + c x y + d x + e y + g
+--
+-- 3D
+-- value = a x^2 + b y^2 + c z^2 + d x y + e x z + f y z + g x + h y + i z + j
+
+-- now let's generate these via code
+local function makeEquation(dims)
+    -- we will store each variable by an integer
+    -- zero will denote the constant term 1
+    local eqn = {}
+    
+    for i=1,dims do
+        table.insert(eqn, {i,i}) -- terms like a x^2
+    end
+
+    for i=1,dims-1 do
+        for j=i+1,dims do
+            table.insert(eqn, {i,j}) -- terms like b x y
+        end
+    end
+
+    for i=1,dims do
+        table.insert(eqn, {i, 0}) -- terms like c x
+    end
+
+    table.insert(eqn, {0, 0}) -- final constant term
+    return eqn
+end
+
+local function Deqn(eqn, var)
+    -- Deqn will do this:
+    -- input:  Deqn({{1,1}, {1,2}, {2,2}, {1, 0}}, 1)
+    -- output:      {{2, {1}}, {1, {2}}, {0, {2,2}}, {1, {0}} }
+
+    -- count & remove 1 in table
+    -- this is used to differentiate {1,1} (x^2)  to {2, {1}} (2 x)
+    local function cr(t,x) 
+        local c = 0
+        local r = {}
+        for k,v in pairs(t) do
+            if v == x then
+                c = c + 1
+                if c ~= 1 then
+                    table.insert(r, v)
+                end
+            else
+                table.insert(r, v)
+            end
+        end
+        return {c, r}
+    end
+
+    local deqn = {}
+    for i=1,table.maxn(eqn) do
+        deqn[i] = cr(eqn[i], var)
+    end
+    return deqn
+end
+
+local function add_coef_to_deqn(x, deqn)
+    for i=1,table.maxn(deqn) do
+        deqn[i][1] = deqn[i][1] * x:get(1,i)
+    end
+    return deqn
+end
+
+-- combine terms, order based on variable number
+local function simplify_deqn(deqn, dims)
+    local simp = {}
+    for d=0,dims do
+        simp[d] = 0
+        for i=1,table.maxn(deqn) do
+            if deqn[i][2][1] == d then
+                simp[d] = simp[d] + deqn[i][1]
+            end
+        end
+    end
+    return simp
+end
+
+
+local function hq_build_M_matrix(data)
+    local dims = table.maxn(data[1]) - 1
+    local eqn = makeEquation(dims)
+
+    local n = table.maxn(eqn)
+    if table.maxn(data) < n then
         return nil, "Need more data"
     end
 
-    local data = self.data
-    local A = Array.Double.new(15,15)
-    local b = Array.Double.new( 1,15)    
+    local M = Array.Double.new(n,n)
+    local b = Array.Double.new(1,n)
 
-    for i=1,15 do
-        local x,y,z,w = data[i][1],data[i][2],data[i][3],data[i][4]
-
-        local t = {x*x, 2*x*y, 2*x*z, 2*x*w, y*y, 2*y*z, 2*y*w, z*z, 2*z*w, w*w, x, y, z, w, 1}
-
-        for j=1,15 do
-            A:set(j,i,1,  t[j])
+    for x=1,n do
+        for y=1,n do
+            local v = 1
+            for k=1,table.maxn(eqn[x]) do
+                local var = eqn[x][k]
+                v = v * (data[y][var] or 1)
+            end
+            M:set(x,y,1, v)
         end
-
-        b:set(1,i,1,  data[i][5])
     end
 
-    local x, msg = A:matLinearSystem(b)
-
-    -- solving for critical point
-    -- D y = e
-    local D = Array.Double.new(4,4)
-
-    local lookup = {a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9,j=10,k=11,l=12,m=13,n=14}
-
-    D:set(1,1,1, x:get(1,lookup.a))
-    D:set(2,1,1, x:get(1,lookup.b))
-    D:set(3,1,1, x:get(1,lookup.c))
-    D:set(4,1,1, x:get(1,lookup.d))
-
-    D:set(1,2,1, x:get(1,lookup.b))
-    D:set(2,2,1, x:get(1,lookup.e))
-    D:set(3,2,1, x:get(1,lookup.f))
-    D:set(4,2,1, x:get(1,lookup.g))
-
-    D:set(1,3,1, x:get(1,lookup.c))
-    D:set(2,3,1, x:get(1,lookup.f))
-    D:set(3,3,1, x:get(1,lookup.h))
-    D:set(4,3,1, x:get(1,lookup.i))
-
-    D:set(1,4,1, x:get(1,lookup.d))
-    D:set(2,4,1, x:get(1,lookup.g))
-    D:set(3,4,1, x:get(1,lookup.i))
-    D:set(4,4,1, x:get(1,lookup.j))
-
-
-    local e = Array.Double.new(1,4)
-    e:set(1,1,1, -0.5 * x:get(1,lookup.k))
-    e:set(1,2,1, -0.5 * x:get(1,lookup.l))
-    e:set(1,3,1, -0.5 * x:get(1,lookup.m))
-    e:set(1,4,1, -0.5 * x:get(1,lookup.n))
-
-    local y = D:matLinearSystem(e)
-    interactive()
-
-    return y
+    return M
 end
 
-HyperQuadric = {}
+local function hq_build_b_vector(data)
+    local dims = table.maxn(data[1]) - 1
+    local eqn = makeEquation(dims)
 
-HyperQuadric.new = 
-function()
-    local hq = {}
+    local n = table.maxn(eqn)
+    if table.maxn(data) < n then
+        return nil, "Need more data"
+    end
 
-    hq.data = {}
+    local b = Array.Double.new(1,n)
 
-    hq.addData = function(self, x,y,z,w, f)
-                     table.insert(self.data, {x,y,z,w, f})
-                 end
+    for y=1,n do
+        b:set(1,y,1, data[y][dims+1])
+    end
 
-    hq.solveCriticalPoint = hq_solveCriticalPoint
-
-    return hq
+    return b
 end
+
+
+-- now we will solve for the coefficients given data
+-- and then solve for the critical points using those
+-- coefficients and the derivatives of the equation
+local function hq_solve_critical(data, M, b)
+    if data == nil or data[1] == nil then
+        return nil, "Need more data"
+    end
+
+    local dims = table.maxn(data[1]) - 1
+    local eqn = makeEquation(dims)
+
+    local n = table.maxn(eqn)
+    if table.maxn(data) < n then
+        return nil, "Need more data"
+    end
+
+    local x = M:matLinearSystem(b)
+    --[[
+    M:matPrint("M1", {mathematica=true})
+    local x = M:matInv():matMul(b)
+    M:matPrint("M2", {mathematica=true})
+    b:matPrint("b", {mathematica=true})
+    x:matPrint("x", {mathematica=true})
+
+    print("mat cond", M:matCond())
+    --]]
+
+    -- now we have the coeficients of the equation 
+    -- we can solve for the derivatives = 0
+
+    local function print_eqn(e)
+        local t = {}
+        for k,v in pairs(e) do
+            table.insert(t, "("..table.concat(v, " ") .. ")")
+        end
+        print(table.concat(t, " + "))
+        print()
+    end
+
+    local function print_deqn(e,c)
+        local t = {}
+        for k,v in pairs(e) do
+            table.insert(t, string.format("(%g (%s))", v[1], table.concat(v[2], " ")))
+        end
+        print("d/d(" .. c .. "):",table.concat(t, " + "))
+        print()
+    end
+
+    local B = Array.Double.new(dims, dims)
+    local c = Array.Double.new(   1, dims)
+    for d=1,dims do
+        -- print_eqn(eqn)
+
+        -- differentiate wrt the dimension
+        deqn_d = Deqn(eqn, d)
+        -- print_deqn(deqn_d, d)
+
+        -- multiply in the coefficients
+        deqn_d = add_coef_to_deqn(x, deqn_d)
+        -- print_deqn(deqn_d, d)
+ 
+        -- combine like terms
+        deqn_d = simplify_deqn(deqn_d, dims)
+        -- print(table.concat(deqn_d, ", "))
+
+        --interactive()
+        -- build the matrix
+        for i=1,dims do
+            B:set(i,d,1,  deqn_d[i])
+        end
+
+        -- build the vector
+        -- the deqn_d[0] is the constant term, we negate it since it's 
+        -- moving to the other side of the equals sign
+        c:set(1,d,1, -deqn_d[0])
+    end
+
+    --local opts = {post="", format="% 4.3f", delim="  "}
+    --B:matPrint("B", opts)
+    --c:matTrans():matPrint("c^T", opts)
+
+    local z = B:matLinearSystem(c)
+    -- local z = B:matInv():matMul(c)
+    
+    -- z:matTrans():matPrint("z^T", opts)
+    -- interactive()
+
+    return z:matTrans():toTable(1)
+end
+
+
+local function sampleAbout(base, coords, amount)
+    local function g() return 2 * (math.random() - 1) end
+    local function r(x) return x*g() end
+    
+    local p = {}
+    for k,v in pairs(base) do
+        p[k] = v
+    end
+    
+    for k,c in pairs(coords) do
+        p[c] = p[c] + r(amount[k])
+    end
+    
+    return p
+end
+
+local function hq_builddata(guess, terms, amount, n, value_func)
+    -- create data around guess:
+    local data = {}
+    for i=1,n do
+        local s = sampleAbout(guess, terms, amount)
+        data[i] = {}
+        for j=1,table.maxn(terms) do
+            table.insert(data[i], s[terms[j]])
+        end
+        table.insert(data[i], value_func(s))
+    end
+    return data
+end
+
+function hq_refine(guess, terms, amount, value_func)
+    local dims = table.maxn(terms)
+    local n = table.maxn(makeEquation(dims))
+
+    -- make a copy of the guess
+    -- this will get updated with refined 
+    -- terms at the end
+    local g2 = {}
+    for k,v in pairs(guess) do
+        g2[k] = v
+    end
+    
+
+    local data = hq_builddata(guess, terms, amount, n, value_func)
+    local M = hq_build_M_matrix(data)
+    local b = hq_build_b_vector(data)
+
+    --[[
+    M:matPrint("M", {mathematica=true})
+    b:matPrint("b", {mathematica=true})
+    local x = M:matLinearSystem(b)
+    x:matPrint("x", {mathematica=true})
+    --]]
+
+    local s = hq_solve_critical(data, M, b)
+
+    -- insert updated terms back into guess and return
+    for i=1,table.maxn(terms) do
+        g2[terms[i]] = s[i]
+    end
+    return g2
+end
+
+
 
