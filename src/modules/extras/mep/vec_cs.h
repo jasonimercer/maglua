@@ -113,6 +113,8 @@ VectorCS lua_toVectorCS(lua_State* L, int base, int& consume);
 #define VCSF_ASTABLE 0x1 /* use a lua table */
 #define VCSF_CSDESC  0x2 /* string form of the coordinate system name appended */
 int lua_pushVectorCS(lua_State* L, const VectorCS& v, const int flags=0x0);
+int lua_pushVVectorCS(lua_State* L, std::vector<VectorCS>& vv);
+
 
 // debug
 #include <vector>

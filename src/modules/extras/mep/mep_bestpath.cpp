@@ -455,7 +455,8 @@ int l_bestpath(lua_State* L) //Bellman-Ford path search
     soln_flat.push_front(first_idx);
 
     /// ABC
-    //while(refineList(soln_flat, nodes, total_nodes));
+    // for(int q=0; refineList(soln_flat, nodes, total_nodes) && q<soln_flat.size(); q++);
+
     delete [] nodes;
 
 

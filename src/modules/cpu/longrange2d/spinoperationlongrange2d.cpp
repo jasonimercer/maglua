@@ -423,6 +423,12 @@ void LongRange2D::compile()
 	delete wsZ;
 }
 
+static doubleComplex cval(double s=1)
+{
+    return luaT<doubleComplex>::one(s);
+}
+
+
 bool LongRange2D::apply(SpinSystem* ss)
 {
 	if(newDataRequired)
@@ -435,7 +441,6 @@ bool LongRange2D::apply(SpinSystem* ss)
 
 	const int nxy = nx*ny;
 
-	doubleComplex one = luaT<doubleComplex>::one();
 	
 	ss->fft();
 
@@ -454,10 +459,11 @@ bool LongRange2D::apply(SpinSystem* ss)
             const int k = d*nxy;
             for(int s=0; s<nz; s++) //src
             {
+                const doubleComplex val = cval(g[s]);
                 const int j = s*nxy;
-                arrayScaleMultAdd_o(ws1->ddata(), k, one, qXX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, one, qXY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, one, qXZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qXX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qXY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qXZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
             }
 	}
 	ws1->ifft2DTo(ws2);
@@ -470,10 +476,11 @@ bool LongRange2D::apply(SpinSystem* ss)
             const int k = d*nxy;
             for(int s=0; s<nz; s++) //src
             {
+                const doubleComplex val = cval(g[s]);
                 const int j = s*nxy;
-                arrayScaleMultAdd_o(ws1->ddata(), k, one, qYX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, one, qYY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, one, qYZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qYX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qYY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qYZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
             }
 	}
 	ws1->ifft2DTo(ws2);
@@ -486,10 +493,11 @@ bool LongRange2D::apply(SpinSystem* ss)
             const int k = d*nxy;
             for(int s=0; s<nz; s++) //src
             {
+                const doubleComplex val = cval(g[s]);
                 const int j = s*nxy;
-                arrayScaleMultAdd_o(ws1->ddata(), k, one, qZX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, one, qZY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, one, qZZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qZX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qZY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qZZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
             }
 	}
 	ws1->ifft2DTo(ws2);
@@ -497,9 +505,9 @@ bool LongRange2D::apply(SpinSystem* ss)
 
 	for(int i=0; i<nz; i++)
 	{
-            hx->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
-            hy->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
-            hz->scaleAll_o(g[i] * global_scale, nxy*i, nxy);
+            hx->scaleAll_o( global_scale, nxy*i, nxy);
+            hy->scaleAll_o( global_scale, nxy*i, nxy);
+            hz->scaleAll_o( global_scale, nxy*i, nxy);
 	}
 
 	return true;

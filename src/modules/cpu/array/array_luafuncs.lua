@@ -282,17 +282,103 @@ function(a,...)
 end
 }
 
+methods["matDiagonal"] =
+{
+"Extract the values along the diagonal of a matrix",
+"1 Array, 1 Optional Array or 1 Optional table: Source matrix and optional destination. If the destination is an array, the diagonal elements will be placed in it if it is of correct dimensions. If it is a table, the diagonal elements will be placed in it. If no destination is supplied a new array will be created and the diagonal elements will be placed along the first row (y = 1).",
+"1 Array or 1 Table: The diagonal elements, if no destination is supplied then an Array will be returned.",
+function(A,dest)
+    if dest == nil then
+        dest = A:copy() 
+        if dest:ny() > dest:nx() then
+            dest = dest:matTrans()
+        end
+        dest = dest:slice({{1,1}, {dest:nx(),1}})
+    end
+
+    local Asz = math.min(A:nx(), A:ny())
+    if type(dest) == type({}) then
+        for i=1,Asz do
+            dest[i] = A:get(i,i)
+        end
+        return dest
+    end
+
+    if type(dest) == type(A) then -- hope it's an array
+        local dx, dy = dest:nx(), dest:ny()
+        if math.max(dx,dy) < Asz then
+            error("Destination size mismatch")
+        end
+
+        if dx > dy then
+            for i=1,Asz do
+                dest:set(i,1, A:get(i,i))
+            end
+        else
+            for i=1,Asz do
+                dest:set(1,i, A:get(i,i))
+            end
+        end
+        return dest
+    end
+
+    error("Unknown destination type")
+end
+}
+
+methods["matRank"] =
+{
+"Determine the rak of a matrix",
+"1 Array: Matrix to compute rank",
+"1 Integer: Rank of matrix",
+function(A)
+    local U,S,VT = A:matSVD()
+
+    local dS = S:matDiagonal()
+
+    dS = dS:absoluted(ds)
+
+    local order = dS:get(1,1)
+
+    local zero, finite = dS:tally(order * 1e-20)
+
+    return finite
+end
+}
 
 methods["matPrint"] =
 {
 "Print an array as if were a matrix.",
-"1 Optional String: If a string is provided, it will be printed to the left of the matrix with matrix dimensions either under the label or to the right of the label if the matrix only has a single row.",
+"1 Optional String, 1 Optional Table: If a string is provided, it will be printed to the left of the matrix with matrix dimensions either under the label or to the right of the label if the matrix only has a single row. If a table is provided it will be interpreted as a JSON style options list with keys print (default print), format (default \"% 06.6e\"), delimit (default \"\\t\"), post (default nil) and mathematica (default false).",
 "Terminal output: Matrix form",
 function(M, name, json)
+    if type(name) == type({}) then
+        json = name
+    end
     json = json or {}
     local format = json.format or "% 06.6e"
-    local delim = json.delim or "\t"
+    local delim = json.delimit or "\t"
     local p = json.print or print
+    local row_labels = json.rowLabels
+
+    local max_row_label_len = 0
+    local row_label_fmt = ""
+    if row_labels then
+        for k,v in pairs(row_labels) do
+            local l = string.len(tostring(v))
+            if l > max_row_label_len then
+                max_row_label_len = l
+            end
+        end
+        row_label_fmt = "%" .. max_row_label_len .. "s"
+    end
+
+    local function rl(i, delim) -- row_label
+        delim = delim or ""
+        if max_row_label_len > 0 then
+            return string.format(row_label_fmt, tostring(row_labels[i])) .. delim
+        end
+    end
 
     if json.mathematica then
         if name then
@@ -327,7 +413,7 @@ function(M, name, json)
 	    for c=1,M:nx() do
 		table.insert(t, string.format(format, M:get(c,1)))
 	    end
-	    p( name .. "(" .. dims_txt .. ")" .. delim .. table.concat(t, delim))
+	    p( name .. "(" .. dims_txt .. ")" .. delim .. (rl(1, delim) or "") .. table.concat(t, delim))
 	else
             local l1 = name
             local l2 = "(" .. dims_txt .. ")"
@@ -348,6 +434,10 @@ function(M, name, json)
 	    local default = {l1, l2, l3}
 	    for r=1,M:ny() do
 		local t = {default[r] or default[3]}
+                local rr = rl(r)
+                if rr then
+                    table.insert(t, rr)
+                end
 		for c=1,M:nx() do
 		    table.insert(t, string.format(format, M:get(c,r)))
 		end
@@ -357,6 +447,10 @@ function(M, name, json)
     else
 	for r=1,M:ny() do
 	    local t = {}
+            local rr = rl(r)
+            if rr then
+                table.insert(t, rr)
+            end
 	    for c=1,M:nx() do
 		table.insert(t, string.format(format, M:get(c,r)))
 	    end

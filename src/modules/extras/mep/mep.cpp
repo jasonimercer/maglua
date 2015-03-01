@@ -155,8 +155,9 @@ int MEP::lua_setEnergyFunction(lua_State* L)
 {
     if(ref_energy_function != LUA_REFNIL)
         luaL_unref(L, LUA_REGISTRYINDEX, ref_energy_function);
-
     ref_energy_function = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    energy_ok = false;
     return 0;
 }
 
@@ -1702,6 +1703,31 @@ int MEP::calculateEnergies(lua_State* L)
     return 0;
 }
 
+int MEP::calculateSingleEnergy(lua_State* L)
+{
+    const int ns = numberOfSites();
+    const int np = numberOfImages();
+
+    int p = lua_tonumber(L, 2) - 1;
+
+    if(p<0 || p>=np)
+        return luaL_error(L, "invalid point");
+
+    // back up old sites so we can restore after
+    vector<double> cfg;
+    saveConfiguration(cfg);
+
+    for(int s=0; s<ns; s++)
+    {
+        setSiteSpin(&sites[s*3], state_path[p * ns + s]);
+    }
+
+    lua_pushnumber(L, getEnergy(L));
+    loadConfiguration(cfg);
+	
+    return 1;
+}
+
 double MEP::rightDeriv(vector<double>& src, int i)
 {
     double h = 0;
@@ -2194,6 +2220,279 @@ double MEP::computePointFirstDerivativeC(lua_State* L, int p, const double p_ene
 
 
 
+#include "mep_spheres.h"
+
+// used to replace arbitrarily nested for loops
+static bool v_inc(vector<int>& state, vector<int>& max, int pos=0)
+{
+    if(pos >= state.size())
+        return false;
+    state[pos]++;
+    if(state[pos] == max[pos])
+    {
+        state[pos] = 0;
+        return v_inc(state, max, pos+1);
+    }
+    return true;
+}
+
+typedef struct NSpherePoint
+{
+    vector<int> idx;
+    vector<VectorCS> vvec;
+    vector<NSpherePoint*> neighbours;
+    double grad;
+    double en;
+} NSpherePoint;
+
+static void build_veccs(const sphere* Sphere, vector<int>& idx, vector<double>& mag, vector<VectorCS>& vv)
+{
+    vv.clear();
+    for(int i=0; i<mag.size(); i++)
+    {
+        const sphere& s = Sphere[ idx[i] ];
+        VectorCS v( s.vertex, Cartesian);
+        v.convertToCoordinateSystem(Spherical);
+        v.setMagnitude( mag[i] );
+        vv.push_back(v);
+    }
+}
+
+static bool same_vint(vector<int>& a, vector<int>& b)
+{
+    if(a.size() != b.size())
+        return false;
+
+    for(int i=0; i<a.size(); i++)
+        if(a[i] != b[i])
+            return false;
+
+    return true;
+}
+
+static int num_neighbours(const int* neighbours)
+{
+    int n = 0;
+    for(;neighbours[n] >= 0; n++);
+    return n;
+}
+
+int MEP::findCriticalIslands(lua_State* L)
+{
+    int n = lua_tointeger(L, 2); // 1 is mep
+
+    const int ns = numberOfSites();
+    const sphere* Sphere = get_sphere(n);
+    if(Sphere == 0)
+        return luaL_error(L, "Bad subdivision number");
+
+    vector<VectorCS> vec;
+    vector<VectorCS> grad;
+
+    getPoint(1, vec); // any point, just looking for magnitudes
+    vector<double> mags;
+    for(int i=0; i<ns; i++)
+    {
+	mags.push_back( vec[i].magnitude() );
+    }
+
+    // determine the number of verts on the sphere
+    int num_verts = 0;
+    for(;Sphere[num_verts].neighbours; num_verts++);
+
+
+    vector<NSpherePoint*> points; //hyper-points 
+
+    
+    vector<int> state;
+    vector<int> vmax;
+
+    for(int j=0; j<ns; j++)
+    {
+        state.push_back(0);
+        vmax.push_back(num_verts);
+    }
+
+    do
+    {
+        NSpherePoint* p = new NSpherePoint;
+        for(int j=0; j<ns; j++)
+            p->idx.push_back(state[j]);
+
+        build_veccs(Sphere, p->idx, mags, p->vvec);
+        points.push_back(p);
+    }while(v_inc(state, vmax));
+
+
+    // now have a flat list of all hyper points
+    // time to calculate some values
+    for(int i=0; i<points.size(); i++)
+    {
+        NSpherePoint* p = points[i];
+
+        double vec_energy = vecEnergy(L, p->vvec);
+
+        computeVecFirstDerivative(L, p->vvec, vec_energy, grad);
+        for(int j=0; j<ns; j++)
+            grad[j].zeroRadialComponent();
+
+        double current_grad = sqrt(cart_norm2(grad));
+        p->grad = current_grad;
+        p->en = vec_energy;
+        //print_vecv(vec);
+        //printf("%6d %6d %e\n", i, points.size(), current_grad);
+    }
+
+    // ok, now we want to build a more convenient neighbour list
+    // to reduce overall neighbour searches
+    for(int i=0; i<points.size(); i++)
+    {
+        state.clear();
+        vmax.clear();
+
+        // idx are the indices into the Spheres
+        vector<int>& idx = points[i]->idx;;
+        vector<const int*> neighbour_lists;
+
+        for(int j=0; j<ns; j++)
+        {
+            int p = idx[j];
+            state.push_back(0);
+            neighbour_lists.push_back( Sphere[p].neighbours );
+            vmax.push_back(num_neighbours(neighbour_lists[j]));
+        }
+
+        do
+        {
+            vector<int> nn; //decode state to neighbour
+            for(int j=0; j<state.size(); j++)
+            {
+                nn.push_back( neighbour_lists[j][state[j]] );
+            }
+
+            // nn now holds the indices of one of the neighbours of this hyperpoint
+            // we will look through all the points to turn this into a pointer
+            for(int k=0; k<points.size(); k++)
+            {
+                if(same_vint(nn, points[k]->idx))
+                {
+                    points[i]->neighbours.push_back( points[k] );
+                }
+            }
+        }while(v_inc(state, vmax));
+    }
+
+
+    lua_newtable(L);
+    int min_tab = lua_gettop(L);
+
+    lua_newtable(L);
+    int max_tab = lua_gettop(L);
+
+    lua_newtable(L);
+    int flat_tab = lua_gettop(L);
+
+    lua_newtable(L);
+    int all_tab = lua_gettop(L);
+
+    int t_min_idx = 1;
+    int t_max_idx = 1;
+    int t_flat_idx = 1;
+    int t_all_idx = 1;
+    // at this point we should have a list of NSpherePoints with populated grad and neighbours
+    // time to look for points with grads lower than all neighbours
+    for(int i=0; i<points.size(); i++)
+    {
+        bool ok = true;
+        double en_here = points[i]->en;
+
+        bool is_min = true;
+        bool is_max = true;
+        bool is_sad = true;
+
+        for(int j=0; j<points[i]->neighbours.size(); j++)
+        {
+            if(points[i]->neighbours[j]->en < en_here)
+                is_min = false;
+        }
+
+        for(int j=0; j<points[i]->neighbours.size(); j++)
+        {
+            if(points[i]->neighbours[j]->en > en_here)
+                is_max = false;
+        }
+
+
+        if(ok)
+        {
+            vector<VectorCS>& vec = points[i]->vvec;
+
+            lua_pushinteger(L, t_min_idx); t_min_idx++;
+            lua_pushVVectorCS(L, vec);
+            lua_settable(L, min_tab);
+
+            lua_pushinteger(L, t_all_idx); t_all_idx++;
+            lua_pushVVectorCS(L, vec);
+            lua_settable(L, all_tab);
+        }
+
+
+
+        // checking for high energy island
+        ok = true;
+        for(int j=0; j<points[i]->neighbours.size(); j++)
+        {
+            if(points[i]->neighbours[j]->en > en_here)
+                ok = false;
+        }
+        if(ok)
+        {
+            vector<VectorCS>& vec = points[i]->vvec;
+
+            lua_pushinteger(L, t_max_idx); t_max_idx++;
+            lua_pushVVectorCS(L, vec);
+            lua_settable(L, max_tab);
+
+            lua_pushinteger(L, t_all_idx); t_all_idx++;
+            lua_pushVVectorCS(L, vec);
+            lua_settable(L, all_tab);
+        }
+
+
+
+
+        // checking for low grad island
+        ok = true;
+        double g = points[i]->grad;
+
+        
+        for(int j=0; j<points[i]->neighbours.size(); j++)
+        {
+            if(points[i]->neighbours[j]->grad < g)
+                ok = false;
+        }
+
+        if(ok)
+        {
+            vector<VectorCS>& vec = points[i]->vvec;
+
+            lua_pushinteger(L, t_flat_idx); t_flat_idx++;
+            lua_pushVVectorCS(L, vec);
+            lua_settable(L, flat_tab);
+
+            lua_pushinteger(L, t_all_idx); t_all_idx++;
+            lua_pushVVectorCS(L, vec);
+            lua_settable(L, all_tab);
+        }
+    }
+
+    for(int i=0; i<points.size(); i++)
+    {
+        delete points[i];
+    }
+    return 4;
+}
+
 int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int point, double h, int steps)
 {
     // back up old sites so we can restore after
@@ -2201,7 +2500,10 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int point, double h, int
     saveConfiguration(cfg);
 
     int good_steps = 0;
+    int fail_steps = 0;
+    
     const int num_sites = numberOfSites();
+    const int ns3 = num_sites * 3;
 
     vector<VectorCS> vec;
     vector<VectorCS> vec2;
@@ -2218,22 +2520,70 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int point, double h, int
     double vec_energy = vecEnergy(L, vec);
 
     computeVecFirstDerivative(L, vec, vec_energy, grad);
+    for(int i=0; i<num_sites; i++)
+	grad[i].zeroRadialComponent();
+
     double current_grad = sqrt(cart_norm2(grad));
 
-    // printf("Start grad: %20e\n", current_grad);
+    double* hh = new double[ns3];
+    for(int i=0; i<ns3; i++)
+        hh[i] = h;
 
+#if 0
+    for(int i=0; i<steps; i++)
+    {
+        copyVectorTo(vec, vec2);
+	for(int qq=0; qq<ns3; qq++)
+            vectorElementChange(vec2, qq, hh[qq], fixedRadius);
+
+        rescale_vectors(vec2, mags);
+        
+        double vec2_energy = vecEnergy(L, vec2);
+        
+        computeVecFirstDerivative(L, vec2, vec2_energy, grad);
+        for(int i=0; i<num_sites; i++)
+            grad[i].zeroRadialComponent();
+        const double new_grad = sqrt(cart_norm2(grad));
+        
+        if(new_grad <= current_grad)
+        {
+            copyVectorTo(vec2, vec);
+            current_grad = new_grad;
+            good_steps++;
+
+            for(int qq=0; qq<ns3; qq++)
+                hh[qq] *= 1.1;
+        }
+        else
+        {
+            int max_idx = 0;
+            for(int qq=1; qq<ns3; qq++)
+                if(fabs(hh[qq]) > fabs(hh[max_idx]))
+                    max_idx = qq;
+
+            hh[max_idx] *= -0.5;
+        }
+            
+    }
+#endif
+
+
+#if 1
     for(int i=0; i<steps; i++)
     {
 	for(int qq=0; qq<num_sites*3; qq++)
 	{
 	    copyVectorTo(vec, vec2);
-	    if(vectorElementChange(vec2, qq, h, fixedRadius))
+
+	    if(vectorElementChange(vec2, qq, hh[qq], fixedRadius))
             {
                 rescale_vectors(vec2, mags);
 
                 double vec2_energy = vecEnergy(L, vec2);
 
                 computeVecFirstDerivative(L, vec2, vec2_energy, grad);
+                for(int i=0; i<num_sites; i++)
+                    grad[i].zeroRadialComponent();
                 const double new_grad = sqrt(cart_norm2(grad));
 
                 if(new_grad <= current_grad)
@@ -2241,10 +2591,16 @@ int MEP::relaxSinglePoint_expensiveDecent(lua_State* L, int point, double h, int
                     copyVectorTo(vec2, vec);
                     current_grad = new_grad;
                     good_steps++;
+                    hh[qq] *= 1.1;
                 }
+                else
+                    hh[qq] *= -0.2;
             }
         }
     }
+#endif
+
+    delete [] hh;
 
     setPoint(point, vec);
 
@@ -3590,6 +3946,15 @@ static int l_calculateEnergies(lua_State* L)
     return mep->calculateEnergies(L);
 }
 
+static int l_calculateSingleEnergy(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+	
+    return mep->calculateSingleEnergy(L);
+}
+
+
+
 static int l_getpathenergy(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
@@ -3643,6 +4008,25 @@ static int l_relaxSinglePoint_sd_(lua_State* L)
     LUA_PREAMBLE(MEP, mep, 1);
 
     return mep->relaxSinglePoint_SteepestDecent(L);
+}
+
+
+static int l_relaxSinglePoint_ex_(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+
+    int point = lua_tointeger(L, 2) - 1;
+    if(point <0 || point >= mep->numberOfImages())
+        return luaL_error(L, "Invalid point index");
+
+    double h = lua_tonumber(L, 3);
+
+    int steps = lua_tointeger(L, 4);
+
+    int n = mep->relaxSinglePoint_expensiveDecent(L, point, h, steps);
+
+    lua_pushnumber(L, n);
+    return 1;
 }
 
 
@@ -4158,6 +4542,12 @@ static int _l_setEnergyFunction(lua_State* L)
     return mep->lua_setEnergyFunction(L);
 }
 
+static int _l_findlowgradislands(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+    return mep->findCriticalIslands(L);
+}
+
 static int _l_int_cp(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
@@ -4418,6 +4808,7 @@ const luaL_Reg* MEP::luaMethods()
 	    {"resampleStateXYZPath", l_resampleStateXYZPath},
 	    {"getPathEnergy", l_getpathenergy},
 	    {"calculateEnergies", l_calculateEnergies},
+	    {"calculatePointEnergy", l_calculateSingleEnergy},
 	    {"gradient", l_getgradient},
 	    {"spin", l_getsite},
 	    // {"spinInCoordinateSystem", l_getsite},
@@ -4429,6 +4820,7 @@ const luaL_Reg* MEP::luaMethods()
 	    {"_setImageSiteMobility", l_setimagesitemobility},
 	    {"_getImageSiteMobility", l_getimagesitemobility},
 	    {"_relaxSinglePoint_sd", l_relaxSinglePoint_sd_}, //internal method
+	    {"_relaxSinglePoint_ex", l_relaxSinglePoint_ex_},
 	    {"_hessianAtPoint", l_computepoint2deriv},
 	    {"_gradAtPoint", l_computepoint1deriv},
 	    {"_maximalPoints", l_maxpoints},
@@ -4466,6 +4858,7 @@ const luaL_Reg* MEP::luaMethods()
             {"_setSpinSystem", _l_setspinsystem},
             {"_getSpinSystem", _l_getspinsystem},
             {"_setEnergyFunction", _l_setEnergyFunction},
+            {"findCriticalIslands", _l_findlowgradislands},
 	    {NULL, NULL}
 	};
     merge_luaL_Reg(m, _m);

@@ -116,6 +116,10 @@ public:
 	int expensiveEnergyMaximization(lua_State* L, int point, double h, int steps);
 	int expensiveGradientMinimization(lua_State* L, int point, double h, int steps);
 
+        
+        int findCriticalIslands(lua_State* L);
+
+
 //	int relaxSinglePoint(lua_State* L);
 // 	int relaxSaddlePoint(lua_State* L);
 
@@ -128,7 +132,8 @@ public:
 	void randomize(const double magnitude);
 	
 	int calculateEnergies(lua_State* L);
-	
+	int calculateSingleEnergy(lua_State* L);
+
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 	int resampleStatePath(lua_State* L);

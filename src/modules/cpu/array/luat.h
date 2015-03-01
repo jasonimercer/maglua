@@ -1,3 +1,4 @@
+
 #include "luabaseobject.h"
 
 #ifdef WIN32
@@ -40,8 +41,8 @@ public:
 	static	void encode(const T& v, buffer* b){}
 	static	T decode(buffer* b){return 0;}
 	static	T zero() {return 0;}
-	static	T one() {return 1;}
-	static	T neg_one() {return -1;}
+	static	T one(double scale=1) {return scale*1;}
+	static	T neg_one() {one(-1);}
 	static bool lt(const T& a, const T& b) {return false;}
 };
 
@@ -55,8 +56,8 @@ public:
 	static	void encode(const double& v, buffer* b){	encodeDouble(v, b);	}
 	static	double decode(buffer* b){return decodeDouble(b);}
 	static	double zero() {return 0;}
-	static	double one() {return 1;}
-	static	double neg_one() {return -1;}
+	static	double one(double scale=1) {return scale*1;}
+	static	double neg_one() {return one(-1);}
 	static bool lt(const double& a, const double& b) {return a<b;}
 };
 
@@ -70,8 +71,8 @@ public:
 	static	void encode(const float& v, buffer* b){	encodeDouble(v, b);	}
 	static	float decode(buffer* b){return (float)decodeDouble(b);}
 	static	float zero() {return 0;}
-	static	float one() {return 1;}
-	static	float neg_one() {return -1;}
+	static	float one(double scale=1) {return scale*1;}
+	static	float neg_one() {return one(-1);}
 	static bool lt(const float& a, const float& b) {return a<b;}
 };
 
@@ -85,8 +86,8 @@ public:
 	static	void encode(const int& v, buffer* b){	encodeInteger(v, b);	}
 	static	int decode(buffer* b){return decodeInteger(b);}
 	static	int zero() {return 0;}
-	static	int one() {return 1;}
-	static	int neg_one() {return -1;}
+	static	int one(double scale=1) {return 1*scale;}
+	static	int neg_one() {return one(-1);}
 	static bool lt(const int& a, const int& b) {return a<b;}
 };
 
@@ -100,8 +101,8 @@ public:
 	static	void encode(const doubleComplex& v, buffer* b){	encodeDouble(v.real(), b);encodeDouble(v.imag(), b);}
 	static	doubleComplex decode(buffer* b){return doubleComplex(decodeDouble(b), decodeDouble(b));}
 	static	doubleComplex zero() {return doubleComplex(0,0);}
-	static	doubleComplex one() {return doubleComplex(1,0);}
-	static	doubleComplex neg_one() {return doubleComplex(-1,0);}
+	static	doubleComplex one(double scale=1) {return doubleComplex(scale,0);}
+	static	doubleComplex neg_one() {return one(-1);}
 	static bool lt(const doubleComplex& a, const doubleComplex& b) {if(a.real() < b.real()) return true; if(a.real() == b.real() && a.imag() < b.imag()) return true; return false;}
 };
 
@@ -115,8 +116,8 @@ public:
 	static	void encode(const floatComplex& v, buffer* b){	encodeDouble(v.real(), b);encodeDouble(v.imag(), b);}
 	static	floatComplex decode(buffer* b){return floatComplex((float)decodeDouble(b), (float)decodeDouble(b));}
 	static	floatComplex zero() {return floatComplex(0,0);}
-	static	floatComplex one() {return floatComplex(1,0);}
-	static	floatComplex neg_one() {return floatComplex(-1,0);}
+	static	floatComplex one(double scale=1) {return floatComplex(scale,0);}
+	static	floatComplex neg_one() {return one(-1);}
 	static bool lt(const floatComplex& a, const floatComplex& b) {if(a.real() < b.real()) return true; if(a.real() == b.real() && a.imag() < b.imag()) return true; return false;}
 };
 

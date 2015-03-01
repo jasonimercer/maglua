@@ -190,6 +190,10 @@ make_int_ab(zz)
 
 
 
+
+// From here down we're following Donahue's prescription
+// http://math.nist.gov/~MDonahue/talks/hmm2007-MBO-03-accurate_demag.pdf
+
 static double logND(const double num, const double denom)
 {
     if(num == 0 || denom == 0)
@@ -259,6 +263,8 @@ double ms_g(const double X, const double Y, const double Z)
 }
 
 
+
+// Ns is called L in Donahue's talk but L is often the Lua State
 typedef double (*dfddd)(const double, const double, const double);
 template <dfddd s>
 static double Ns(const double X,   const double Y,   const double Z,

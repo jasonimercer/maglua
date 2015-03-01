@@ -1003,6 +1003,18 @@ int lua_pushVectorCS(lua_State* L, const VectorCS& v, const int flags)
     return 3;
 }
 
+int lua_pushVVectorCS(lua_State* L, std::vector<VectorCS>& vv)
+{
+    lua_newtable(L);
+    for(int i=0; i<vv.size(); i++)
+    {
+        lua_pushinteger(L, i+1);
+        lua_pushVectorCS(L, vv[i], VCSF_ASTABLE | VCSF_CSDESC);
+        lua_settable(L, -3);
+    }
+    return 1;
+}
+
 
 using namespace std;
 #include <stdio.h>

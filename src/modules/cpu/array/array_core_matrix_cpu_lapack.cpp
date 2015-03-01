@@ -248,6 +248,7 @@ static int l_matlinear_system_d_LU(lua_State* L)
 {
     LUA_PREAMBLE(Array<double>, A, 1);
     LUA_PREAMBLE(Array<double>, B, 2);
+    const char* method = "LU Decomposition";
 
     if(A->nx != A->ny)
         return luaL_error(L, "Calling matrix must be square");
@@ -255,15 +256,11 @@ static int l_matlinear_system_d_LU(lua_State* L)
     if(B->ny != A->ny)
         return luaL_error(L, "b matrix dimensions mismatch");
 
-    Array<double>* X = 0;
-    if(luaT_is< Array<double> >(L, 3))
-    {
-        X = luaT_to< Array<double> >(L, 3);
-        if(X->nx != B->nx || X->ny != A->ny)
-            return luaL_error(L, "X dimensions mismatch");
-    }
-    else
-        X = new Array<double>(B->nx, A->ny);
+    Array<double>* X = getMatrix<double>(L, 3, B->nx, A->ny, "x");
+
+    Array<double>* _A = A->copy();
+
+    X->copyFrom(B);
 
     int N = A->nx;
     int LDA = N;
@@ -271,20 +268,14 @@ static int l_matlinear_system_d_LU(lua_State* L)
 
     lapack_int* ipiv = new lapack_int[N];
 
-    double* a = A->data();
-    double* b = B->data();
+    double* a = _A->data();
     double* x = X->data();
 
-    memcpy(x, b, sizeof(double) * X->nx * X->ny);
     
-    int szA = sizeof(double) * A->nx * A->ny;
-    double* q = (double*)malloc(szA);
-    memcpy(q, a, szA);
-
-    int info = LAPACKE_dgesv( LAPACK_ROW_MAJOR, N, B->nx, q, LDA, ipiv,  x, LDB );
+    int info = LAPACKE_dgesv( LAPACK_ROW_MAJOR, N, B->nx, a, LDA, ipiv,  x, LDB );
 
     delete [] ipiv;
-    free(q);
+    delete _A;
 
     if( info > 0 ) 
     {
@@ -297,18 +288,22 @@ static int l_matlinear_system_d_LU(lua_State* L)
         // delete if needed
         luaT_inc< Array<double> >(X);
         luaT_dec< Array<double> >(X);
-        return 2;
+        lua_pushstring(L, method);
+        return 3;
     }
 
     luaT_push< Array<double> >(L, X);
+    lua_pushnil(L);
+    lua_pushstring(L, method);
 
-    return 1;
+    return 3;
 }
 
 static int l_matlinear_system_d_QR(lua_State* L)
 {
     LUA_PREAMBLE(Array<double>, A, 1);
     LUA_PREAMBLE(Array<double>, B, 2);
+    const char* method = "QR Decomposition";
 
     if(B->ny != A->ny)
         return luaL_error(L, "b matrix dimensions mismatch");
@@ -360,19 +355,83 @@ static int l_matlinear_system_d_QR(lua_State* L)
         // delete if needed
         luaT_inc< Array<double> >(X);
         luaT_dec< Array<double> >(X);
-        return 2;
+        lua_pushstring(L, method);
+        return 3;
     }
 
     luaT_push< Array<double> >(L, X);
-
-    return 1;
+    lua_pushnil(L);
 }
 
+
+// least squares solver for overdetermined systems
+static int l_matlinear_system_d_LS(lua_State* L)
+{
+    LUA_PREAMBLE(Array<double>, A, 1);
+    LUA_PREAMBLE(Array<double>, B, 2);
+    const char* method = "Least Squares";
+
+    Array<double>* X   = getMatrix<double>(L, 3, B->nx, A->nx, "x");
+
+    //Array<double>* res = getMatrix<double>(L, 4, B->nx, A->ny - A->nx, "residual");
+
+    int M = A->ny;
+    int N = A->nx;
+    int NRHS = B->nx;
+    int LDA = N;
+    int LDB = NRHS;
+
+    Array<double>* _A = A->copy();
+    Array<double>* _B = B->copy();
+
+    int info = LAPACKE_dgels( LAPACK_ROW_MAJOR, 'N', M, N, NRHS, _A->data(),LDA, _B->data(), LDB);
+
+    memcpy(X->data(), _B->data(), sizeof(double) * N * NRHS);
+
+    // memcpy(res->data(), &(_B->data()[N * LDB]), sizeof(double) * 
+
+    delete _A;
+    delete _B;
+
+    if( info > 0 ) 
+    {
+        lua_pushnil(L);
+        lua_pushfstring(L, 
+            "The diagonal element %d of the triangular factor "
+            "of A is zero, so that A does not have full rank; "
+            "the least squares solution could not be computed.", info);
+        lua_pushstring(L, method);
+        return 3;
+    }
+
+    luaT_push< Array<double> >(L, X);
+    //luaT_push< Array<double> >(L, res);
+
+    lua_pushnil(L);
+    lua_pushstring(L, method);
+    return 3;
+}
+
+static int l_matlinear_system_d(lua_State* L)
+{
+    LUA_PREAMBLE(Array<double>, A, 1);
+    LUA_PREAMBLE(Array<double>, B, 2);
+
+    if(A->nx == A->ny)
+        return l_matlinear_system_d_LU(L);
+
+    if(A->nx < A->ny)
+        return l_matlinear_system_d_LS(L);
+
+
+
+    return luaL_error(L, "Unimplemented");
+}
 
 
 int l_matlinearsystem(lua_State* L)
 {
-    if(luaT_is<dArray>(L, 1)) return l_matlinear_system_d_LU(L);
+    if(luaT_is<dArray>(L, 1)) return l_matlinear_system_d(L);
     return luaL_error(L, "Unimplemented data type for :matLinearSystem");
 }
 
@@ -434,9 +493,10 @@ static int l_matsvd_f(lua_State* L)
 
     const int M = A->ny;
     const int N = A->nx;
+
 	
     Array<float>* a[3] = {0,0,0};
-
+    
     int dims[3][2];// = {{M,M}, {M,N}, {N,N}}
     dims[0][0] = M; dims[0][1] = M;
     dims[1][0] = M; dims[1][1] = N;
@@ -493,30 +553,15 @@ static int l_matsvd_d(lua_State* L)
     const int M = A->ny;
     const int N = A->nx;
 	
-    Array<double>* a[3] = {0,0,0};
-
-    int dims[3][2];// = {{M,M}, {M,N}, {N,N}}
-    dims[0][0] = M; dims[0][1] = M;
-    dims[1][0] = M; dims[1][1] = N;
-    dims[2][0] = N; dims[2][1] = N;
-
-    for(int i=0; i<3; i++)
-    {
-	if(luaT_is<Array<double> >(L, 2+i))
-	    a[i] = luaT_to< Array<double> >(L, 2+i);
-	else
-	    a[i] = new Array<double>(dims[i][1], dims[i][0]);
-	
-	if(a[i]->nx != dims[i][1] || a[i]->ny != dims[i][0])
-	    return luaL_error(L, "Size mismatch for destination matrix");	
-    }
-
-    Array<double>* U = a[0];
-    Array<double>* SIGMA = a[1];
-    Array<double>* VT = a[2];
+    Array<double>* U     = getMatrix<double>(L, 2, M, M, "U");
+    Array<double>* SIGMA = getMatrix<double>(L, 2, N, M, "SIGMA");
+    Array<double>* VT    = getMatrix<double>(L, 2, N, N, "VT");
+    
+    // copying A so it doesn't get corrupted
+    Array<double>* B = A->copy();
 
     int info;
-    info = LAPACKE_dgesdd(LAPACK_ROW_MAJOR, 'A', M, N, A->data(), N, SIGMA->data(), U->data(), M, VT->data(), N);
+    info = LAPACKE_dgesdd(LAPACK_ROW_MAJOR, 'A', M, N, B->data(), N, SIGMA->data(), U->data(), M, VT->data(), N);
     if (info) // handle error conditions here
     {
 	//return luaL_error(L, "The algorithm computing SVD failed to converge.");	
@@ -524,6 +569,8 @@ static int l_matsvd_d(lua_State* L)
 	lua_pushstring(L, "The algorithm computing SVD failed to converge.");
 	return 2;
     }
+
+    delete B;
 
     // SIGMA is a row of data, need to make it a diagonal matrix
     const int SX = SIGMA->nx;
@@ -533,9 +580,9 @@ static int l_matsvd_d(lua_State* L)
 	SIGMA->data()[x] = 0;
     }
 
-    luaT_push<dArray>(L, a[0]);
-    luaT_push<dArray>(L, a[1]);
-    luaT_push<dArray>(L, a[2]);
+    luaT_push<dArray>(L, U);
+    luaT_push<dArray>(L, SIGMA);
+    luaT_push<dArray>(L, VT);
 
     return 3;
 }
@@ -573,7 +620,7 @@ int l_mat_lapack_help(lua_State* L)
     {
         lua_pushstring(L, "Compute Eigen Values and Eigen Vectors of a Matrix. LAPACK: dgeev");
         lua_pushstring(L, "4 Optional Arrays: The optional arrays will be the target arrays for values and vectors. If no arrays are given then new arrays will be created. The first is the real part of the eigen values, the second is the NxN array which will contain the eigen vectors and the third is the imaginary part of the values and the forth is the imaginary part of the eigen vectors.");
-        lua_pushstring(L, "4 Arrays: The first is an Nx1 array containing the real values, the second is an NxN array containing vectors. The third contains the imaginary parts of the values and the forth is the imaginary parts of the vectors. Elements of a single vector share y coordinates (rows). The order of the return values are awkward. If something changes in the future the method name will change so errors are not silent.");
+        lua_pushstring(L, "4 Arrays: The first is an Nx1 array containing the real values, the second is an NxN array containing vectors. The third contains the imaginary parts of the values and the forth is the imaginary parts of the vectors. Elements of a single vector share x coordinates (columns). The order of the return values are awkward. If something changes in the future the method name will change so errors are not silent.");
         return 3;
     }
 	

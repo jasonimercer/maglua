@@ -1,3 +1,4 @@
+-- This tested the old elements, there's a scale factor missing below
 --
 -- This script tests tensor elements. As a base we will construct 
 -- larger volumes with groups of same size blocks. Then we will 
@@ -53,12 +54,16 @@ function test(dest_block, source_group, source_single)
 			local r = source_group[i][1]
 			local b = source_group[i][2]
 			group_result[ab] = group_result[ab] 
-				+ func(r[1], r[2], r[3], dest_block, b)
+				+ func(r[1], r[2], r[3], 
+                                         dest_block[1], dest_block[2], dest_block[3], 
+                                         b[1], b[2], b[3])
 		end
 
 		local r = source_single[1]
 		local b = source_single[2]
-		single_result[ab] = func(r[1], r[2], r[3], dest_block, b)
+		single_result[ab] = func(r[1], r[2], r[3], 
+                                         dest_block[1], dest_block[2], dest_block[3], 
+                                         b[1], b[2], b[3])
 	end
 	
 	local x = {

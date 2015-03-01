@@ -128,17 +128,6 @@ methods["setTolerance"] =
     end
 }
 
-methods["energyFunction"] =
-    {
-    "Get the function used to determine system energy for the calculation.",
-    "",
-    "1 Function: energy calculation function, expected to be passed a *SpinSystem*.",
-    function(mep)
-	local d = get_mep_data(mep)
-	return (d.energy_function or function() return 0 end)
-    end
-}
-
 
 
 -- write a state to a spinsystem
@@ -1131,6 +1120,18 @@ methods["setEnergyFunction"] =
     end
 }
 
+methods["energyFunction"] =
+    {
+    "Get the function used to determine system energy for the calculation.",
+    "",
+    "1 Function: energy calculation function, expected to be passed a *SpinSystem*.",
+    function(mep)
+	local d = get_mep_data(mep)
+	return (d.energy_function or function() error("Function not set") end)
+    end
+}
+
+
 
 methods["setSites"] = 
     {
@@ -1315,6 +1316,7 @@ methods["relaxSinglePoint"] =
     end
 }
 
+
 methods["energyMinimizationAtPoint"] = 
     {
     "Attempt to minimize energy at a point.",
@@ -1377,7 +1379,6 @@ methods["energyOfCustomConfiguration"] =
 	return mep:energyAtPoint(1)
     end
 }
-
 
 methods["interpolateBetweenCustomPoints"] =
     {
@@ -2802,42 +2803,434 @@ methods["setSpinInCoordinateSystem"] =
     "Set site as current coordinate system or given coordinate system",
     "2 Integers, 3 Numbers, 1 Optional String: 1st integer is path index, 2nd integer is site index, 3 numbers represent the new vector in the current coordinate system. If a string is given then the input is assumed to be in that coordinate system, otherwise the current coordinate system is used.",
     "",
-    function(mep, ...)
-	local cs = mep:coordinateSystem()
-	local nums = {}
-	local txts = {}
-	local tabs = {}
+    function(mep, p,s,x,y,z,cs)
+        if type(x) == type({}) then
+            return mep:setSpinInCoordinateSystem(p,s,x[1],x[2],x[3],x[4])
+        end
 
-	for i=1,table.maxn(arg) do
-            local type_argi = type(arg[i])
-	    if type_argi == type_table then
-		error("setSpinInCoordinateSystem no longer accepts tables")
-	    end
-	    if type_argi == type_number then
-		table.insert(nums, arg[i])
-	    end
-	    if type_argi == type_text then
-		table.insert(txts, arg[i])
-	    end
-	end
+        if cs == nil then
+            local _,_,_,_cs = mep:spinInCoordinateSystem(p,s)
+            cs = _cs
+        end
 
-	local p, s = nums[1] or 0, nums[2] or 0 -- idx
-	
-	table.remove(nums, 1)
-	table.remove(nums, 1)
+        -- fixing range of coordinates by going through Cartesian
+        local a,b,c,d = mep:convertCoordinateSystem(x,y,z,cs,"Cartesian")
+        x,y,z,cs = mep:convertCoordinateSystem(a,b,c,d,cs)
 
-	if txts[1] == nil then
-	    txts[1] = mep:coordinateSystem(p,s)
-	end
-
-	local x,y,z,c = nums[1], nums[2], nums[3], txts[1]
-
-	-- print("SCS", x,y,z,c)
-	x,y,z,c = mep:convertCoordinateSystem(x,y,z,c,"Cartesian")
-
-	mep:setSpin(p,s, x,y,z,c)
+	mep:setSpin(p,s,x,y,z,cs)
     end
 }
+
+
+-- This script generalizes quadrics to arbitrary dimensions.
+-- The goal is to fit data to them to find critical points
+
+-- let's write some lower dimension functions to get the feel for them
+-- 1D
+-- value = a x^2 + b x + c
+--
+-- 2D
+-- value = a x^2 + b y^2 + c x y + d x + e y + g
+--
+-- 3D
+-- value = a x^2 + b y^2 + c z^2 + d x y + e x z + f y z + g x + h y + i z + j
+
+-- now let's generate these via code
+local function makeEquation(dims)
+    -- we will store each variable by an integer
+    -- zero will denote the constant term 1
+    local eqn = {}
+
+    for i=1,dims do
+        table.insert(eqn, {i,i}) -- terms like a x^2
+    end
+
+    for i=1,dims-1 do
+        for j=i+1,dims do
+            table.insert(eqn, {i,j}) -- terms like b x y
+        end
+    end
+
+    for i=1,dims do
+        table.insert(eqn, {i, 0}) -- terms like c x
+    end
+
+    table.insert(eqn, {0, 0}) -- final constant term
+    return eqn
+end
+
+local function Deqn(eqn, var)
+    -- Deqn will do this:
+    -- input:  Deqn({{1,1}, {1,2}, {2,2}, {1, 0}}, 1)
+    -- output:      {{2, {1}}, {1, {2}}, {0, {2,2}}, {1, {0}} }
+
+    -- count & remove 1 in table
+    -- this is used to differentiate {1,1} (x^2)  to {2, {1}} (2 x)
+    local function cr(t,x)
+        local c = 0
+        local r = {}
+        for k,v in pairs(t) do
+            if v == x then
+                c = c + 1
+                if c ~= 1 then
+                    table.insert(r, v)
+                end
+            else
+                table.insert(r, v)
+            end
+        end
+        return {c, r}
+    end
+
+    local deqn = {}
+    for i=1,table.maxn(eqn) do
+        deqn[i] = cr(eqn[i], var)
+    end
+    return deqn
+end
+
+local function add_coef_to_deqn(x, deqn)
+    for i=1,table.maxn(deqn) do
+        deqn[i][1] = deqn[i][1] * x:get(1,i)
+    end
+    return deqn
+end
+
+-- combine terms, order based on variable number
+local function simplify_deqn(deqn, dims)
+    local simp = {}
+    for d=0,dims do
+        simp[d] = 0
+        for i=1,table.maxn(deqn) do
+            if deqn[i][2][1] == d then
+                simp[d] = simp[d] + deqn[i][1]
+            end
+        end
+    end
+    return simp
+end
+
+
+local function hq_build_M_matrix(data)
+    local dims = table.maxn(data[1]) - 1
+    local eqn = makeEquation(dims)
+
+    local n = table.maxn(eqn)
+    if table.maxn(data) < n then
+        return nil, "Need more data"
+    end
+
+    local M = Array.Double.new(n,n)
+    local b = Array.Double.new(1,n)
+
+    for x=1,n do
+        for y=1,n do
+            local v = 1
+            for k=1,table.maxn(eqn[x]) do
+                local var = eqn[x][k]
+                v = v * (data[y][var] or 1)
+            end
+            M:set(x,y,1, v)
+        end
+    end
+
+    return M
+end
+
+local function hq_build_b_vector(data)
+    local dims = table.maxn(data[1]) - 1
+    local eqn = makeEquation(dims)
+
+    local n = table.maxn(eqn)
+    if table.maxn(data) < n then
+        return nil, "Need more data"
+    end
+
+    local b = Array.Double.new(1,n)
+
+    for y=1,n do
+        b:set(1,y,1, data[y][dims+1])
+    end
+
+    return b
+end
+
+-- now we will solve for the coefficients given data
+-- and then solve for the critical points using those
+-- coefficients and the derivatives of the equation
+local function hq_solve_critical(data, M, b)
+    if data == nil or data[1] == nil then
+        return nil, "Need more data"
+    end
+
+    local dims = table.maxn(data[1]) - 1
+    local eqn = makeEquation(dims)
+
+    local n = table.maxn(eqn)
+    if table.maxn(data) < n then
+        return nil, "Need more data"
+    end
+
+    local x, msg = M:matLinearSystem(b)
+    if x == nil then
+        return x, msg
+    end
+    --[[
+    M:matPrint("M1", {mathematica=true})
+    local x = M:matInv():matMul(b)
+    M:matPrint("M2", {mathematica=true})
+    b:matPrint("b", {mathematica=true})
+    x:matPrint("x", {mathematica=true})
+
+    print("mat cond", M:matCond())
+    --]]
+
+    -- now we have the coeficients of the equation
+    -- we can solve for the derivatives = 0
+
+    local function print_eqn(e)
+        local t = {}
+        for k,v in pairs(e) do
+            table.insert(t, "("..table.concat(v, " ") .. ")")
+        end
+        print(table.concat(t, " + "))
+        print()
+    end
+
+    local function print_deqn(e,c)
+        local t = {}
+        for k,v in pairs(e) do
+            table.insert(t, string.format("(%g (%s))", v[1], table.concat(v[2], " ")))
+        end
+        print("d/d(" .. c .. "):",table.concat(t, " + "))
+        print()
+    end
+
+    local B = Array.Double.new(dims, dims)
+    local c = Array.Double.new(   1, dims)
+    for d=1,dims do
+        -- print_eqn(eqn)
+
+        -- differentiate wrt the dimension
+        deqn_d = Deqn(eqn, d)
+        -- print_deqn(deqn_d, d)
+
+        -- multiply in the coefficients
+        deqn_d = add_coef_to_deqn(x, deqn_d)
+        -- print_deqn(deqn_d, d)
+
+        -- combine like terms
+        deqn_d = simplify_deqn(deqn_d, dims)
+        -- print(table.concat(deqn_d, ", "))
+
+        --interactive()
+        -- build the matrix
+        for i=1,dims do
+            B:set(i,d,1,  deqn_d[i])
+        end
+
+        -- build the vector
+        -- the deqn_d[0] is the constant term, we negate it since it's
+        -- moving to the other side of the equals sign
+        c:set(1,d,1, -deqn_d[0])
+    end
+
+    --local opts = {post="", format="% 4.3f", delim="  "}
+    --B:matPrint("B", opts)
+    --c:matTrans():matPrint("c^T", opts)
+
+    local z = B:matLinearSystem(c)
+    -- local z = B:matInv():matMul(c)
+
+    -- z:matTrans():matPrint("z^T", opts)
+    -- interactive()
+
+    return z:matTrans():toTable(1)
+end
+
+local function sampleAbout(base, coords, amount)
+    local function g() return 2 * (math.random() - 1) end
+    local function r(x) return x*g() end
+
+    local p = {}
+    for k,v in pairs(base) do
+        p[k] = v
+    end
+
+    local dp = {}
+    for k,c in pairs(coords) do
+        table.insert(dp, r(amount[k]))
+    end
+
+    -- dp = math.scaledVector(dp, amount[1]/math.norm(dp)) 
+
+    for k,c in pairs(coords) do
+        p[c] = p[c] + dp[k]
+    end
+
+    return p
+end
+
+local function hq_builddata(guess, terms, amount, n, value_func)
+    -- create data around guess:
+    local data = {}
+    for i=1,n do
+        local s = sampleAbout(guess, terms, amount)
+        data[i] = {}
+        for j=1,table.maxn(terms) do
+            table.insert(data[i], s[terms[j]])
+        end
+        table.insert(data[i], value_func(s))
+    end
+    return data
+end
+
+local function hq_refine(guess, terms, amount, value_func)
+    local dims = table.maxn(terms)
+    local n = table.maxn(makeEquation(dims))
+
+    -- make a copy of the guess
+    -- this will get updated with refined
+    -- terms at the end
+    local g2 = {}
+    for k,v in pairs(guess) do
+        g2[k] = v
+    end
+
+
+    local data = hq_builddata(guess, terms, amount, n, value_func)
+    local M = hq_build_M_matrix(data)
+    local b = hq_build_b_vector(data)
+
+    --[[
+    M:matPrint("M", {mathematica=true})
+    b:matPrint("b", {mathematica=true})
+    local x = M:matLinearSystem(b)
+    x:matPrint("x", {mathematica=true})
+    --]]
+
+    local s, msg = hq_solve_critical(data, M, b)
+
+    if s == nil then
+        -- probably an ill-conditioned matrix so give the guess back
+        -- repeated calls to this will get a good refinement
+        -- never encountered an ill-conditioned matrix for reasonable
+        -- deltas but I want this to be robust
+        return guess, false, msg
+    end
+    -- insert updated terms back into guess and return
+    for i=1,table.maxn(terms) do
+        g2[terms[i]] = s[i]
+    end
+    return g2, true
+end
+
+
+methods["quadricRefineCustomConfiguration"] =
+    {
+    "Use the hyperquadric refinement method to refine a custom configuration toward a critical point.",
+    "1 Table of Sites, 1 Number: Each Site is a table of 3 numbers and 1 optional string describing coordinate system (default Cartesian). The number represents magnitudes of random offsets used to sample around the initial point",
+    "1 Table of Sites, 1 Boolean, 1 Number: Refined location, if refinement was successful (rare cases will generate an ill-conditioned matrix) and distance in radians between initial and final configurations.",
+    function(mep, guess, delta)
+        local ef = mep:energyFunction()
+        local vec = {}
+        local ref = {}
+        local del = {}
+        local sites = mep:sites()
+        local ss = mep:spinSystem()
+
+        delta = delta or 0.001
+
+        local n = table.maxn(guess) 
+
+        for i=1,n do
+            local g = guess[i]
+            local a,b,c,d = mep:convertCoordinateSystem(g[1], g[2], g[3], g[4] or "Cartesian", "Spherical")
+            
+            table.insert(vec, a)
+            table.insert(vec, b)
+            table.insert(vec, c)
+
+            table.insert(ref, (i-1)*3+2)
+            table.insert(ref, (i-1)*3+3)
+            
+            table.insert(del, delta)
+            table.insert(del, delta)
+        end
+
+        -- the hyperquadric code wants a function that is passed
+        -- a single table represeting site oritenations and returns
+        -- the resulting energy. we need to covnert the cfg into
+        -- SpinSystem writes and pass the SpinSystem to the MEP
+        -- energy function
+
+        local function hq_energy(cfg)
+            local orig = {}
+            for i=1,ns do
+                local a,b,c = ss:spin(sites[i])
+                orig[i] = {a,b,c}
+                a,b,c = cfg[(i-1)*3+1], cfg[(i-1)*3+2], cfg[(i-1)*3+3]
+                a,b,c = mep:convertCoordinateSystem(a,b,c,"Spherical","Cartesian")
+                ss:setSpin(sites[i], {a,b,c}, math.norm({a,b,c}))
+            end
+            local e = ef(ss)
+            -- and restore old configuration
+            for i=1,ns do
+                ss:setSpin(sites[i], orig[i], math.norm(orig))
+            end
+            return e
+        end
+        
+        local ok = true
+        local msg = ""
+        vec, ok, msg = hq_refine(vec, ref, del, hq_energy)
+
+        if ok == false then
+            return guess, false, math.pi * n
+        end
+
+        local res = {}
+        local diff = 0
+        for i=1,n do
+            local j = (i-1)*3
+
+            local g = guess[i]
+
+            local a,b,c,d = mep:convertCoordinateSystem(vec[j+1], vec[j+2], vec[j+3], "Spherical",  "Cartesian")
+            a,b,c,d = mep:convertCoordinateSystem(a,b,c,d,g[4] or "Cartesian")
+
+
+            res[i] = {a,b,c,d}
+
+            local x1,y1,z1 =  mep:convertCoordinateSystem(a,b,c,d,"Cartesian")
+            local x2,y2,z2 =  mep:convertCoordinateSystem(g[1],g[2],g[3],g[4] or "Cartesian","Cartesian")
+
+            diff = diff + math.angleBetween({x1,y1,z1}, {x2,y2,z2})
+        end
+
+        return res, true, diff
+        
+    end
+}
+
+
+methods["quadricRefinePoint"] =
+{
+"Use the hyperquadric refinement method to refine a path point toward a critical point.",
+"1 Integer, 1 Number: The integer is a point number. The number represents magnitudes of random offsets used to sample around the initial point",
+"1 Boolean, 1 Number: Refined location, if refinement was successful (rare cases will generate an ill-conditioned matrix) and distance in radians between initial and final configurations.",
+function(mep, pidx, delta)
+    local pt = mep:point(pidx)
+    --print("pre point: ", table.concat(pt[1], ", "), table.concat(pt[2], ", "))
+    local p2, ok, diff = mep:quadricRefineCustomConfiguration(pt, delta)
+    if ok then
+        mep:setPoint(pidx, p2)
+        --print("post point: ", table.concat(p2[1], ", "), table.concat(p2[2], ", "))
+    end
+    return ok, diff
+end
+}
+
 
 
 local tcopy = nil

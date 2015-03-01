@@ -523,6 +523,13 @@ public:
 		return v;
 	}
 	
+        Array<T>* copy()
+        {
+            Array<T>* c = new Array<T>(nx, ny, nz);
+            c->copyFrom(this);
+            return c;
+        }
+
 	void copyFrom(Array<T>* other)
 	{
 		if(other != this)

@@ -555,6 +555,17 @@ int luaT_tostring(lua_State* L)
 	return 1;
 }
 
+// method to get a pointer as a string
+template<class T>
+int luaT_stringpointer(lua_State* L)
+{
+	T* t = luaT_to<T>(L, 1);
+	if(!t) return 0;
+
+	lua_pushfstring(L, "0x%p", t);
+	return 1;
+}
+
 template<class T>
 int luaT_setname(lua_State* L)
 {
@@ -645,6 +656,9 @@ inline void luaT_register(lua_State* L)
 	lua_settable(L, -3);
 	lua_pushstring(L, "__tostring");
 	lua_pushcfunction(L, luaT_tostring<T>);
+	lua_settable(L, -3);
+        lua_pushstring(L, "topointer");
+        lua_pushcfunction(L, luaT_stringpointer<T>);
 	lua_settable(L, -3);
 
 
