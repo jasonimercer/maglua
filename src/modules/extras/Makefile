@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-DIRS=math_vectors sqlite3 os_extensions mep kmc curl interactive fingerprint profile pathfinder
+DIRS=math_vectors sqlite3 os_extensions mep kmc curl interactive fingerprint profile pathfinder fitenergy
 
 all:
 	@for d in $(DIRS); do (make -C $$d); done
