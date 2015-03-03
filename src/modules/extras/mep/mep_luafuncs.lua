@@ -1112,10 +1112,11 @@ methods["setEnergyFunction"] =
     "",
     function(mep, func)
 	local d = get_mep_data(mep)
-	if type(func) ~= type_function then
-	    error("setEnergyFunction requires a function", 2)
-	end
-	d.energy_function = func
+
+        -- error("setEnergyFunction requires a function", 2)
+	if type(func) == type_function then
+            d.energy_function = func
+        end
         mep:_setEnergyFunction(func)
     end
 }
@@ -3165,20 +3166,11 @@ methods["quadricRefineCustomConfiguration"] =
         -- energy function
 
         local function hq_energy(cfg)
-            local orig = {}
+            local spins = {}
             for i=1,ns do
-                local a,b,c = ss:spin(sites[i])
-                orig[i] = {a,b,c}
-                a,b,c = cfg[(i-1)*3+1], cfg[(i-1)*3+2], cfg[(i-1)*3+3]
-                a,b,c = mep:convertCoordinateSystem(a,b,c,"Spherical","Cartesian")
-                ss:setSpin(sites[i], {a,b,c}, math.norm({a,b,c}))
+                spins[i] = {a,b,c,"Spherical"}
             end
-            local e = ef(ss)
-            -- and restore old configuration
-            for i=1,ns do
-                ss:setSpin(sites[i], orig[i], math.norm(orig))
-            end
-            return e
+            return mep:energyOfCustomConfiguration(spins)
         end
         
         local ok = true

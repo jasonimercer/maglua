@@ -906,59 +906,58 @@ VectorCS lua_toVectorCS(lua_State* L, int _base, int& consume)
     int j = 0;
     consume = 0;
 
-	if(lua_istable(L, base))
-	{
-		for(int i=0; i<4 && j<3; i++)
-		{
-			lua_pushinteger(L, i+1);
-			lua_gettable(L, base);
-			if(lua_isnumber(L, -1))
-			{
-				x[j] = lua_tonumber(L, -1);
-				j++;
-			}
-			lua_pop(L, 1);
-		}
-
-		for(int i=0; i<4; i++)
-		{
-			lua_pushinteger(L, i+1);
-			lua_gettable(L, base);
-			if(_cs == Undefined && lua_isstring(L, -1))
-			{
-				const char* csn = lua_tostring(L, -1);
-				_cs = coordinateSystemByName(csn);
-			}
-			lua_pop(L, 1);
-		}
-		if(_cs != Undefined)
-			cs = _cs;
-		consume = 1;
-		return VectorCS(x, cs);
-	}
-
-	for(int i=0; i<4; i++)
-	{
-		if(lua_isnumber(L, base+i) && (j < 3))
-		{
-			x[j] = lua_tonumber(L, base+i);
-			j++;
-			consume++;
-		}
-		if((_cs == Undefined) && (lua_isstring(L, base+i)))
-		{
-			const char* csn = lua_tostring(L, base+i);
-			_cs = coordinateSystemByName(csn);
-			if(_cs != Undefined)
-				consume++;
-		}
-	}
-
-	if(_cs != Undefined)
-		cs = _cs;
-	
-	return VectorCS(x, cs);
-
+    if(lua_istable(L, base))
+    {
+        for(int i=0; i<4 && j<3; i++)
+        {
+            lua_pushinteger(L, i+1);
+            lua_gettable(L, base);
+            if(lua_isnumber(L, -1))
+            {
+                x[j] = lua_tonumber(L, -1);
+                j++;
+            }
+            lua_pop(L, 1);
+        }
+        
+        for(int i=0; i<4; i++)
+        {
+            lua_pushinteger(L, i+1);
+            lua_gettable(L, base);
+            if(_cs == Undefined && lua_isstring(L, -1))
+            {
+                const char* csn = lua_tostring(L, -1);
+                _cs = coordinateSystemByName(csn);
+            }
+            lua_pop(L, 1);
+        }
+        if(_cs != Undefined)
+            cs = _cs;
+        consume = 1;
+        return VectorCS(x, cs);
+    }
+    
+    for(int i=0; i<4; i++)
+    {
+        if(lua_isnumber(L, base+i) && (j < 3))
+        {
+            x[j] = lua_tonumber(L, base+i);
+            j++;
+            consume++;
+        }
+        if((_cs == Undefined) && (lua_isstring(L, base+i)))
+        {
+            const char* csn = lua_tostring(L, base+i);
+            _cs = coordinateSystemByName(csn);
+            if(_cs != Undefined)
+                consume++;
+        }
+    }
+        
+    if(_cs != Undefined)
+        cs = _cs;
+    
+    return VectorCS(x, cs);
 }
 
 

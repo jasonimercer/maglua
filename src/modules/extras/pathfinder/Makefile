@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=pf_bestpath.o pf_luafuncs.lo vec_cs.o pf.o pf_spheres.o
+OBJECTS=pf_bestpath.o pf_luafuncs.lo  pf.o pf_spheres.o
 LIBNAME=PathFinder
 CATEGORY=extra
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2011 Jason Mercer.  All rights reserved.
+# Copyright (C) 2015 Jason Mercer.  All rights reserved.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -9,22 +9,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-DIRS=checkpoint luabaseobject interpolate mpi random timer scripts vectorcs
+OBJECTS=vec_cs_luafuncs.lo vec_cs_luacpp.o vec_cs.o
+LIBNAME=VectorCS
+CATEGORY=common
 
-all:
-	@for d in $(DIRS); do (make -C $$d); done
+DEPEND=luabaseobject
+BASEDIR=../../..
+include $(BASEDIR)/makefile.common.cpu
 
-install:
-	@for d in $(DIRS); do (make -C $$d install); done
-
-uninstall:
-	@for d in $(DIRS); do (make -C $$d uninstall); done
-
-clean:
-	@for d in $(DIRS); do (make -C $$d clean); done
-	rm -f *~
-
-distclean:
-	@for d in $(DIRS); do (make -C $$d distclean); done
-	rm -f *~
-
+EXTRA_CLEAN=vec_cs_luafuncs.cpp vec_cs_luafuncs.h

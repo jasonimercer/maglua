@@ -45,6 +45,7 @@ cp -r modules/common/mpi               $version/modules/common
 cp -r modules/common/random            $version/modules/common
 cp -r modules/common/timer             $version/modules/common
 cp -r modules/common/scripts           $version/modules/common
+cp -r modules/common/vectorcs          $version/modules/common
 
 cp    modules/cpu/Makefile             $version/modules/cpu
 cp -r modules/cpu/array                $version/modules/cpu
@@ -79,6 +80,7 @@ cp -r modules/extras/interactive       $version/modules/extras
 cp -r modules/extras/fingerprint       $version/modules/extras
 cp -r modules/extras/profile           $version/modules/extras
 cp -r modules/extras/pathfinder        $version/modules/extras
+cp -r modules/extras/fitenergy         $version/modules/extras
 
 rm -rf `du -a $version | cut -f 2 | grep '\.svn'`
 

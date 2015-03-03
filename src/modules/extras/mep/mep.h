@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "../../cpu/core/spinsystem.h"
+#include "../../extras/fitenergy/fitenergy.h"
 #include "array.h"
 
 
@@ -56,6 +57,8 @@ public:
 	void deinit();
 
 	int ref_data;
+
+        FitEnergy* fitEnergy;
         int ref_energy_function;
 
         SpinSystem* ss;
@@ -151,6 +154,7 @@ public:
 	void getAllSpins(vector<VectorCS>& m);
 
 	double problemScale();
+	double getEnergy(lua_State* L, const vector<VectorCS>& v);
 	double getEnergy(lua_State* L);
 	double vecEnergy(lua_State* L, vector<VectorCS>& vec);
 

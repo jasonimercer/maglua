@@ -9,7 +9,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-OBJECTS=mep_bestpath.o mep_luafuncs.lo vec_cs.o mep.o mep_spheres.o
+OBJECTS=mep_bestpath.o mep_luafuncs.lo mep.o mep_spheres.o
 LIBNAME=MEP
 CATEGORY=extra
 
