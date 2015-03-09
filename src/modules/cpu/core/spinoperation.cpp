@@ -291,6 +291,7 @@ bool SpinOperation::apply(SpinSystem** sss, int n)
 	{
 		apply(sss[i]);
 	}
+        return 0;
 }
 
 bool SpinOperation::apply(SpinSystem* ss)

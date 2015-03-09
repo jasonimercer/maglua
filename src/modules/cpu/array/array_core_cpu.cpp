@@ -576,6 +576,7 @@ static int sort_region(int* r6)
 			r6[i+3] = t;
 		}
 	}
+        return 0;
 }
 
 static void get_region(lua_State* L, int idx, int* r6)

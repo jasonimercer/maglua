@@ -528,6 +528,8 @@ SHORTRANGE_API int lib_register(lua_State* L)
 
     lua_pushnil(L);
     lua_setglobal(L, "maglua_getmetatable");
+
+    return 0;
 }
 
 SHORTRANGE_API int lib_version(lua_State* L)

@@ -932,6 +932,8 @@ int  checkpointer_register(lua_State* L)
 
 	lua_pushnil(L);
 	lua_setglobal(L, "maglua_getmetatable");
+
+        return 0;
 }
 
 

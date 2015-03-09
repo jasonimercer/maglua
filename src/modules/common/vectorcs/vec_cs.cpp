@@ -541,6 +541,7 @@ VectorCS VectorCS::randomizedDirection(double m) const
 	a.v[2] += (myrandf() * m);
 
 	a.setMagnitude(m1);
+        return a;
 }
 
 static void _scale(double* dest, const double* src, double s, CoordinateSystem cs, int n=3)

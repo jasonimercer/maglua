@@ -202,6 +202,7 @@ static int swap_components(int* src, int c1, int c2, int* dest)
 	memcpy(dest, src, sizeof(int)*3);
 	dest[c1] = src[c2];
 	dest[c2] = src[c1];
+        return 0;
 }
 
 template <typename T>

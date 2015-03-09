@@ -319,6 +319,8 @@ double MEP::get_energy_ss(lua_State* L)
     lua_call(L, 1, 1);
     double e = lua_tonumber(L, -1);
     lua_pop(L, 1);
+
+    return e;
 }
 
 
@@ -3855,6 +3857,7 @@ static int l_addsite(lua_State* L)
     }
 	
     mep->addSite(site[0], site[1], site[2]);
+    return 0;
 }
 
 static int l_clearsites(lua_State* L)

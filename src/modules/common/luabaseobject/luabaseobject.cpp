@@ -250,6 +250,8 @@ static int check_type(const char* t, buffer* b)
 		int* q = (int*)5;
 		*q = 5;
 	}
+
+        return 0;
 }
 
 int decodeInteger(buffer* b)

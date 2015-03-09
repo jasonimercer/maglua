@@ -94,6 +94,7 @@ bool LLG::apply(SpinSystem** spinfrom, double scaledmdt, SpinSystem** dmdt, Spin
 	{
 		apply(spinfrom[i], scaledmdt, dmdt[i], spinto[i], advancetime);
 	}
+        return 0;
 }
 
 // 

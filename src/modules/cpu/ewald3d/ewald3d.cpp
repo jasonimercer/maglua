@@ -598,6 +598,7 @@ int  DipoleEwald3D::decode(buffer* b)
 	{
 		fprintf(stderr, "(%s:%i) %s::decode, unknown version:%i\n", __FILE__, __LINE__, lineage(0), (int)version);
 	}
+        return 0;
 }
 
 
