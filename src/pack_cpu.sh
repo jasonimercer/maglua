@@ -81,6 +81,7 @@ cp -r modules/extras/fingerprint       $version/modules/extras
 cp -r modules/extras/profile           $version/modules/extras
 cp -r modules/extras/pathfinder        $version/modules/extras
 cp -r modules/extras/fitenergy         $version/modules/extras
+cp -r modules/extras/webserver         $version/modules/extras
 
 rm -rf `du -a $version | cut -f 2 | grep '\.svn'`
 
