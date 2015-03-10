@@ -8,9 +8,19 @@ local function getMatrix(lr2d, dest, src, x, y, ab)
 	return q:get(x,y)
 end
 
+local function setStrength()
+    error("setStrength is depreciated. Please use setSourceMomentScale and setDestinationFieldScale.")
+end
+
+local function strength()
+    error("strength is depreciated. Please use sourceMomentScale and sestinationFieldScale.")
+end
+
 
 
 t.getMatrix = getMatrix
+t.setStrength = setStrength
+t.strength = strength
 
 local help = MODTAB.help
 

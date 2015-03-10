@@ -721,6 +721,8 @@ local function makeData(mag)
                                 local vZZ = Magnetostatics2D.NZZ(rx,ry,rz, gx1,gy1,gz1, gx2,gy2,gz2)
                                 
                                 -- adding one to indices here because the c++ code decrements them
+                                -- the negative numbers are real. The user is responsible for
+                                -- and 1/V scaling on the source spins or 4pi on the dest fields
                                 NXX[z1][z2]:addAt(x+1, y+1, -vXX)
                                 NXY[z1][z2]:addAt(x+1, y+1, -vXY)
                                 NXZ[z1][z2]:addAt(x+1, y+1, -vXZ)

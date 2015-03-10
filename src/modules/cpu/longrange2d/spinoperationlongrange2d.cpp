@@ -32,7 +32,9 @@ LongRange2D::LongRange2D(int nx, int ny, int nz, const int encode_tag)
     qXX = 0;
     XX = 0;
     ws1 = 0;
-    g = 0;
+    
+    srcMScale = 0;
+    dstHScale = 0;
     
     longrange_ref = LUA_REFNIL;
     function_ref = LUA_REFNIL;
@@ -57,10 +59,11 @@ void LongRange2D::encode(buffer* b)
     SpinOperation::encode(b);
     char version = 0;
     encodeChar(version, b);
-		
+
     for(int i=0; i<nz; i++)
     {
-	encodeDouble(g[i], b);
+	encodeDouble(srcMScale[i], b);
+	encodeDouble(dstHScale[i], b);
     }
 
     for(int z1=0; z1<nz; z1++)
@@ -103,13 +106,19 @@ int  LongRange2D::decode(buffer* b)
     char version = decodeChar(b);
     if(version == 0)
     {
-	if(g)
-	    delete [] g;
-	g = new double[nz];
+        if(srcMScale)
+        {
+            delete srcMScale;
+            delete dstHScale;
+        }
+
+        srcMScale = new double[nz];
+        dstHScale = new double[nz];
 		
 	for(int i=0; i<nz; i++)
 	{
-	    g[i] = decodeDouble(b);
+	    srcMScale[i] = decodeDouble(b);
+	    dstHScale[i] = decodeDouble(b);
 	}
 		
 	deinit();
@@ -241,10 +250,12 @@ void LongRange2D::init()
 
 	deinit();
 
-	g = new double[nz];
+	srcMScale = new double[nz];
+	dstHScale = new double[nz];
 	for(int i=0; i<nz; i++)
 	{
-		g[i] = 1;
+            srcMScale[i] = 1;
+            dstHScale[i] = 1;
 	}
 	
 	hqx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
@@ -339,10 +350,12 @@ void LongRange2D::deinit()
 		decAB<dArray>(ZZ, nz);
 	}
 
-	if(g)
+	if(srcMScale)
 	{
-		delete [] g;
-		g = 0;
+		delete [] srcMScale;
+		delete [] dstHScale;
+		srcMScale = 0;
+		dstHScale = 0;
 	}
 }
 
@@ -459,7 +472,7 @@ bool LongRange2D::apply(SpinSystem* ss)
             const int k = d*nxy;
             for(int s=0; s<nz; s++) //src
             {
-                const doubleComplex val = cval(g[s]);
+                const doubleComplex val = cval(srcMScale[s]);
                 const int j = s*nxy;
                 arrayScaleMultAdd_o(ws1->ddata(), k, val, qXX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
                 arrayScaleMultAdd_o(ws1->ddata(), k, val, qXY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
@@ -476,7 +489,7 @@ bool LongRange2D::apply(SpinSystem* ss)
             const int k = d*nxy;
             for(int s=0; s<nz; s++) //src
             {
-                const doubleComplex val = cval(g[s]);
+                const doubleComplex val = cval(srcMScale[s]);
                 const int j = s*nxy;
                 arrayScaleMultAdd_o(ws1->ddata(), k, val, qYX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
                 arrayScaleMultAdd_o(ws1->ddata(), k, val, qYY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
@@ -493,7 +506,7 @@ bool LongRange2D::apply(SpinSystem* ss)
             const int k = d*nxy;
             for(int s=0; s<nz; s++) //src
             {
-                const doubleComplex val = cval(g[s]);
+                const doubleComplex val = cval(srcMScale[s]);
                 const int j = s*nxy;
                 arrayScaleMultAdd_o(ws1->ddata(), k, val, qZX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
                 arrayScaleMultAdd_o(ws1->ddata(), k, val, qZY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
@@ -505,42 +518,65 @@ bool LongRange2D::apply(SpinSystem* ss)
 
 	for(int i=0; i<nz; i++)
 	{
-            hx->scaleAll_o( global_scale, nxy*i, nxy);
-            hy->scaleAll_o( global_scale, nxy*i, nxy);
-            hz->scaleAll_o( global_scale, nxy*i, nxy);
+            hx->scaleAll_o( dstHScale[i] * global_scale, nxy*i, nxy);
+            hy->scaleAll_o( dstHScale[i] * global_scale, nxy*i, nxy);
+            hz->scaleAll_o( dstHScale[i] * global_scale, nxy*i, nxy);
 	}
 
 	return true;
 }
 
 
-
-
-
-static int l_setstrength(lua_State* L)
+static int l_ssms(lua_State* L)
 {
-	LUA_PREAMBLE(LongRange2D, lr, 1);
-	int idx = lua_tonumber(L, 2);
-	if(idx < 1 || idx > lr->nz)
-	{
-		return luaL_error(L, "Invalid Layer");
-	}
-	lr->g[idx-1]= lua_tonumber(L, 3);
-	return 0;
+    LUA_PREAMBLE(LongRange2D, lr, 1);
+    int idx = lua_tonumber(L, 2);
+    if(idx < 1 || idx > lr->nz)
+    {
+        return luaL_error(L, "Invalid Layer");
+    }
+    lr->srcMScale[idx-1]= lua_tonumber(L, 3);
+    return 0;
 }
-static int l_getstrength(lua_State* L)
-{
-	LUA_PREAMBLE(LongRange2D, lr, 1);
-	int idx = lua_tonumber(L, 2);
-	if(idx < 1 || idx > lr->nz)
-	{
-		return luaL_error(L, "Invalid Layer");
-	}
-	
-	lua_pushnumber(L, lr->g[idx-1]);
 
-	return 1;
+static int l_gsms(lua_State* L)
+{
+    LUA_PREAMBLE(LongRange2D, lr, 1);
+    int idx = lua_tonumber(L, 2);
+    if(idx < 1 || idx > lr->nz)
+    {
+        return luaL_error(L, "Invalid Layer");
+    }
+    
+    lua_pushnumber(L, lr->srcMScale[idx-1]);
+    return 1;
 }
+
+static int l_sdfs(lua_State* L)
+{
+    LUA_PREAMBLE(LongRange2D, lr, 1);
+    int idx = lua_tonumber(L, 2);
+    if(idx < 1 || idx > lr->nz)
+    {
+        return luaL_error(L, "Invalid Layer");
+    }
+    lr->dstHScale[idx-1]= lua_tonumber(L, 3);
+    return 0;
+}
+
+static int l_gdfs(lua_State* L)
+{
+    LUA_PREAMBLE(LongRange2D, lr, 1);
+    int idx = lua_tonumber(L, 2);
+    if(idx < 1 || idx > lr->nz)
+    {
+        return luaL_error(L, "Invalid Layer");
+    }
+    
+    lua_pushnumber(L, lr->dstHScale[idx-1]);
+    return 1;
+}
+
 
 
 static int l_getTensorArray(lua_State* L)
@@ -659,20 +695,36 @@ int LongRange2D::help(lua_State* L)
 		return 3;
 	}
 	
-	if(func == l_setstrength)
+
+	if(func == l_ssms)
 	{
-		lua_pushstring(L, "Set the strength of the Long Range Field at a given layer");
-		lua_pushstring(L, "1 Integer, 1 number: strength of the field at layer");
+		lua_pushstring(L, "Set the scaling factor applied to the source moments for a layer.");
+		lua_pushstring(L, "1 Integer, 1 number: Layer index, strength of scaling factor");
 		lua_pushstring(L, "");
 		return 3;
 	}
 	
-	if(func == l_getstrength)
+	if(func == l_gsms)
 	{
-		lua_pushstring(L, "Get the strength of the Long Range Field at a given layer");
-		lua_pushstring(L, "1 Integer: Layer");
-		lua_pushstring(L, "1 Number: strength of the field");
+		lua_pushstring(L, "Get the scaling factor applied to the source moments for a layer.");
+		lua_pushstring(L, "1 Integer: Layer Index");
+		lua_pushstring(L, "1 Number: strength of the scaling factor");
 		return 3;
+	}
+	if(func == l_sdfs)
+        {
+            lua_pushstring(L, "Set the scaling factor applied to the resulting fields at a layer");
+            lua_pushstring(L, "1 Integer, 1 number: strength of scaling factor");
+            lua_pushstring(L, "");
+            return 3;
+	}
+	
+	if(func == l_gdfs)
+	{
+            lua_pushstring(L, "Get the scaling factor applied to the resulting fields at a layer");
+            lua_pushstring(L, "1 Integer: Layer Index");
+            lua_pushstring(L, "1 Number: Strength of scaling factor");
+            return 3;
 	}
 
 	if(func == l_getTensorArray)
@@ -743,8 +795,15 @@ const luaL_Reg* LongRange2D::luaMethods()
 	merge_luaL_Reg(m, SpinOperation::luaMethods());
 	static const luaL_Reg _m[] =
 	{
-		{"setStrength",   l_setstrength},
-		{"strength",      l_getstrength},
+            //{"setStrength",   l_setstrength},
+            //{"strength",      l_getstrength},
+		{"setSourceMomentScale",   l_ssms},
+		{"sourceMomentScale",   l_gsms},
+                {"setDestinationFieldScale", l_sdfs},
+                {"destinationFieldScale", l_gdfs},
+
+		{"tensorArray",   l_getTensorArray},
+		{"tensorArray",   l_getTensorArray},
 		{"tensorArray",   l_getTensorArray},
 		{"setTensorArray",l_setTensorArray},
 		{"setCompileRequired",       l_setcompilereqd},

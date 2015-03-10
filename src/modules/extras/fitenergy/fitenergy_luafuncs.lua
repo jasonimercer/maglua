@@ -175,7 +175,7 @@ function(fe)
         return false, msg
     end
 
-    interactive()
+    --interactive()
 
     data.terms = terms
     data.x = x

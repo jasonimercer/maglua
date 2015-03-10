@@ -37,7 +37,7 @@ public:
 	LongRange2D(int nx=1, int ny=1, int nz=1, const int encode_tag=hash32("LongRange2D"));
 	virtual ~LongRange2D();
 	
-	LINEAGE2("LongRange2D", "SpinOperation")
+	LINEAGE2("LongRange2D", "SpinOperation");
 	static const luaL_Reg* luaMethods();
 	virtual int luaInit(lua_State* L);
 	static int help(lua_State* L);
@@ -47,7 +47,9 @@ public:
 	virtual void encode(buffer* b);
 	virtual int  decode(buffer* b);
 
-	double* g; //scale per layer
+        // pre and post scales per layer
+        double* srcMScale;
+        double* dstHScale;
 
 	virtual void init();
 	virtual void deinit();
