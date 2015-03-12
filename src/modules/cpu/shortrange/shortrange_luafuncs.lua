@@ -177,8 +177,9 @@ sr:addMagnetostatic2D(mag2d, {8,8,2}, {8,8,2}, "Calculate")
 	end
 
 	-- ok! we now have our tensor elements. Time to add the rule to the sr operator
-	local strength = mag:strength(dest[3])
-	sr:add(src, dest, strength, t, 0) -- the zero gets rid of the s dot s term, ie (s.s)^0
+	local a = mag:sourceMomentScale(src[3])
+	local b = mag:destinationFieldScale(dest[3])
+	sr:add(src, dest, a*b, t, 0) -- the zero gets rid of the s dot s term, ie (s.s)^0
 	return values
     end
 }

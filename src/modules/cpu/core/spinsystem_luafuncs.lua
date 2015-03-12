@@ -307,10 +307,16 @@ local function sumFieldsCustom(ss,dest_name, src_names)
     dest_z:zero()
 
     for k,src_name in pairs(src_names) do
+        local factor = 1
+        if type(src_name) == type_table then
+            factor = src_name[1]
+            src_name = src_name[2]
+        end
+
 	if ss:_slotUsed(src_name) then
-	    dest_x:pairwiseScaleAdd(1, ss:_fieldArrayX(src_name), dest_x)
-	    dest_y:pairwiseScaleAdd(1, ss:_fieldArrayY(src_name), dest_y)
-	    dest_z:pairwiseScaleAdd(1, ss:_fieldArrayZ(src_name), dest_z)
+	    dest_x:pairwiseScaleAdd(factor, ss:_fieldArrayX(src_name), dest_x)
+	    dest_y:pairwiseScaleAdd(factor, ss:_fieldArrayY(src_name), dest_y)
+	    dest_z:pairwiseScaleAdd(factor, ss:_fieldArrayZ(src_name), dest_z)
 	end
     end
 
@@ -319,7 +325,7 @@ end
 methods["sumFields"] =
 {
 "Sum all fields or all given fields into a given slot or the `Total' slot",
-"1 or 0 Strings or an object with a slot name, 1 or 0 Tables of Strings or objects with a slot name: Destination slot name for summation (default `Total'), source terms to be included in the summation (default all terms but the `Total' term).",
+"1 or 0 Strings or an object with a slot name, 1 or 0 Tables of Strings or objects with a slot name or pairs of numbers and names or objects: Destination slot name for summation (default `Total'), source terms to be included in the summation (default all terms but the `Total' term). If a table of pairs is provided then the number will scale the field in the sum.",
 "",
 function(ss, a,b)
     if a == nil then
@@ -340,7 +346,11 @@ function(ss, a,b)
         if type(b) == type_table then
             src_names = {}
             for k,v in pairs(b) do
-                src_names[k] = getName(v)
+                if type(v) == type_table then
+                    src_names[k] = {v[1], getName(v[2])}
+                else
+                    src_names[k] = getName(v)
+                end
             end
         else
             src_names = ss:slotsNotTotal()

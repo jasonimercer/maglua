@@ -197,7 +197,7 @@ function(fe)
             fe:addTerm(  -1,   -1,   -1,   -1)
         end
     end
-    
+    --interactive()
     fe:setX( x:matTrans():toTable(1) )
 
     return true
