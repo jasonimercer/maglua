@@ -1127,8 +1127,8 @@ methods["energyFunction"] =
     "",
     "1 Function: energy calculation function, expected to be passed a *SpinSystem*.",
     function(mep)
-	local d = get_mep_data(mep)
-	return (d.energy_function or function() error("Function not set") end)
+        local ef = mep:_getEnergyFunction()
+	return (ef or function() error("Function not set") end)
     end
 }
 
@@ -1375,6 +1375,12 @@ methods["energyOfCustomConfiguration"] =
     "1 Table of Tables: Custom orientations for the sites, each vector is a table of 3 numbers and 1 optional Coordinate System name (Default Cartesian).",
     "1 Number: energy of custom configuration.",
     function(_mep, cfg)
+        local ef = mep:energyFunction();
+
+        if type(ef) ~= type(type) and type(ef) ~= type(nil) then -- an analyticFit object
+            return ef(cfg)
+        end
+
 	local mep = _mep:copy()
 	mep:setInitialPath({cfg,cfg})
 	return mep:energyAtPoint(1)
@@ -3254,7 +3260,6 @@ local function ors_build(base, current, n, pop)
 end
 
 
---methods["dijkstrasPath"] =
 methods["findPath"] =
 {
 "Run a modified Bellman-Ford algorithm over sets of subdivided dodecahedrons to find a coarse minimum energy path between a pair of points.",
@@ -3262,6 +3267,9 @@ methods["findPath"] =
 "1 Table: compatible with :setInitialPath, represents the solved path from the start to the end.",
 function(mep, a,b,n)
     local p = mep:_findBestPath(a,b,n)
+    if p == nil then
+        return
+    end
     table.insert(p, 1, a)
     table.insert(p, b)
     return p

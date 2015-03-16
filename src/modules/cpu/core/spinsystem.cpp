@@ -73,11 +73,28 @@ SpinSystem::~SpinSystem()
 
 SpinSystem* SpinSystem::copy(lua_State* L)
 {
-	SpinSystem* c = new SpinSystem(nx, ny, nz);
-	
-	c->copyFrom(L, this);
-	
-	return c;
+#if 0
+    printf("L = %X\n", L);
+    fflush(stdout);
+
+    lua_pushstring(L, "SS copy from:");
+    int i = lua_gettop(L);
+
+    printf("%s\n", lua_tostring(L, -1));
+    fflush(stdout);
+
+    lua_getglobal(L, "debug");
+    lua_getfield(L, -1, "traceback");
+    lua_pushvalue(L, i);
+    lua_pushinteger(L, 1);  /* skip this function and traceback */
+    lua_call(L, 2, 1);  /* call debug.traceback */
+
+    printf("%s\n", lua_tostring(L, -1));
+    lua_pop(L, 1);
+#endif
+    SpinSystem* c = new SpinSystem(nx, ny, nz);
+    c->copyFrom(L, this);
+    return c;
 }
 
 bool SpinSystem::sameSize(const SpinSystem* other) const
@@ -468,9 +485,10 @@ void SpinSystem::deinit()
 		free(registered_slot_names);
 		registered_slot_names = 0;
 		
-		ws = 0;
-		wsReal = 0;
-		
+
+		luaT_dec<dcArray>(ws);
+		luaT_dec<dArray>(wsReal);
+
 		luaT_dec<dcArray>(qx);
 		luaT_dec<dcArray>(qy);
 		luaT_dec<dcArray>(qz);
@@ -529,8 +547,8 @@ void SpinSystem::init()
 	
 // 	ws = luaT_inc<dcArray>(new dcArray(nx,ny,nz));
 
-	ws     = getWSdcArray(nx,ny,nz,hash32("SpinSystem_FFT_Help"));
-	wsReal = getWSdArray(nx,ny,nz,hash32("SpinSystem_Real_WS"));
+	ws     = luaT_inc<dcArray>(getWSdcArray(nx,ny,nz,hash32("SpinSystem_FFT_Help")));
+	wsReal = luaT_inc< dArray>(getWSdArray(nx,ny,nz,hash32("SpinSystem_Real_WS")));
 
 	
 	qx = luaT_inc<dcArray>(new dcArray(nx,ny,nz));

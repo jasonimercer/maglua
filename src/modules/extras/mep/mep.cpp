@@ -180,6 +180,21 @@ int MEP::lua_setEnergyFunction(lua_State* L)
     return 0;
 }
 
+
+int MEP::lua_getEnergyFunction(lua_State* L)
+{
+    if(fitEnergy)
+    {
+        luaT_push<FitEnergy>(L, fitEnergy);
+        return 1;
+    }
+
+    lua_rawgeti(L, LUA_REGISTRYINDEX, ref_energy_function);
+    return 1;
+}
+
+
+
 int MEP::luaInit(lua_State* L, int base)
 {
     state_path.clear();
@@ -4569,6 +4584,12 @@ static int _l_setEnergyFunction(lua_State* L)
     return mep->lua_setEnergyFunction(L);
 }
 
+static int _l_getEnergyFunction(lua_State* L)
+{
+    LUA_PREAMBLE(MEP, mep, 1);
+    return mep->lua_getEnergyFunction(L);
+}
+
 static int _l_findlowgradislands(lua_State* L)
 {
     LUA_PREAMBLE(MEP, mep, 1);
@@ -4617,14 +4638,11 @@ static int _l_int_cp(lua_State* L)
 }
 
 
+
 #include "mep_bestpath.h"
 static int _l_bestpath(lua_State* L)
 {
     return l_bestpath(L);
-}
-static int _l_bestpath2(lua_State* L)
-{
-    return l_bestpath2(L);
 }
 
 
@@ -4879,12 +4897,12 @@ const luaL_Reg* MEP::luaMethods()
 	    {"_expensiveGradientMinimization", _l_expensivegradientminimization},
 	    {"_classifyPoint", _l_classifypoint},
 	    {"_findBestPath", _l_bestpath},
-	    {"_findBestPath2", _l_bestpath2},
 	    {"_interpolateBetweenCustomPoints", _l_int_cp},
             {"_rotatePathAboutBy", _l_rpab},
             {"_setSpinSystem", _l_setspinsystem},
             {"_getSpinSystem", _l_getspinsystem},
             {"_setEnergyFunction", _l_setEnergyFunction},
+            {"_getEnergyFunction", _l_getEnergyFunction},
             {"findCriticalIslands", _l_findlowgradislands},
 	    {NULL, NULL}
 	};

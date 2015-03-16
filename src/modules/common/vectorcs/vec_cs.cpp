@@ -375,6 +375,12 @@ static void _convertCoordinateSystem(
 	}
 }
 
+void convertCoordinateSystem(CoordinateSystem src_cs, CoordinateSystem dest_cs, const double* src, double* dest)
+{
+    _convertCoordinateSystem(src_cs, dest_cs, src, dest);
+}
+
+
 void VectorCS::convertToCoordinateSystem(CoordinateSystem new_cs)
 {
 	double dest[3];
@@ -898,6 +904,12 @@ VectorCS lua_toVectorCS(lua_State* L, int _base, int& consume)
 {
     int base = _base;
 
+    if(luaT_is<VectorCS>(L, base))
+    {
+        consume = 1;
+        return luaT_to<VectorCS>(L, base)->copy();
+    }
+
     if(_base < 0)
 	base = lua_gettop(L) + _base + 1;
 
@@ -1014,6 +1026,34 @@ int lua_pushVVectorCS(lua_State* L, std::vector<VectorCS>& vv)
     }
     return 1;
 }
+
+
+int _lua_toVVectorCS(lua_State* L, int base, vector<VectorCS>& vv)
+{
+    if(lua_istable(L, base))
+    {
+        int consume = 1;
+        for(int i=1; consume; i++)
+        {
+            lua_pushinteger(L, i);
+            lua_gettable(L, base);
+            
+            VectorCS v = lua_toVectorCS(L, -1, consume);
+            if(consume)
+                vv.push_back(v);
+
+            lua_pop(L, 1);
+        }
+    }
+    return 0;
+}
+
+int lua_toVVectorCS(lua_State* L, int base, vector<VectorCS>& vv)
+{
+    vv.clear();
+    return _lua_toVVectorCS(L, base, vv);
+}
+
 
 
 using namespace std;

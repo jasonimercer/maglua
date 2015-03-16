@@ -87,6 +87,8 @@ public:
 	
 	void setSize(int x, int y, int z, T* use_this_memory=0)
 	{
+            int want_empty = (x==0) && (x==0) && (z==0);
+
 		if(x <= 0) x = 1;
 		if(y <= 0) y = 1;
 		if(z <= 0) z = 1;
@@ -113,7 +115,7 @@ public:
 			
 			nx = x; ny = y; nz = z;
 			nxyz = nx*ny*nz;
-			if(nxyz)
+			if(nxyz && !want_empty)
 			{
 				if(!_data)
 					_data = (T*)fftw_malloc(sizeof(T) * nxyz);

@@ -60,6 +60,25 @@ public:
         v[0] = p.v[0]; v[1] = p.v[1]; v[2] = p.v[2]; cs = p.cs;
         return *this;
     }
+    VectorCS& operator+=(const VectorCS& other)
+    {
+        if(other.cs != cs)
+        {
+            return (*this) += other.convertedToCoordinateSystem(cs);
+        }
+
+        v[0] += other.v[0];
+        v[1] += other.v[1];
+        v[2] += other.v[2];
+        return (*this);
+    }
+
+    VectorCS& operator+(const VectorCS& other)
+    {
+        VectorCS v(*this);
+        return (v += other);
+    }
+
     VectorCS copy() const
     {
         return VectorCS(v,cs);
@@ -130,6 +149,12 @@ CoordinateSystem baseType(CoordinateSystem cs);
 
 VectorCS lua_toVectorCS(lua_State* L, int base);
 VectorCS lua_toVectorCS(lua_State* L, int base, int& consume);
+int lua_toVectorCS(lua_State* L, int base, vector<VectorCS>& vv);
+
+int lua_toVVectorCS(lua_State* L, int base, vector<VectorCS>& vv);
+
+
+void convertCoordinateSystem(CoordinateSystem src_cs, CoordinateSystem dest_cs, const double* src, double* dest);
 
 // VectorCS flags
 #define VCSF_ASTABLE 0x1 /* use a lua table */

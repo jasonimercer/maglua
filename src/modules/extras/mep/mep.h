@@ -52,6 +52,7 @@ public:
         int lua_getspinsystem(lua_State*);
         int lua_setspinsystem(lua_State*);
         int lua_setEnergyFunction(lua_State* L);
+        int lua_getEnergyFunction(lua_State* L);
 
 	void init();
 	void deinit();

@@ -292,8 +292,8 @@ void LongRange2D::init()
 	
 	// these tags are the same as lr3d but we're assuming that we can't
 	// apply 2 operators simultaneously (this is a safe assumption)
-	ws1 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_1"));
-	ws2 = getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_2"));
+	ws1 = luaT_inc<dcArray>(getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_1")));
+	ws2 = luaT_inc<dcArray>(getWSdcArray(nx,ny,nz, hash32("SpinOperation::apply_2")));
 }
 
 template <typename T>
@@ -334,6 +334,9 @@ void LongRange2D::deinit()
 		luaT_dec<dcArray>(hrx);
 		luaT_dec<dcArray>(hry);
 		luaT_dec<dcArray>(hrz);
+
+		luaT_dec<dcArray>(ws1);
+		luaT_dec<dcArray>(ws2);
 	}
 	if(XX)
 	{

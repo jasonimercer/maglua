@@ -11,11 +11,11 @@ using namespace std;
 class FactoryItem
 {
 public:
-	FactoryItem(int ID, newFactoryFunction Func, pushFunction Push, string Name);
+	FactoryItem(int ID, newFactoryFunction Func, pushFunction Push, const char* Name);
 	int id;
 	newFactoryFunction func;
 	pushFunction push;
-	string name;
+	char* name;
 };
 
 class Factory
@@ -26,7 +26,7 @@ public:
 	LuaBaseObject* newItem(int id);
 	const char* getName(int id);
 	void lua_pushItem(lua_State* L, LuaBaseObject* item, int id);
-	int registerItem(int id, newFactoryFunction func, pushFunction Push, string name);
+	int registerItem(int id, newFactoryFunction func, pushFunction Push, const char* name);
 	void cleanup();
 private:
 	void init();
@@ -35,12 +35,15 @@ private:
 
 static Factory theFactory;
 
-FactoryItem::FactoryItem(int ID, newFactoryFunction Func, pushFunction Push, string Name)
+FactoryItem::FactoryItem(int ID, newFactoryFunction Func, pushFunction Push, const char* Name)
 {
 	id = ID;
 	func = Func;
-	name = Name;
 	push = Push;
+
+        const int n = strlen(Name) + 1;
+        name = new char[n];
+        memcpy(name, Name, n);
 }
 
 void Factory::init()
@@ -50,7 +53,7 @@ void Factory::init()
 }
 
 
-int Factory::registerItem(int id, newFactoryFunction func, pushFunction push, string name)
+int Factory::registerItem(int id, newFactoryFunction func, pushFunction push, const char* name)
 {
 	init();
 	
@@ -93,7 +96,7 @@ const char* Factory::getName(int id)
 	{
 		if(items->at(i)->id == id)
 		{
-		    return items->at(i)->name.c_str();
+		    return items->at(i)->name;
 		}
 	}
 	return "Unknown";
