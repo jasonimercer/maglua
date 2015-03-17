@@ -1375,7 +1375,7 @@ methods["energyOfCustomConfiguration"] =
     "1 Table of Tables: Custom orientations for the sites, each vector is a table of 3 numbers and 1 optional Coordinate System name (Default Cartesian).",
     "1 Number: energy of custom configuration.",
     function(_mep, cfg)
-        local ef = mep:energyFunction();
+        local ef = _mep:energyFunction();
 
         if type(ef) ~= type(type) and type(ef) ~= type(nil) then -- an analyticFit object
             return ef(cfg)
