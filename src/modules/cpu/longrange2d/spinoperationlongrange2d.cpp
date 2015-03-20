@@ -477,9 +477,9 @@ bool LongRange2D::apply(SpinSystem* ss)
             {
                 const doubleComplex val = cval(srcMScale[s]);
                 const int j = s*nxy;
-                arrayScaleMultAdd_o(ws1->ddata(), k, val, qXX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, val, qXY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, val, qXZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qXX[s][d]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qXY[s][d]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qXZ[s][d]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
             }
 	}
 	ws1->ifft2DTo(ws2);
@@ -494,9 +494,9 @@ bool LongRange2D::apply(SpinSystem* ss)
             {
                 const doubleComplex val = cval(srcMScale[s]);
                 const int j = s*nxy;
-                arrayScaleMultAdd_o(ws1->ddata(), k, val, qYX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, val, qYY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, val, qYZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qYX[s][d]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qYY[s][d]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qYZ[s][d]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
             }
 	}
 	ws1->ifft2DTo(ws2);
@@ -511,9 +511,9 @@ bool LongRange2D::apply(SpinSystem* ss)
             {
                 const doubleComplex val = cval(srcMScale[s]);
                 const int j = s*nxy;
-                arrayScaleMultAdd_o(ws1->ddata(), k, val, qZX[d][s]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, val, qZY[d][s]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
-                arrayScaleMultAdd_o(ws1->ddata(), k, val, qZZ[d][s]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qZX[s][d]->ddata(), 0, sqx->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qZY[s][d]->ddata(), 0, sqy->ddata(), j, ws1->ddata(), k, nxy); 
+                arrayScaleMultAdd_o(ws1->ddata(), k, val, qZZ[s][d]->ddata(), 0, sqz->ddata(), j, ws1->ddata(), k, nxy); 
             }
 	}
 	ws1->ifft2DTo(ws2);
