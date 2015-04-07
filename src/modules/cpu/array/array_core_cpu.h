@@ -616,4 +616,7 @@ ARRAY_API dArray* getWSdArray(int nx, int ny, int nz, long level);
 ARRAY_API fArray* getWSfArray(int nx, int ny, int nz, long level);
 ARRAY_API iArray* getWSiArray(int nx, int ny, int nz, long level);
 
+bool array_matlinearsystem(dArray* A, dArray* x, dArray* b, std::string& err_msg);
+
+
 #endif

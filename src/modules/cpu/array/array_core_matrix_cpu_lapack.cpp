@@ -243,20 +243,19 @@ int l_matcond(lua_State* L)
     return luaL_error(L, "Unimplemented data type for :matCond");
 }
 
-
-static int l_matlinear_system_d_LU(lua_State* L)
+static bool array_matlinear_system_d_LU(dArray* A, dArray* X, dArray* B, string& err_msg)
 {
-    LUA_PREAMBLE(Array<double>, A, 1);
-    LUA_PREAMBLE(Array<double>, B, 2);
-    const char* method = "LU Decomposition";
-
     if(A->nx != A->ny)
-        return luaL_error(L, "Calling matrix must be square");
+    {
+        err_msg = "Calling matrix must be square";
+        return false;
+    }
 
     if(B->ny != A->ny)
-        return luaL_error(L, "b matrix dimensions mismatch");
-
-    Array<double>* X = getMatrix<double>(L, 3, B->nx, A->ny, "x");
+    {
+        err_msg = "b matrix dimensions mismatch";
+        return false;
+    }
 
     Array<double>* _A = A->copy();
 
@@ -279,15 +278,34 @@ static int l_matlinear_system_d_LU(lua_State* L)
 
     if( info > 0 ) 
     {
-        lua_pushnil(L);
-        lua_pushfstring(L, 
+        char m[256];
+        snprintf(m, 256,
                         "The diagonal element of the triangular factor of A, " 
                         "U(%d,%d) is zero, so that A is singular; "
                         "the solution could not be computed.", info, info);
+        err_msg = m;
+        return false;
+    }
+    return true;
+}
 
-        // delete if needed
-        luaT_inc< Array<double> >(X);
-        luaT_dec< Array<double> >(X);
+static int l_matlinear_system_d_LU(lua_State* L)
+{
+    LUA_PREAMBLE(Array<double>, A, 1);
+    LUA_PREAMBLE(Array<double>, B, 2);
+    const char* method = "LU Decomposition";
+    string err_msg;
+
+    Array<double>* X = getMatrix<double>(L, 3, B->nx, A->nx, "x");
+
+    if(!array_matlinear_system_d_LU(A, X, B, err_msg))
+    {
+        // delete X if needed
+        luaT_inc<dArray>(X);
+        luaT_dec<dArray>(X);
+
+        lua_pushnil(L);
+        lua_pushstring(L, err_msg.c_str());
         lua_pushstring(L, method);
         return 3;
     }
@@ -295,7 +313,6 @@ static int l_matlinear_system_d_LU(lua_State* L)
     luaT_push< Array<double> >(L, X);
     lua_pushnil(L);
     lua_pushstring(L, method);
-
     return 3;
 }
 
@@ -364,17 +381,8 @@ static int l_matlinear_system_d_QR(lua_State* L)
 }
 
 
-// least squares solver for overdetermined systems
-static int l_matlinear_system_d_LS(lua_State* L)
+static bool array_matlinear_system_d_LS(dArray* A, dArray* X, dArray* B, string& err_msg)
 {
-    LUA_PREAMBLE(Array<double>, A, 1);
-    LUA_PREAMBLE(Array<double>, B, 2);
-    const char* method = "Least Squares";
-
-    Array<double>* X   = getMatrix<double>(L, 3, B->nx, A->nx, "x");
-
-    //Array<double>* res = getMatrix<double>(L, 4, B->nx, A->ny - A->nx, "residual");
-
     int M = A->ny;
     int N = A->nx;
     int NRHS = B->nx;
@@ -388,25 +396,46 @@ static int l_matlinear_system_d_LS(lua_State* L)
 
     memcpy(X->data(), _B->data(), sizeof(double) * N * NRHS);
 
-    // memcpy(res->data(), &(_B->data()[N * LDB]), sizeof(double) * 
-
     delete _A;
     delete _B;
 
     if( info > 0 ) 
     {
-        lua_pushnil(L);
-        lua_pushfstring(L, 
+        char m[256];
+        sprintf(m, 
             "The diagonal element %d of the triangular factor "
             "of A is zero, so that A does not have full rank; "
             "the least squares solution could not be computed.", info);
+        err_msg = m;
+        return false;
+    }
+    
+    return true;
+}
+
+// least squares solver for overdetermined systems
+static int l_matlinear_system_d_LS(lua_State* L)
+{
+    LUA_PREAMBLE(Array<double>, A, 1);
+    LUA_PREAMBLE(Array<double>, B, 2);
+    const char* method = "Least Squares";
+    string err_msg;
+
+    Array<double>* X   = getMatrix<double>(L, 3, B->nx, A->nx, "x");
+
+    if(!array_matlinear_system_d_LS(A, X, B, err_msg))
+    {
+        // delete X if needed
+        luaT_inc<dArray>(X);
+        luaT_dec<dArray>(X);
+
+        lua_pushnil(L);
+        lua_pushstring(L, err_msg.c_str());
         lua_pushstring(L, method);
         return 3;
     }
 
     luaT_push< Array<double> >(L, X);
-    //luaT_push< Array<double> >(L, res);
-
     lua_pushnil(L);
     lua_pushstring(L, method);
     return 3;
@@ -427,6 +456,18 @@ static int l_matlinear_system_d(lua_State* L)
 
     return luaL_error(L, "Unimplemented");
 }
+
+bool array_matlinearsystem(dArray* A, dArray* x, dArray* b, string& err_msg)
+{
+    if(A->nx == A->ny)
+        return array_matlinear_system_d_LU(A, x, b, err_msg);
+
+    if(A->nx < A->ny)
+        return array_matlinear_system_d_LS(A, x, b, err_msg);
+
+    return false;
+}
+
 
 
 int l_matlinearsystem(lua_State* L)

@@ -209,6 +209,17 @@ static int l_rotateaboutby(lua_State* L)
     return 0;
 }
 
+static int l_angleBetween(lua_State* L)
+{
+    LUA_PREAMBLE(VectorCS, v1, 1);
+    LUA_PREAMBLE(VectorCS, v2, 2);
+    double a = VectorCS::angleBetween(*v1, *v2);
+
+    lua_pushnumber(L, a);
+    return 1;
+}
+
+
 
 static const struct {
     const char *name;
@@ -256,6 +267,11 @@ static const struct {
         "Get the scale factors used in differentiation for this vector at it's orientation and magnitude",
         "",
         "3 Numbers: Scale factors"
+    },
+    {   "angleBetween", l_angleBetween,
+        "Get the angle (in radians) between the calling VectorCS and the given VectorCS"
+        "1 VectorCS: other vector",
+        "1 Number: Angle between vectors"
     },
     {   "stepSize", l_stepsize,
         "Get the step size in each direction taking into account the scaleFactor",

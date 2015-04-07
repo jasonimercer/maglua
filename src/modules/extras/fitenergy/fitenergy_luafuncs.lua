@@ -106,9 +106,11 @@ methods["fitData"] =
 "",
 "",
 "",
-function(fe)
+function(fe, JSON)
     local data = get_fe_data(fe)
     local samples = data.samples or {}
+
+    JSON = JSON or {}
 
     -- We will couple all the components of all the spins with Gamma^{\alpha \beta}_{i j} terms.
     -- 
@@ -172,6 +174,9 @@ function(fe)
     local x,msg,method = A:matLinearSystem(b)
 
     if x == nil then
+        if JSON.onReturn then
+            JSON.onReturn()
+        end
         return false, msg
     end
 
@@ -197,9 +202,12 @@ function(fe)
             fe:addTerm(  -1,   -1,   -1,   -1)
         end
     end
-    --interactive()
+
     fe:setX( x:matTrans():toTable(1) )
 
+    if JSON.onReturn then
+        JSON.onReturn()
+    end
     return true
 end
 }

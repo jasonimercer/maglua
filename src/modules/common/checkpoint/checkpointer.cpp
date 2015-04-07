@@ -622,60 +622,62 @@ int Checkpointer::internalStateSize()
 
 int Checkpointer::l_savetofile(lua_State* L)
 {
-	int op = currentState();
-	if(op < 0)
-	{
-		return luaL_error(L, "Internal state must be in encode state");
-	}
-
-	const char* fn = lua_tostring(L, 2);
-
-	FILE* f = fopen(fn, "w");
-
-	if(!f)
-		return luaL_error(L, "failed to open file for writing");
-
-
-	char sig[4];
+    int op = currentState();
+    if(op < 0)
+    {
+        return luaL_error(L, "Internal state must be in encode state");
+    }
+    
+    const char* fn = lua_tostring(L, 2);
+    
+    FILE* f = fopen(fn, "w");
+    
+    if(!f)
+        return luaL_error(L, "failed to open file for writing");
+    
+    
+    char sig[4];
     int new_encoding;
     int old_encoding;
     int new_size;
     int old_size;
-
+    
     decodeHeader(data(), sig, new_encoding, old_encoding, new_size, old_size);
-
-	sure_fwrite(data(), new_size, 1, f);
-	fclose(f);
-
-	return 0;
+    
+    sure_fwrite(data(), new_size, 1, f);
+    fclose(f);
+    
+    return 0;
 }
 
 int Checkpointer::l_loadfromfile(lua_State* L)
 {
-	const char* fn = lua_tostring(L, 2);
+    const char* fn = lua_tostring(L, 2);
+    
+    FILE* f = fopen(fn, "r");
+    
+    if(!f)
+        return luaL_error(L, "failed to open file for reading");
+    
+    const int chunk = 1024*10;
+    int size = chunk;
+    
+    char* d = (char*)malloc(size);
+    int pos = 0;
+    
+    
+    while(fread(d + pos, chunk, 1, f) == 1)
+    {
+        size += chunk;
+        pos += chunk;
+        d = (char*)realloc(d, size);
+    }
+    
+    setData(d);
+    
+    fclose(f);
 
-	FILE* f = fopen(fn, "r");
-
-	if(!f)
-		return luaL_error(L, "failed to open file for reading");
-
-	const int chunk = 1024*10;
-	int size = chunk;
-
-	char* d = (char*)malloc(size);
-	int pos = 0;
-	
-
-	while(fread(d + pos, chunk, 1, f) == 1)
-	{
-		size += chunk;
-		pos += chunk;
-		d = (char*)realloc(d, size);
-	}
-
-	setData(d);
-
-	return 0;
+    return 0;
 }
 
 
