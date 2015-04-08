@@ -3,6 +3,8 @@
 #include <vector>
 #include <algorithm>
 #include <unistd.h>
+#include <climits>
+
 using namespace std;
 
 #ifndef WIN32
@@ -35,25 +37,30 @@ static int l_os_pwd(lua_State* L)
 #ifndef WIN32
 	int s = 2048;
 	int retry = 6;
-	char* path = (char*)malloc(s);
+	char* path = (char*)malloc(PATH_MAX + 1);
 
-	while(retry && !getcwd(path, s))
-	{
-		retry--;
-		free(path);
-		s *= 2;
-		path = (char*)malloc(s);
-	}
+        if( getcwd(path, PATH_MAX) )
+        {
+            lua_pushstring(L, path);
+            free(path);
+            return 1;
+        }
 
-	if(!retry)
-		return luaL_error(L, "Failed to get pwd");
-
-	lua_pushstring(L, path);
-	free(path);
+        free(path);
+        return luaL_error(L, "Failed to get pwd");
 #else
 
+        lua_pushstring(L, "undefined");
 #endif
 	return 1;
+}
+
+static int l_os_exit(lua_State* L)
+{
+    if(lua_isnumber(L, 1))
+        exit(lua_tointeger(L, 1));
+    exit(0);
+    return 1;
 }
 
 static int l_os_ls(lua_State* L)
@@ -150,6 +157,11 @@ void register_os_extensions(lua_State* L)
 	lua_pushstring(L, "ls");
 	lua_pushcfunction(L, l_os_ls);
 	lua_settable(L, -3);
+
+	lua_pushstring(L, "exit");
+	lua_pushcfunction(L, l_os_exit);
+	lua_settable(L, -3);
+
 
 	lua_pushstring(L, "pwd");
 	lua_pushcfunction(L, l_os_pwd);

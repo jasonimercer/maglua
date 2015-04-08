@@ -1845,10 +1845,9 @@ static int l_addfields(lua_State* L)
 
 static int l_copy(lua_State* L)
 {
-	LUA_PREAMBLE(SpinSystem, ss, 1);
-
-	luaT_push<SpinSystem>(L, ss->copy(L));
-	return 1;
+    LUA_PREAMBLE(SpinSystem, ss, 1);
+    luaT_push<SpinSystem>(L, ss->copy(L));
+    return 1;
 }
 
 static int l_copyto(lua_State* L)

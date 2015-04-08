@@ -141,6 +141,8 @@ void MEP::deinit()
     state_path.clear();
     image_site_mobility.clear();
     sites.clear();
+
+    ss = luaT_dec<SpinSystem>(ss);
 }
 
 int MEP::lua_setspinsystem(lua_State* L)

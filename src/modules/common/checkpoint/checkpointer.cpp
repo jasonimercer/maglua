@@ -97,31 +97,31 @@ Checkpointer::~Checkpointer()
 
 void Checkpointer::clear()
 {
-	if(b)
-	{
-		if(b->buf)
-			free(b->buf);
-		if(b->debug)
-			fclose(b->debug);
-		b->debug = 0;
-	}
-	b = new buffer;
+    if(b)
+    {
+        if(b->buf)
+            free(b->buf);
+        if(b->debug)
+            fclose(b->debug);
+        b->debug = 0;
+    }
+    b = new buffer;
     b->size = 32;
     b->pos  = 0;
-	b->buf = 0;
-
-	buffer_unref(L, b);
-
-	b->encoded.clear();
-	b->encoded_table_refs.clear();
-	b->encoded_table_pointers.clear();
-	
-	n = 0;
-	end_pos = 0;
-	has_checksum = false;
-	setData((char*)malloc(b->size));
-	for(int i=0; i<b->size; i++)
-		b->buf[i] = 0;
+    b->buf = 0;
+    
+    buffer_unref(L, b);
+    
+    b->encoded.clear();
+    b->encoded_table_refs.clear();
+    b->encoded_table_pointers.clear();
+    
+    n = 0;
+    end_pos = 0;
+    has_checksum = false;
+    setData((char*)malloc(b->size));
+    for(int i=0; i<b->size; i++)
+        b->buf[i] = 0;
 }
 
 int Checkpointer::l_tostring(lua_State* L)
