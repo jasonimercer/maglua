@@ -1,0 +1,21 @@
+# Copyright (C) 2011 Jason Mercer.  All rights reserved.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+
+OBJECTS=longrange2d_luafuncs.lo longrange2d_main.lo spinoperationlongrange2d.o
+LIBNAME=LongRange2D
+CATEGORY=cpu
+
+#DEPEND is parsed to make the vs2010 project
+DEPEND=core luabaseobject array
+BASEDIR=../../..
+include $(BASEDIR)/makefile.common.cpu
+
+EXTRA_CLEAN=longrange2d_luafuncs.cpp longrange2d_luafuncs.h longrange2d_main.cpp longrange2d_main.h

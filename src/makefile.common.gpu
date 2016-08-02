@@ -1,0 +1,31 @@
+# Copyright (C) 2011 Jason Mercer.  All rights reserved.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+
+
+# CUDABASE now set in .config
+# cobalt.ucsd.edu
+# CUDABASE=/cm/shared/apps/cuda50/toolkit/5.0.35/
+
+# vulcan.physics.mun.ca
+# CUDABASE=/opt/cuda
+
+NVCC=nvcc 
+#NVFLAGS=-O2 --ptxas-options="-v" -Xcompiler -fPIC  -arch=sm_21
+NVFLAGS=-O2 -Xcompiler -fPIC -arch=sm_21
+EXTRALIBS_CUDA=-L$(CUDABASE)/lib64 -L/usr/lib/nvidia-experimental-304/
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
+		-I$(BASEDIR) \
+		-I$(BASEDIR)/modules/common/luabaseobject \
+		-I$(BASEDIR)/modules/cuda/array_cuda \
+		-I$(BASEDIR)/modules/cuda/core_cuda $(EXTRA_INCLUDE) \
+		-I$(CUDABASE)/include
+%.cuo : %.cu $(EXTRA_CUDA_DEP)
+	$(NVCC) $(NVFLAGS) $(NV_EXTRAOPS) $(INCLUDEPATH) -c $*.cu -o $*.cuo

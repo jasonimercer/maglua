@@ -1,0 +1,43 @@
+# Copyright (C) 2008-2010 Jason Mercer.  All rights reserved.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+CXX=g++
+
+CFLAGS=-ansi -g
+PKG=lua5.1
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) `
+LIBS=`pkg-config --libs $(PKG) `
+OBJECTS=libLuaMigrate.o
+
+LIBNAME=libLuaMigrate
+
+all: $(LIBNAME).a
+
+$(LIBNAME).a : $(OBJECTS)
+	ar cqs $(LIBNAME).a $(OBJECTS)
+
+$(LIBNAME).so : $(OBJECTS)
+	$(CXX) -fPIC -shared $(OBJECTS) -o $(LIBNAME).so
+
+%.o : %.cpp  %.h
+	$(CXX) -fPIC $(INCLUDEPATH) -c $*.cpp -o $*.o 
+
+uninstall: distclean
+	rm -f $(LIBNAME).a
+
+clena: clean
+
+clean:
+	rm -f *~
+	rm -f *.o
+
+distclean: clean
+	rm -f $(LIBNAME).a
+	rm -f $(BIN)

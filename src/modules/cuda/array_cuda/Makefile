@@ -1,0 +1,23 @@
+# Copyright (C) 2011 Jason Mercer.  All rights reserved.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+
+OBJECTS=array_luafuncs.lo memory.cuo array_ops.cuo fourier.lo fourier_kernel.cuo  array_core_cuda.o
+LIBNAME=ArrayCUDA
+CATEGORY=cuda
+
+#DEPEND is parsed to make the vs2010 project
+DEPEND=luabaseobject
+BASEDIR=../../..
+EXTRALIBS=-lcudart -lcuda
+EXTRA_CLEAN=array_luafuncs.cpp array_luafuncs.h
+include $(BASEDIR)/makefile.common.cpu
+include $(BASEDIR)/makefile.common.gpu
+

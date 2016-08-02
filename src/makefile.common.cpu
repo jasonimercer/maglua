@@ -1,0 +1,59 @@
+# Copyright (C) 2011 Jason Mercer.  All rights reserved.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+
+include $(BASEDIR)/makefile.common.config
+include $(BASEDIR)/makefile.common.lua
+
+PKG=lua5.1 fftw3 $(EXTRA_PKG)
+INCLUDEPATH=`pkg-config --cflags-only-I $(PKG) ` \
+		-I$(BASEDIR) \
+		-I$(BASEDIR)/modules/common/luabaseobject \
+		-I$(BASEDIR)/modules/common/vectorcs \
+		-I$(BASEDIR)/modules/cpu/array \
+		-I$(BASEDIR)/modules/cpu/core $(EXTRA_INCLUDE)
+
+LIBS=`pkg-config --libs $(PKG)` -lpthread $(EXTRALIBS) $(EXTRALIBS_CUDA) -ldl
+MODDIR=$(shell maglua --module_path $(CATEGORY) 2> /dev/null)
+
+
+all: $(LIBNAME).so
+
+$(LIBNAME).so : $(OBJECTS)
+	$(CXX) $(CFLAGS) $(EXTRA_CFLAGS) -fPIC -shared $(OBJECTS) $(LIBS) $(EXTRA_LIBS) $(LIBMIGRATE) -o $(LIBNAME).so
+
+%.o : %.cpp  %.h $(EXTRA_CPU_DEPS)
+	$(CXX) $(CFLAGS) $(EXTRA_CFLAGS) -fPIC $(CC_EXTRAOPS) $(INCLUDEPATH) -c $*.cpp -o $*.o 
+
+%.o : %.cpp $(EXTRA_CPU_DEPS)
+	$(CXX) $(CFLAGS) $(EXTRA_CFLAGS) -fPIC $(CC_EXTRAOPS) $(INCLUDEPATH) -c $*.cpp -o $*.o 
+
+isntall: install
+
+install: all
+	mkdir -p $(MODDIR)
+	cp -f $(LIBNAME).so $(MODDIR)
+
+uninstall:
+	rm -f $(MODDIR)/$(LIBNAME).so
+
+clena: clean
+
+clean:
+	rm -f *~
+	rm -f $(OBJECTS)
+	rm -f $(EXTRA_CLEAN)
+
+dstclean: distclean
+
+dsitclean: distclean
+
+distclean: clean
+	rm -f $(LIBNAME).so

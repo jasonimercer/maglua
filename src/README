@@ -1,0 +1,67 @@
+To install run:
+
+./configure
+
+and choose the most appropriate options (try the quick configure options first).
+The ./configure script may list commands that need to be run or should be added
+to your startup files. Once configure is combplete and any post-configure commands
+have been run, execute the script
+
+./build_cpu.sh
+
+Note:
+
+your system may not have an up to dat cmake. If this is the case, run the command:
+
+./build_cmake.sh
+
+
+
+
+
+The following may be out of date:
+
+* What is MagLua?
+  ---------------
+  MagLua is an extension to the base Lua language that allows a user to build
+  micromagnetic simulations in the Lua scripting language.
+
+  MagLua is composed of 3 conceptual parts:
+    * Data -        Spin vectors and fields, these are held in a SpinSystem.
+    * Operators -   Objects which calculate fields based on spins or external 
+                     influences such as Anisotropy, Dipole, Thermal, etc.
+    * Integrators - Objects which update spin orientations based on calculated
+                     effective fields. Different integrators can be created 
+                     using LLG.
+
+* Installation
+  ------------
+
+  MagLua can be built using "make", "make install" will copy the binary to
+  your ~/bin directory. MagLua makes use of Modules installed in a module 
+  directory. The module directory is read from a startup file. To create 
+  the startup file(s) run MagLua giving the location of the directory
+
+    maglua --setup MODULE_DIRECTORY
+
+  where MODULE_DIRECTORY is a place where you will install the modules.
+
+  Once MagLua is compiled, installed and the startup files are created, 
+  the modules may be built and installed. In the included subdirectories
+  type "make install". This will place the created modules in a common
+  directory.
+
+
+* Documentation
+  -------------
+  A the command line switch "-h" and "--help" will print information about
+  command line options and how to correctly cite the code. 
+
+  MagLua has build in documentation. An HTML file can be built with command
+
+     maglua --write_docs maglua.html
+ 
+  to generate the help file. 
+
+  Information on the Lua scripting language can be found at www.lua.org
+

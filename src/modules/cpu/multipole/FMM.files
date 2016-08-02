@@ -1,0 +1,11 @@
+fmm_math.cpp
+fmm_math.h
+multipole.cpp
+multipole.h
+fmm_octtree.cpp
+fmm_octtree.h
+plm.cpp
+plm.h
+spinoperationmultipole.cpp
+spinoperationmultipole.h
+Makefile

@@ -1,0 +1,190 @@
+#!/bin/sh
+
+CXX="g++";
+MPICC="mpicxx";
+NVCC="nvcc";
+CUDABASE="/opt/cuda";
+
+f_Write() {
+PORTLANDOPT=""
+if [ $CXX = "pgcpp" ]; then
+	PORTLANDOPT=" -D__OPTIMIZE__"
+fi
+echo "Writing to 'makefile.common.config'"
+cat > makefile.common.config << !
+# Copyright (C) 2013 Jason Mercer.  All rights reserved.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+#
+# This file is created by "./configure", rerunning configure will overwrite
+# these values 
+MPICXX=$MPICC -D_MPI 
+CXX=$CXX  -D_MPI $PORTLANDOPT
+CFLAGS=-O2 -g
+NVCC=$NVCC
+CUDABASE=$CUDABASE
+!
+}
+
+f_PrintCurrent() {
+if [ "x$NVCC" = "x" ]; then
+	echo "    CXX=$CXX\tMPICC=$MPICC"
+else
+	echo "    CXX=$CXX\tMPICC=$MPICC"
+	echo "    NVCC=$NVCC\tCUDABASE=$CUDABASE"
+fi
+
+}
+
+
+
+f_vulcan()
+{
+	CXX="g++";
+	MPICC="mpicxx";
+	NVCC="nvcc"
+	CUDABASE=/opt/cuda
+	f_PrintCurrent;
+	f_Write;
+	exit;
+}
+f_cobalt()
+{
+	CXX="g++";
+	MPICC="mpicxx";
+	NVCC="nvcc"
+	CUDABASE=/cm/shared/apps/cuda50/toolkit/5.0.35/
+	f_PrintCurrent;
+	f_Write;
+	exit;
+}
+f_orcinus()
+{
+	CXX="icc";
+	MPICC="mpiCC";
+	f_PrintCurrent;
+	f_Write;
+	echo "Please run 'module load intel' before you compile"
+	exit;
+}
+f_placentia()
+{
+#	CXX="pgcpp";
+#	MPICC="/usr/local/openmpi.pgi-1.4.4/bin/mpicxx";
+	CXX="g++";
+	MPICC="mpicxx";
+	f_PrintCurrent;
+	f_Write;
+	echo "Please run the following, you may want to add these to your startup file:"
+	echo "module purge"
+	echo "module load gcc/4.8.0 openmpi/gcc/1.4.4 cmake pkg-config"
+	exit;
+}
+f_torngat()
+{
+	CXX="icc";
+	MPICC="mpiicpc";
+	f_PrintCurrent;
+	f_Write;
+	exit;
+}
+f_WDC()
+{
+	CXX="icc"
+	MPICC="mpiCC"
+	f_PrintCurrent;
+	f_Write;
+	exit;
+}
+
+f_QC () {
+echo "Quick Configure"
+f_PrintCurrent;
+cat << **
+1. Ubuntu
+2. cobalt.ucsd.edu
+3. orcinus.westgrid.ca
+4. placentia.ace-net.ca
+5. torngat.creait.mun.ca
+6. Jan's WDC Environment
+7. back
+**
+
+echo -n " Your choice? : "
+read choice
+
+case $choice in
+1) f_vulcan ;;
+2) f_cobalt ;;
+3) f_orcinus ;;
+4) f_placentia ;;
+5) f_torngat ;;
+6) f_WDC ;;
+esac
+}
+
+
+f_setcxx()
+{
+echo "Set CXX"
+echo "Specify CXX"
+read CXX
+}
+
+f_setmpicxx()
+{
+echo "Set MPICXX"
+echo "Specify MPICXX"
+read MPICXX
+}
+
+f_setnvcc()
+{
+echo "Set NVCC"
+echo "Specify NVCC"
+read NVCC
+}
+
+f_setcudabase()
+{
+echo "Set CUDABASE"
+echo "Specify CUDABASE"
+read CUDABASE
+}
+
+
+while : # Loop forever
+do
+
+echo "MagLua Compile Configuration"
+f_PrintCurrent ;
+
+cat << !
+1. Quick Configure
+2. Set CXX
+3. Set MPICXX
+4. Set NVCC (GPU Only)
+5. Write 'makefile.common.config' and Quit
+6. Quit
+!
+
+echo -n " Your choice? : "
+read choice
+
+case $choice in
+1) f_QC ;;
+2) f_setcxx ;;
+3) f_setmpicxx ;;
+4) f_setnvcc ;;
+5) f_Write; exit;;
+6) exit ;;
+*) echo "\"$choice\" is not valid "; sleep 2 ;;
+esac
+done
